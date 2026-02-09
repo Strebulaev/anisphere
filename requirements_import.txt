@@ -1,0 +1,4 @@
+anime-parsers-ru
+requests
+beautifulsoup4
+lxml

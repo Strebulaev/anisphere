@@ -27,7 +27,7 @@
   
   const testApi = async () => {
     try {
-      const { data } = await apiClient.get('/api/test/')
+      const { data } = await apiClient.get('/test/')
       response.value = data
       error.value = ''
     } catch (err) {

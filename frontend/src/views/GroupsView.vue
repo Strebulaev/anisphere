@@ -28,6 +28,6 @@ h1 {
 }
 
 p {
-  color: #6b7280;
+  color: var(--color-text-tertiary);
 }
 </style>

@@ -1,0 +1,5 @@
+Watching for file changes with StatReloader
+C:\Kaiden.dev\animecore\backend\anime\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Kaiden.dev\animecore\backend\anime\views.py changed, reloading.
+Watching for file changes with StatReloader

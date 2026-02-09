@@ -24,8 +24,26 @@
                 required
               />
             </div>
-            
-            <div class="form-group">
+
+            <!-- Переключатель между email и телефоном -->
+            <div class="auth-method-selector">
+              <button
+                type="button"
+                @click="authMethod = 'email'"
+                :class="['auth-method-btn', { active: authMethod === 'email' }]"
+              >
+                Email
+              </button>
+              <button
+                type="button"
+                @click="authMethod = 'phone'"
+                :class="['auth-method-btn', { active: authMethod === 'phone' }]"
+              >
+                Телефон
+              </button>
+            </div>
+
+            <div v-if="authMethod === 'email'" class="form-group">
               <label for="email">Email</label>
               <input
                 v-model="form.email"
@@ -35,7 +53,18 @@
                 required
               />
             </div>
-            
+
+            <div v-else class="form-group">
+              <label for="phone">Номер телефона</label>
+              <input
+                v-model="form.phone_number"
+                type="tel"
+                id="phone"
+                placeholder="+7 (999) 123-45-67"
+                required
+              />
+            </div>
+
             <div class="form-group">
               <label for="password">Пароль</label>
               <input
@@ -46,7 +75,7 @@
                 required
               />
             </div>
-            
+
             <div class="form-group">
               <label for="confirmPassword">Подтверждение пароля</label>
               <input
@@ -57,7 +86,7 @@
                 required
               />
             </div>
-            
+
             <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
               {{ loading ? 'Регистрация...' : 'Зарегистрироваться' }}
             </button>
@@ -85,7 +114,7 @@
       </div>
     </div>
   </template>
-  
+
   <script setup lang="ts">
   import { ref } from 'vue'
   import { useRouter } from 'vue-router'
@@ -97,9 +126,11 @@
   const loading = ref(false)
   const error = ref('')
   const success = ref('')
+  const authMethod = ref('email')
   const form = ref({
     username: '',
     email: '',
+    phone_number: '',
     password: '',
     confirmPassword: ''
   })
@@ -125,8 +156,9 @@
     try {
       const registerData = {
         username: form.value.username,
-        email: form.value.email,
-        password: form.value.password
+        ...((authMethod.value === 'email' ? { email: form.value.email } : { phone_number: form.value.phone_number })),
+        password: form.value.password,
+        password_confirm: form.value.confirmPassword
       }
 
       await apiClient.post('/users/register/', registerData)
@@ -155,6 +187,8 @@
           error.value = 'Имя пользователя: ' + errors.username.join(', ')
         } else if (errors.email) {
           error.value = 'Email: ' + errors.email.join(', ')
+        } else if (errors.phone_number) {
+          error.value = 'Телефон: ' + errors.phone_number.join(', ')
         } else if (errors.password) {
           error.value = 'Пароль: ' + errors.password.join(', ')
         } else {
@@ -181,7 +215,7 @@
     }
   }
   </script>
-  
+
   <style scoped>
   .auth-page {
     min-height: 100vh;
@@ -355,5 +389,34 @@
     color: #6b7280;
     text-decoration: none;
     font-size: 0.875rem;
+  }
+
+  /* Auth method selector */
+  .auth-method-selector {
+    display: flex;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    border: 1px solid #d1d5db;
+  }
+
+  .auth-method-btn {
+    flex: 1;
+    padding: 0.5rem;
+    border: none;
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .auth-method-btn.active {
+    background: #3b82f6;
+    color: white;
+  }
+
+  .auth-method-btn:hover:not(.active) {
+    background: #e5e7eb;
   }
   </style>

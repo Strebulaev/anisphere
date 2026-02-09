@@ -56,3 +56,40 @@ class ReactorPost(models.Model):
         if self.thumbnail_file:
             return self.thumbnail_file.url
         return None
+
+
+class ReactorLike(models.Model):
+    """Лайк на Reactor пост"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reactor_likes')
+    post = models.ForeignKey(ReactorPost, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'post']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} likes {self.post.title}"
+
+
+class ReactorComment(models.Model):
+    """Комментарий к Reactor посту"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reactor_comments')
+    post = models.ForeignKey(ReactorPost, on_delete=models.CASCADE, related_name='comments')
+    text = models.TextField()
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+
+    # Метаданные
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Comment by {self.user.username} on {self.post.title}"
+
+    @property
+    def is_reply(self):
+        return self.parent is not None

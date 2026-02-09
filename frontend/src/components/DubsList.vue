@@ -369,7 +369,7 @@ const visiblePages = computed(() => {
   const maxVisible = 5
   
   let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2))
-  let end = Math.min(totalPages.value, start + maxVisible - 1)
+  const end = Math.min(totalPages.value, start + maxVisible - 1)
   
   if (end - start + 1 < maxVisible) {
     start = Math.max(1, end - maxVisible + 1)
@@ -528,7 +528,7 @@ onMounted(() => {
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 0.9rem;
-  background: #fff;
+  background: #444444;
 }
 
 .search-icon {
@@ -579,7 +579,7 @@ onMounted(() => {
 
 .filter-option {
   padding: 6px 12px;
-  background: #fff;
+  background: #333333;
   border: 1px solid #ddd;
   border-radius: 20px;
   font-size: 0.85rem;

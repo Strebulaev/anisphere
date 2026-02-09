@@ -1,0 +1,332 @@
+[
+  {
+    "model": "anime.genre",
+    "pk": 1,
+    "fields": {
+      "name": "Экшен",
+      "slug": "action"
+    }
+  },
+  {
+    "model": "anime.genre",
+    "pk": 2,
+    "fields": {
+      "name": "Приключения",
+      "slug": "adventure"
+    }
+  },
+  {
+    "model": "anime.genre",
+    "pk": 3,
+    "fields": {
+      "name": "Комедия",
+      "slug": "comedy"
+    }
+  },
+  {
+    "model": "anime.genre",
+    "pk": 4,
+    "fields": {
+      "name": "Драма",
+      "slug": "drama"
+    }
+  },
+  {
+    "model": "anime.genre",
+    "pk": 5,
+    "fields": {
+      "name": "Фэнтези",
+      "slug": "fantasy"
+    }
+  },
+  {
+    "model": "anime.genre",
+    "pk": 6,
+    "fields": {
+      "name": "Романтика",
+      "slug": "romance"
+    }
+  },
+  {
+    "model": "anime.studio",
+    "pk": 1,
+    "fields": {
+      "name": "Studio Pierrot",
+      "slug": "studio-pierrot"
+    }
+  },
+  {
+    "model": "anime.studio",
+    "pk": 2,
+    "fields": {
+      "name": "WIT Studio",
+      "slug": "wit-studio"
+    }
+  },
+  {
+    "model": "anime.studio",
+    "pk": 3,
+    "fields": {
+      "name": "MAPPA",
+      "slug": "mappa"
+    }
+  },
+  {
+    "model": "anime.anime",
+    "pk": 1,
+    "fields": {
+      "title_ru": "Наруто",
+      "title_en": "Naruto",
+      "title_jp": "ナルト",
+      "description": "Легендарная история о молодом ниндзя, который мечтает стать Хокаге.",
+      "poster_url": "https://shikimori.one/system/animes/original/20.jpeg",
+      "year": 2002,
+      "status": "finished",
+      "episodes": 720,
+      "score": 8.3,
+      "data_source": "shikimori",
+      "shikimori_id": "20",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "anime.anime",
+    "pk": 2,
+    "fields": {
+      "title_ru": "Атака титанов",
+      "title_en": "Attack on Titan",
+      "title_jp": "進撃の巨人",
+      "description": "Человечество борется за выживание против гигантских титанов.",
+      "poster_url": "https://shikimori.one/system/animes/original/16498.jpeg",
+      "year": 2013,
+      "status": "finished",
+      "episodes": 87,
+      "score": 9.0,
+      "data_source": "shikimori",
+      "shikimori_id": "16498",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "anime.anime",
+    "pk": 3,
+    "fields": {
+      "title_ru": "Моя геройская академия",
+      "title_en": "My Hero Academia",
+      "title_jp": "僕のヒーローアカデミア",
+      "description": "В мире, где почти у всех есть суперспособности, мальчик без сил мечтает стать героем.",
+      "poster_url": "https://shikimori.one/system/animes/original/31964.jpeg",
+      "year": 2016,
+      "status": "ongoing",
+      "episodes": 158,
+      "score": 8.5,
+      "data_source": "shikimori",
+      "shikimori_id": "31964",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "anime.anime",
+    "pk": 4,
+    "fields": {
+      "title_ru": "Демон-убийца",
+      "title_en": "Demon Slayer",
+      "title_jp": "鬼滅の刃",
+      "description": "Юноша становится охотником на демонов, чтобы спасти свою сестру.",
+      "poster_url": "https://shikimori.one/system/animes/original/40734.jpeg",
+      "year": 2019,
+      "status": "ongoing",
+      "episodes": 44,
+      "score": 8.7,
+      "data_source": "shikimori",
+      "shikimori_id": "40734",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "anime.anime",
+    "pk": 5,
+    "fields": {
+      "title_ru": "Блич",
+      "title_en": "Bleach",
+      "title_jp": "ブリーチ",
+      "description": "Подросток получает силы шинигами и должен сражаться с пустыми.",
+      "poster_url": "https://shikimori.one/system/animes/original/269.jpeg",
+      "year": 2004,
+      "status": "ongoing",
+      "episodes": 366,
+      "score": 8.2,
+      "data_source": "shikimori",
+      "shikimori_id": "269",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "anime.anime",
+    "pk": 6,
+    "fields": {
+      "title_ru": "Ванпанчмен",
+      "title_en": "One Punch Man",
+      "title_jp": "ワンパンマン",
+      "description": "Герой, который может победить любого врага одним ударом, скучает от отсутствия вызова.",
+      "poster_url": "https://shikimori.one/system/animes/original/30276.jpeg",
+      "year": 2015,
+      "status": "ongoing",
+      "episodes": 24,
+      "score": 8.8,
+      "data_source": "shikimori",
+      "shikimori_id": "30276",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 1,
+    "fields": {
+      "anime": 1,
+      "genre": 1
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 2,
+    "fields": {
+      "anime": 1,
+      "genre": 2
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 3,
+    "fields": {
+      "anime": 2,
+      "genre": 1
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 4,
+    "fields": {
+      "anime": 2,
+      "genre": 4
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 5,
+    "fields": {
+      "anime": 3,
+      "genre": 1
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 6,
+    "fields": {
+      "anime": 3,
+      "genre": 6
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 7,
+    "fields": {
+      "anime": 4,
+      "genre": 1
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 8,
+    "fields": {
+      "anime": 4,
+      "genre": 2
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 9,
+    "fields": {
+      "anime": 5,
+      "genre": 1
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 10,
+    "fields": {
+      "anime": 5,
+      "genre": 4
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 11,
+    "fields": {
+      "anime": 6,
+      "genre": 1
+    }
+  },
+  {
+    "model": "anime.anime_genres",
+    "pk": 12,
+    "fields": {
+      "anime": 6,
+      "genre": 3
+    }
+  },
+  {
+    "model": "anime.anime_studios",
+    "pk": 1,
+    "fields": {
+      "anime": 1,
+      "studio": 1
+    }
+  },
+  {
+    "model": "anime.anime_studios",
+    "pk": 2,
+    "fields": {
+      "anime": 2,
+      "studio": 2
+    }
+  },
+  {
+    "model": "anime.anime_studios",
+    "pk": 3,
+    "fields": {
+      "anime": 3,
+      "studio": 3
+    }
+  },
+  {
+    "model": "anime.anime_studios",
+    "pk": 4,
+    "fields": {
+      "anime": 4,
+      "studio": 3
+    }
+  },
+  {
+    "model": "anime.anime_studios",
+    "pk": 5,
+    "fields": {
+      "anime": 5,
+      "studio": 1
+    }
+  },
+  {
+    "model": "anime.anime_studios",
+    "pk": 6,
+    "fields": {
+      "anime": 6,
+      "studio": 3
+    }
+  }
+]

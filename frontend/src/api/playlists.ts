@@ -1,0 +1,207 @@
+import apiClient from './client'
+import type { AxiosResponse } from 'axios'
+
+export interface Playlist {
+  id: number
+  user: number
+  user_username: string
+  user_avatar: string
+  title: string
+  description: string
+  is_public: boolean
+  is_favorite: boolean
+  favorites_count: number
+  is_favorited: boolean
+  created_at: string
+  updated_at: string
+  items: PlaylistItem[]
+  items_count: number
+  genres?: Genre[]
+}
+
+export interface Genre {
+  id: number
+  name: string
+  slug: string
+}
+
+export interface PlaylistItem {
+  id: number
+  anime: number
+  anime_title: string
+  anime_poster: string
+  episode_number: number | null
+  source_url: string
+  notes: string
+  created_at: string
+}
+
+export interface FavoriteAnime {
+  id: number
+  anime: number
+  anime_title: string
+  anime_poster: string
+  anime_data: AnimeData
+  created_at: string
+}
+
+export interface FavoritePlaylist {
+  id: number
+  playlist: number
+  playlist_data: PlaylistData
+  created_at: string
+}
+
+export interface PlaylistData {
+  id: number
+  title: string
+  description: string
+  is_public: boolean
+  user_username: string
+  user_avatar?: string
+  items_count: number
+  created_at: string
+}
+
+export interface AnimeData {
+  id: number
+  title_ru: string
+  title_en: string
+  poster_url: string
+  year: number | null
+  status: string
+  score: number | null
+}
+
+export interface AddToPlaylistRequest {
+  anime_id: number
+  playlist_id?: number
+  new_playlist_title?: string
+  episode_number?: number | null
+  source_url?: string
+  notes?: string
+}
+
+export interface PlaylistsParams {
+  page?: number
+  my?: boolean
+  is_public?: boolean
+  favorites?: boolean
+  search?: string
+  genre?: number | string
+  year?: number | string
+  ordering?: string
+}
+
+const playlistsApi = {
+  // Плейлисты пользователя
+  getMyPlaylists: (): Promise<AxiosResponse<Playlist[]>> => {
+    return apiClient.get<Playlist[]>('/playlists/playlists/my/')
+  },
+
+  getPublicPlaylists: (params?: PlaylistsParams): Promise<AxiosResponse<{
+    results: Playlist[]
+    count: number
+  }>> => {
+    return apiClient.get<{ results: Playlist[]; count: number }>('/playlists/playlists/public/', { params })
+  },
+
+  getAllPlaylists: (params?: PlaylistsParams): Promise<AxiosResponse<{
+    results: Playlist[]
+    count: number
+  }>> => {
+    return apiClient.get<{ results: Playlist[]; count: number }>('/playlists/playlists/', { params })
+  },
+
+  getPlaylist: (id: number): Promise<AxiosResponse<Playlist>> => {
+    return apiClient.get<Playlist>(`/playlists/playlists/${id}/`)
+  },
+
+  createPlaylist: (data: {
+    title: string
+    description?: string
+    is_public: boolean
+  }): Promise<AxiosResponse<Playlist>> => {
+    return apiClient.post<Playlist>('/playlists/playlists/', data)
+  },
+
+  updatePlaylist: (id: number, data: Partial<Playlist>): Promise<AxiosResponse<Playlist>> => {
+    return apiClient.patch<Playlist>(`/playlists/playlists/${id}/`, data)
+  },
+
+  deletePlaylist: (id: number): Promise<AxiosResponse<void>> => {
+    return apiClient.delete<void>(`/playlists/playlists/${id}/`)
+  },
+
+  duplicatePlaylist: (id: number): Promise<AxiosResponse<Playlist>> => {
+    return apiClient.post<Playlist>(`/playlists/playlists/${id}/duplicate/`)
+  },
+
+  // Элементы плейлиста
+  addToPlaylist: (data: AddToPlaylistRequest): Promise<AxiosResponse<{
+    message: string
+    playlist_id: number
+    item_id: number
+  }>> => {
+    return apiClient.post('/playlists/add-to-playlist/', data)
+  },
+
+  addItemToPlaylist: (playlistId: number, data: {
+    anime: number
+    episode_number?: number | null
+    source_url?: string
+    notes?: string
+  }): Promise<AxiosResponse<PlaylistItem>> => {
+    return apiClient.post<PlaylistItem>(`/playlists/playlists/${playlistId}/add_item/`, data)
+  },
+
+  addItemByLink: (playlistId: number, data: {
+    url: string
+    episode_number?: number | null
+    notes?: string
+  }): Promise<AxiosResponse<PlaylistItem>> => {
+    return apiClient.post<PlaylistItem>(`/playlists/playlists/${playlistId}/add_by_link/`, data)
+  },
+
+  removeFromPlaylist: (playlistId: number, itemId: number): Promise<AxiosResponse<void>> => {
+    return apiClient.delete<void>(`/playlists/playlists/${playlistId}/remove_item/`, {
+      data: { item_id: itemId }
+    })
+  },
+
+  // Избранное аниме
+  getFavoriteAnime: (): Promise<AxiosResponse<FavoriteAnime[]>> => {
+    return apiClient.get<FavoriteAnime[]>('/playlists/favorites/anime/')
+  },
+
+  checkAnimeInFavorites: (animeId: number): Promise<AxiosResponse<{ is_favorite: boolean }>> => {
+    return apiClient.get<{ is_favorite: boolean }>('/playlists/favorites/anime/check/', {
+      params: { anime_id: animeId }
+    })
+  },
+
+  addToFavorites: (animeId: number): Promise<AxiosResponse<FavoriteAnime>> => {
+    return apiClient.post<FavoriteAnime>('/playlists/favorites/anime/', { anime: animeId })
+  },
+
+  removeFromFavorites: (animeId: number): Promise<AxiosResponse<void>> => {
+    return apiClient.delete<void>('/playlists/favorites/anime/remove/', {
+      data: { anime_id: animeId }
+    })
+  },
+
+  // Избранные плейлисты
+  getFavoritePlaylists: (): Promise<AxiosResponse<FavoritePlaylist[]>> => {
+    return apiClient.get<FavoritePlaylist[]>('/playlists/favorites/')
+  },
+
+  addPlaylistToFavorites: (playlistId: number): Promise<AxiosResponse<void>> => {
+    return apiClient.post<void>(`/playlists/playlists/${playlistId}/favorite/`)
+  },
+
+  removePlaylistFromFavorites: (playlistId: number): Promise<AxiosResponse<void>> => {
+    return apiClient.delete<void>(`/playlists/playlists/${playlistId}/unfavorite/`)
+  },
+}
+
+export default playlistsApi

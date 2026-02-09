@@ -1,3 +1,157 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Default theme (light) */
+body {
+  --bg-primary: #222222;
+  --bg-secondary: #111111;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-color: #e5e7eb;
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Dark theme */
+body.theme-dark {
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --bg-tertiary: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+  --border-color: #4b5563;
+  --accent-color: #60a5fa;
+  --accent-hover: #3b82f6;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Auto theme - will be set dynamically */
+body.theme-auto {
+  /* Will be overridden by JS */
+}
+
+/* Apply theme variables to common elements */
+.card, .modal-content, .profile-section, .navbar, .bottom-nav {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.btn-primary {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: white !important;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.input, input, textarea, select {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.input:focus, input:focus, textarea:focus, select:focus {
+  border-color: var(--accent-color) !important;
+}
+
+/* Modal overlays should be semi-transparent */
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Ensure text is readable in all themes */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary) !important;
+}
+
+p, span, div {
+  color: var(--text-secondary) !important;
+}
+
+/* Text sizes applied globally */
+body.text-small {
+  font-size: 0.875rem;
+}
+
+body.text-small * {
+  font-size: inherit;
+}
+
+body.text-medium {
+  font-size: 1rem;
+}
+
+body.text-medium * {
+  font-size: inherit;
+}
+
+body.text-large {
+  font-size: 1.125rem;
+}
+
+body.text-large * {
+  font-size: inherit;
+}
+
+/* Preserve specific font sizes for buttons and inputs */
+body.text-small .btn, body.text-small button, body.text-small input, body.text-small select {
+  font-size: 0.875rem;
+}
+
+body.text-medium .btn, body.text-medium button, body.text-medium input, body.text-medium select {
+  font-size: 1rem;
+}
+
+body.text-large .btn, body.text-large button, body.text-large input, body.text-large select {
+  font-size: 1.125rem;
+}
+
+/* UI Styles applied globally */
+body.ui-modern .card, body.ui-modern .modal-content, body.ui-modern .profile-section,
+body.ui-modern .navbar, body.ui-modern .bottom-nav, body.ui-modern button,
+body.ui-modern input, body.ui-modern select, body.ui-modern textarea,
+body.ui-modern .anime-card, body.ui-modern .settings-section {
+  border-radius: 0.75rem !important;
+}
+
+body.ui-classic .card, body.ui-classic .modal-content, body.ui-classic .profile-section,
+body.ui-classic .navbar, body.ui-classic .bottom-nav, body.ui-classic button,
+body.ui-classic input, body.ui-classic select, body.ui-classic textarea,
+body.ui-classic .anime-card, body.ui-classic .settings-section {
+  border-radius: 0.25rem !important;
+}
+
+body.ui-minimal .card, body.ui-minimal .modal-content, body.ui-minimal .profile-section,
+body.ui-minimal .navbar, body.ui-minimal .bottom-nav, body.ui-minimal button,
+body.ui-minimal input, body.ui-minimal select, body.ui-minimal textarea,
+body.ui-minimal .anime-card, body.ui-minimal .settings-section {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body.ui-dark {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+}
+
+/* Playlists page background */
+.playlists-view {
+  background-color: #222222 !important;
+}
+
+.playlists-view .container {
+  background-color: #222222 !important;
+}

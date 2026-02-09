@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.conf import settings
+from django.conf.urls.static import static
 import time
 
 def api_status(request):
@@ -50,7 +52,7 @@ def api_status(request):
         'endpoints': {
             'anime': '/api/anime/',
             'playlists': '/api/playlists/',
-            # 'users': '/api/users/',
+            'users': '/api/users/',
             'dubs': '/api/dubs/',
             'social': '/api/social/',
             'reactor': '/api/reactor/',
@@ -61,9 +63,11 @@ def api_status(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/status/', api_status),            # Статус системы
-    # path('api/users/', include('users.urls')),  # Users API
+    path('api/users/', include('users.urls')),  # Users API
     path('api/anime/', include('anime.urls')),  # Anime API
     path('api/dubs/', include('dubs.urls')),    # Dubs API
-    path('api/', include('playlists.urls')),    # Playlists API
-    # path('api/social/', include('social.urls')), # Social API
-]
+    path('api/playlists/', include('playlists.urls')),  # Playlists API
+    path('api/social/', include('social.urls')), # Social API
+    path('api/reactor/', include('reactor.urls')), # Reactor API
+    path('api/notifications/', include('notifications.urls')), # Notifications API
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -138,7 +138,7 @@
     color: #6b7280;
     margin-bottom: 1.5rem;
   }
-
+  
   .error-message {
     background: #fee2e2;
     color: #dc2626;

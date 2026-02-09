@@ -77,6 +77,8 @@ class Notification(models.Model):
         ('follow', 'Подписка'),
         ('mention', 'Упоминание'),
         ('group_invite', 'Приглашение в группу'),
+        ('contest', 'Конкурс'),
+        ('message', 'Сообщение'),
         ('system', 'Системное'),
     ]
 

@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from .models import DubGroup, Dub, VoiceActor
 from .serializers import (
     DubGroupSerializer, DubSerializer,
-    VoiceActorSerializer, AnimeDubSerializer, CreateDubSerializer
+    VoiceActorSerializer, AnimeDubSerializer, CreateDubSerializer, UpdateDubSerializer
 )
 from anime.models import Anime
 

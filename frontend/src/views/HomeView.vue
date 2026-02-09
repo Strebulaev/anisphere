@@ -1,6 +1,6 @@
 <template>
     <div class="home">
-      <section class="hero">
+      <!-- <section class="hero">
         <div class="container">
           <h1 class="hero-title">Твоя вселенная <span>аниме</span></h1>
           <p class="hero-subtitle">
@@ -11,7 +11,7 @@
             <router-link to="/register" class="btn btn-secondary btn-lg">Присоединиться</router-link>
           </div>
         </div>
-      </section>
+      </section> -->
   
       <!-- Функции -->
       <section class="features">
@@ -64,7 +64,7 @@
   
   /* Навигация */
   .navbar {
-    background: white;
+    background: var(--color-background-surface);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     padding: 1rem 0;
     position: sticky;
@@ -89,7 +89,7 @@
   .logo {
     font-size: 1.5rem;
     font-weight: bold;
-    color: #3b82f6;
+    color: var(--color-primary);
     text-decoration: none;
   }
   
@@ -99,7 +99,7 @@
   }
   
   .nav-link {
-    color: #4b5563;
+    color: var(--color-text-secondary);
     text-decoration: none;
     padding: 0.5rem 0.75rem;
     border-radius: 0.375rem;
@@ -107,11 +107,11 @@
   }
   
   .nav-link:hover {
-    background-color: #f3f4f6;
+    background-color: var(--color-border);
   }
   
   .nav-link.active {
-    color: #3b82f6;
+    color: var(--color-primary);
     font-weight: 600;
   }
   
@@ -133,19 +133,19 @@
   }
   
   .btn-outline {
-    color: #4b5563;
-    border-color: #d1d5db;
-    background: white;
+    color: var(--color-text-secondary);
+    border-color: var(--color-border);
+    background: var(--color-background-surface);
   }
   
   .btn-outline:hover {
-    background-color: #f9fafb;
+    background-color: var(--color-border);
   }
   
   .btn-primary {
-    background-color: #3b82f6;
+    background-color: var(--color-primary);
     color: white;
-    border-color: #3b82f6;
+    border-color: var(--color-primary);
   }
   
   .btn-primary:hover {
@@ -153,12 +153,12 @@
   }
   
   .btn-secondary {
-    background-color: #e5e7eb;
-    color: #374151;
+    background-color: var(--color-border);
+    color: var(--color-text-primary);
   }
   
   .btn-secondary:hover {
-    background-color: #d1d5db;
+    background-color: var(--color-border);
   }
   
   .btn-lg {
@@ -169,7 +169,7 @@
   /* Hero секция */
   .hero {
     flex: 1;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    background: var(--color-background);
     padding: 4rem 0;
     text-align: center;
   }
@@ -177,17 +177,17 @@
   .hero-title {
     font-size: 2rem;
     font-weight: 800;
-    color: #1f2937;
+    color: var(--color-text-primary);
     margin-bottom: 1rem;
   }
   
   .hero-title span {
-    color: #3b82f6;
+    color: var(--color-primary);
   }
   
   .hero-subtitle {
     font-size: 1.25rem;
-    color: #6b7280;
+    color: var(--color-text-secondary);
     max-width: 600px;
     margin: 0 auto 2rem;
     line-height: 1.6;
@@ -202,13 +202,13 @@
   /* Функции */
   .features {
     padding: 4rem 0;
-    background: white;
+    background: var(--color-background-surface);
   }
   
   .section-title {
     font-size: 2rem;
     font-weight: 700;
-    color: #1f2937;
+    color: var(--color-text-primary);
     text-align: center;
     margin-bottom: 3rem;
   }
@@ -221,7 +221,7 @@
   }
   
   .feature-card {
-    background: #f9fafb;
+    background: var(--color-background);
     padding: 1.5rem;
     border-radius: 0.75rem;
     transition: transform 0.2s, box-shadow 0.2s;
@@ -240,32 +240,32 @@
   .feature-card h3 {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--color-text-primary);
     margin-bottom: 0.5rem;
   }
   
   .feature-card p {
-    color: #6b7280;
+    color: var(--color-text-secondary);
     line-height: 1.5;
   }
   
   /* Футер */
   .footer {
-    background: #1f2937;
-    color: #9ca3af;
+    background: var(--color-background-surface);
+    color: var(--color-text-muted);
     padding: 1.5rem 0;
     text-align: center;
     margin-top: auto;
   }
   </style>
-'   @media (min-width: 768px) {'  
-'     .hero-title {'  
-'       font-size: 3rem;'  
-'     }'  
-'   }'  
-''  
-'   @media (min-width: 1024px) {'  
-'     .hero-title {'  
-'       font-size: 3.5rem;'  
-'     }'  
-'   }' 
+  @media (min-width: 768px) {
+    .hero-title {
+      font-size: 3rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .hero-title {
+      font-size: 3.5rem;
+    }
+  }

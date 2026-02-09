@@ -1,19 +1,23 @@
-from multiprocessing import connection
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
-from django.db.models import Manager  # Добавляем импорт
+from django.db.models import Manager
+from django.contrib.postgres.fields import ArrayField
+from django.conf import settings
+from multiprocessing import connection
 
 class Genre(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
+    name = models.CharField(max_length=50, unique=True)
+    slug = models.SlugField(max_length=50, unique=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Жанр'
+        verbose_name_plural = 'Жанры'
     
     def __str__(self):
         return self.name
     
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
 
 class BulkImportManager(Manager):
     """Менеджер для массовой вставки"""
@@ -50,137 +54,126 @@ class BulkImportManager(Manager):
                     print(f"✅ Bulk imported: {obj.title_ru or obj.title_en or f'ID:{obj.shikimori_id}'}")
                 print(f"Вставлено {i+len(batch)}/{len(objs)} записей")
 
-                
+
 class Studio(models.Model):
-    """Студия-производитель аниме"""
-    name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=200, unique=True)
-    
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Студия'
+        verbose_name_plural = 'Студии'
+
     def __str__(self):
         return self.name
     
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
-
 
 class Anime(models.Model):
-
-    objects = BulkImportManager() 
-    
-    class Meta:
-        indexes = [
-            models.Index(fields=['shikimori_id']),
-            models.Index(fields=['mal_id']),
-            models.Index(fields=['anilist_id']),
-        ]
-
     STATUS_CHOICES = [
         ('ongoing', 'Онгоинг'),
-        ('finished', 'Завершён'),
+        ('finished', 'Завершен'),
         ('announced', 'Анонсирован'),
+        ('canceled', 'Отменен'),
     ]
     
-    TYPE_CHOICES = [
-        ('tv', 'TV Сериал'),
+    KIND_CHOICES = [
+        ('tv', 'ТВ сериал'),
         ('movie', 'Фильм'),
         ('ova', 'OVA'),
+        ('special', 'Спецвыпуск'),
         ('ona', 'ONA'),
-        ('special', 'Спешл'),
+        ('music', 'Клип'),
+        ('franchise', 'Франшиза'),
     ]
     
-    # Основные поля
-    title_ru = models.CharField(max_length=500, blank=True, db_index=True)
-    title_en = models.CharField(max_length=500, blank=True, db_index=True)
-    title_jp = models.CharField(max_length=500, blank=True)
+    shikimori_id = models.IntegerField(unique=True, null=True, blank=True)
+    title_ru = models.CharField(max_length=255, verbose_name='Название на русском')
+    title_en = models.CharField(max_length=255, blank=True, verbose_name='Название на английском')
+    title_jp = models.CharField(max_length=255, blank=True, verbose_name='Название на японском')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    year = models.PositiveIntegerField(null=True, blank=True, verbose_name='Год')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='finished', verbose_name='Статус')
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='tv', verbose_name='Тип')
+    episodes = models.PositiveIntegerField(null=True, blank=True, verbose_name='Количество эпизодов')
+    score = models.FloatField(null=True, blank=True, verbose_name='Рейтинг')
+    poster_url = models.URLField(blank=True, verbose_name='URL постера')
+    poster = models.ImageField(upload_to='anime_posters/', null=True, blank=True, verbose_name='Постер аниме')
     
-    # Внешние ID
-    shikimori_id = models.IntegerField(null=True, blank=True, unique=True, db_index=True)
-    anilist_id = models.IntegerField(null=True, blank=True)
-    mal_id = models.IntegerField(null=True, blank=True)
+    # JSON поля для жанров и студий
+    genres = models.JSONField(default=list, blank=True, verbose_name='Жанры')
+    studios = models.JSONField(default=list, blank=True, verbose_name='Студии')
     
-    # Основная информация
-    slug = models.SlugField(max_length=500, blank=True, db_index=True)
-    anime_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='tv')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='finished')
-    episodes = models.IntegerField(null=True, blank=True)
+    # Поля для франшиз
+    movies = models.JSONField(default=list, blank=True, verbose_name='Фильмы франшизы')
+    ovas = models.JSONField(default=list, blank=True, verbose_name='OVA франшизы')
+    movie_count = models.PositiveIntegerField(default=0, verbose_name='Количество фильмов')
+    ova_count = models.PositiveIntegerField(default=0, verbose_name='Количество OVA')
+    total_items = models.PositiveIntegerField(default=1, verbose_name='Общее количество элементов')
     
-    # Даты
-    aired_from = models.DateField(null=True, blank=True)
-    aired_to = models.DateField(null=True, blank=True)
-    year = models.IntegerField(null=True, blank=True, db_index=True)
-    
-    # Рейтинги
-    score = models.FloatField(null=True, blank=True)
-    scored_by = models.IntegerField(default=0)
-    rank = models.IntegerField(null=True, blank=True)
-    popularity = models.IntegerField(null=True, blank=True)
-    
-    # Контент
-    description = models.TextField(blank=True)
-    description_source = models.CharField(max_length=100, blank=True)
-    
-    # Изображения
-    poster_url = models.URLField(max_length=1000, blank=True)
-    poster_file = models.ImageField(upload_to='anime/posters/', null=True, blank=True)
-
-    # Трейлер
-    trailer_url = models.URLField(max_length=1000, blank=True)
-
-    # Скриншоты
-    screenshots = models.JSONField(null=True, blank=True)  # List of URLs
-    
-    # Связи
-    genres = models.ManyToManyField(Genre, related_name='anime', blank=True)
-    studios = models.ManyToManyField(Studio, related_name='anime', blank=True)
-    
-    # Поисковый текст
-    search_text = models.TextField(blank=True, db_index=True)
-
-    # Технические поля
-    data_source = models.CharField(max_length=100, default='shikimori')
-    approved = models.BooleanField(default=True)
-    
-    # Время
+    data_source = models.CharField(max_length=20, default='unknown', verbose_name='Источник данных')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    last_synced = models.DateTimeField(null=True, blank=True)
     
     class Meta:
-        ordering = ['-popularity', '-score']
-        indexes = [
-            models.Index(fields=['title_ru']),
-            models.Index(fields=['title_en']),
-            models.Index(fields=['year']),
-            models.Index(fields=['status']),
-            models.Index(fields=['score']),
-            models.Index(fields=['search_text']),
-        ]
-    
-    def save(self, *args, **kwargs):
-        # Генерируем slug
-        if not self.slug:
-            base = self.title_ru or self.title_en or str(self.shikimori_id)
-            if base:
-                self.slug = slugify(base)
+        verbose_name = 'Аниме'
+        verbose_name_plural = 'Аниме'
+        ordering = ['-created_at']
 
-        # Определяем год из даты
-        if self.aired_from and not self.year:
-            self.year = self.aired_from.year
-
-        # Создаем поисковый текст
-        self.search_text = f"{self.title_ru or ''} {self.title_en or ''} {self.title_jp or ''}".strip().lower()
-
-        super().save(*args, **kwargs)
-    
     def __str__(self):
-        return self.title_ru or self.title_en or f"Anime #{self.id}"
+        return self.title_ru
+    
+    @property
+    def poster_image_url(self):
+        """Возвращает URL локального изображения или внешний URL"""
+        if self.poster and hasattr(self.poster, 'url'):
+            return self.poster.url
+        return self.poster_url
     
     @property
     def display_title(self):
-        return self.title_ru or self.title_en or 'Без названия'
+        """Возвращает отображаемое название с дополнительной информацией"""
+        if self.kind == 'franchise':
+            return f"{self.title_ru} (Франшиза)"
+        return self.title_ru
     
+    def save(self, *args, **kwargs):
+        self.updated_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class Playlist(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    is_public = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='anime_playlists')
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Плейлист'
+        verbose_name_plural = 'Плейлисты'
+
+    def __str__(self):
+        return self.name
+
+
+class PlaylistItem(models.Model):
+    playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='items')
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='in_playlists')
+    added_at = models.DateTimeField(auto_now_add=True)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['position', 'added_at']
+        verbose_name = 'Элемент плейлиста'
+        verbose_name_plural = 'Элементы плейлиста'
+        unique_together = ['playlist', 'anime']
+
+    def __str__(self):
+        return f"{self.playlist.name} - {self.anime.title_ru}"
+
+
 class VoiceActor(models.Model):
     """Актер озвучки"""
     name = models.CharField(max_length=200)
@@ -350,3 +343,207 @@ class UserDubRating(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.dub} - {self.rating}"
+
+
+class VideoSource(models.Model):
+    """Источник видео для аниме (Kodik, Aniboom и др.)"""
+    SOURCE_CHOICES = [
+        ('kodik', 'Kodik'),
+        ('aniboom', 'AniBoom'),
+        ('jutsu', 'Jutsu'),
+        ('shikimori', 'Shikimori'),
+    ]
+    
+    QUALITY_CHOICES = [
+        ('360', '360p'),
+        ('480', '480p'),
+        ('720', '720p'),
+        ('1080', '1080p'),
+        ('unknown', 'Неизвестно'),
+    ]
+    
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='video_sources')
+    source = models.CharField('Источник', max_length=20, choices=SOURCE_CHOICES)
+    external_id = models.CharField('Внешний ID', max_length=100, blank=True)
+    
+    # Основная информация
+    title = models.CharField('Название', max_length=255, blank=True)
+    description = models.TextField('Описание', blank=True)
+    
+    # Техническая информация
+    quality = models.CharField('Качество', max_length=10, choices=QUALITY_CHOICES, default='unknown')
+    video_format = models.CharField('Формат видео', max_length=20, default='mp4')
+    duration = models.PositiveIntegerField('Длительность (секунды)', null=True, blank=True)
+    file_size = models.BigIntegerField('Размер файла (байты)', null=True, blank=True)
+    
+    # Ссылки
+    video_url = models.URLField('Ссылка на видео', blank=True)
+    m3u8_url = models.URLField('M3U8 плейлист', blank=True)
+    mpd_content = models.TextField('MPD контент', blank=True)
+    download_url = models.URLField('Ссылка для скачивания', blank=True)
+    
+    # Статус
+    is_available = models.BooleanField('Доступно', default=True)
+    is_active = models.BooleanField('Активно', default=True)
+    last_checked = models.DateTimeField('Последняя проверка', null=True, blank=True)
+    
+    # Метаданные
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    updated_at = models.DateTimeField('Дата обновления', auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Источник видео'
+        verbose_name_plural = 'Источники видео'
+        unique_together = ['anime', 'source', 'quality']
+    
+    def __str__(self):
+        return f"{self.anime.title_ru} - {self.get_source_display()} - {self.get_quality_display()}"
+
+
+class Episode(models.Model):
+    """Эпизод аниме"""
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='anime_episodes')
+    video_source = models.ForeignKey(VideoSource, on_delete=models.CASCADE, related_name='episodes', null=True, blank=True)
+    
+    # Номер и информация
+    number = models.PositiveIntegerField('Номер эпизода')
+    title = models.CharField('Название', max_length=255, blank=True)
+    title_en = models.CharField('Название (англ.)', max_length=255, blank=True)
+    description = models.TextField('Описание', blank=True)
+    
+    # Даты
+    air_date = models.DateField('Дата выхода', null=True, blank=True)
+    created_at = models.DateTimeField('Дата добавления', auto_now_add=True)
+    updated_at = models.DateTimeField('Дата обновления', auto_now=True)
+    
+    class Meta:
+        ordering = ['number']
+        verbose_name = 'Эпизод'
+        verbose_name_plural = 'Эпизоды'
+        unique_together = ['anime', 'number']
+    
+    def __str__(self):
+        return f"{self.anime.title_ru} - Эпизод {self.number}"
+
+
+class Translation(models.Model):
+    """Перевод/озвучка для аниме"""
+    TRANSLATION_TYPE_CHOICES = [
+        ('voice', 'Озвучка'),
+        ('subtitles', 'Субтитры'),
+        ('dubbing', 'Дубляж'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Активный'),
+        ('inactive', 'Неактивный'),
+        ('processing', 'В обработке'),
+        ('error', 'Ошибка'),
+    ]
+    
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='translations')
+    video_source = models.ForeignKey(VideoSource, on_delete=models.CASCADE, related_name='translations', null=True, blank=True)
+    
+    # Основная информация
+    name = models.CharField('Название перевода', max_length=255)
+    translation_type = models.CharField('Тип перевода', max_length=20, choices=TRANSLATION_TYPE_CHOICES, default='voice')
+    studio_name = models.CharField('Студия', max_length=255, blank=True)
+    external_id = models.CharField('Внешний ID', max_length=100, blank=True)
+    
+    # Статус
+    status = models.CharField('Статус', max_length=20, choices=STATUS_CHOICES, default='active')
+    is_complete = models.BooleanField('Завершен', default=False)
+    episodes_count = models.PositiveIntegerField('Количество эпизодов', default=0)
+    
+    # Метаданные
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    updated_at = models.DateTimeField('Дата обновления', auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Перевод'
+        verbose_name_plural = 'Переводы'
+        unique_together = ['anime', 'name']
+    
+    def __str__(self):
+        return f"{self.anime.title_ru} - {self.name}"
+
+
+class WatchProgress(models.Model):
+    """Прогресс просмотра пользователя"""
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='watch_progress')
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='user_progress')
+    episode = models.ForeignKey(Episode, on_delete=models.CASCADE, related_name='user_progress')
+    translation = models.ForeignKey(Translation, on_delete=models.CASCADE, related_name='user_progress', null=True, blank=True)
+    
+    # Прогресс
+    current_time = models.PositiveIntegerField('Текущее время (секунды)', default=0)
+    duration = models.PositiveIntegerField('Длительность (секунды)', null=True, blank=True)
+    is_completed = models.BooleanField('Завершено', default=False)
+    watch_count = models.PositiveIntegerField('Количество просмотров', default=1)
+    
+    # Метаданные
+    last_watched = models.DateTimeField('Последний просмотр', auto_now=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-last_watched']
+        verbose_name = 'Прогресс просмотра'
+        verbose_name_plural = 'Прогрессы просмотра'
+        unique_together = ['user', 'episode']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.anime.title_ru} - Эпизод {self.episode.number}"
+
+
+class VideoQuality(models.Model):
+    """Доступные качества видео"""
+    video_source = models.ForeignKey(VideoSource, on_delete=models.CASCADE, related_name='qualities')
+    quality = models.CharField('Качество', max_length=10)
+    resolution = models.CharField('Разрешение', max_length=20, blank=True)
+    bitrate = models.PositiveIntegerField('Битрейт', null=True, blank=True)
+    file_size = models.BigIntegerField('Размер файла', null=True, blank=True)
+    
+    # Ссылки
+    video_url = models.URLField('Ссылка на видео', blank=True)
+    m3u8_url = models.URLField('M3U8 плейлист', blank=True)
+    
+    is_available = models.BooleanField('Доступно', default=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-quality']
+        verbose_name = 'Качество видео'
+        verbose_name_plural = 'Качества видео'
+        unique_together = ['video_source', 'quality']
+    
+    def __str__(self):
+        return f"{self.video_source.anime.title_ru} - {self.quality}"
+
+
+class AnimeUpdate(models.Model):
+    """Отслеживание обновлений аниме"""
+    UPDATE_TYPE_CHOICES = [
+        ('new_episode', 'Новый эпизод'),
+        ('new_translation', 'Новый перевод'),
+        ('quality_update', 'Обновление качества'),
+        ('status_change', 'Изменение статуса'),
+        ('info_update', 'Обновление информации'),
+    ]
+    
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='updates')
+    update_type = models.CharField('Тип обновления', max_length=20, choices=UPDATE_TYPE_CHOICES)
+    description = models.TextField('Описание')
+    episode_number = models.PositiveIntegerField('Номер эпизода', null=True, blank=True)
+    
+    is_notified = models.BooleanField('Уведомлено', default=False)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Обновление аниме'
+        verbose_name_plural = 'Обновления аниме'
+    
+    def __str__(self):
+        return f"{self.anime.title_ru} - {self.get_update_type_display()}"

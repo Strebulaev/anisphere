@@ -20,11 +20,14 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - ./backend/media:/app/media
     environment:
       DATABASE_URL: "postgresql://postgres:anime_password@postgres:5432/animecore"
       DEBUG: "True"
       SECRET_KEY: "dev-key-123"
       CORS_ALLOW_ALL_ORIGINS: "True"
+      REDIS_HOST: "redis"
+      MEDIA_URL: "/media/"
     depends_on:
       - postgres
       - redis
@@ -32,7 +35,7 @@ services:
       sh -c "
         sleep 5 &&
         python manage.py migrate &&
-        python manage.py runserver 0.0.0.0:8000
+        daphne -b 0.0.0.0 -p 8000 config.asgi:application
       "
 
   frontend:
@@ -44,6 +47,10 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+      - VITE_WS_URL=ws://localhost:8000/ws
+      - CI=true
     depends_on:
       - backend
 

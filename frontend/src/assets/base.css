@@ -1,6 +1,6 @@
-/* color palette from <https://github.com/vuejs/theme> */
+ /* color palette from <https://github.com/vuejs/theme> */
 :root {
-  --vt-c-white: #ffffff;
+  --vt-c-white: #373737;
   --vt-c-white-soft: #f8f8f8;
   --vt-c-white-mute: #f2f2f2;
 
@@ -336,3 +336,422 @@ button, .btn {
   min-height: 44px; /* iOS touch target minimum */
   touch-action: manipulation;
 }
+
+/* Theme support */
+.theme-light {
+  --color-background: var(--vt-c-white);
+  --color-background-soft: var(--vt-c-white-soft);
+  --color-background-mute: var(--vt-c-white-mute);
+  --color-border: var(--vt-c-divider-light-2);
+  --color-border-hover: var(--vt-c-divider-light-1);
+  --color-heading: var(--vt-c-text-light-1);
+  --color-text: var(--vt-c-text-light-1);
+}
+
+.theme-dark {
+  --color-background: var(--vt-c-black);
+  --color-background-soft: var(--vt-c-black-soft);
+  --color-background-mute: var(--vt-c-black-mute);
+  --color-border: var(--vt-c-divider-dark-2);
+  --color-border-hover: var(--vt-c-divider-dark-1);
+  --color-heading: var(--vt-c-text-dark-1);
+  --color-text: var(--vt-c-text-dark-2);
+}
+
+.theme-auto {
+  /* Uses system preference via media query */
+}
+
+/* UI Style support */
+.ui-modern {
+  /* Modern UI styles */
+  border-radius: 8px;
+}
+ 
+.ui-classic {
+  /* Classic UI styles */
+  border-radius: 4px;
+}
+
+.ui-minimal {
+  /* Minimal UI styles */
+  border-radius: 0;
+}
+
+.ui-dark {
+  /* Dark UI variant */
+  --color-background: var(--vt-c-black);
+  --color-text: var(--vt-c-text-dark-1);
+}
+
+/* Text size support */
+.text-small {
+  font-size: 13px;
+}
+
+.text-medium {
+  font-size: 15px;
+}
+
+.text-large {
+  font-size: 17px;
+}
+
+/* AnimeCore Design System - Dark Theme Only */
+:root {
+  /* Фоновые цвета */
+  --color-background: #0A0A0A;
+  --color-background-secondary: #111111;
+  --color-background-surface: #1A1A1A;
+  --color-background-active: #222222;
+
+  /* Текстовые цвета */
+  --color-text: #FFFFFF;
+  --color-text-primary: rgba(255, 255, 255, 0.9);
+  --color-text-secondary: #CCCCCC;
+  --color-text-tertiary: #888888;
+  --color-text-disabled: #666666;
+
+  /* Акцентные цвета */
+  --color-accent: #3A86FF;
+  --color-accent-hover: #2A76FF;
+  --color-accent-active: #1A66FF;
+  --color-accent-pink: #FF2A6D;
+  --color-accent-pink-hover: #FF1A5D;
+  --color-accent-teal: #00D4AA;
+  --color-accent-orange: #FFB347;
+
+  /* Разделители */
+  --color-divider: #2A2A2A;
+  --color-divider-weak: #333333;
+  --color-divider-light: #444444;
+
+  /* Статусы просмотра */
+  --color-status-watching: #3A86FF;
+  --color-status-completed: #00D4AA;
+  --color-status-planned: #FFB347;
+  --color-status-dropped: #FF2A6D;
+  --color-status-onhold: #888888;
+
+  /* Уровни пользователя */
+  --color-level-1-10: #888888;
+  --color-level-11-20: #3A86FF;
+  --color-level-21-30: #00D4AA;
+  --color-level-31-40: #FFB347;
+  --color-level-41-plus: #FF2A6D;
+
+  /* Размеры отступов */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+
+  /* Скругления */
+  --radius-card: 8px;
+  --radius-button: 8px;
+  --radius-modal: 12px;
+  --radius-full: 9999px;
+
+  /* Тени */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --shadow-modal: -4px 0 24px rgba(0, 0, 0, 0.7);
+
+  /* Эффекты размытия */
+  --blur-nav: 10px;
+  --blur-panel: 12px;
+
+  /* Высоты */
+  --height-nav-mobile: 64px;
+  --height-nav-desktop: 72px;
+  --height-search: 40px;
+  --height-button: 40px;
+}
+
+/* Базовые стили */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Типографика */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+
+p {
+  margin-bottom: var(--space-md);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+/* Кнопки */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* Поля ввода */
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-text);
+  background-color: var(--color-background-surface);
+  border: 1px solid var(--color-divider-light);
+  border-radius: var(--radius-button);
+  padding: 0 var(--space-md);
+  min-height: var(--height-button);
+  outline: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-accent);
+  background-color: var(--color-background-active);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* Скроллбар */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-divider-weak);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+  width: 6px;
+}
+
+/* Выделение текста */
+::selection {
+  background-color: rgba(58, 134, 255, 0.3);
+  color: var(--color-text);
+}
+
+/* Утилиты контейнера */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding-left: var(--space-xl);
+    padding-right: var(--space-xl);
+  }
+}
+
+@media (min-width: 1440px) {
+  .container {
+    max-width: 1400px;
+  }
+}
+
+/* Утилиты отображения */
+.hidden { display: none !important; }
+.block { display: block; }
+.inline-block { display: inline-block; }
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.grid { display: grid; }
+
+/* Утилиты flex */
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.flex-1 { flex: 1; }
+.flex-none { flex: none; }
+
+/* Утилиты отступов */
+.gap-xs { gap: var(--space-xs); }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+.gap-xl { gap: var(--space-xl); }
+
+.m-0 { margin: 0; }
+.mt-xs { margin-top: var(--space-xs); }
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mt-lg { margin-top: var(--space-lg); }
+.mb-xs { margin-bottom: var(--space-xs); }
+.mb-sm { margin-bottom: var(--space-sm); }
+.mb-md { margin-bottom: var(--space-md); }
+.mb-lg { margin-bottom: var(--space-lg); }
+.p-0 { padding: 0; }
+.p-sm { padding: var(--space-sm); }
+.p-md { padding: var(--space-md); }
+.p-lg { padding: var(--space-lg); }
+.p-xl { padding: var(--space-xl); }
+
+/* Утилиты текста */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.font-display { font-family: 'Orbitron', sans-serif; }
+
+/* Утилиты цветов */
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+.text-accent { color: var(--color-accent); }
+.text-accent-pink { color: var(--color-accent-pink); }
+
+/* Утилиты фона */
+.bg-background { background-color: var(--color-background); }
+.bg-surface { background-color: var(--color-background-surface); }
+.bg-secondary { background-color: var(--color-background-secondary); }
+
+/* Утилиты скругления */
+.rounded-card { border-radius: var(--radius-card); }
+.rounded-button { border-radius: var(--radius-button); }
+.rounded-modal { border-radius: var(--radius-modal); }
+.rounded-full { border-radius: var(--radius-full); }
+
+/* Утилиты тени */
+.shadow-card { box-shadow: var(--shadow-card); }
+
+/* Утилиты позиционирования */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+
+/* Утилиты overflow */
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+
+/* Утилиты размеров */
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+
+/* Анимации */
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Адаптивность */
+@media (max-width: 767px) {
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.125rem; }
+  h4 { font-size: 1rem; }
+  
+  .container {
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+}
+
+/* Утилиты для transition */
+.transition {
+  transition: all 0.15s ease;
+}
+
+.transition-colors {
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Cursor utilities */
+.cursor-pointer { cursor: pointer; }
+.cursor-not-allowed { cursor: not-allowed; }
+
+/* Opacity utilities */
+.opacity-0 { opacity: 0; }
+.opacity-50 { opacity: 0.5; }
+.opacity-100 { opacity: 1; }
+
+/* Pointer events */
+.pointer-events-none { pointer-events: none; }
+.pointer-events-auto { pointer-events: auto; }
+
+/* Z-index */
+.z-0 { z-index: 0; }
+.z-10 { z-index: 10; }
+.z-20 { z-index: 20; }
+.z-30 { z-index: 30; }
+.z-40 { z-index: 40; }
+.z-50 { z-index: 50; }

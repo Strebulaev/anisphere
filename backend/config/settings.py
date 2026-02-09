@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = ['anisphere.ru', 'www.anisphere.ru', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -43,21 +43,22 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'channels',
     # 'phonenumber_field',
 
     # Наши приложения
+    'core',
     'users',
     'anime',
-    # 'dubs',
+    'dubs',
     'playlists',
-    # 'social',
-    # 'reactor',
-    # 'notifications',
+    'social',
+    'reactor',
+    'notifications',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -65,6 +66,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.middleware.OnlineStatusMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -85,18 +87,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-    ],
-}
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
@@ -134,14 +124,45 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:3000",   # Vue dev server (production)
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",   # Vite dev server (development)
     "http://127.0.0.1:5173",
+    "http://frontend:3000",    # Frontend в контейнере
+    "http://frontend:5173",    # Vite в контейнере
+    "http://localhost:8000",   # Бэкенд на хосте
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 AUTH_USER_MODEL = 'users.User'
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'access-control-allow-origin',
+    'access-control-allow-credentials',
+    'access-control-allow-methods',
+]
 
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+    'HEAD',
+]
+
+# Дополнительные CORS настройки
+CORS_PREFLIGHT_MAX_AGE = 86400
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
@@ -160,6 +181,69 @@ USE_TZ = True
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Django REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser'
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': [
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
+}
+
+# Redis settings for real-time updates
+import os
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
+REDIS_DB = int(os.environ.get('REDIS_DB', 0))
+
+# Cache settings
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+    }
+}
+
+# Channels settings for WebSocket support
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [(REDIS_HOST, REDIS_PORT)],
+            'capacity': 1500,
+            'expiry': 10,
+        },
+    },
+}
+
+# Media files (User uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Email settings для России
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.yandex.ru'  # Или 'smtp.mail.ru' для Mail.ru
@@ -172,6 +256,9 @@ DEFAULT_FROM_EMAIL = 'runos.d.hino@yandex.com'
 # Google OAuth
 GOOGLE_CLIENT_ID = '48556278554-stce35i0jtbe6gapbuvnho1h08m393l5.apps.googleusercontent.com'
 GOOGLE_CLIENT_SECRET = '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'
+
+# Site URL for email links and notifications
+SITE_URL = 'http://localhost:8000'
 
 # Phone number settings
 PHONENUMBER_DEFAULT_REGION = 'RU'
@@ -191,3 +278,6 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = False  # Для локальной разработки
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Site URL for email links and notifications
+SITE_URL = 'http://localhost:8000'

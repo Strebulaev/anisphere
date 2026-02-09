@@ -140,7 +140,7 @@
   }
   
   .btn-outline:hover {
-    background-color: #f9fafb;
+    background-color: #111111;
   }
   
   .btn-primary {
