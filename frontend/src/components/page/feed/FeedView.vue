@@ -249,46 +249,13 @@ import RepostModal from '@/components/feed/RepostModal.vue'
 import PostMenu from '@/components/feed/PostMenu.vue'
 import ReportModal from '@/components/feed/ReportModal.vue'
 import PostDetailModal from '@/components/feed/PostDetailModal.vue'
+import type { FeedPost } from '@/api/feed'
 
-interface Post {
-  id: number
-  author: number
-  author_username: string
-  author_avatar: string | null
-  author_display_name: string | null
-  title: string
-  post_type: string
-  text: string
-  image_url: string | null
+// reuse API type and include frontend-specific extras
+type Post = FeedPost & {
   image_file: string | null
-  video_url: string | null
   video_file: string | null
-  anime: any
-  anime_rating: number | null
-  playlist: any
-  group: any
-  original_post: any
-  repost_comment: string
-  likes_count: number
-  dislikes_count: number
-  comments_count: number
-  reposts_count: number
-  views_count: number
-  is_pinned: boolean
-  is_deleted: boolean
-  allow_comments: boolean
-  created_at: string
-  updated_at: string
-  edited_at: string | null
-  is_spoiler: boolean
-  media_files: any[]
-  hashtags: string[]
-  is_liked: boolean
-  is_disliked: boolean
-  is_bookmarked: boolean
   is_following: boolean
-  can_edit: boolean
-  can_delete: boolean
 }
 
 interface User {
@@ -511,9 +478,14 @@ const openTrendingPost = (trend: TrendingPost) => {
     comments_count: 0,
     reposts_count: 0,
     views_count: 0,
+    shares_count: 0,
     is_pinned: false,
     is_deleted: false,
     allow_comments: true,
+    status: 'published',
+    visibility: 'public',
+    reactor_post: null,
+    published_at: null,
     created_at: '',
     updated_at: '',
     edited_at: null,

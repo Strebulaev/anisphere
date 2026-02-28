@@ -12,7 +12,10 @@ export interface FeedPost {
   visibility: 'public' | 'followers' | 'friends' | 'private'
   text: string
   image_url: string | null
+  image_file: string | null
   video_url: string | null
+  video_file: string | null
+  is_following: boolean
   anime: AnimeCard | null
   anime_rating: number | null
   playlist: PlaylistCard | null

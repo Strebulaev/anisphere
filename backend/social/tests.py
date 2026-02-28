@@ -1,7 +1,3 @@
-"""
-Tests for the social feed system.
-Covers: post creation, like/dislike logic, comments, follow system, permissions.
-"""
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone

@@ -206,11 +206,14 @@ function findComment(comments: PostComment[], id: number): PostComment | null {
 
 function removeComment(comments: PostComment[], id: number): boolean {
   for (let i = 0; i < comments.length; i++) {
-    if (comments[i].id === id) {
+    const c = comments[i]
+    if (!c) continue
+
+    if (c.id === id) {
       comments.splice(i, 1)
       return true
     }
-    if (comments[i].replies && removeComment(comments[i].replies!, id)) {
+    if (c.replies && removeComment(c.replies, id)) {
       return true
     }
   }

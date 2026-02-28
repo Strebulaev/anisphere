@@ -332,7 +332,6 @@ watch(() => props.show, (newShow) => {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  display: box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
