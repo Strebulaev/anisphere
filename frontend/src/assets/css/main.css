@@ -1,3 +1,4 @@
+/* Tailwind CSS directives - handled by PostCSS during build */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,7 +8,7 @@ body {
   --bg-primary: #222222;
   --bg-secondary: #111111;
   --bg-tertiary: #f3f4f6;
-  --text-primary: #1f2937;
+  --text-primary: #ffffff;
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
   --border-color: #e5e7eb;
@@ -32,7 +33,6 @@ body.theme-dark {
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* Auto theme - will be set dynamically */
 body.theme-auto {
   /* Will be overridden by JS */
 }

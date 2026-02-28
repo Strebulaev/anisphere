@@ -9,8 +9,10 @@ import json
 import re
 from difflib import SequenceMatcher
 from typing import List, Dict, Any
-from .models import Anime, Genre, Episode, Translation, WatchProgress
-from .serializers import AnimeSerializer, GenreSerializer
+
+from users.models import UserLibrary
+from .models import Anime, Genre, Episode, Translation, WatchProgress, CustomDub
+from .serializers import AnimeSerializer, AnimeDetailSerializer, GenreSerializer
 from .services.anime_parser_service import (
     AnimeParserService, VideoStreamingService, CacheService, AnimeUpdateService
 )
@@ -67,11 +69,11 @@ def fuzzy_match(query: str, text: str, threshold: float = 0.6) -> float:
     # Нечеткое сравнение
     return SequenceMatcher(None, query_norm, text_norm).ratio()
 
-# Функция для гибкого поиска аниме в БД
+# Функция для простого поиска аниме в БД (по строгому содержанию)
 def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
     """
-    Выполняет гибкий поиск аниме в базе данных
-    Ищет по title_ru, title_en, title_jp
+    Выполняет простой поиск аниме в базе данных по строгому содержанию
+    Ищет по title_ru, title_en, title_jp (case-insensitive)
     """
     if not query or len(query.strip()) < 2:
         return []
@@ -80,43 +82,21 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
         query = query.strip()
         print(f"  🔍 fuzzy_search_anime: query='{query}'")
         
-        # Простой поиск по всем полям
-        results = []
-        seen_ids = set()
+        from django.db.models import Q
         
-        # Ищем по каждому полю отдельно
-        for field_name in ['title_ru', 'title_en', 'title_jp']:
-            filter_kwargs = {f'{field_name}__icontains': query}
-            queryset = Anime.objects.filter(**filter_kwargs)
-            
-            for anime in queryset:
-                if anime.id not in seen_ids:
-                    # Вычисляем рейтинг релевантности
-                    score = 0.0
-                    field_value = getattr(anime, field_name, '')
-                    if field_value and query.lower() in field_value.lower():
-                        score = 1.0
-                        # Точное совпадение - выше рейтинг
-                        if field_value.lower() == query.lower():
-                            score = 1.2
-                    
-                    results.append({
-                        'anime': anime,
-                        'score': score,
-                        'field': field_name
-                    })
-                    seen_ids.add(anime.id)
+        # Простой поиск по всем полям (icontains - case-insensitive)
+        queryset = Anime.objects.filter(
+            Q(title_ru__icontains=query) |
+            Q(title_en__icontains=query) |
+            Q(title_jp__icontains=query)
+        )
         
-        # Сортируем по убыванию релевантности
-        results.sort(key=lambda x: x['score'], reverse=True)
-        
-        # Ограничиваем количество результатов
-        results = results[:limit]
+        # Сортируем по рейтингу
+        queryset = queryset.order_by('-score')[:limit]
         
         # Форматируем результат
         formatted_results = []
-        for item in results:
-            anime = item['anime']
+        for anime in queryset:
             formatted_results.append({
                 'id': anime.id,
                 'title_ru': anime.title_ru or '',
@@ -128,7 +108,7 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
                 'score': anime.score,
                 'poster_url': anime.poster_url,
                 'description': anime.description,
-                'match_score': item['score'],
+                'match_score': 1.0,
                 'source': 'database'
             })
             
@@ -140,7 +120,6 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
         import traceback
         traceback.print_exc()
         return []
-
 
 # Глобальный сервис для видео (для обратной совместимости)
 class VideoService:
@@ -166,7 +145,6 @@ class VideoService:
         return None
 
 video_service = VideoService()
-
 
 @csrf_exempt
 def proxy_video(request):
@@ -195,7 +173,6 @@ def proxy_video(request):
     except Exception as e:
         print(f"Proxy error: {e}")
         return HttpResponseServerError(str(e))
-
 
 class AnimeViewSet(viewsets.ModelViewSet):
     """ViewSet для работы с аниме"""
@@ -296,7 +273,7 @@ class AnimeViewSet(viewsets.ModelViewSet):
         """Получение детальной информации об аниме"""
         try:
             anime = self.get_object()
-            serializer = AnimeSerializer(anime)
+            serializer = AnimeDetailSerializer(anime)
             return Response(serializer.data)
         except Exception as e:
             return Response({
@@ -364,40 +341,134 @@ class AnimeViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=True, methods=['get'])
-    def get_video_link(self, request, pk=None):
-        """Получение ссылки на видео для проигрывания"""
-        print(f"\n=== GET_VIDEO_LINK для аниме ID: {pk} ===")
-        
+    def kodik_player(self, request, pk=None):
+        """Получение ссылки на Kodik плеер через официальное API"""
+        print(f"\n=== KODIK_PLAYER для аниме ID: {pk} ===")
+
         try:
             anime = self.get_object()
             print(f"Аниме: {anime.title_ru or anime.title_en}")
             print(f"Shikimori ID: {anime.shikimori_id}")
             
+            # Сначала проверяем, есть ли уже kodik_link
+            if anime.kodik_link:
+                print(f"Используем существующий kodik_link: {anime.kodik_link}")
+                return Response({
+                    'kodik_link': anime.kodik_link,
+                    'source': 'database'
+                })
+
+            # Если нет, ищем через официальное API Kodik
+            if not anime.shikimori_id:
+                return Response({
+                    'error': 'У аниме нет Shikimori ID для поиска в Kodik'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
+            KODIK_API_BASE = 'https://kodikapi.com'
+
+            # Ищем аниме через /search API
+            search_params = {
+                'token': KODIK_API_TOKEN,
+                'shikimori_id': anime.shikimori_id,
+                'with_material_data': True,
+                'limit': 1
+            }
+
+            print(f"Поиск в Kodik API: {search_params}")
+
+            response = requests.get(f'{KODIK_API_BASE}/search', params=search_params, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            results = data.get('results', [])
+
+            if not results:
+                return Response({
+                    'error': 'Аниме не найдено в Kodik API',
+                    'shikimori_id': anime.shikimori_id
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # Получаем первый результат
+            result = results[0]
+            kodik_link = result.get('link')
+
+            if not kodik_link:
+                return Response({
+                    'error': 'Ссылка на плеер не найдена в ответе Kodik',
+                    'result': result
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # Обновляем kodik_link в базе данных
+            anime.kodik_link = kodik_link
+            anime.kodik_id = result.get('id', '')
+            anime.quality = result.get('quality', '')
+            anime.screenshots = result.get('screenshots', [])
+            anime.seasons = result.get('seasons', {})
+            anime.last_season = result.get('last_season')
+            anime.last_episode = result.get('last_episode')
+            anime.save()
+
+            print(f"Найден kodik_link: {kodik_link}")
+            print(f"Сохранены данные: quality={anime.quality}, last_episode={anime.last_episode}")
+
+            return Response({
+                'kodik_link': kodik_link,
+                'source': 'kodik_api',
+                'quality': anime.quality,
+                'last_episode': anime.last_episode,
+                'seasons': anime.seasons
+            })
+            
+        except requests.RequestException as e:
+            print(f"❌ Ошибка запроса к Kodik API: {e}")
+            return Response({
+                'error': f'Ошибка запроса к Kodik API: {str(e)}'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        except Exception as e:
+            print(f"❌ Ошибка в kodik_player: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': f'Ошибка получения плеера: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['get'])
+    def get_video_link(self, request, pk=None):
+        """Получение ссылки на видео для проигрывания (legacy)"""
+        print(f"\n=== GET_VIDEO_LINK для аниме ID: {pk} ===")
+
+        try:
+            anime = self.get_object()
+            print(f"Аниме: {anime.title_ru or anime.title_en}")
+            print(f"Shikimori ID: {anime.shikimori_id}")
+
             episode = int(request.query_params.get('episode', 1))
             translation_id = request.query_params.get('translation_id', '0')
             quality = request.query_params.get('quality', '720')
-            
+
             print(f"Параметры: эпизод={episode}, перевод={translation_id}, качество={quality}")
-            
+
             # Используем новый сервис для получения видео
             video_sources = video_streaming_service.get_video_sources(
                 str(anime.shikimori_id), episode, translation_id
             )
-            
+
             if not video_sources:
                 return Response({
                     'error': 'Видео источники не найдены',
                     'anime_id': pk,
                     'video_url': None
                 }, status=status.HTTP_404_NOT_FOUND)
-            
+
             # Выбираем подходящий источник
             for source_name, source_data in video_sources.items():
                 if source_name == 'kodik' and source_data.get('video_url'):
                     video_url = source_data['video_url']
-                    
+
                     # Для видео с Kodik используем прокси
-                    proxy_url = f"http://localhost:8000/api/anime/proxy/video/?url={video_url}"
+                    proxy_url = f"https://anisphere.ru/api/anime/proxy/video/?url={video_url}"
                     return Response({
                         'video_url': proxy_url,
                         'quality': quality,
@@ -418,12 +489,12 @@ class AnimeViewSet(viewsets.ModelViewSet):
                         'format': 'mpd',
                         'note': 'MPD формат требует специального плеера'
                     })
-            
+
             return Response({
                 'error': 'Подходящий видео источник не найден',
                 'available_sources': list(video_sources.keys())
             }, status=status.HTTP_404_NOT_FOUND)
-            
+
         except Exception as e:
             print(f"❌ Ошибка в get_video_link: {str(e)}")
             import traceback
@@ -647,3 +718,644 @@ class GenresViewSet(viewsets.ReadOnlyModelViewSet):
                 {'error': f'Ошибка получения жанров: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class KodikImportView(APIView):
+    """API для импорта аниме из Kodik"""
+    permission_classes = [permissions.IsAdminUser]
+    
+    def post(self, request):
+        """Импорт аниме из Kodik"""
+        from anime.models import Anime
+        
+        data = request.data
+        
+        # Проверяем, это одиночный импорт или массовый
+        if 'shikimori_id' in data:
+            # Одиночный импорт
+            return self._import_single_anime(data)
+        else:
+            # Массовый импорт
+            return self._import_all_anime(data)
+    
+    def _import_single_anime(self, data):
+        """Импорт одного аниме"""
+        try:
+            shikimori_id = data.get('shikimori_id')
+            kodik_data = data.get('kodik_data')
+            
+            if not shikimori_id:
+                return Response({
+                    'error': 'Требуется shikimori_id'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Если переданы данные Kodik, импортируем их
+            if kodik_data:
+                anime = self._create_anime_from_kodik(kodik_data)
+                return Response({
+                    'message': 'Аниме успешно импортировано',
+                    'anime_id': anime.id,
+                    'title': anime.title_ru
+                })
+            
+            return Response({
+                'error': 'Требуются данные Kodik'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка импорта: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _import_all_anime(self, data):
+        """Массовый импорт всех аниме"""
+        from backend.scripts.import_from_kodik import fetch_all_anime, import_anime
+        
+        try:
+            limit = data.get('limit', 0)
+            
+            # Загружаем все аниме из Kodik
+            all_anime = fetch_all_anime()
+            
+            if limit > 0:
+                all_anime = all_anime[:limit]
+            
+            imported = 0
+            updated = 0
+            errors = []
+            
+            for kodik_anime in all_anime:
+                try:
+                    anime = import_anime(kodik_anime)
+                    imported += 1
+                except Exception as e:
+                    errors.append({
+                        'title': kodik_anime.get('title', 'Unknown'),
+                        'error': str(e)
+                    })
+            
+            return Response({
+                'message': 'Импорт завершен',
+                'total_processed': len(all_anime),
+                'imported': imported,
+                'errors': errors[:10]  # Первые 10 ошибок
+            })
+            
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка массового импорта: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _create_anime_from_kodik(self, kodik_data):
+        """Создание аниме из данных Kodik"""
+        from anime.models import Anime
+        
+        material_data = kodik_data.get('material_data', {})
+        
+        # Определяем количество эпизодов
+        episodes_count = (
+            material_data.get('episodes_total') or
+            kodik_data.get('episodes_count') or
+            1
+        )
+        
+        # Жанры
+        genre_names = material_data.get('anime_genres') or material_data.get('genres') or []
+        
+        # Студии
+        studio_names = material_data.get('anime_studios') or []
+        
+        # Постер
+        poster_url = (
+            material_data.get('anime_poster_url') or
+            material_data.get('poster_url') or
+            ''
+        )
+        
+        # Рейтинг
+        score = (
+            material_data.get('shikimori_rating') or
+            material_data.get('kinopoisk_rating') or
+            0.0
+        )
+        
+        # Описание
+        description = (
+            material_data.get('anime_description') or
+            material_data.get('description') or
+            ''
+        )
+        
+        # Маппинг статуса
+        status_map = {
+            'anons': 'announced',
+            'ongoing': 'ongoing',
+            'released': 'finished',
+            'discontinued': 'canceled'
+        }
+        status = status_map.get(material_data.get('anime_status', 'released'), 'finished')
+        
+        # Маппинг типа
+        kind_map = {
+            'tv': 'tv',
+            'tv_13': 'tv',
+            'tv_24': 'tv',
+            'tv_48': 'tv',
+            'movie': 'movie',
+            'ova': 'ova',
+            'ona': 'ona',
+            'special': 'special',
+            'music': 'music'
+        }
+        kind = kind_map.get(material_data.get('anime_kind') or kodik_data.get('type', 'tv'), 'tv')
+        
+        # Создаем или обновляем аниме
+        anime, created = Anime.objects.update_or_create(
+            shikimori_id=kodik_data.get('shikimori_id'),
+            defaults={
+                'title_ru': kodik_data.get('title', ''),
+                'title_en': kodik_data.get('title_orig', ''),
+                'title_jp': kodik_data.get('other_title', ''),
+                'description': description,
+                'year': kodik_data.get('year'),
+                'status': status,
+                'kind': kind,
+                'episodes': episodes_count,
+                'score': score,
+                'poster_url': poster_url,
+                'genres': genre_names,
+                'studios': studio_names,
+                'data_source': 'kodik',
+                'movies': [],
+                'ovas': [],
+                'movie_count': 0,
+                'ova_count': 0,
+                'total_items': 1,
+            }
+        )
+        
+        return anime
+
+
+class KodikFiltersView(APIView):
+    """API для получения фильтров Kodik"""
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """Получение доступных фильтров"""
+        import requests
+        
+        KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
+        KODIK_API_BASE = 'https://kodikapi.com'
+        
+        try:
+            # Получаем фильтры параллельно
+            genres_response = requests.get(f'{KODIK_API_BASE}/genres', params={
+                'token': KODIK_API_TOKEN,
+                'types': 'anime-serial,anime',
+                'genres_type': 'shikimori',
+                'sort': 'title'
+            })
+            
+            years_response = requests.get(f'{KODIK_API_BASE}/years', params={
+                'token': KODIK_API_TOKEN,
+                'types': 'anime-serial,anime',
+                'sort': 'year',
+                'order': 'desc'
+            })
+            
+            studios_response = requests.get(f'{KODIK_API_BASE}/anime_studios', params={
+                'token': KODIK_API_TOKEN,
+                'types': 'anime-serial,anime',
+                'sort': 'title'
+            })
+            
+            translations_response = requests.get(f'{KODIK_API_BASE}/translations/v2', params={
+                'token': KODIK_API_TOKEN,
+                'types': 'anime-serial,anime',
+                'sort': 'title'
+            })
+            
+            return Response({
+                'genres': genres_response.json().get('results', []),
+                'years': years_response.json().get('results', []),
+                'studios': studios_response.json().get('results', []),
+                'translations': translations_response.json().get('results', [])
+            })
+            
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка получения фильтров: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class KodikTranslationsView(APIView):
+    """API для получения озвучек из Kodik API"""
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request, pk):
+        """Получение списка озвучек для аниме через Kodik API"""
+        try:
+            anime = Anime.objects.get(pk=pk)
+            
+            if not anime.shikimori_id:
+                return Response({
+                    'error': 'У аниме нет Shikimori ID'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
+            KODIK_API_BASE = 'https://kodikapi.com'
+            
+            # Ищем аниме через Kodik API
+            search_params = {
+                'token': KODIK_API_TOKEN,
+                'shikimori_id': anime.shikimori_id,
+                'with_episodes_data': False,
+                'limit': 100
+            }
+            
+            response = requests.get(f'{KODIK_API_BASE}/search', params=search_params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            results = data.get('results', [])
+            
+            if not results:
+                return Response({
+                    'translations': [],
+                    'total': 0
+                })
+            
+            # Группируем по переводам
+            translations_map = {}
+            
+            for result in results:
+                translation = result.get('translation', {})
+                if not translation:
+                    continue
+                
+                translation_id = translation.get('id')
+                translation_name = translation.get('title', 'Неизвестно')
+                translation_type = translation.get('type', 'voice')
+                
+                if translation_id not in translations_map:
+                    translations_map[translation_id] = {
+                        'id': translation_id,
+                        'name': translation_name,
+                        'type': translation_type,
+                        'quality': result.get('quality', ''),
+                        'episodes_done': 0,
+                        'total_episodes': result.get('episodes_count') or anime.episodes,
+                        'is_complete': False,
+                        'kodik_link': result.get('link', ''),
+                        'logo': None
+                    }
+                
+                # Обновляем информацию о серии
+                t = translations_map[translation_id]
+                episodes = result.get('episodes_count') or 0
+                if episodes > t['episodes_done']:
+                    t['episodes_done'] = episodes
+            
+            translations = list(translations_map.values())
+            
+            # Сортируем по количеству серий (сначала самые полные)
+            translations.sort(key=lambda x: x['episodes_done'], reverse=True)
+            
+            return Response({
+                'translations': translations,
+                'total': len(translations)
+            })
+            
+        except Anime.DoesNotExist:
+            return Response({
+                'error': 'Аниме не найдено'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except requests.RequestException as e:
+            return Response({
+                'error': f'Ошибка запроса к Kodik API: {str(e)}'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка получения озвучек: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CustomDubListView(APIView):
+    """API для списка пользовательских озвучек"""
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request, anime_id):
+        """Получение списка пользовательских озвучек для аниме"""
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+            
+            # Получаем только одобренные пользовательские озвучки
+            custom_dubs = CustomDub.objects.filter(
+                anime=anime,
+                status='approved'
+            ).order_by('-rating', '-created_at')
+            
+            dubs_data = []
+            for dub in custom_dubs:
+                dubs_data.append({
+                    'id': dub.id,
+                    'name': dub.name,
+                    'studio': dub.studio,
+                    'description': dub.description,
+                    'quality': dub.quality,
+                    'logo': dub.logo_url,
+                    'episodes_done': dub.episodes_done,
+                    'total_episodes': dub.total_episodes or anime.episodes,
+                    'is_complete': dub.is_complete,
+                    'is_custom': True,
+                    'rating': dub.rating,
+                    'views_count': dub.views_count
+                })
+            
+            return Response({
+                'dubs': dubs_data,
+                'total': len(dubs_data)
+            })
+            
+        except Anime.DoesNotExist:
+            return Response({
+                'error': 'Аниме не найдено'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    def post(self, request, anime_id):
+        """Добавление пользовательской озвучки"""
+        if not request.user.is_authenticated:
+            return Response({
+                'error': 'Требуется авторизация'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+            
+            name = request.data.get('name')
+            studio = request.data.get('studio', '')
+            quality = request.data.get('quality')
+            video_url = request.data.get('video_url')
+            logo_url = request.data.get('logo_url', '')
+            description = request.data.get('description', '')
+            episodes_done = request.data.get('episodes_done', 0)
+            is_complete = request.data.get('is_complete', False)
+            
+            if not name or not quality or not video_url:
+                return Response({
+                    'error': 'Необходимо указать название, качество и ссылку на видео'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Проверяем, существует ли уже такая озвучка
+            existing_dub = CustomDub.objects.filter(
+                anime=anime,
+                created_by=request.user,
+                name=name
+            ).first()
+            
+            if existing_dub:
+                return Response({
+                    'error': 'Вы уже добавляли озвучку с таким названием'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Создаем пользовательскую озвучку
+            dub = CustomDub.objects.create(
+                anime=anime,
+                created_by=request.user,
+                name=name,
+                studio=studio or name,
+                description=description,
+                quality=quality,
+                video_url=video_url,
+                logo_url=logo_url,
+                episodes_done=episodes_done or 0,
+                total_episodes=anime.episodes,
+                is_complete=is_complete,
+                status='pending'  # На модерации
+            )
+            
+            return Response({
+                'message': 'Озвучка отправлена на модерацию',
+                'dub_id': dub.id,
+                'status': dub.status
+            }, status=status.HTTP_201_CREATED)
+            
+        except Anime.DoesNotExist:
+            return Response({
+                'error': 'Аниме не найдено'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка добавления озвучки: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CustomDubDetailView(APIView):
+    """API для детальной информации о пользовательской озвучке"""
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request, anime_id, dub_id):
+        """Получение ссылки на видео для пользовательской озвучки"""
+        try:
+            dub = CustomDub.objects.get(
+                id=dub_id,
+                anime_id=anime_id,
+                status='approved'
+            )
+            
+            # Увеличиваем счетчик просмотров
+            dub.views_count += 1
+            dub.save(update_fields=['views_count'])
+            
+            return Response({
+                'video_url': dub.video_url,
+                'quality': dub.quality,
+                'name': dub.name,
+                'studio': dub.studio,
+                'logo': dub.logo_url
+            })
+            
+        except CustomDub.DoesNotExist:
+            return Response({
+                'error': 'Озвучка не найдена или не одобрена'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка получения видео: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserLibraryView(APIView):
+    """API для библиотеки пользователя"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        """Получение библиотеки пользователя"""
+        try:
+            library_items = UserLibrary.objects.filter(user=request.user).select_related('anime')
+            
+            library_data = []
+            for item in library_items:
+                library_data.append({
+                    'id': item.id,
+                    'anime': {
+                        'id': item.anime.id,
+                        'title_ru': item.anime.title_ru,
+                        'title_en': item.anime.title_en,
+                        'poster_url': item.anime.poster_url,
+                        'year': item.anime.year,
+                        'episodes': item.anime.episodes,
+                        'score': item.anime.score,
+                        'kind': item.anime.kind,
+                        'status': item.anime.status
+                    },
+                    'status': item.status,
+                    'last_episode': item.last_episode,
+                    'watched_episodes': item.watched_episodes,
+                    'total_progress': item.total_progress,
+                    'user_score': item.user_score,
+                    'last_watched_at': item.last_watched_at.isoformat(),
+                    'completed_at': item.completed_at.isoformat() if item.completed_at else None,
+                    'created_at': item.created_at.isoformat()
+                })
+            
+            return Response({
+                'library': library_data,
+                'total': len(library_data)
+            })
+            
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка получения библиотеки: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request):
+        """Добавление аниме в библиотеку"""
+        try:
+            anime_id = request.data.get('anime')
+            status = request.data.get('status', 'want_to_watch')
+            
+            if not anime_id:
+                return Response({
+                    'error': 'Не указан ID аниме'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            anime = Anime.objects.get(pk=anime_id)
+            
+            # Проверяем, не добавлено ли уже
+            existing = UserLibrary.objects.filter(user=request.user, anime=anime).first()
+            if existing:
+                return Response({
+                    'error': 'Аниме уже добавлено в библиотеку'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Создаем запись
+            library_item = UserLibrary.objects.create(
+                user=request.user,
+                anime=anime,
+                status=status
+            )
+            
+            return Response({
+                'message': 'Аниме добавлено в библиотеку',
+                'id': library_item.id
+            }, status=status.HTTP_201_CREATED)
+            
+        except Anime.DoesNotExist:
+            return Response({
+                'error': 'Аниме не найдено'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка добавления: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserLibraryDetailView(APIView):
+    """API для детальной работы с записью библиотеки"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        """Получение информации о записи"""
+        try:
+            item = UserLibrary.objects.get(pk=pk, user=request.user)
+            
+            return Response({
+                'id': item.id,
+                'anime': {
+                    'id': item.anime.id,
+                    'title_ru': item.anime.title_ru,
+                    'title_en': item.anime.title_en,
+                    'poster_url': item.anime.poster_url,
+                    'year': item.anime.year,
+                    'episodes': item.anime.episodes,
+                    'score': item.anime.score
+                },
+                'status': item.status,
+                'last_episode': item.last_episode,
+                'watched_episodes': item.watched_episodes,
+                'total_progress': item.total_progress,
+                'user_score': item.user_score
+            })
+            
+        except UserLibrary.DoesNotExist:
+            return Response({
+                'error': 'Запись не найдена'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    def put(self, request, pk):
+        """Обновление записи (статус, прогресс)"""
+        try:
+            item = UserLibrary.objects.get(pk=pk, user=request.user)
+            
+            status = request.data.get('status')
+            last_episode = request.data.get('last_episode')
+            watched_episodes = request.data.get('watched_episodes')
+            total_progress = request.data.get('total_progress')
+            user_score = request.data.get('user_score')
+            
+            if status:
+                item.status = status
+            if last_episode is not None:
+                item.last_episode = last_episode
+            if watched_episodes is not None:
+                item.watched_episodes = watched_episodes
+            if total_progress is not None:
+                item.total_progress = total_progress
+            if user_score is not None:
+                item.user_score = user_score
+            
+            item.save()
+            
+            return Response({
+                'message': 'Запись обновлена'
+            })
+            
+        except UserLibrary.DoesNotExist:
+            return Response({
+                'error': 'Запись не найдена'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка обновления: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def delete(self, request, pk):
+        """Удаление записи из библиотеки"""
+        try:
+            item = UserLibrary.objects.get(pk=pk, user=request.user)
+            item.delete()
+            
+            return Response({
+                'message': 'Аниме удалено из библиотеки'
+            })
+            
+        except UserLibrary.DoesNotExist:
+            return Response({
+                'error': 'Запись не найдена'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка удаления: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

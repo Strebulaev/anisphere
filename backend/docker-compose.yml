@@ -1,35 +1,74 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
+  mysql:
+    image: mysql:8.0
+    container_name: anisphere_mysql
+    restart: always
     environment:
-      POSTGRES_DB: animecore_dev
-      POSTGRES_USER: anime_user
-      POSTGRES_PASSWORD: dev_password
+      MYSQL_DATABASE: u3384518_anisphere_db
+      MYSQL_USER: u3384518
+      MYSQL_PASSWORD: dv7uuc8BY8w5Hqx
+      MYSQL_ROOT_PASSWORD: rootpassword123
     ports:
-      - "5432:5432"
+      - "3307:3306"  # Пробуем другой порт, чтобы избежать конфликтов
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+      - mysql_data:/var/lib/mysql
+    networks:
+      - anisphere_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://anime_user:dev_password@postgres:5432/animecore_dev
-      - REDIS_URL=redis://redis:6379/0
+    container_name: anisphere_backend
+    restart: always
     depends_on:
-      - postgres
-      - redis
+      mysql:
+        condition: service_healthy
+    environment:
+      - DB_NAME=u3384518_anisphere_db
+      - DB_USER=u3384518
+      - DB_PASSWORD=dv7uuc8BY8w5Hqx
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DJANGO_DEBUG=False
+      - DJANGO_SECRET_KEY=django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e
+      - REDIS_HOST=redis
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    networks:
+      - anisphere_network
+
+  frontend:
+    build: ../frontend  # Путь к фронтенду (на уровень выше)
+    container_name: anisphere_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - anisphere_network
+
+  redis:
+    image: redis:7
+    container_name: anisphere_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - anisphere_network
+
+networks:
+  anisphere_network:
+    driver: bridge
 
 volumes:
-  postgres_data:
+  mysql_data:
+  static_volume:
+  media_volume:

@@ -3,20 +3,29 @@ import type { AxiosResponse } from 'axios'
 
 export interface Playlist {
   id: number
-  user: number
+  user_id: number
+  user_unique_id?: string
   user_username: string
-  user_avatar: string
+  user_avatar: string | null
+  user?: {
+    id: number
+    username: string
+    avatar: string | null
+  }
   title: string
   description: string
+  cover_image?: string | null
+  cover_urls?: string[]
   is_public: boolean
-  is_favorite: boolean
+  is_favorite?: boolean
   favorites_count: number
   is_favorited: boolean
   created_at: string
   updated_at: string
   items: PlaylistItem[]
   items_count: number
-  genres?: Genre[]
+  animes_count?: number
+  genres?: string[]  // Жанры как массив строк
 }
 
 export interface Genre {
@@ -28,11 +37,20 @@ export interface Genre {
 export interface PlaylistItem {
   id: number
   anime: number
+  anime_id?: number
   anime_title: string
-  anime_poster: string
+  anime_title_en?: string
+  anime_poster: string | null
+  anime_poster_url?: string
+  anime_year?: number
+  anime_score?: number
+  anime_status?: string
+  anime_kind?: string
+  anime_genres?: string[]
   episode_number: number | null
   source_url: string
   notes: string
+  position?: number
   created_at: string
 }
 
@@ -40,7 +58,7 @@ export interface FavoriteAnime {
   id: number
   anime: number
   anime_title: string
-  anime_poster: string
+  anime_poster: string | null
   anime_data: AnimeData
   created_at: string
 }
@@ -58,7 +76,7 @@ export interface PlaylistData {
   description: string
   is_public: boolean
   user_username: string
-  user_avatar?: string
+  user_avatar: string | null
   items_count: number
   created_at: string
 }
@@ -137,6 +155,10 @@ const playlistsApi = {
     return apiClient.post<Playlist>(`/playlists/playlists/${id}/duplicate/`)
   },
 
+  updatePlaylistCover: (id: number): Promise<AxiosResponse<Playlist>> => {
+    return apiClient.post<Playlist>(`/playlists/playlists/${id}/update_cover/`)
+  },
+
   // Элементы плейлиста
   addToPlaylist: (data: AddToPlaylistRequest): Promise<AxiosResponse<{
     message: string
@@ -167,6 +189,26 @@ const playlistsApi = {
     return apiClient.delete<void>(`/playlists/playlists/${playlistId}/remove_item/`, {
       data: { item_id: itemId }
     })
+  },
+
+  updatePlaylistItem: (playlistId: number, itemId: number, data: {
+    notes?: string
+    position?: number
+  }): Promise<AxiosResponse<PlaylistItem>> => {
+    return apiClient.patch<PlaylistItem>(`/playlists/items/${itemId}/`, data)
+  },
+
+  updatePlaylistItemNotes: (playlistId: number, itemId: number, notes: string): Promise<AxiosResponse<PlaylistItem>> => {
+    return apiClient.post<PlaylistItem>(`/playlists/playlists/${playlistId}/update-item-notes/`, {
+      item_id: itemId,
+      notes
+    })
+  },
+
+  reorderPlaylistItems: (playlistId: number, items: Array<{ id: number; position: number }>): Promise<AxiosResponse<{
+    message: string
+  }>> => {
+    return apiClient.post<{ message: string }>(`/playlists/playlists/${playlistId}/reorder_items/`, { items })
   },
 
   // Избранное аниме

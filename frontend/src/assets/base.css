@@ -363,7 +363,7 @@ button, .btn {
 }
 
 /* UI Style support */
-.ui-modern {
+.ui-modern { 
   /* Modern UI styles */
   border-radius: 8px;
 }
@@ -432,7 +432,8 @@ button, .btn {
   --color-status-planned: #FFB347;
   --color-status-dropped: #FF2A6D;
   --color-status-onhold: #888888;
-
+  --color-accent-purple: #c3004e
+  
   /* Уровни пользователя */
   --color-level-1-10: #888888;
   --color-level-11-20: #3A86FF;
@@ -755,3 +756,69 @@ textarea::placeholder {
 .z-30 { z-index: 30; }
 .z-40 { z-index: 40; }
 .z-50 { z-index: 50; }
+
+/* Chat message reactions */
+.message-reactions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0.25rem !important;
+  margin-top: 0.35rem !important;
+  margin-bottom: 0.35rem !important;
+  max-width: calc(100% - 80px) !important;
+  padding-bottom: 0.25rem !important;
+}
+
+.message-reactions.has-many-reactions {
+  margin-bottom: 0.5rem !important;
+}
+
+/* Reaction item (badge) */
+.reaction-item,
+.reaction-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  padding: 0.25rem 0.5rem !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 1rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  font-size: 0.875rem !important;
+  color: #cccccc !important;
+}
+
+.reaction-item:hover,
+.reaction-badge:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Collapsed reactions - скрыты по умолчанию */
+.reaction-collapsed {
+  display: none !important;
+}
+
+/* При наведении на блок - показать все реакции */
+.message-reactions:hover .reaction-collapsed {
+  display: inline-flex !important;
+}
+
+/* Chat message text - белый цвет */
+.message-text {
+  color: #ffffff !important;
+}
+
+/* Message status - галочки */
+.message-status {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  margin-left: 0.25rem !important;
+  display: inline-block !important;
+}
+.message-status.sent {
+  color: #000000 !important;
+}
+.message-status.read {
+  color: #000000 !important;
+}

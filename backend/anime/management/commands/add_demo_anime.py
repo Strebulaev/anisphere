@@ -29,7 +29,7 @@ class Command(BaseCommand):
                 'title_ru': 'Демо Аниме 1',
                 'title_en': 'Demo Anime 1',
                 'description': 'Это демо-аниме для тестирования системы просмотра.',
-                'year': 2024,
+                'year': 2026,
                 'status': 'finished',
                 'episodes': 12,
                 'score': 8.5,

@@ -1,28 +1,45 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import HomeView from '@/views/HomeView.vue'
-import LoginView from '@/views/LoginView.vue'
-import RegisterView from '@/views/RegisterView.vue'
-import AnimeView from '@/views/AnimeView.vue'
-import AnimeDetailView from '@/views/AnimeDetailView.vue'
-import ProfileView from '@/views/ProfileView.vue'
-import FeedView from '@/views/FeedView.vue'
-import ChatsView from '@/views/ChatsView.vue'
-import PlaylistsView from '@/views/PlaylistsView.vue'
-import NotificationsView from '@/views/NotificationsView.vue'
-import SettingsView from '@/views/SettingsView.vue'
-import ReactorView from '@/views/ReactorView.vue'
-import CompetitionsView from '@/views/CompetitionsView.vue'
-import ChatDetailView from '@/views/ChatDetailView.vue'
-import SearchView from '@/views/SearchView.vue'
+import HomeView from '@/components/page/other/HomeView.vue'
+import LoginView from '@/components/page/auth/LoginView.vue'
+import RegisterView from '@/components/page/auth/RegisterView.vue'
+import AnimeView from '@/components/page/anime/AnimeView.vue'
+import AnimeDetailView from '@/components/page/anime/AnimeDetailView.vue'
+import AnimeWatchView from '@/components/page/anime/AnimeWatchView.vue'
+import OwnProfileView from '@/components/page/profile/OwnProfileView.vue'
+import UserProfileView from '@/components/page/profile/UserProfileView.vue'
+import FeedView from '@/components/page/feed/FeedView.vue'
+import ChatsView from '@/components/page/chats/ChatsView.vue'
+import PlaylistsView from '@/components/page/playlists/PlaylistsView.vue'
+import PlaylistDetailView from '@/components/page/playlists/PlaylistDetailView.vue'
+import MyPlaylistsView from '@/components/page/playlists/MyPlaylistsView.vue'
+import CreatePlaylistView from '@/components/page/playlists/CreatePlaylistView.vue'
+import PublicPlaylistsView from '@/components/page/playlists/PublicPlaylistsView.vue'
+import FavoritesView from '@/components/page/other/FavoritesView.vue'
+import NotificationsView from '@/components/page/notifications/NotificationsView.vue'
+import SettingsView from '@/components/page/settings/SettingsView.vue'
+import ReactorView from '@/components/page/feed/ReactorView.vue'
+import CompetitionsView from '@/components/page/admin/CompetitionsView.vue'
+import CompetitionResultsView from '@/components/page/admin/CompetitionResultsView.vue'
+import ChatDetailView from '@/components/page/chats/ChatDetailView.vue'
+import SearchView from '@/components/page/search/SearchView.vue'
+import KodikImport from '@/components/page/admin/KodikImport.vue'
+import UserLibraryView from '@/components/page/profile/UserLibraryView.vue'
+import OnlineUsers from '@/components/page/other/OnlineUsers.vue'
+import AchievementsView from '@/components/page/other/AchievementsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '',
+      name: 'anime',
+      component: AnimeView
+    },
+    {
       path: '/',
-      name: 'home',
-      component: HomeView
+      name: 'anime',
+      component: AnimeView
     },
     {
       path: '/login',
@@ -48,6 +65,12 @@ const router = createRouter({
       props: true
     },
     {
+      path: '/anime/:id/watch',
+      name: 'anime-watch',
+      component: AnimeWatchView,
+      props: true
+    },
+    {
       path: '/search',
       name: 'search',
       component: SearchView
@@ -55,7 +78,26 @@ const router = createRouter({
     {
       path: '/profile',
       name: 'profile',
-      component: ProfileView,
+      component: OwnProfileView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile/:id',
+      name: 'user-profile',
+      component: UserProfileView,
+      props: true,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/online',
+      name: 'online',
+      component: OnlineUsers,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/achievements',
+      name: 'achievements',
+      component: AchievementsView,
       meta: { requiresAuth: true }
     },
     {
@@ -77,21 +119,72 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/reactor/competitions/:id/results',
+      name: 'competition-results',
+      component: CompetitionResultsView,
+      props: true,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/chats',
       name: 'chats',
       component: ChatsView,
       meta: { requiresAuth: true }
     },
     {
+      path: '/chats/:id',
+      name: 'chat-detail',
+      component: ChatsView,
+      props: true,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/chat/:id',
       name: 'chat-detail-view',
-      component: ChatDetailView,
+      component: ChatsView,
       props: true
     },
     {
       path: '/playlists',
       name: 'playlists',
       component: PlaylistsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/playlists/create',
+      name: 'create-playlist',
+      component: CreatePlaylistView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/my-playlists',
+      name: 'my-playlists',
+      component: MyPlaylistsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/public-playlists',
+      name: 'public-playlists',
+      component: PublicPlaylistsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/favorites',
+      name: 'favorites',
+      component: FavoritesView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/library',
+      name: 'library',
+      component: UserLibraryView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/playlist/:id',
+      name: 'playlist-detail',
+      component: PlaylistDetailView,
+      props: true,
       meta: { requiresAuth: true }
     },
     {
@@ -105,13 +198,32 @@ const router = createRouter({
       name: 'settings',
       component: SettingsView,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/admin/kodik-import',
+      name: 'kodik-import',
+      component: KodikImport,
+      meta: { requiresAuth: true }
     }
   ]
 })
 
+// Check if running in local development mode
+const isLocalDevelopment = () => {
+  const hostname = window.location.hostname
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+}
+
 // Navigation guards
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  // Skip auth checks in local development mode
+  if (isLocalDevelopment()) {
+    console.log('🔓 Local development mode: Auth checks skipped')
+    next()
+    return
+  }
 
   // Check if route requires authentication
   if (to.matched.some(record => record.meta.requiresAuth)) {

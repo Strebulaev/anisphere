@@ -184,7 +184,6 @@ const handleImageError = () => {
   display: block;
 }
 
-/* Заглушка */
 .avatar-placeholder {
   width: 100%;
   height: 100%;

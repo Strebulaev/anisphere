@@ -1,7 +1,8 @@
+from time import timezone
 import redis
 import json
 from django.conf import settings
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import logging
 
 logger = logging.getLogger(__name__)
@@ -140,11 +141,111 @@ def publish_chat_created(chat_data: Dict[str, Any]) -> None:
     event_publisher.publish_event('chat_created', chat_data)
 
 
+def publish_chat_deleted(chat_id: int, chat_type: str, user_ids: list) -> None:
+    """Публикация события удаления чата"""
+    event_publisher.publish_event('chat_deleted', {
+        'chat_id': chat_id,
+        'chat_type': chat_type,
+        'affected_users': user_ids
+    })
+
+
+def publish_user_typing(chat_id: int, user_id: int, username: str, is_typing: bool) -> None:
+    """Публикация события печатания пользователя"""
+    event_publisher.publish_event('user_typing', {
+        'chat_id': chat_id,
+        'user_id': user_id,
+        'username': username,
+        'is_typing': is_typing
+    })
+
+
 def publish_message_sent(message_data: Dict[str, Any]) -> None:
     """Публикация события отправки сообщения"""
     event_publisher.publish_event('message_sent', message_data)
 
 
+def publish_new_message(message_data: Dict[str, Any], chat_id: int, chat_type: str, participant_ids: list) -> None:
+    """Публикация события нового сообщения для участников чата"""
+    event_publisher.publish_event('new_message', {
+        'message': message_data,
+        'chat_id': chat_id,
+        'chat_type': chat_type
+    }, target_users=participant_ids)
+
+
+def publish_messages_read(chat_id: int, chat_type: str, user_id: int, message_ids: List[int], read_at: str, target_users: Optional[list] = None) -> None:
+    """
+    Публикация события о прочтении сообщений
+    
+    Args:
+        chat_id: ID чата
+        chat_type: Тип чата ('private' или 'group')
+        user_id: ID пользователя, который прочитал сообщения
+        message_ids: Список ID прочитанных сообщений
+        read_at: Время прочтения
+        target_users: Кому отправить событие (для личных чатов - другому участнику)
+    """
+    event_publisher.publish_event('messages_read', {
+        'chat_id': chat_id,
+        'chat_type': chat_type,
+        'user_id': user_id,
+        'message_ids': message_ids,
+        'read_at': read_at
+    }, target_users=target_users)
+
+
+def publish_unread_updated(user_id: int, chat_id: int, unread_count: int) -> None:
+    """Публикация события обновления непрочитанных"""
+    event_publisher.publish_event('unread_updated', {
+        'user_id': user_id,
+        'chat_id': chat_id,
+        'unread_count': unread_count
+    }, target_users=[user_id])
+
+
 def publish_anime_updated(anime_data: Dict[str, Any]) -> None:
     """Публикация события обновления аниме"""
     event_publisher.publish_event('anime_updated', anime_data)
+
+
+def publish_settings_update(user_id: int, updated_fields: list) -> None:
+    """Публикация события обновления настроек пользователя"""
+    event_publisher.publish_event('settings_updated', {
+        'user_id': user_id,
+        'updated_fields': updated_fields
+    })
+
+
+def publish_avatar_update(user_id: int, avatar_url: Optional[str]) -> None:
+    """Публикация события обновления аватара пользователя"""
+    event_publisher.publish_event('avatar_updated', {
+        'user_id': user_id,
+        'avatar_url': avatar_url
+    })
+
+
+def publish_profile_update(user_id: int, profile_data: Dict[str, Any]) -> None:
+    """Публикация события обновления профиля пользователя"""
+    event_publisher.publish_event('profile_updated', {
+        'user_id': user_id,
+        'profile_data': profile_data
+    })
+
+
+def publish_password_changed(user_id: int) -> None:
+    """Публикация события смены пароля"""
+    event_publisher.publish_event('password_changed', {
+        'user_id': user_id,
+        'timestamp': timezone.now().isoformat()
+    })
+
+
+def publish_follow_event(follower_id: int, follower_username: str, target_user_id: int, action: str) -> None:
+    """Публикация события follow/unfollow"""
+    event_publisher.publish_event(action, {
+        'from_user_id': follower_id,
+        'from_username': follower_username,
+        'target_user_id': target_user_id,
+        'timestamp': timezone.now().isoformat()
+    }, target_users=[target_user_id])

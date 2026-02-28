@@ -5,8 +5,8 @@
     <div class="settings-group">
       <h3>🎭 Выбор темы</h3>
       <div class="theme-grid">
-        <label class="theme-option" :class="{ active: profileSettings.theme === 'light' }">
-          <input type="radio" v-model="profileSettings.theme" value="light">
+        <label class="theme-option" :class="{ active: currentTheme === 'light' }">
+          <input type="radio" :checked="currentTheme === 'light'" @change="setTheme('light')">
           <div class="theme-preview light">
             <div class="preview-header"></div>
             <div class="preview-content">
@@ -17,8 +17,8 @@
           <span>Светлая</span>
         </label>
 
-        <label class="theme-option" :class="{ active: profileSettings.theme === 'dark' }">
-          <input type="radio" v-model="profileSettings.theme" value="dark">
+        <label class="theme-option" :class="{ active: currentTheme === 'dark' }">
+          <input type="radio" :checked="currentTheme === 'dark'" @change="setTheme('dark')">
           <div class="theme-preview dark">
             <div class="preview-header"></div>
             <div class="preview-content">
@@ -29,8 +29,8 @@
           <span>Темная</span>
         </label>
 
-        <label class="theme-option" :class="{ active: profileSettings.theme === 'system' }">
-          <input type="radio" v-model="profileSettings.theme" value="system">
+        <label class="theme-option" :class="{ active: currentTheme === 'system' }">
+          <input type="radio" :checked="currentTheme === 'system'" @change="setTheme('system')">
           <div class="theme-preview system">
             <div class="preview-header gradient"></div>
             <div class="preview-content">
@@ -41,8 +41,8 @@
           <span>Как в системе</span>
         </label>
 
-        <label class="theme-option" :class="{ active: profileSettings.theme === 'blue' }">
-          <input type="radio" v-model="profileSettings.theme" value="blue">
+        <label class="theme-option" :class="{ active: currentTheme === 'blue' }">
+          <input type="radio" :checked="currentTheme === 'blue'" @change="setTheme('blue')">
           <div class="theme-preview blue">
             <div class="preview-header"></div>
             <div class="preview-content">
@@ -53,8 +53,8 @@
           <span>Синяя</span>
         </label>
 
-        <label class="theme-option" :class="{ active: profileSettings.theme === 'green' }">
-          <input type="radio" v-model="profileSettings.theme" value="green">
+        <label class="theme-option" :class="{ active: currentTheme === 'green' }">
+          <input type="radio" :checked="currentTheme === 'green'" @change="setTheme('green')">
           <div class="theme-preview green">
             <div class="preview-header"></div>
             <div class="preview-content">
@@ -73,9 +73,9 @@
         <button
           v-for="color in accentColors"
           :key="color.value"
-          :class="['color-option', { active: profileSettings.accent_color === color.value }]"
+          :class="['color-option', { active: accentColor === color.value }]"
           :style="{ backgroundColor: color.value }"
-          @click="profileSettings.accent_color = color.value"
+          @click="handleAccentColorChange(color.value)"
         ></button>
         <button class="color-option custom" @click="showCustomColor = true">
           🌈
@@ -87,7 +87,7 @@
           v-model="customColor"
           type="color"
           class="color-picker"
-          @change="profileSettings.accent_color = customColor"
+          @change="handleAccentColorChange(customColor)"
         >
         <button @click="showCustomColor = false" class="done-btn">Готово</button>
       </div>
@@ -271,14 +271,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import apiClient from '@/api/client'
+import * as settingsApi from '@/api/settings'
+import { useTheme } from '@/composables/useTheme'
+
+const { currentTheme, accentColor, setTheme, setAccentColor } = useTheme()
 
 // Reactive data
-const profileSettings = ref({
-  theme: 'system',
-  accent_color: '#0084FF'
-})
-
 const showCustomColor = ref(false)
 const customColor = ref('#0084FF')
 const useSharedBackground = ref(true)
@@ -306,18 +304,65 @@ const accentColors = [
   { value: '#FFD600' }  // Yellow
 ]
 
-const originalSettings = ref({ ...profileSettings.value })
+const originalSettings = ref({})
 
 const hasChanges = computed(() => {
-  return JSON.stringify(profileSettings.value) !== JSON.stringify(originalSettings.value)
+  return JSON.stringify({
+    currentTheme: currentTheme.value,
+    accentColor: accentColor.value,
+    useSharedBackground: useSharedBackground.value,
+    selectedBackground: selectedBackground.value,
+    selectedFont: selectedFont.value,
+    fontSize: fontSize.value,
+    lineSpacing: lineSpacing.value,
+    fontWeight: fontWeight.value,
+    smoothAnimations: smoothAnimations.value,
+    scrollEffects: scrollEffects.value,
+    parallaxEffect: parallaxEffect.value,
+    truncateNames: truncateNames.value,
+    compactLists: compactLists.value,
+    hideAvatars: hideAvatars.value,
+    showTimeEverywhere: showTimeEverywhere.value,
+    smallEmojis: smallEmojis.value,
+    highContrast: highContrast.value,
+  }) !== JSON.stringify(originalSettings.value)
 })
 
 // Methods
 const fetchSettings = async () => {
   try {
-    const response = await apiClient.get('/users/profile-settings/')
-    profileSettings.value = response.data
-    originalSettings.value = { ...response.data }
+    const data = await settingsApi.getThemeSettings()
+    useSharedBackground.value = data.use_shared_background ?? true
+    selectedBackground.value = data.custom_background || 'default'
+    smoothAnimations.value = data.smooth_animations ?? true
+    scrollEffects.value = data.scroll_effects ?? true
+    parallaxEffect.value = data.parallax_effect ?? false
+    truncateNames.value = data.truncate_names ?? true
+    compactLists.value = data.compact_lists ?? true
+    hideAvatars.value = data.hide_avatars ?? false
+    showTimeEverywhere.value = data.show_time_everywhere ?? false
+    smallEmojis.value = data.small_emojis ?? true
+    highContrast.value = data.high_contrast ?? false
+
+    originalSettings.value = {
+      currentTheme: currentTheme.value,
+      accentColor: accentColor.value,
+      useSharedBackground: useSharedBackground.value,
+      selectedBackground: selectedBackground.value,
+      selectedFont: selectedFont.value,
+      fontSize: fontSize.value,
+      lineSpacing: lineSpacing.value,
+      fontWeight: fontWeight.value,
+      smoothAnimations: smoothAnimations.value,
+      scrollEffects: scrollEffects.value,
+      parallaxEffect: parallaxEffect.value,
+      truncateNames: truncateNames.value,
+      compactLists: compactLists.value,
+      hideAvatars: hideAvatars.value,
+      showTimeEverywhere: showTimeEverywhere.value,
+      smallEmojis: smallEmojis.value,
+      highContrast: highContrast.value,
+    }
   } catch (error) {
     console.error('Error fetching theme settings:', error)
   }
@@ -325,17 +370,54 @@ const fetchSettings = async () => {
 
 const saveSettings = async () => {
   try {
-    await apiClient.put('/users/profile-settings/', profileSettings.value)
-    originalSettings.value = { ...profileSettings.value }
-    // Show success message
+    await settingsApi.updateThemeSettings({
+      use_shared_background: useSharedBackground.value,
+      custom_background: selectedBackground.value,
+      smooth_animations: smoothAnimations.value,
+      scroll_effects: scrollEffects.value,
+      parallax_effect: parallaxEffect.value,
+      truncate_names: truncateNames.value,
+      compact_lists: compactLists.value,
+      hide_avatars: hideAvatars.value,
+      show_time_everywhere: showTimeEverywhere.value,
+      small_emojis: smallEmojis.value,
+      high_contrast: highContrast.value,
+    })
+    originalSettings.value = {
+      currentTheme: currentTheme.value,
+      accentColor: accentColor.value,
+      useSharedBackground: useSharedBackground.value,
+      selectedBackground: selectedBackground.value,
+      selectedFont: selectedFont.value,
+      fontSize: fontSize.value,
+      lineSpacing: lineSpacing.value,
+      fontWeight: fontWeight.value,
+      smoothAnimations: smoothAnimations.value,
+      scrollEffects: scrollEffects.value,
+      parallaxEffect: parallaxEffect.value,
+      truncateNames: truncateNames.value,
+      compactLists: compactLists.value,
+      hideAvatars: hideAvatars.value,
+      showTimeEverywhere: showTimeEverywhere.value,
+      smallEmojis: smallEmojis.value,
+      highContrast: highContrast.value,
+    }
+    alert('Настройки сохранены!')
   } catch (error) {
     console.error('Error saving theme settings:', error)
+    alert('Ошибка при сохранении настроек')
   }
 }
 
 const previewSettings = () => {
-  // Apply settings temporarily for preview
+  // Применяем настройки временно для предпросмотра
+  setTheme(currentTheme.value as any)
+  setAccentColor(accentColor.value)
   console.log('Preview settings applied')
+}
+
+const handleAccentColorChange = async (color: string) => {
+  await setAccentColor(color)
 }
 
 onMounted(() => {
@@ -601,6 +683,7 @@ onMounted(() => {
   background: var(--hover-bg);
   border-radius: 3px;
   outline: none;
+  appearance: none;
   -webkit-appearance: none;
 }
 

@@ -2,11 +2,13 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     AnimeViewSet, GenresViewSet, proxy_video, 
-    SearchAPIView, ParserStatusAPIView, UpdatesAPIView
+    SearchAPIView, ParserStatusAPIView, UpdatesAPIView,
+    KodikImportView, KodikFiltersView, KodikTranslationsView,
+    CustomDubListView, CustomDubDetailView
 )
 
 router = DefaultRouter()
-router.register(r'anime', AnimeViewSet, basename='anime')
+router.register(r'', AnimeViewSet, basename='anime')
 router.register(r'genres', GenresViewSet, basename='genres')
 
 urlpatterns = [
@@ -17,9 +19,15 @@ urlpatterns = [
     path('parser/status/', ParserStatusAPIView.as_view(), name='parser-status'),
     path('updates/', UpdatesAPIView.as_view(), name='anime-updates'),
     
-    # Явно добавьте маршрут для get_video_link
-    path('anime/<int:pk>/get_video_link/', 
-         AnimeViewSet.as_view({'get': 'get_video_link'}), 
-         name='anime-get-video-link'),
+    # Kodik API endpoints
+    path('import-from-kodik/', KodikImportView.as_view(), name='import-from-kodik'),
+    path('kodik-filters/', KodikFiltersView.as_view(), name='kodik-filters'),
+    path('<int:pk>/kodik_translations/', KodikTranslationsView.as_view(), name='kodik-translations'),
+    
+    # Custom dubs endpoints
+    path('<int:anime_id>/custom_dubs/', CustomDubListView.as_view(), name='custom-dubs-list'),
+    path('<int:anime_id>/custom_dubs/<int:dub_id>/', CustomDubDetailView.as_view(), name='custom-dub-detail'),
+    
+    # Proxy endpoint
     path('proxy/video/', proxy_video, name='proxy-video'),
 ]

@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.contrib.sessions.models import Session
 from django.utils import timezone
@@ -11,6 +12,9 @@ from django.core.files import File
 
 
 class User(AbstractUser):
+    # Уникальный ID для публичного использования
+    unique_id = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name=_('Unique ID'))
+
     # Дополнительные поля профиля
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     bio = models.TextField(max_length=500, blank=True)
@@ -64,11 +68,55 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ==================== УВЕДОМЛЕНИЯ ====================
+    # Уведомления о лайках
+    notify_likes = models.BooleanField(default=True, verbose_name=_('Уведомления о лайках'))
+    # Уведомления о комментариях
+    notify_comments = models.BooleanField(default=True, verbose_name=_('Уведомления о комментариях'))
+    # Уведомления об упоминаниях (всегда включены)
+    notify_mentions = models.BooleanField(default=True, verbose_name=_('Уведомления об упоминаниях'))
+    # Email дайджест
+    email_digest = models.CharField(
+        max_length=20,
+        choices=[
+            ('never', 'Никогда'),
+            ('daily', 'Раз в день'),
+            ('weekly', 'Раз в неделю'),
+        ],
+        default='never',
+        verbose_name=_('Email дайджест')
+    )
+
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
 
     def __str__(self):
         return self.username or self.email or str(self.phone_number) or f'User {self.id}'
+
+    def generate_unique_id(self):
+        """Генерирует уникальный ID для пользователя"""
+        import random
+        import string
+
+        if self.unique_id:
+            return self.unique_id
+
+        # Генерируем уникальный ID
+        while True:
+            # Генерируем 12-значный ID
+            unique_id = ''.join(random.choices(string.digits, k=12))
+
+            # Проверяем уникальность
+            if not User.objects.filter(unique_id=unique_id).exists():
+                self.unique_id = unique_id
+                self.save(update_fields=['unique_id'])
+                return unique_id
+
+    def ensure_unique_id(self):
+        """Убеждается, что у пользователя есть уникальный ID"""
+        if not self.unique_id:
+            return self.generate_unique_id()
+        return self.unique_id
 
 
 class UserSession(models.Model):
@@ -182,9 +230,41 @@ class UserProfileSettings(models.Model):
             ('blue', 'Синяя'),
             ('green', 'Зеленая')
         ],
-        default='system'
+        default='dark'
     )
     accent_color = models.CharField(max_length=7, default='#0084FF')
+
+    # Настройки фона чатов
+    use_shared_background = models.BooleanField(default=True)
+    custom_background = models.URLField(blank=True)
+    background_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('default', 'По умолчанию'),
+            ('solid', 'Сплошной цвет'),
+            ('gradient', 'Градиент'),
+            ('image', 'Изображение')
+        ],
+        default='default'
+    )
+    solid_color = models.CharField(max_length=7, default='#1a1a1a')
+    gradient_colors = models.JSONField(default=dict)
+    custom_image = models.URLField(blank=True)
+    background_effects = models.JSONField(default=dict)
+
+    # Эффекты интерфейса
+    smooth_animations = models.BooleanField(default=True)
+    scroll_effects = models.BooleanField(default=True)
+    parallax_effect = models.BooleanField(default=False)
+    truncate_names = models.BooleanField(default=True)
+    compact_lists = models.BooleanField(default=True)
+    hide_avatars = models.BooleanField(default=False)
+    show_time_everywhere = models.BooleanField(default=False)
+    small_emojis = models.BooleanField(default=True)
+    high_contrast = models.BooleanField(default=False)
+
+    # Premium статус
+    is_premium = models.BooleanField(default=False)
 
     # Язык и регион
     language = models.CharField(max_length=10, default='ru')
@@ -442,9 +522,12 @@ class UserTheme(models.Model):
     # Цвета
     primary_color = models.CharField(max_length=7, default='#0084FF')
     secondary_color = models.CharField(max_length=7, default='#00C853')
-    background_color = models.CharField(max_length=7, default='#373737')
-    text_color = models.CharField(max_length=7, default='#000000')
-    secondary_text_color = models.CharField(max_length=7, default='#666666')
+    background_color = models.CharField(max_length=7, default='#1a1a1a')
+    card_background = models.CharField(max_length=7, default='#2d2d2d')
+    hover_background = models.CharField(max_length=7, default='#3d3d3d')
+    text_color = models.CharField(max_length=7, default='#ffffff')
+    secondary_text_color = models.CharField(max_length=7, default='#b0b0b0')
+    border_color = models.CharField(max_length=7, default='#404040')
 
     # Дополнительные настройки
     message_bubble_radius = models.IntegerField(default=12)  # px
@@ -481,11 +564,143 @@ class UserTheme(models.Model):
             '--primary-color': self.primary_color,
             '--secondary-color': self.secondary_color,
             '--background-color': self.background_color,
+            '--card-bg': self.card_background,
+            '--hover-bg': self.hover_background,
             '--text-color': self.text_color,
-            '--secondary-text-color': self.secondary_text_color,
+            '--secondary-text': self.secondary_text_color,
+            '--border-color': self.border_color,
             '--message-bubble-radius': f'{self.message_bubble_radius}px',
             '--chat-background-opacity': self.chat_background_opacity,
         }
+
+
+class FontSettings(models.Model):
+    """Настройки шрифтов пользователя"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='font_settings')
+
+    # Основные настройки
+    font_family = models.CharField(max_length=50, default='system')
+    font_size = models.IntegerField(default=14)  # px
+    interface_scale = models.IntegerField(default=100)  # %
+
+    # Межстрочный интервал
+    line_height = models.FloatField(default=1.5)
+
+    # Плотность
+    density = models.CharField(
+        max_length=20,
+        choices=[
+            ('compact', 'Компактный'),
+            ('comfortable', 'Удобный'),
+            ('spacious', 'Просторный'),
+        ],
+        default='comfortable'
+    )
+
+    # Дополнительные настройки
+    bold_headings = models.BooleanField(default=True)
+    increase_line_height = models.BooleanField(default=False)
+    monospace_code = models.BooleanField(default=True)
+    reduce_motion = models.BooleanField(default=False)
+    high_contrast_mode = models.BooleanField(default=False)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.font_family} {self.font_size}px"
+
+
+class SyncSettings(models.Model):
+    """Настройки синхронизации пользователя"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='sync_settings')
+
+    # Что синхронизировать
+    sync_playlists = models.BooleanField(default=True)
+    sync_settings = models.BooleanField(default=True)
+    sync_favorites = models.BooleanField(default=True)
+    sync_history = models.BooleanField(default=True)
+    sync_drafts = models.BooleanField(default=True)
+    sync_watchlist = models.BooleanField(default=True)
+
+    # Условия синхронизации
+    sync_condition = models.CharField(
+        max_length=20,
+        choices=[
+            ('auto', 'Автоматически'),
+            ('manual', 'Вручную'),
+            ('schedule', 'По расписанию'),
+        ],
+        default='auto'
+    )
+    sync_schedule = models.CharField(
+        max_length=20,
+        choices=[
+            ('hourly', 'Каждый час'),
+            ('daily', 'Каждый день'),
+            ('weekly', 'Каждую неделю'),
+        ],
+        default='daily'
+    )
+
+    # Ограничения
+    wifi_only = models.BooleanField(default=True)
+    charging_only = models.BooleanField(default=False)
+
+    # Статус
+    sync_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('idle', 'Ожидает'),
+            ('syncing', 'Синхронизация'),
+            ('synced', 'Синхронизировано'),
+            ('error', 'Ошибка'),
+        ],
+        default='idle'
+    )
+    last_sync_time = models.DateTimeField(null=True, blank=True)
+    next_sync_time = models.DateTimeField(null=True, blank=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.sync_condition}"
+
+
+class DataExport(models.Model):
+    """Запросы на экспорт данных"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='data_exports')
+
+    items = models.JSONField(default=list)  # Список типов данных для экспорта
+    format = models.CharField(
+        max_length=10,
+        choices=[
+            ('json', 'JSON'),
+            ('csv', 'CSV'),
+            ('html', 'HTML'),
+        ],
+        default='json'
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('processing', 'Обработка'),
+            ('ready', 'Готов'),
+            ('expired', 'Истёк'),
+            ('failed', 'Ошибка'),
+        ],
+        default='processing'
+    )
+
+    size = models.CharField(max_length=20, blank=True)  # Размер файла
+    download_url = models.URLField(blank=True)
+    file_path = models.CharField(max_length=255, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.user.username} - {self.format} ({self.status})"
 
 
 class ChatBackground(models.Model):
@@ -629,9 +844,96 @@ class UserAnalytics(models.Model):
     def get_most_active_day(self, since_date):
         """Получить самый активный день"""
         # Это можно реализовать более сложной логикой
-        return "Понедельник"  # Заглушка
+        return "нот релизед"  # Заглушка
 
     def get_top_chats(self, since_date, limit=5):
         """Получить топ чатов по активности"""
         # Это можно реализовать более сложной логикой
         return []  # Заглушка
+
+
+def validate_rating(value):
+    """Валидатор для оценки аниме"""
+    if value is not None and (value < 1 or value > 10):
+        raise ValidationError('Оценка должна быть от 1 до 10')
+
+
+class UserLibrary(models.Model):
+    """Библиотека аниме пользователя (Моя коллекция)"""
+
+    STATUS_CHOICES = [
+        ('started', 'В процессе'),
+        ('completed', 'Просмотрено'),
+        ('on_hold', 'Отложено'),
+        ('dropped', 'Брошено'),
+        ('planned', 'В планах'),
+        ('favorite', 'Любимое'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='library')
+    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='in_libraries')
+
+    # Статус просмотра
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
+
+    # Прогресс просмотра
+    current_episode = models.IntegerField(default=0)  # Текущий эпизод (0 = не начинал)
+    episodes_watched = models.IntegerField(default=0)  # Всего просмотрено эпизодов
+
+    # Оценка
+    rating = models.IntegerField(null=True, blank=True, validators=[validate_rating])
+
+    # Даты
+    added_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)  # Когда начал смотреть
+    completed_at = models.DateTimeField(null=True, blank=True)  # Когда закончил смотреть
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Метаданные
+    notes = models.TextField(blank=True)  # Заметки пользователя
+    is_favorite = models.BooleanField(default=False)  # В избранном (отдельно от статуса favorite)
+
+    # Статистика
+    rewatch_count = models.IntegerField(default=0)  # Сколько раз пересматривал
+
+    class Meta:
+        unique_together = ['user', 'anime']
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['user', 'added_at']),
+            models.Index(fields=['user', 'rating']),
+        ]
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.anime.title_ru} ({self.get_status_display()})"
+
+    def update_progress(self, episode):
+        """Обновить прогресс просмотра"""
+        self.current_episode = episode
+        self.episodes_watched = max(self.episodes_watched, episode)
+
+        # Обновляем статус в зависимости от прогресса
+        if self.status == 'planned' and episode > 0:
+            self.status = 'started'
+            if not self.started_at:
+                self.started_at = timezone.now()
+
+        # Проверяем, завершено ли аниме
+        if self.anime and episode >= self.anime.episodes_count:
+            self.status = 'completed'
+            if not self.completed_at:
+                self.completed_at = timezone.now()
+
+        self.save(update_fields=['current_episode', 'episodes_watched', 'status', 'started_at', 'completed_at', 'updated_at'])
+
+    def get_progress_percentage(self):
+        """Получить прогресс в процентах"""
+        if not self.anime or self.anime.episodes_count == 0:
+            return 0
+        return int((self.current_episode / self.anime.episodes_count) * 100)
+
+    def mark_as_favorite(self):
+        """Отметить как любимое"""
+        self.is_favorite = True
+        self.save(update_fields=['is_favorite', 'updated_at'])

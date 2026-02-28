@@ -97,6 +97,66 @@ class NotificationService:
             is_read=False
         ).update(is_read=True)
 
+    @staticmethod
+    def send_like_notification(post, liker):
+        """Отправляет уведомление о лайке поста"""
+        if post.author == liker:
+            return
+
+        notification_service.create_notification(
+            user=post.author,
+            notification_type='like',
+            title=f'{liker.username} лайкнул(а) ваш пост',
+            content=f'Пользователь @{liker.username} поставил лайк на ваш пост: "{post.text[:50]}..."',
+            content_object=post
+        )
+
+    @staticmethod
+    def send_repost_notification(post, reposter, comment=''):
+        """Отправляет уведомление о репосте"""
+        if post.author == reposter:
+            return
+
+        content = f'Пользователь @{reposter.username} сделал репост вашего поста'
+        if comment:
+            content += f' с комментарием: "{comment}"'
+
+        notification_service.create_notification(
+            user=post.author,
+            notification_type='repost',
+            title=f'{reposter.username} репостнул(а) ваш пост',
+            content=content,
+            content_object=post
+        )
+
+    @staticmethod
+    def send_follow_notification(follower, following):
+        """Отправляет уведомление о новой подписке"""
+        notification_service.create_notification(
+            user=following,
+            notification_type='follow',
+            title=f'{follower.username} подписался на вас',
+            content=f'Теперь @{follower.username} видит ваши посты в ленте'
+        )
+
+    @staticmethod
+    def send_comment_notification(comment):
+        """Отправляет уведомление о новом комментарии"""
+        post = comment.post
+        author = comment.author
+
+        # Не отправляем, если автор комментария - автор поста
+        if post.author == author:
+            return
+
+        notification_service.create_notification(
+            user=post.author,
+            notification_type='comment',
+            title=f'{author.username} прокомментировал(а) ваш пост',
+            content=f'"{comment.text[:50]}..."',
+            content_object=comment
+        )
+
 
 # Глобальный экземпляр сервиса
 notification_service = NotificationService()

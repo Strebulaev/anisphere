@@ -6,15 +6,15 @@
       <h3>👤 Кто может видеть мой номер телефона</h3>
       <div class="radio-group">
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_phone" value="everyone">
+          <input type="radio" v-model="privacySettings.who_can_see_phone" value="everyone" @change="onSettingsChange">
           <span class="radio-label">Все</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_phone" value="contacts">
+          <input type="radio" v-model="privacySettings.who_can_see_phone" value="contacts" @change="onSettingsChange">
           <span class="radio-label">Мои контакты</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_phone" value="nobody">
+          <input type="radio" v-model="privacySettings.who_can_see_phone" value="nobody" @change="onSettingsChange">
           <span class="radio-label">Никто</span>
         </label>
       </div>
@@ -24,15 +24,15 @@
       <h3>📧 Кто может видеть мой email</h3>
       <div class="radio-group">
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_email" value="everyone">
+          <input type="radio" v-model="privacySettings.who_can_see_email" value="everyone" @change="onSettingsChange">
           <span class="radio-label">Все</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_email" value="contacts">
+          <input type="radio" v-model="privacySettings.who_can_see_email" value="contacts" @change="onSettingsChange">
           <span class="radio-label">Мои контакты</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_email" value="nobody">
+          <input type="radio" v-model="privacySettings.who_can_see_email" value="nobody" @change="onSettingsChange">
           <span class="radio-label">Никто</span>
         </label>
       </div>
@@ -42,15 +42,15 @@
       <h3>🕐 Время последнего посещения</h3>
       <div class="radio-group">
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_last_seen" value="everyone">
+          <input type="radio" v-model="privacySettings.who_can_see_last_seen" value="everyone" @change="onSettingsChange">
           <span class="radio-label">Все</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_last_seen" value="contacts">
+          <input type="radio" v-model="privacySettings.who_can_see_last_seen" value="contacts" @change="onSettingsChange">
           <span class="radio-label">Мои контакты</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_last_seen" value="nobody">
+          <input type="radio" v-model="privacySettings.who_can_see_last_seen" value="nobody" @change="onSettingsChange">
           <span class="radio-label">Никто</span>
         </label>
       </div>
@@ -60,15 +60,15 @@
       <h3>📸 Фотография профиля</h3>
       <div class="radio-group">
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_profile_photo" value="everyone">
+          <input type="radio" v-model="privacySettings.who_can_see_profile_photo" value="everyone" @change="onSettingsChange">
           <span class="radio-label">Все</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_profile_photo" value="contacts">
+          <input type="radio" v-model="privacySettings.who_can_see_profile_photo" value="contacts" @change="onSettingsChange">
           <span class="radio-label">Мои контакты</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_see_profile_photo" value="nobody">
+          <input type="radio" v-model="privacySettings.who_can_see_profile_photo" value="nobody" @change="onSettingsChange">
           <span class="radio-label">Никто</span>
         </label>
       </div>
@@ -78,15 +78,15 @@
       <h3>📞 Звонки</h3>
       <div class="radio-group">
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_call" value="everyone">
+          <input type="radio" v-model="privacySettings.who_can_call" value="everyone" @change="onSettingsChange">
           <span class="radio-label">Все</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_call" value="contacts">
+          <input type="radio" v-model="privacySettings.who_can_call" value="contacts" @change="onSettingsChange">
           <span class="radio-label">Мои контакты</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_call" value="nobody">
+          <input type="radio" v-model="privacySettings.who_can_call" value="nobody" @change="onSettingsChange">
           <span class="radio-label">Никто</span>
         </label>
       </div>
@@ -96,15 +96,15 @@
       <h3>👥 Группы и каналы</h3>
       <div class="radio-group">
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_add_to_groups" value="everyone">
+          <input type="radio" v-model="privacySettings.who_can_add_to_groups" value="everyone" @change="onSettingsChange">
           <span class="radio-label">Все могут добавлять меня в группы</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_add_to_groups" value="contacts">
+          <input type="radio" v-model="privacySettings.who_can_add_to_groups" value="contacts" @change="onSettingsChange">
           <span class="radio-label">Только мои контакты</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="privacySettings.who_can_add_to_groups" value="nobody">
+          <input type="radio" v-model="privacySettings.who_can_add_to_groups" value="nobody" @change="onSettingsChange">
           <span class="radio-label">Никто</span>
         </label>
       </div>
@@ -114,16 +114,16 @@
       <h3>🔗 Пересылка сообщений</h3>
       <div class="setting-item">
         <label class="setting-label">
-          <input type="checkbox" v-model="privacySettings.allow_message_forwarding">
+          <input type="checkbox" v-model="privacySettings.allow_message_forwarding" @change="onSettingsChange">
           <span>Разрешить пересылку моих сообщений</span>
         </label>
         <div class="sub-settings" v-if="privacySettings.allow_message_forwarding">
           <label class="setting-label">
-            <input type="checkbox" v-model="forwardTextOnly">
+            <input type="checkbox" v-model="forwardTextOnly" @change="onSettingsChange">
             <span>Только текстовые сообщения</span>
           </label>
           <label class="setting-label">
-            <input type="checkbox" v-model="forwardWithAttribution">
+            <input type="checkbox" v-model="forwardWithAttribution" @change="onSettingsChange">
             <span>С указанием авторства</span>
           </label>
         </div>
@@ -134,15 +134,15 @@
       <h3>📍 Данные о местоположении</h3>
       <div class="radio-group">
         <label class="radio-option">
-          <input type="radio" v-model="locationSharing" value="auto">
+          <input type="radio" v-model="locationSharing" value="auto" @change="onSettingsChange">
           <span class="radio-label">Отправлять автоматически</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="locationSharing" value="manual">
+          <input type="radio" v-model="locationSharing" value="manual" @change="onSettingsChange">
           <span class="radio-label">Только при использовании функции</span>
         </label>
         <label class="radio-option">
-          <input type="radio" v-model="locationSharing" value="never">
+          <input type="radio" v-model="locationSharing" value="never" @change="onSettingsChange">
           <span class="radio-label">Никогда</span>
         </label>
       </div>
@@ -152,7 +152,7 @@
       <h3>🔍 Поиск по номеру телефона</h3>
       <div class="setting-item">
         <label class="setting-label">
-          <input type="checkbox" v-model="allowPhoneSearch">
+          <input type="checkbox" v-model="allowPhoneSearch" @change="onSettingsChange">
           <span>Показывать меня по номеру телефона</span>
         </label>
       </div>
@@ -162,26 +162,32 @@
       <h3>🎯 Рекламные рассылки</h3>
       <div class="setting-item">
         <label class="setting-label">
-          <input type="checkbox" v-model="allowTargetedAds">
+          <input type="checkbox" v-model="allowTargetedAds" @change="onSettingsChange">
           <span>Разрешить таргетированную рекламу</span>
         </label>
       </div>
     </div>
 
     <div class="settings-actions">
-      <button @click="saveSettings" :disabled="!hasChanges" class="save-btn">
-        💾 Сохранить настройки
+      <button @click="saveSettings" :disabled="!hasChanges || isSaving" class="save-btn">
+        {{ isSaving ? 'Сохранение...' : '💾 Сохранить настройки' }}
       </button>
+    </div>
+
+    <!-- Toast notification -->
+    <div v-if="toast.show" :class="['toast', toast.type]">
+      {{ toast.message }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import apiClient from '@/api/client'
+import * as settingsApi from '@/api/settings'
+import type { PrivacySettingsData } from '@/api/settings'
 
 // Reactive data
-const privacySettings = ref({
+const privacySettings = ref<PrivacySettingsData>({
   who_can_see_phone: 'contacts',
   who_can_see_email: 'contacts',
   who_can_see_last_seen: 'everyone',
@@ -197,33 +203,67 @@ const allowTargetedAds = ref(false)
 const forwardTextOnly = ref(false)
 const forwardWithAttribution = ref(true)
 
-const originalSettings = ref({ ...privacySettings.value })
+const originalSettings = ref<PrivacySettingsData>({ ...privacySettings.value })
+const isSaving = ref(false)
+
+const toast = ref({
+  show: false,
+  message: '',
+  type: 'success' as 'success' | 'error'
+})
 
 const hasChanges = computed(() => {
   return JSON.stringify(privacySettings.value) !== JSON.stringify(originalSettings.value) ||
          locationSharing.value !== 'manual' ||
          allowPhoneSearch.value !== true ||
-         allowTargetedAds.value !== false
+         allowTargetedAds.value !== false ||
+         forwardTextOnly.value !== false ||
+         forwardWithAttribution.value !== true
 })
 
 // Methods
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  toast.value = { show: true, message, type }
+  setTimeout(() => {
+    toast.value.show = false
+  }, 3000)
+}
+
 const fetchPrivacySettings = async () => {
   try {
-    const response = await apiClient.get('/users/privacy-settings/')
-    privacySettings.value = response.data
-    originalSettings.value = { ...response.data }
+    const data = await settingsApi.getPrivacySettings()
+    privacySettings.value = {
+      who_can_see_phone: data.who_can_see_phone || 'contacts',
+      who_can_see_email: data.who_can_see_email || 'contacts',
+      who_can_see_last_seen: (data as any).who_can_see_last_seen || 'everyone',
+      who_can_see_profile_photo: data.who_can_see_profile_photo || 'everyone',
+      who_can_call: data.who_can_call || 'everyone',
+      who_can_add_to_groups: data.who_can_add_to_groups || 'everyone',
+      allow_message_forwarding: data.allow_message_forwarding ?? true
+    }
+    originalSettings.value = { ...privacySettings.value }
   } catch (error) {
     console.error('Error fetching privacy settings:', error)
+    showToast('Ошибка загрузки настроек', 'error')
   }
 }
 
+const onSettingsChange = () => {
+  // Автосохранение при изменении настроек
+  saveSettings()
+}
+
 const saveSettings = async () => {
+  isSaving.value = true
   try {
-    await apiClient.put('/users/privacy-settings/', privacySettings.value)
+    await settingsApi.updatePrivacySettings(privacySettings.value)
     originalSettings.value = { ...privacySettings.value }
-    // Show success message
+    showToast('Настройки сохранены')
   } catch (error) {
     console.error('Error saving privacy settings:', error)
+    showToast('Ошибка сохранения настроек', 'error')
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -325,5 +365,36 @@ onMounted(() => {
 .save-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  z-index: 2000;
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast.success {
+  background: #4caf50;
+}
+
+.toast.error {
+  background: #f44336;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 </style>

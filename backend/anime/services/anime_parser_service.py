@@ -224,7 +224,7 @@ class AnimeParserService:
             return None
         
         try:
-            # Простой парсинг даты в формате "2024-01-15"
+            # Простой парсинг даты в формате "2026-01-15"
             from datetime import datetime
             return datetime.strptime(date_str.split()[0], '%Y-%m-%d').date()
         except (ValueError, IndexError):

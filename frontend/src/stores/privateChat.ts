@@ -11,6 +11,10 @@ interface PrivateChat {
     first_name: string
     last_name: string
     email: string
+    display_name?: string
+    avatar?: string
+    avatar_url?: string
+    is_online?: boolean
   }
   user2: {
     id: number
@@ -18,9 +22,32 @@ interface PrivateChat {
     first_name: string
     last_name: string
     email: string
+    display_name?: string
+    avatar?: string
+    avatar_url?: string
+    is_online?: boolean
+  }
+  // Alternative format with other_user
+  other_user?: {
+    id: number
+    username: string
+    display_name?: string
+    avatar?: string
+    avatar_url?: string
+    is_online?: boolean
   }
   created_at: string
   last_message_at: string | null
+  last_message?: {
+    id: number
+    text: string
+    created_at: string
+    sender: {
+      id: number
+      username: string
+    }
+  }
+  unread_count?: number
   user1_notifications: boolean
   user2_notifications: boolean
   user1_muted_until: string | null
@@ -94,7 +121,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
     loadingChats.value = true
     try {
       const response = await apiClient.get('/social/private-chats/')
-      chats.value = response.data
+      chats.value = response.data.results || response.data
     } catch (error) {
       console.error('Error loading private chats:', error)
       throw error

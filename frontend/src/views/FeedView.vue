@@ -1,471 +1,531 @@
 <template>
-  <div class="feed">
-    <div class="container">
-      <!-- Feed Header -->
-      <div class="feed-header">
-        <div class="feed-tabs">
-          <button
-            v-for="tab in feedTabs"
-            :key="tab.id"
-            @click="switchTab(tab.id)"
-            :class="['tab-btn', { active: activeTab === tab.id }]"
-          >
-            {{ tab.label }}
-          </button>
+  <div class="feed-page">
+    <!-- Feed Type Tabs -->
+    <div class="feed-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.type"
+        class="tab-btn"
+        :class="{ active: feedStore.feedType === tab.type }"
+        @click="switchFeed(tab.type)"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <!-- Create Post Button -->
+    <div class="create-post-area" @click="showCreatePost = true">
+      <img :src="currentUser?.avatar_url || '/img/default-avatar.svg'" class="user-avatar" alt="Аватар" />
+      <span class="placeholder">Что у вас нового?</span>
+      <button class="btn-post">Написать</button>
+    </div>
+
+    <!-- New Posts Indicator -->
+    <transition name="slide-down">
+      <button
+        v-if="feedStore.newPostsAvailable"
+        class="new-posts-indicator"
+        @click="reloadFeed"
+      >
+        ↑ Новые посты
+      </button>
+    </transition>
+
+    <!-- Feed Content -->
+    <div class="feed-list" ref="feedListRef">
+      <!-- Loading Skeleton -->
+      <template v-if="feedStore.loading">
+        <div v-for="i in 3" :key="i" class="post-skeleton">
+          <div class="skeleton-header">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-meta">
+              <div class="skeleton-line short"></div>
+              <div class="skeleton-line shorter"></div>
+            </div>
+          </div>
+          <div class="skeleton-body">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+          </div>
         </div>
-        <button @click="showCreatePost = true" class="btn-create-post">
-          ✏️ Создать пост
+      </template>
+
+      <!-- Posts -->
+      <template v-else-if="feedStore.posts.length > 0">
+        <PostCard
+          v-for="post in feedStore.posts"
+          :key="post.id"
+          :post="post"
+          :show-comments-preview="true"
+          @like="handleLike"
+          @dislike="handleDislike"
+          @comment="openComments"
+          @repost="openRepost"
+          @bookmark="handleBookmark"
+          @share="handleShare"
+          @menu="openPostMenu"
+        />
+      </template>
+
+      <!-- Empty State -->
+      <div v-else-if="feedStore.isEmpty" class="empty-feed">
+        <span class="empty-icon">📭</span>
+        <p class="empty-title">Лента пуста</p>
+        <p class="empty-desc">
+          <template v-if="feedStore.feedType === 'followers'">
+            Подписывайтесь на пользователей, чтобы видеть их посты
+          </template>
+          <template v-else>
+            Здесь пока нет постов
+          </template>
+        </p>
+        <button v-if="feedStore.feedType === 'followers'" class="btn-explore" @click="switchFeed('weighted')">
+          Смотреть популярное
         </button>
       </div>
 
-      <!-- Posts Feed -->
-      <div class="posts-list">
-        <div v-if="loading" class="loading">Загрузка...</div>
-        <div v-else-if="posts.length === 0" class="empty-state">
-          <p>Пока нет постов. Будьте первым!</p>
-        </div>
-        <div v-else>
-          <div v-for="post in posts" :key="post.id" class="post-card">
-            <div class="post-header">
-              <img :src="post.author_avatar || '/missing_original.jpg'" :alt="post.author_username" class="avatar">
-              <div class="post-info">
-                <strong>{{ post.author_username }}</strong>
-                <small>{{ formatDate(post.created_at) }}</small>
-              </div>
-            </div>
-            <div class="post-content">
-              <!-- Anime reference -->
-              <div v-if="post.anime" class="anime-reference">
-                <img :src="post.anime.poster_url" :alt="post.anime.title_ru" class="anime-mini-poster" />
-                <div class="anime-info">
-                  <span class="anime-title">{{ post.anime.title_ru }}</span>
-                  <span class="anime-link">🎬 Перейти к аниме</span>
-                </div>
-              </div>
-
-              <p v-if="post.text">{{ post.text }}</p>
-
-              <!-- Hashtags -->
-              <div v-if="post.hashtags && post.hashtags.length" class="hashtags">
-                <span v-for="hashtag in post.hashtags" :key="hashtag" class="hashtag">#{{ hashtag }}</span>
-              </div>
-
-              <img v-if="post.image_url" :src="post.image_url" class="post-image" />
-              <video v-if="post.video_url" :src="post.video_url" controls class="post-video"></video>
-            </div>
-            <div class="post-actions">
-              <button @click="toggleLike(post)" class="action-btn" :class="{ liked: post.is_liked }">
-                ❤️ {{ post.likes_count }}
-              </button>
-              <button @click="showComments(post)" class="action-btn">
-                💬 {{ post.comments_count }}
-              </button>
-              <button @click="repost(post)" class="action-btn">
-                🔄 {{ post.reposts_count }}
-              </button>
-            </div>
-          </div>
-        </div>
+      <!-- Error State -->
+      <div v-else-if="feedStore.error" class="error-state">
+        <span class="error-icon">⚠️</span>
+        <p>{{ feedStore.error }}</p>
+        <button class="btn-retry" @click="feedStore.loadFeed(feedStore.feedType)">Повторить</button>
       </div>
 
-      <!-- Create Post Modal -->
-      <div v-if="showCreatePost" class="modal-overlay" @click="showCreatePost = false">
-        <div class="modal-content" @click.stop>
-          <h3>Создать пост</h3>
-          <form @submit.prevent="createPost">
-            <textarea v-model="newPost.text" placeholder="Что нового?" required></textarea>
-            <div class="form-actions">
-              <button type="button" @click="showCreatePost = false">Отмена</button>
-              <button type="submit" :disabled="!newPost.text.trim()">Опубликовать</button>
-            </div>
-          </form>
+      <!-- Load More Trigger / Loader -->
+      <div ref="loadMoreRef" class="load-more-trigger">
+        <div v-if="feedStore.loadingMore" class="loading-more">
+          <div class="spinner"></div>
+        </div>
+        <div v-else-if="!feedStore.hasMore && feedStore.posts.length > 0" class="end-of-feed">
+          Вы посмотрели всё 👀
         </div>
       </div>
     </div>
+
+    <!-- Modals -->
+    <CreatePostModal
+      v-if="showCreatePost"
+      @close="showCreatePost = false"
+      @created="onPostCreated"
+    />
+
+    <CommentsModal
+      v-if="activeCommentPost"
+      :post="activeCommentPost"
+      @close="activeCommentPost = null"
+    />
+
+    <RepostModal
+      v-if="activeRepostPost"
+      :post="activeRepostPost"
+      @close="activeRepostPost = null"
+      @reposted="onReposted"
+    />
+
+    <PostMenu
+      v-if="activeMenuPost"
+      :post="activeMenuPost"
+      @close="activeMenuPost = null"
+      @delete="(p) => onPostDeleted(p.id)"
+      @hide="(p) => onPostHidden(p.id)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import apiClient from '@/api/client'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useFeedStore } from '@/stores/feed'
+import { useAuthStore } from '@/stores/auth'
+import PostCard from '@/components/feed/PostCard.vue'
+import CreatePostModal from '@/components/feed/CreatePostModal.vue'
+import CommentsModal from '@/components/feed/CommentsModal.vue'
+import RepostModal from '@/components/feed/RepostModal.vue'
+import PostMenu from '@/components/feed/PostMenu.vue'
+import type { FeedPost } from '@/api/feed'
 
-interface Post {
-  id: number
-  author_username: string
-  author_avatar: string | null
-  text: string
-  image_url: string | null
-  video_url: string | null
-  likes_count: number
-  comments_count: number
-  reposts_count: number
-  created_at: string
-  hashtags?: string[]
-  anime?: {
-    id: number
-    title_ru: string
-    poster_url: string
-  }
-  type?: 'post' | 'news' | 'recommendation'
-  is_liked?: boolean
-}
+type FeedType = 'weighted' | 'followers' | 'hot' | 'top' | 'trending'
 
-const posts = ref<Post[]>([])
-const loading = ref(true)
+const feedStore = useFeedStore()
+const authStore = useAuthStore()
+const currentUser = computed(() => authStore.user)
+
+const feedListRef = ref<HTMLElement | null>(null)
+const loadMoreRef = ref<HTMLElement | null>(null)
 const showCreatePost = ref(false)
-const newPost = ref({ text: '' })
+const activeCommentPost = ref<FeedPost | null>(null)
+const activeRepostPost = ref<FeedPost | null>(null)
+const activeMenuPost = ref<FeedPost | null>(null)
 
-// Feed tabs
-const activeTab = ref('feed')
-const feedTabs = [
-  { id: 'feed', label: 'Лента' },
-  { id: 'following', label: 'Подписки' },
-  { id: 'trending', label: 'Популярное' }
+const tabs = [
+  { type: 'weighted' as FeedType, label: 'Для вас' },
+  { type: 'followers' as FeedType, label: 'Подписки' },
+  { type: 'trending' as FeedType, label: 'Тренды' },
+  { type: 'hot' as FeedType, label: 'Горячее' },
+  { type: 'top' as FeedType, label: 'Топ' },
 ]
 
-const loadPosts = async () => {
-  loading.value = true
-  try {
-      let url = '/social/posts/'
-      if (activeTab.value === 'feed') {
-        url += '?feed=true'
-      } else if (activeTab.value === 'trending') {
-        url += '?ordering=-likes_count'
+// Infinite scroll observer
+let intersectionObserver: IntersectionObserver | null = null
+
+function setupInfiniteScroll() {
+  intersectionObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting && feedStore.hasMore && !feedStore.loadingMore) {
+        feedStore.loadMore()
       }
-    const response = await apiClient.get(url)
-    posts.value = response.data.results || response.data
-  } catch (error) {
-    console.error('Error loading posts:', error)
-  } finally {
-    loading.value = false
+    },
+    { rootMargin: '200px' }
+  )
+
+  if (loadMoreRef.value) {
+    intersectionObserver.observe(loadMoreRef.value)
   }
 }
 
-const switchTab = (tabId: string) => {
-  activeTab.value = tabId
-  loadPosts()
+async function switchFeed(type: FeedType) {
+  await feedStore.loadFeed(type, true)
 }
 
-const createPost = async () => {
-  try {
-    await apiClient.post('/social/posts/', newPost.value)
-    newPost.value.text = ''
-    showCreatePost.value = false
-    loadPosts() // Reload posts
-  } catch (error) {
-    console.error('Error creating post:', error)
+async function reloadFeed() {
+  feedStore.newPostsAvailable = false
+  await feedStore.loadFeed(feedStore.feedType, true)
+  feedListRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function handleLike(post: FeedPost) {
+  feedStore.likePost(post.id)
+}
+
+function handleDislike(post: FeedPost) {
+  feedStore.dislikePost(post.id)
+}
+
+function openComments(post: FeedPost) {
+  activeCommentPost.value = post
+}
+
+function openRepost(post: FeedPost) {
+  activeRepostPost.value = post
+}
+
+function handleBookmark(post: FeedPost) {
+  feedStore.bookmarkPost(post.id)
+}
+
+function handleShare(post: FeedPost) {
+  const url = `${window.location.origin}/post/${post.id}`
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url)
   }
 }
 
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleDateString('ru-RU')
+function openPostMenu(post: FeedPost) {
+  activeMenuPost.value = post
 }
 
-// Post interaction methods
-const toggleLike = async (post: Post) => {
-  try {
-    if (post.is_liked) {
-      // Unlike - assuming there's an API endpoint for this
-      await apiClient.delete(`/social/posts/${post.id}/unlike/`)
-      post.is_liked = false
-      post.likes_count--
-    } else {
-      // Like
-      await apiClient.post(`/social/posts/${post.id}/like/`)
-      post.is_liked = true
-      post.likes_count++
-    }
-  } catch (error) {
-    console.error('Error toggling like:', error)
-  }
+function onPostCreated(post: FeedPost) {
+  feedStore.addNewPost(post)
+  showCreatePost.value = false
 }
 
-const showComments = (post: Post) => {
-  // TODO: Open comments modal or navigate to post detail
-  alert(`Комментарии к посту ${post.id} будут реализованы позже`)
+function onReposted() {
+  activeRepostPost.value = null
 }
 
-const repost = async (post: Post) => {
-  try {
-    await apiClient.post(`/social/posts/${post.id}/repost/`)
-    post.reposts_count++
-    // Show success message
-  } catch (error) {
-    console.error('Error reposting:', error)
-  }
+function onPostDeleted(postId: number) {
+  feedStore.deletePost(postId)
+  activeMenuPost.value = null
 }
 
-onMounted(() => {
-  loadPosts()
+function onPostHidden(postId: number) {
+  feedStore.posts.splice(feedStore.posts.findIndex(p => p.id === postId), 1)
+  activeMenuPost.value = null
+}
+
+onMounted(async () => {
+  await feedStore.loadFeed('weighted')
+  setupInfiniteScroll()
+})
+
+onUnmounted(() => {
+  intersectionObserver?.disconnect()
 })
 </script>
 
 <style scoped>
-.feed {
-  padding: 2rem 0;
-}
-
-/* Feed Header */
-.feed-header {
+.feed-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 1rem;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 1rem;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-/* Feed Tabs */
+/* Tabs */
 .feed-tabs {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+
+.feed-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-btn {
-  background: none;
-  border: none;
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #6b7280;
+  background: #1a1a1a;
+  color: #888;
+  border: 1px solid #2a2a2a;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  font-size: 0.875rem;
+  white-space: nowrap;
   transition: all 0.2s;
-  border-radius: 6px;
-}
-
-.tab-btn.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
-  background: #111111;
 }
 
 .tab-btn:hover {
-  color: #374151;
-  background: #222222;
+  background: #222;
+  color: #aaa;
 }
 
-.create-post-card {
-  background: #111111;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+.tab-btn.active {
+  background: #667eea;
+  color: #fff;
+  border-color: #667eea;
 }
 
-.btn-create-post {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #111111;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-create-post:hover {
-  background: #222222;
-}
-
-.posts-list {
-  margin-top: 1rem;
-}
-
-.post-card {
-  background: #111111;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.post-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.post-info strong {
-  display: block;
-  color: #1f2937;
-}
-
-.post-info small {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-.post-content {
-  margin-bottom: 1rem;
-}
-
-.post-content p {
-  margin-bottom: 1rem;
-  line-height: 1.6;
-}
-
-.post-image, .post-video {
-  max-width: 100%;
-  border-radius: 8px;
-}
-
-.post-actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 6px;
-  transition: background-color 0.2s;
-}
-
-.action-btn:hover {
-  background: #222222;
-}
-
-.action-btn.liked {
-  color: #ef4444;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  width: 90%;
-  max-width: 500px;
-}
-
-.modal-content h3 {
-  margin-bottom: 1rem;
-}
-
-.modal-content textarea {
-  width: 100%;
-  min-height: 120px;
-  padding: 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  resize: vertical;
-  margin-bottom: 1rem;
-}
-
-.form-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-}
-
-.form-actions button {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: white;
-  cursor: pointer;
-}
-
-.form-actions button[type="submit"] {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
-.form-actions button[type="submit"]:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.loading, .empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: #6b7280;
-}
-
-/* Anime reference */
-.anime-reference {
+/* Create Post Area */
+.create-post-area {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: #f9fafb;
-  border-radius: 8px;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  border: 1px solid #e5e7eb;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
 }
 
-.anime-mini-poster {
-  width: 40px;
-  height: 60px;
+.create-post-area:hover {
+  border-color: #667eea;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   object-fit: cover;
-  border-radius: 4px;
+  flex-shrink: 0;
 }
 
-.anime-info {
+.placeholder {
+  flex: 1;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.btn-post {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-post:hover {
+  background: #5a6fd6;
+}
+
+/* New Posts Indicator */
+.new-posts-indicator {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.5rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  align-self: center;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transition: transform 0.2s;
+}
+
+.new-posts-indicator:hover {
+  transform: translateY(-1px);
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* Feed List */
+.feed-list {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 1rem;
 }
 
-.anime-title {
-  font-weight: 500;
-  color: #1f2937;
-  font-size: 0.875rem;
+/* Skeletons */
+.post-skeleton {
+  background: #111;
+  border-radius: 12px;
+  padding: 1rem;
 }
 
-.anime-link {
-  font-size: 0.75rem;
-  color: #3b82f6;
-  cursor: pointer;
-}
-
-.anime-link:hover {
-  text-decoration: underline;
-}
-
-/* Hashtags */
-.hashtags {
+.skeleton-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
-.hashtag {
-  color: #3b82f6;
-  font-size: 0.875rem;
+.skeleton-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #1f1f1f;
+  animation: pulse 1.5s infinite;
+  flex-shrink: 0;
+}
+
+.skeleton-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.skeleton-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-line {
+  height: 14px;
+  background: #1f1f1f;
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+
+.skeleton-line.short {
+  width: 60%;
+}
+
+.skeleton-line.shorter {
+  width: 40%;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Empty State */
+.empty-feed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3rem;
+}
+
+.empty-title {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.empty-desc {
+  color: #666;
+  margin: 0;
+}
+
+.btn-explore {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+/* Error State */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  color: #888;
+}
+
+.error-icon {
+  font-size: 2rem;
+}
+
+.btn-retry {
+  background: #333;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
   cursor: pointer;
 }
 
-.hashtag:hover {
-  text-decoration: underline;
+/* Load More */
+.load-more-trigger {
+  padding: 1rem 0;
+  display: flex;
+  justify-content: center;
+}
+
+.loading-more {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #333;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.end-of-feed {
+  color: #555;
+  font-size: 0.875rem;
+  padding: 1rem;
 }
 </style>

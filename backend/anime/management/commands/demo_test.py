@@ -13,7 +13,7 @@ class Command(BaseCommand):
             'title_ru': 'Тест Аниме',
             'title_en': 'Test Anime',
             'description': 'Demo description for testing',
-            'year': 2024,
+            'year': 2026,
             'status': 'ongoing',
             'episodes': 12,
             'score': 8.5,

@@ -4,8 +4,22 @@ from django.utils import timezone
 from .models import (
     User, UserSession, UserSettings, UserProfileSettings, TwoFactorAuth,
     ActiveSession, NotificationSettings, PrivacySettings, UserTheme,
-    ChatBackground, EmailLog, MessageNotification, UserAnalytics
+    ChatBackground, EmailLog, MessageNotification, UserAnalytics, UserLibrary
 )
+
+
+class UserSimpleSerializer(serializers.ModelSerializer):
+    """Упрощенный сериализатор пользователя для списка заблокированных"""
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'display_name', 'avatar_url']
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            return obj.avatar.url
+        return None
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -14,14 +28,14 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 'display_name',
+            'id', 'unique_id', 'username', 'email', 'first_name', 'last_name', 'display_name',
             'nickname', 'phone_number', 'avatar', 'bio', 'favorite_genres',
             'website', 'vk_profile', 'telegram', 'email_verified',
             'phone_verified', 'two_factor_enabled', 'is_online', 'last_login',
             'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges',
             'posts_count', 'comments_count', 'likes_received', 'playlists_count'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges', 'posts_count', 'comments_count', 'likes_received', 'playlists_count']
+        read_only_fields = ['id', 'unique_id', 'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges', 'posts_count', 'comments_count', 'likes_received', 'playlists_count']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -215,15 +229,198 @@ class TwoFactorSetupSerializer(serializers.Serializer):
 
 
 class UserProfileSettingsSerializer(serializers.ModelSerializer):
+    """Полный сериализатор настроек профиля пользователя"""
+    user_display_name = serializers.CharField(source='user.display_name', read_only=True)
+    user_nickname = serializers.CharField(source='user.nickname', read_only=True)
+    user_avatar = serializers.ImageField(source='user.avatar', read_only=True)
+    user_bio = serializers.CharField(source='user.bio', read_only=True)
+    user_favorite_genres = serializers.JSONField(source='user.favorite_genres', read_only=True)
+    user_website = serializers.URLField(source='user.website', read_only=True)
+    user_vk_profile = serializers.CharField(source='user.vk_profile', read_only=True)
+    user_telegram = serializers.CharField(source='user.telegram', read_only=True)
+    user_phone_number = serializers.CharField(source='user.phone_number', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+
     class Meta:
         model = UserProfileSettings
         fields = '__all__'
         read_only_fields = ['user', 'updated_at']
 
+    def to_representation(self, instance):
+        """Преобразуем имена полей для API"""
+        data = super().to_representation(instance)
+        # Добавляем поля для совместимости с frontend
+        data['notification_sound'] = instance.notification_sound
+        data['vibration'] = instance.vibration
+        data['preview_content'] = instance.preview_content
+        return data
+
+    def validate_theme(self, value):
+        """Валидация темы"""
+        valid_themes = ['light', 'dark', 'system', 'blue', 'green']
+        if value not in valid_themes:
+            raise serializers.ValidationError(f"Недопустимая тема. Допустимые значения: {', '.join(valid_themes)}")
+        return value
+
+    def validate_accent_color(self, value):
+        """Валидация акцентного цвета"""
+        import re
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', value):
+            raise serializers.ValidationError("Недопустимый формат цвета. Используйте формат #RRGGBB")
+        return value
+
+    def validate_language(self, value):
+        """Валидация языка"""
+        valid_languages = ['ru', 'en', 'uk', 'be', 'kk']
+        if value not in valid_languages:
+            raise serializers.ValidationError(f"Недопустимый язык. Допустимые значения: {', '.join(valid_languages)}")
+        return value
+
+    def validate_timezone(self, value):
+        """Валидация часового пояса"""
+        try:
+            import pytz
+            pytz.timezone(value)
+        except pytz.exceptions.UnknownTimeZoneError:
+            raise serializers.ValidationError(f"Недопустимый часовой пояс: {value}")
+        return value
+
+
+class NotificationSettingsSerializer(serializers.ModelSerializer):
+    """Полный сериализатор настроек уведомлений"""
+    enabled = serializers.BooleanField(required=False)
+    sound_enabled = serializers.BooleanField(required=False)
+    vibration_enabled = serializers.BooleanField(required=False)
+    preview_enabled = serializers.BooleanField(required=False)
+
+    push_sound_enabled = serializers.BooleanField(required=False, source='push_sound')
+    push_vibration_enabled = serializers.BooleanField(required=False, source='push_vibration')
+    push_preview_enabled = serializers.BooleanField(required=False, source='push_preview')
+
+    class Meta:
+        model = NotificationSettings
+        fields = '__all__'
+        read_only_fields = ['user', 'updated_at']
+
+    def to_representation(self, instance):
+        """Преобразуем имена полей для API"""
+        data = super().to_representation(instance)
+        # Добавляем поля для совместимости с frontend
+        data['enabled'] = True  # Всегда включен, если есть настройки
+        data['sound_enabled'] = True  # Можно расширить логику
+        data['vibration_enabled'] = instance.push_vibration if hasattr(instance, 'push_vibration') else True
+        data['preview_enabled'] = instance.push_preview if hasattr(instance, 'push_preview') else True
+        data['push_sound_enabled'] = instance.push_sound if hasattr(instance, 'push_sound') else True
+        data['push_vibration_enabled'] = instance.push_vibration if hasattr(instance, 'push_vibration') else True
+        data['push_preview_enabled'] = instance.push_preview if hasattr(instance, 'push_preview') else True
+        data['do_not_disturb_enabled'] = instance.do_not_disturb_start is not None and instance.do_not_disturb_end is not None
+        return data
+
+    def validate_email_frequency(self, value):
+        """Валидация частоты email"""
+        valid_frequencies = ['immediately', 'hourly', 'daily', 'weekly']
+        if value not in valid_frequencies:
+            raise serializers.ValidationError(f"Недопустимая частота. Допустимые значения: {', '.join(valid_frequencies)}")
+        return value
+
+    def validate(self, data):
+        """Проверка периода не беспокоить"""
+        do_not_disturb_start = data.get('do_not_disturb_start', self.instance.do_not_disturb_start if self.instance else None)
+        do_not_disturb_end = data.get('do_not_disturb_end', self.instance.do_not_disturb_end if self.instance else None)
+
+        if do_not_disturb_start and do_not_disturb_end:
+            if do_not_disturb_start >= do_not_disturb_end:
+                raise serializers.ValidationError("Время начала должно быть раньше времени окончания")
+
+        return data
+
+
+class PrivacySettingsSerializer(serializers.ModelSerializer):
+    """Полный сериализатор настроек приватности"""
+    blocked_users_list = serializers.SerializerMethodField()
+
+    show_online_status = serializers.BooleanField(required=False)
+    show_last_seen = serializers.BooleanField(required=False)
+    show_typing_status = serializers.BooleanField(required=False)
+    allow_calls = serializers.BooleanField(required=False)
+    allow_group_invites = serializers.BooleanField(required=False)
+
+    class Meta:
+        model = PrivacySettings
+        fields = '__all__'
+        read_only_fields = ['user']
+
+    def to_representation(self, instance):
+        """Преобразуем имена полей для API"""
+        data = super().to_representation(instance)
+        # Добавляем поля из UserProfileSettings для совместимости
+        try:
+            profile_settings = instance.user.profile_settings
+            data['show_online_status'] = profile_settings.show_online_status
+            data['show_last_seen'] = profile_settings.show_last_seen
+            data['show_typing_status'] = profile_settings.show_typing_status
+            data['allow_calls'] = profile_settings.allow_calls
+            data['allow_group_invites'] = profile_settings.allow_group_invites
+        except:
+            # Если профильные настройки не существуют, используем значения по умолчанию
+            data['show_online_status'] = True
+            data['show_last_seen'] = True
+            data['show_typing_status'] = True
+            data['allow_calls'] = True
+            data['allow_group_invites'] = True
+        return data
+
+    def get_blocked_users_list(self, obj):
+        """Получить список заблокированных пользователей"""
+        return UserSimpleSerializer(obj.blocked_users.all(), many=True).data
+
+    def validate_who_can_see_phone(self, value):
+        """Валидация настройки видимости телефона"""
+        valid_values = ['everyone', 'contacts', 'nobody']
+        if value not in valid_values:
+            raise serializers.ValidationError(f"Недопустимое значение. Допустимые: {', '.join(valid_values)}")
+        return value
+
+    def validate_who_can_see_email(self, value):
+        """Валидация настройки видимости email"""
+        valid_values = ['everyone', 'contacts', 'nobody']
+        if value not in valid_values:
+            raise serializers.ValidationError(f"Недопустимое значение. Допустимые: {', '.join(valid_values)}")
+        return value
+
+    def validate_who_can_see_last_seen(self, value):
+        """Валидация настройки видимости последнего визита"""
+        valid_values = ['everyone', 'contacts', 'nobody']
+        if value not in valid_values:
+            raise serializers.ValidationError(f"Недопустимое значение. Допустимые: {', '.join(valid_values)}")
+        return value
+
+    def validate_who_can_see_profile_photo(self, value):
+        """Валидация настройки видимости фото профиля"""
+        valid_values = ['everyone', 'contacts', 'nobody']
+        if value not in valid_values:
+            raise serializers.ValidationError(f"Недопустимое значение. Допустимые: {', '.join(valid_values)}")
+        return value
+
+    def validate_who_can_call(self, value):
+        """Валидация настройки звонков"""
+        valid_values = ['everyone', 'contacts', 'nobody']
+        if value not in valid_values:
+            raise serializers.ValidationError(f"Недопустимое значение. Допустимые: {', '.join(valid_values)}")
+        return value
+
+    def validate_who_can_add_to_groups(self, value):
+        """Валидация настройки добавления в группы"""
+        valid_values = ['everyone', 'contacts', 'nobody']
+        if value not in valid_values:
+            raise serializers.ValidationError(f"Недопустимое значение. Допустимые: {', '.join(valid_values)}")
+        return value
+
 
 class TwoFactorAuthSerializer(serializers.ModelSerializer):
     qr_code_url = serializers.SerializerMethodField()
     has_backup_codes = serializers.SerializerMethodField()
+    backup_codes_count = serializers.SerializerMethodField()
 
     class Meta:
         model = TwoFactorAuth
@@ -240,6 +437,27 @@ class TwoFactorAuthSerializer(serializers.ModelSerializer):
 
     def get_has_backup_codes(self, obj):
         return len(obj.backup_codes) > 0
+
+    def get_backup_codes_count(self, obj):
+        return len(obj.backup_codes)
+
+
+class TwoFactorSettingsSerializer(serializers.Serializer):
+    """Сериализатор для обновления настроек 2FA"""
+    require_on_new_device = serializers.BooleanField(required=False)
+    remember_device_days = serializers.IntegerField(required=False, min_value=1, max_value=365)
+    email_enabled = serializers.BooleanField(required=False)
+    phone_number = serializers.CharField(required=False, allow_blank=True, max_length=20)
+
+    def validate_phone_number(self, value):
+        """Валидация номера телефона"""
+        if value:
+            user = self.context['request'].user
+            if not user.phone_verified:
+                raise serializers.ValidationError(
+                    "Необходимо подтвердить номер телефона для использования SMS 2FA"
+                )
+        return value
 
 
 class ActiveSessionSerializer(serializers.ModelSerializer):
@@ -330,3 +548,205 @@ class UserSimpleSerializer(serializers.ModelSerializer):
         """Определяем онлайн статус через Redis"""
         from core.online_status import online_status
         return online_status.is_online(obj.id)
+
+
+class UserLibrarySerializer(serializers.ModelSerializer):
+    """Сериализатор библиотеки аниме пользователя"""
+    anime_title_ru = serializers.CharField(source='anime.title_ru', read_only=True)
+    anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
+    anime_poster = serializers.ImageField(source='anime.poster', read_only=True)
+    anime_episodes_count = serializers.IntegerField(source='anime.episodes_count', read_only=True)
+    anime_status_display = serializers.CharField(source='get_status_display', read_only=True)
+    progress_percentage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserLibrary
+        fields = [
+            'id', 'user', 'anime', 'anime_title_ru', 'anime_title_en', 'anime_poster',
+            'anime_episodes_count', 'status', 'anime_status_display',
+            'current_episode', 'episodes_watched', 'rating',
+            'added_at', 'started_at', 'completed_at', 'updated_at',
+            'notes', 'is_favorite', 'rewatch_count', 'progress_percentage'
+        ]
+        read_only_fields = ['id', 'user', 'added_at', 'updated_at']
+
+    def get_progress_percentage(self, obj):
+        return obj.get_progress_percentage()
+
+
+class UserLibraryCreateSerializer(serializers.ModelSerializer):
+    """Сериализатор для добавления аниме в библиотеку"""
+
+    class Meta:
+        model = UserLibrary
+        fields = ['anime', 'status', 'rating', 'notes', 'is_favorite']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        anime = validated_data['anime']
+
+        # Проверяем, есть ли уже в библиотеке
+        library_item, created = UserLibrary.objects.get_or_create(
+            user=user,
+            anime=anime,
+            defaults=validated_data
+        )
+
+        if not created:
+            # Если уже есть, обновляем
+            for key, value in validated_data.items():
+                if key != 'anime':
+                    setattr(library_item, key, value)
+            library_item.save()
+
+        return library_item
+
+
+class UserLibraryUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для обновления библиотеки"""
+
+    class Meta:
+        model = UserLibrary
+        fields = ['status', 'current_episode', 'episodes_watched', 'rating', 'notes', 'is_favorite']
+
+    def update(self, instance, validated_data):
+        # Обновляем статус если указан
+        if 'status' in validated_data:
+            instance.status = validated_data['status']
+            # Обновляем даты начала/завершения
+            if instance.status == 'started' and not instance.started_at:
+                instance.started_at = timezone.now()
+            if instance.status == 'completed' and not instance.completed_at:
+                instance.completed_at = timezone.now()
+
+        # Обновляем прогресс
+        if 'current_episode' in validated_data:
+            instance.current_episode = validated_data['current_episode']
+            instance.episodes_watched = max(instance.episodes_watched, validated_data['current_episode'])
+
+        # Обновляем остальные поля
+        for attr, value in validated_data.items():
+            if attr not in ['status', 'current_episode']:
+                setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+
+
+class UserLibraryProgressSerializer(serializers.Serializer):
+    """Сериализатор для обновления прогресса просмотра"""
+    episode = serializers.IntegerField(min_value=0)
+
+    def validate_episode(self, value):
+        """Проверяем номер эпизода"""
+        return value
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Сериализатор для смены пароля"""
+    old_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, required=True)
+
+    def validate_old_password(self, value):
+        """Проверка текущего пароля"""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Текущий пароль неверен")
+        return value
+
+    def validate_new_password(self, value):
+        """Проверка сложности нового пароля"""
+        if len(value) < 8:
+            raise serializers.ValidationError("Пароль должен содержать минимум 8 символов")
+
+        # Проверка на наличие букв и цифр
+        has_letter = any(c.isalpha() for c in value)
+        has_digit = any(c.isdigit() for c in value)
+
+        if not has_letter:
+            raise serializers.ValidationError("Пароль должен содержать минимум одну букву")
+        if not has_digit:
+            raise serializers.ValidationError("Пароль должен содержать минимум одну цифру")
+
+        # Проверка на совпадение с username или email
+        user = self.context['request'].user
+        if user.username.lower() in value.lower():
+            raise serializers.ValidationError("Пароль не должен содержать ваш логин")
+        if user.email and user.email.split('@')[0].lower() in value.lower():
+            raise serializers.ValidationError("Пароль не должен содержать часть вашего email")
+
+        return value
+
+    def validate(self, attrs):
+        """Проверка совпадения паролей"""
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({
+                "confirm_password": "Пароли не совпадают"
+            })
+
+        # Проверка, что новый пароль отличается от старого
+        if attrs['old_password'] == attrs['new_password']:
+            raise serializers.ValidationError({
+                "new_password": "Новый пароль должен отличаться от текущего"
+            })
+
+        return attrs
+
+    def save(self):
+        """Смена пароля"""
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+
+        # Логируем смену пароля
+        from .models import SecurityLog
+        SecurityLog.objects.create(
+            user=user,
+            action='password_changed',
+            ip_address=self.get_client_ip(self.context['request']),
+            user_agent=self.context['request'].META.get('HTTP_USER_AGENT', '')
+        )
+
+        # Публикуем событие в Redis
+        from core.redis_events import publish_password_changed
+        publish_password_changed(user.id)
+
+        # Завершаем все другие сессии пользователя
+        self.terminate_other_sessions(user)
+
+        return user
+
+    def get_client_ip(self, request):
+        """Получить IP адрес клиента"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+    def terminate_other_sessions(self, user):
+        """Завершить все сессии кроме текущей"""
+        from django.contrib.sessions.models import Session
+        from django.contrib.sessions.middleware import get_current_session_key
+
+        current_key = get_current_session_key()
+
+        # Находим все сессии пользователя
+        user_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+        sessions_to_delete = []
+
+        for session in user_sessions:
+            session_data = session.get_decoded()
+            if ('_auth_user_id' in session_data and
+                str(user.id) == session_data['_auth_user_id'] and
+                session.session_key != current_key):
+
+                sessions_to_delete.append(session.session_key)
+
+        # Удаляем сессии
+        Session.objects.filter(session_key__in=sessions_to_delete).delete()
+
+        from .models import ActiveSession
+        ActiveSession.objects.filter(session_key__in=sessions_to_delete).delete()

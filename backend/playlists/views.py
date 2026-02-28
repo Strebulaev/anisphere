@@ -4,13 +4,15 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.db import transaction
-from django.db.models import Q
-
+from django.db import transaction, models
+from django.db.models import Q, Count, Max
+from rest_framework.pagination import PageNumberPagination
+from .serializers import FeedPostSerializer
 from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist
 from .serializers import (
-    PlaylistSerializer, PlaylistCreateSerializer,
-    PlaylistItemSerializer, PlaylistItemCreateSerializer,
+    PlaylistSerializer, PlaylistCreateSerializer, PlaylistUpdateSerializer,
+    PlaylistItemSerializer, PlaylistItemCreateSerializer, PlaylistItemUpdateSerializer,
+    ReorderItemsSerializer,
     FavoriteAnimeSerializer, FavoritePlaylistSerializer,
     AddToPlaylistSerializer
 )
@@ -59,30 +61,34 @@ def parse_anime_link(url):
 
 
 class PlaylistViewSet(viewsets.ModelViewSet):
+    """ViewSet для плейлистов"""
     queryset = Playlist.objects.all()
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_public', 'user']
 
     def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action == 'create':
             return PlaylistCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return PlaylistUpdateSerializer
         return PlaylistSerializer
 
     def get_permissions(self):
+        """Разрешения"""
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated()]
         return [AllowAny()]
 
     def get_queryset(self):
-        queryset = Playlist.objects.all()
+        """Фильтрация плейлистов"""
+        queryset = Playlist.objects.select_related('user').prefetch_related('items__anime')
 
-        # Фильтрация по типу плейлиста
         if self.action == 'list':
             if self.request.user.is_authenticated:
                 # Показываем свои + публичные
                 queryset = queryset.filter(
-                    is_public=True
-                ) | queryset.filter(user=self.request.user)
+                    Q(is_public=True) | Q(user=self.request.user)
+                ).distinct()
             else:
                 queryset = queryset.filter(is_public=True)
 
@@ -90,6 +96,8 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         search = self.request.query_params.get('search')
         genre = self.request.query_params.get('genre')
         year = self.request.query_params.get('year')
+        status = self.request.query_params.get('status')
+        kind = self.request.query_params.get('kind')
 
         if search:
             queryset = queryset.filter(
@@ -98,26 +106,71 @@ class PlaylistViewSet(viewsets.ModelViewSet):
             )
 
         if genre:
-            queryset = queryset.filter(anime__genres=genre).distinct()
+            queryset = queryset.filter(
+                items__anime__genres__icontains=genre
+            ).distinct()
 
         if year:
-            queryset = queryset.filter(anime__year=year).distinct()
+            queryset = queryset.filter(
+                items__anime__year=year
+            ).distinct()
+
+        if status:
+            queryset = queryset.filter(
+                items__anime__status=status
+            ).distinct()
+
+        if kind:
+            queryset = queryset.filter(
+                items__anime__kind=kind
+            ).distinct()
 
         # Сортировка
         ordering = self.request.query_params.get('ordering', '-created_at')
         allowed_orderings = [
             'created_at', '-created_at',
+            'updated_at', '-updated_at',
             'title', '-title',
             'items_count', '-items_count',
             'favorites_count', '-favorites_count'
         ]
         if ordering in allowed_orderings:
-            queryset = queryset.order_by(ordering)
+            if ordering in ['items_count', '-items_count']:
+                queryset = queryset.annotate(
+                    items_count=Count('items')
+                ).order_by(ordering)
+            elif ordering in ['favorites_count', '-favorites_count']:
+                queryset = queryset.annotate(
+                    favorites_count=Count('favorited_by')
+                ).order_by(ordering)
+            else:
+                queryset = queryset.order_by(ordering)
 
-        return queryset.distinct()
+        return queryset
 
     def perform_create(self, serializer):
+        """Создание плейлиста"""
         serializer.save(user=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        """Удаление плейлиста"""
+        playlist = self.get_object()
+
+        # Проверяем права
+        if playlist.user != request.user:
+            return Response(
+                {'error': 'У вас нет прав на удаление этого плейлиста'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Удаляем обложку если есть
+        if playlist.cover_image:
+            try:
+                playlist.cover_image.delete()
+            except:
+                pass
+        
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
     def my(self, request):
@@ -134,8 +187,30 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
+    def update_cover(self, request, pk=None):
+        """Обновить обложку плейлиста"""
+        playlist = self.get_object()
+        
+        if playlist.user != request.user:
+            return Response(
+                {'error': 'У вас нет прав на изменение этого плейлиста'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        cover_url = playlist.update_cover()
+        
+        if cover_url:
+            serializer = self.get_serializer(playlist)
+            return Response(serializer.data)
+        else:
+            return Response(
+                {'error': 'Не удалось создать обложку'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
     def add_item(self, request, pk=None):
-        """Добавить элемент в плейлист"""
+        """Добавить аниме в плейлист"""
         playlist = self.get_object()
 
         if playlist.user != request.user:
@@ -147,6 +222,8 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         serializer = PlaylistItemCreateSerializer(data=request.data)
         if serializer.is_valid():
             anime = serializer.validated_data['anime']
+            
+            # Проверяем, есть ли аниме в плейлисте
             if PlaylistItem.objects.filter(playlist=playlist, anime=anime).exists():
                 return Response(
                     {'error': 'Это аниме уже есть в плейлисте'},
@@ -188,24 +265,103 @@ class PlaylistViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        item_data = {
-            'anime': anime.id,
-            'episode_number': request.data.get('episode_number'),
-            'source_url': url,
-            'notes': request.data.get('notes', ''),
-        }
+        item = PlaylistItem.objects.create(
+            playlist=playlist,
+            anime=anime,
+            notes=request.data.get('notes', '')
+        )
 
-        serializer = PlaylistItemCreateSerializer(data=item_data)
-        if serializer.is_valid():
-            serializer.save(playlist=playlist)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PlaylistItemSerializer(item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['delete'])
     def remove_item(self, request, pk=None):
-        """Удалить элемент из плейлиста"""
+        """Удалить аниме из плейлиста"""
         playlist = self.get_object()
+        anime_id = request.data.get('anime_id')
         item_id = request.data.get('item_id')
+
+        if not anime_id and not item_id:
+            return Response(
+                {'error': 'Не указан anime_id или item_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if playlist.user != request.user:
+            return Response(
+                {'error': 'У вас нет прав на изменение этого плейлиста'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            if anime_id:
+                item = PlaylistItem.objects.get(playlist=playlist, anime_id=anime_id)
+            else:
+                item = PlaylistItem.objects.get(id=item_id, playlist=playlist)
+            
+            item.delete()
+            
+            # Обновляем позиции остальных элементов
+            PlaylistItem.objects.filter(
+                playlist=playlist, position__gt=item.position
+            ).update(position=models.F('position') - 1)
+            
+            # Обновляем обложку
+            playlist.update_cover()
+            
+            return Response({'message': 'Аниме удалено из плейлиста'}, status=status.HTTP_204_NO_CONTENT)
+        except PlaylistItem.DoesNotExist:
+            return Response(
+                {'error': 'Элемент не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=['post'])
+    def reorder_items(self, request, pk=None):
+        """Изменить порядок элементов в плейлисте"""
+        playlist = self.get_object()
+
+        if playlist.user != request.user:
+            return Response(
+                {'error': 'У вас нет прав на изменение этого плейлиста'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ReorderItemsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        items_data = serializer.validated_data['items']
+        
+        with transaction.atomic():
+            for item_data in items_data:
+                try:
+                    item = PlaylistItem.objects.get(
+                        id=item_data['id'], playlist=playlist
+                    )
+                    item.position = item_data['position']
+                    item.save(update_fields=['position'])
+                except PlaylistItem.DoesNotExist:
+                    continue
+        
+        # Обновляем обложку
+        playlist.update_cover()
+        
+        return Response({'message': 'Порядок элементов обновлён'})
+
+    @action(detail=True, methods=['post'], url_path='update-item-notes')
+    def update_item_notes(self, request, pk=None):
+        """Обновить заметки к элементу плейлиста"""
+        playlist = self.get_object()
+
+        if playlist.user != request.user:
+            return Response(
+                {'error': 'У вас нет прав на изменение этого плейлиста'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        item_id = request.data.get('item_id')
+        notes = request.data.get('notes', '')
 
         if not item_id:
             return Response(
@@ -215,17 +371,15 @@ class PlaylistViewSet(viewsets.ModelViewSet):
 
         try:
             item = PlaylistItem.objects.get(id=item_id, playlist=playlist)
-            if playlist.user != request.user:
-                return Response(
-                    {'error': 'У вас нет прав на изменение этого плейлиста'},
-                    status.HTTP_403_FORBIDDEN
-                )
-            item.delete()
-            return Response({'message': 'Элемент удалён'}, status.HTTP_204_NO_CONTENT)
+            item.notes = notes
+            item.save(update_fields=['notes'])
+            
+            serializer = PlaylistItemSerializer(item)
+            return Response(serializer.data)
         except PlaylistItem.DoesNotExist:
             return Response(
                 {'error': 'Элемент не найден'},
-                status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND
             )
 
     @action(detail=True, methods=['post'])
@@ -236,7 +390,7 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         if playlist.user == request.user:
             return Response(
                 {'error': 'Нельзя добавить свой плейлист в избранное'},
-                status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         favorite, created = FavoritePlaylist.objects.get_or_create(
@@ -244,8 +398,8 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         )
 
         if created:
-            return Response({'message': 'Плейлист добавлен в избранное'}, status.HTTP_201_CREATED)
-        return Response({'message': 'Плейлист уже в избранном'}, status.HTTP_200_OK)
+            return Response({'message': 'Плейлист добавлен в избранное'}, status=status.HTTP_201_CREATED)
+        return Response({'message': 'Плейлист уже в избранном'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['delete'])
     def unfavorite(self, request, pk=None):
@@ -257,10 +411,10 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         ).delete()
 
         if deleted:
-            return Response({'message': 'Плейлист удалён из избранного'}, status.HTTP_204_NO_CONTENT)
+            return Response({'message': 'Плейлист удалён из избранного'}, status=status.HTTP_204_NO_CONTENT)
         return Response(
             {'error': 'Плейлист не найден в избранном'},
-            status.HTTP_404_NOT_FOUND
+            status=status.HTTP_404_NOT_FOUND
         )
 
     @action(detail=True, methods=['post'])
@@ -279,23 +433,25 @@ class PlaylistViewSet(viewsets.ModelViewSet):
             PlaylistItem.objects.create(
                 playlist=new_playlist,
                 anime=item.anime,
-                episode_number=item.episode_number,
-                source_url=item.source_url,
-                notes=item.notes
+                notes=item.notes,
+                position=item.position
             )
 
+        # Генерируем обложку
+        new_playlist.update_cover()
+
         serializer = self.get_serializer(new_playlist)
-        return Response(serializer.data, status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class AddToPlaylistView(views.APIView):
+    """Добавить аниме в плейлист (создание нового или выбор существующего)"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """Добавить аниме в плейлист (создание нового или выбор существующего)"""
         serializer = AddToPlaylistSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
         anime_id = data['anime_id']
@@ -305,7 +461,7 @@ class AddToPlaylistView(views.APIView):
         except Anime.DoesNotExist:
             return Response(
                 {'error': 'Аниме не найдено'},
-                status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND
             )
 
         playlist_id = data.get('playlist_id')
@@ -317,46 +473,63 @@ class AddToPlaylistView(views.APIView):
             except Playlist.DoesNotExist:
                 return Response(
                     {'error': 'Плейлист не найден или у вас нет прав'},
-                    status.HTTP_404_NOT_FOUND
+                    status=status.HTTP_404_NOT_FOUND
                 )
         else:
             playlist = Playlist.objects.create(
                 user=request.user,
                 title=new_playlist_title,
+                description=data.get('new_playlist_description', ''),
                 is_public=False
             )
 
         if PlaylistItem.objects.filter(playlist=playlist, anime=anime).exists():
             return Response(
                 {'error': 'Это аниме уже есть в плейлисте'},
-                status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         item = PlaylistItem.objects.create(
             playlist=playlist,
             anime=anime,
-            episode_number=data.get('episode_number'),
-            source_url=data.get('source_url', ''),
             notes=data.get('notes', '')
         )
 
+        # Обновляем обложку плейлиста
+        playlist.update_cover()
+        
         return Response({
             'message': 'Аниме добавлено в плейлист',
             'playlist_id': playlist.id,
             'item_id': item.id
-        }, status.HTTP_201_CREATED)
+        }, status=status.HTTP_201_CREATED)
 
 
 class FavoriteAnimeViewSet(viewsets.ModelViewSet):
+    """ViewSet для избранных аниме"""
     queryset = FavoriteAnime.objects.all()
     serializer_class = FavoriteAnimeSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return FavoriteAnime.objects.filter(user=self.request.user)
+        return FavoriteAnime.objects.filter(user=self.request.user).select_related('anime')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        """Удаление аниме из избранного"""
+        anime_id = request.data.get('anime_id')
+        
+        if anime_id:
+            deleted, _ = FavoriteAnime.objects.filter(
+                user=request.user, anime_id=anime_id
+            ).delete()
+            
+            if deleted:
+                return Response({'message': 'Аниме удалено из избранного'}, status=status.HTTP_204_NO_CONTENT)
+        
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
     def check(self, request):
@@ -365,7 +538,7 @@ class FavoriteAnimeViewSet(viewsets.ModelViewSet):
         if not anime_id:
             return Response(
                 {'error': 'Не указан anime_id'},
-                status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         is_favorite = FavoriteAnime.objects.filter(
@@ -374,35 +547,15 @@ class FavoriteAnimeViewSet(viewsets.ModelViewSet):
 
         return Response({'is_favorite': is_favorite})
 
-    @action(detail=False, methods=['delete'])
-    def remove(self, request):
-        """Удалить аниме из избранного"""
-        anime_id = request.data.get('anime_id')
-        if not anime_id:
-            return Response(
-                {'error': 'Не указан anime_id'},
-                status.HTTP_400_BAD_REQUEST
-            )
-
-        deleted, _ = FavoriteAnime.objects.filter(
-            user=request.user, anime_id=anime_id
-        ).delete()
-
-        if deleted:
-            return Response({'message': 'Аниме удалено из избранного'}, status.HTTP_204_NO_CONTENT)
-        return Response(
-            {'error': 'Аниме не найдено в избранном'},
-            status.HTTP_404_NOT_FOUND
-        )
-
 
 class FavoritePlaylistViewSet(viewsets.ModelViewSet):
+    """ViewSet для избранных плейлистов"""
     queryset = FavoritePlaylist.objects.all()
     serializer_class = FavoritePlaylistSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return FavoritePlaylist.objects.filter(user=self.request.user)
+        return FavoritePlaylist.objects.filter(user=self.request.user).select_related('playlist')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -416,16 +569,19 @@ class FavoritePlaylistViewSet(viewsets.ModelViewSet):
 
 
 class PlaylistItemViewSet(viewsets.ModelViewSet):
+    """ViewSet для элементов плейлиста"""
     queryset = PlaylistItem.objects.all()
-    serializer_class = PlaylistItemSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return PlaylistItemUpdateSerializer
+        return PlaylistItemSerializer
 
     def get_queryset(self):
         return PlaylistItem.objects.filter(
             playlist__user=self.request.user
-        ) | PlaylistItem.objects.filter(
-            playlist__is_public=True
-        ).distinct()
+        ).select_related('anime', 'playlist')
 
     def perform_create(self, serializer):
         playlist_id = self.kwargs.get('playlist_pk')
@@ -434,5 +590,57 @@ class PlaylistItemViewSet(viewsets.ModelViewSet):
             if playlist.user != self.request.user:
                 raise PermissionError("Не хватает прав")
             serializer.save(playlist=playlist)
-        else:
-            serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """Удаление элемента плейлиста"""
+        item = self.get_object()
+        
+        # Проверяем права
+        if item.playlist.user != request.user:
+            return Response(
+                {'error': 'У вас нет прав на удаление этого элемента'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        playlist = item.playlist
+        item.delete()
+        
+        # Обновляем позиции
+        PlaylistItem.objects.filter(
+            playlist=playlist, position__gt=item.position
+        ).update(position=models.F('position') - 1)
+        
+        # Обновляем обложку
+        playlist.update_cover()
+        
+        return Response({'message': 'Элемент удалён'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class PlaylistSearchView(views.APIView):
+    """Поиск плейлистов"""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        """Поиск плейлистов по названию"""
+        search = request.query_params.get('q', '').strip()
+        limit = int(request.query_params.get('limit', 10))
+
+        if not search:
+            return Response({'results': []})
+
+        # Фильтруем плейлисты
+        queryset = Playlist.objects.filter(
+            Q(title__icontains=search) | Q(description__icontains=search),
+            is_public=True
+        ).select_related('user').prefetch_related('items__anime')
+
+        # Ограничиваем результат
+        queryset = queryset[:limit]
+
+        # Сериализуем
+        serializer = PlaylistSerializer(queryset, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })

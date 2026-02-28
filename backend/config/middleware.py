@@ -2,7 +2,9 @@ from django.utils import timezone
 from django.contrib.sessions.models import Session
 from users.models import UserSession
 from core.online_status import online_status, publish_user_online_event
+import logging
 
+logger = logging.getLogger(__name__)
 
 class OnlineStatusMiddleware:
     """Middleware для отслеживания онлайн статуса пользователей через Redis"""
@@ -80,3 +82,23 @@ class OnlineStatusMiddleware:
         # В реальном приложении здесь был бы вызов геолокационного сервиса
         # Для демонстрации возвращаем фиктивные данные
         return "Москва, Россия"
+
+
+class AuthDebugMiddleware:
+    """Middleware для отладки аутентификации"""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Логируем все запросы с заголовками
+        auth_header = request.META.get('HTTP_AUTHORIZATION', None)
+
+        if auth_header:
+            logger.info(f"🔍 AuthDebugMiddleware - Request: {request.method} {request.path}")
+            logger.info(f"🔍 AuthDebugMiddleware - Auth header: {auth_header[:50]}..." if len(auth_header) > 50 else f"🔍 AuthDebugMiddleware - Auth header: {auth_header}")
+            logger.info(f"🔍 AuthDebugMiddleware - User: {request.user if hasattr(request, 'user') else 'No user'}")
+
+        response = self.get_response(request)
+
+        return response

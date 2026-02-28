@@ -1,20 +1,34 @@
-FROM node:20-bullseye
+# Этап 1: Сборка
+FROM node:20-bullseye as builder
 
 WORKDIR /app
 
-# Копируем .npmrc и package файлы
-COPY .npmrc package*.json ./
+# Копируем package файлы
+COPY package*.json ./
+COPY .npmrc ./
 
-# Используем зеркало npm для России/Китая и увеличиваем retry
+# Устанавливаем зависимости
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm install --silent --no-audit --no-fund --legacy-peer-deps --timeout=180000 || \
-    npm install --silent --no-audit --no-fund --legacy-peer-deps --timeout=180000 || \
-    npm install --silent --no-audit --no-fund --legacy-peer-deps --timeout=180000
+    npm ci --silent --no-audit --no-fund --legacy-peer-deps
 
-# Копируем остальные файлы
+# Копируем исходники
 COPY . .
 
-EXPOSE 5173
+# Собираем проект
+RUN npm run build
 
-# Явно указываем host в команде
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Этап 2: Продакшен
+FROM nginx:alpine
+
+# Копируем собранные файлы
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Копируем конфиг nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Копируем скрипт для проверки здоровья
+RUN echo '#!/bin/sh\necho "OK"' > /usr/share/nginx/html/health.html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

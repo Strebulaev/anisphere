@@ -1,5 +1,5 @@
 <template>
-  <div class="app">
+  <div class="app" :class="{ 'sidebar-collapsed': isCollapsed }">
     <!-- Боковая навигация (десктоп) -->
     <SidebarNavigation />
     
@@ -17,13 +17,24 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import NavBar from '@/components/NavBar.vue'
-import SidebarNavigation from '@/components/SidebarNavigation.vue'
-import BottomNavigation from '@/components/BottomNavigation.vue'
+import { onMounted, computed } from 'vue'
+import NavBar from '@/components/Navigation/NavBar.vue'
+import SidebarNavigation from '@/components/Navigation/SidebarNavigation.vue'
+import BottomNavigation from '@/components/Navigation/BottomNavigation.vue'
+import { useSidebar } from '@/composables/useSidebar'
+import { useAuthStore } from '@/stores/auth'
+import { initGlobalWebSocket } from '@/composables/useGlobalWebSocket'
+
+const { isCollapsed } = useSidebar()
+const authStore = useAuthStore()
 
 onMounted(() => {
-  console.log('AnimeCore App mounted')
+  console.log('anisphere App mounted')
+  
+  // Инициализировать WebSocket после авторизации
+  if (authStore.isAuthenticated) {
+    initGlobalWebSocket()
+  }
 })
 </script>
 
@@ -46,6 +57,15 @@ onMounted(() => {
     padding-bottom: 0;
     padding-left: 240px;
     padding-top: 120px;
+  }
+
+  /* Свернутое меню */
+  .app.sidebar-collapsed .main-content {
+    padding-left: 72px;
+  }
+
+  .app.sidebar-collapsed :deep(.sidebar) {
+    width: 72px;
   }
 }
 

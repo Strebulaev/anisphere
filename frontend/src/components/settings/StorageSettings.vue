@@ -178,7 +178,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import apiClient from '@/api/client'
+import * as settingsApi from '@/api/settings'
 
 // Reactive data
 const storageUsage = ref({
@@ -187,7 +187,15 @@ const storageUsage = ref({
   documents: 0,
   audio: 0,
   cache: 0,
-  total: 0
+  total: 0,
+  limit: 0,
+  usage_percent: 0,
+  breakdown: {
+    messages_count: 0,
+    comments_count: 0,
+    playlists_count: 0,
+    library_count: 0,
+  }
 })
 
 const autoClearCache = ref(true)
@@ -206,16 +214,8 @@ const syncLimit = ref('1000')
 // Methods
 const fetchStorageUsage = async () => {
   try {
-    // This would be a real API call to get storage usage
-    // For now, using mock data
-    storageUsage.value = {
-      messages: 1200000000, // 1.2 GB
-      media: 850000000,     // 850 MB
-      documents: 420000000, // 420 MB
-      audio: 150000000,     // 150 MB
-      cache: 85000000,      // 85 MB
-      total: 2705000000     // 2.7 GB (over limit)
-    }
+    const data = await settingsApi.getStorageUsage()
+    storageUsage.value = data
   } catch (error) {
     console.error('Error fetching storage usage:', error)
   }
@@ -226,44 +226,114 @@ const formatBytes = (bytes: number) => {
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
 const getPercentage = (bytes: number) => {
-  const totalLimit = 2 * 1024 * 1024 * 1024 // 2 GB
+  const totalLimit = storageUsage.value.limit || 2 * 1024 * 1024 * 1024
   return Math.min(100, Math.round((bytes / totalLimit) * 100))
 }
 
-const exportMessages = () => {
-  console.log('Exporting messages...')
+const exportMessages = async () => {
+  try {
+    await settingsApi.requestExportData({
+      items: ['messages'],
+      format: 'json'
+    })
+    alert('Запрос на экспорт сообщений отправлен!')
+  } catch (error) {
+    console.error('Error exporting messages:', error)
+    alert('Ошибка при экспорте')
+  }
 }
 
-const exportMedia = () => {
-  console.log('Exporting media...')
+const exportMedia = async () => {
+  try {
+    await settingsApi.requestExportData({
+      items: ['media'],
+      format: 'json'
+    })
+    alert('Запрос на экспорт медиа отправлен!')
+  } catch (error) {
+    console.error('Error exporting media:', error)
+    alert('Ошибка при экспорте')
+  }
 }
 
-const exportContacts = () => {
-  console.log('Exporting contacts...')
+const exportContacts = async () => {
+  try {
+    await settingsApi.requestExportData({
+      items: ['contacts'],
+      format: 'json'
+    })
+    alert('Запрос на экспорт контактов отправлен!')
+  } catch (error) {
+    console.error('Error exporting contacts:', error)
+    alert('Ошибка при экспорте')
+  }
 }
 
-const exportSettings = () => {
-  console.log('Exporting settings...')
+const exportSettings = async () => {
+  try {
+    await settingsApi.requestExportData({
+      items: ['settings'],
+      format: 'json'
+    })
+    alert('Запрос на экспорт настроек отправлен!')
+  } catch (error) {
+    console.error('Error exporting settings:', error)
+    alert('Ошибка при экспорте')
+  }
 }
 
-const clearMessages = () => {
-  console.log('Clearing messages...')
+const clearMessages = async () => {
+  if (confirm('Вы уверены, что хотите очистить историю сообщений?')) {
+    try {
+      await settingsApi.clearCache(['messages'])
+      await fetchStorageUsage()
+      alert('История сообщений очищена!')
+    } catch (error) {
+      console.error('Error clearing messages:', error)
+      alert('Ошибка при очистке')
+    }
+  }
 }
 
-const clearMedia = () => {
-  console.log('Clearing media...')
+const clearMedia = async () => {
+  if (confirm('Вы уверены, что хотите удалить все медиафайлы?')) {
+    try {
+      await settingsApi.clearCache(['media', 'videos', 'images'])
+      await fetchStorageUsage()
+      alert('Медиафайлы удалены!')
+    } catch (error) {
+      console.error('Error clearing media:', error)
+      alert('Ошибка при удалении')
+    }
+  }
 }
 
-const clearCache = () => {
-  console.log('Clearing cache...')
+const clearCache = async () => {
+  try {
+    await settingsApi.clearCache(['images', 'videos', 'search', 'thumbnails', 'temp'])
+    await fetchStorageUsage()
+    alert('Кэш очищен!')
+  } catch (error) {
+    console.error('Error clearing cache:', error)
+    alert('Ошибка при очистке')
+  }
 }
 
-const clearDownloads = () => {
-  console.log('Clearing downloads...')
+const clearDownloads = async () => {
+  if (confirm('Вы уверены, что хотите удалить все загруженные файлы?')) {
+    try {
+      await settingsApi.clearCache(['documents', 'temp'])
+      await fetchStorageUsage()
+      alert('Загруженные файлы удалены!')
+    } catch (error) {
+      console.error('Error clearing downloads:', error)
+      alert('Ошибка при удалении')
+    }
+  }
 }
 
 const recalculateUsage = () => {

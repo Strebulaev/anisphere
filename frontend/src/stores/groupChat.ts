@@ -145,7 +145,8 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     loadingMembers.value = true
     try {
       const response = await apiClient.get(`/social/group-chats/${chatId}/members/`)
-      chatMembers.value = response.data
+      const data = response.data as ChatMember[] | { results: ChatMember[] }
+      chatMembers.value = 'results' in data ? data.results : data
     } catch (error) {
       console.error('Error loading chat members:', error)
       throw error
@@ -158,7 +159,8 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     loadingRoles.value = true
     try {
       const response = await apiClient.get(`/social/group-chats/${chatId}/roles/`)
-      chatRoles.value = response.data
+      const data = response.data as ChatRole[] | { results: ChatRole[] }
+      chatRoles.value = 'results' in data ? data.results : data
     } catch (error) {
       console.error('Error loading chat roles:', error)
       throw error
@@ -171,7 +173,8 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     loadingLogs.value = true
     try {
       const response = await apiClient.get(`/social/group-chats/${chatId}/admin-logs/`)
-      adminLogs.value = response.data
+      const data = response.data as ChatAdminLog[] | { results: ChatAdminLog[] }
+      adminLogs.value = 'results' in data ? data.results : data
     } catch (error) {
       console.error('Error loading admin logs:', error)
       throw error
@@ -328,6 +331,25 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     adminLogs.value = []
   }
 
+  // Загрузка списка групповых чатов (для глобальных обновлений)
+  const loadGroupChats = async () => {
+    loadingChat.value = true
+    try {
+      const response = await apiClient.get('/social/group-chats/')
+      const data = response.data.results || response.data
+      // Сохраняем в localStorage для доступа извне
+      localStorage.setItem('groupChats', JSON.stringify(data))
+      // Диспатчим событие
+      window.dispatchEvent(new CustomEvent('groupChatsUpdated', { detail: data }))
+      return data
+    } catch (error) {
+      console.error('Error loading group chats:', error)
+      return []
+    } finally {
+      loadingChat.value = false
+    }
+  }
+
   // Utility functions
   const hasPermission = (permission: string): boolean => {
     return currentUserPermissions.value[permission] || false
@@ -383,6 +405,7 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     loadChatMembers,
     loadChatRoles,
     loadAdminLogs,
+    loadGroupChats,
     createGroupChat,
     updateGroupChat,
     deleteGroupChat,

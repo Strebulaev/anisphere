@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { useRouter } from 'vue-router'
 import apiClient from '@/api/client'
@@ -12,6 +12,7 @@ interface User {
   nickname?: string
   display_name?: string
   avatar?: string
+  avatar_url?: string
   level: number
   experience: number
   is_online: boolean
@@ -21,6 +22,14 @@ interface User {
   created_at: string
   last_login: string
   phone_number?: string
+  followers_count?: number
+  following_count?: number
+  playlists_count?: number
+  is_verified?: boolean
+  is_premium?: boolean
+  competition_wins?: number
+  following?: number[]
+  favorite_genres?: number[]
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -32,8 +41,8 @@ export const useAuthStore = defineStore('auth', () => {
   // Login function
   const login = async (username: string, password: string) => {
     try {
-      console.log('Auth Store: Attempting login for', username)
-      
+      console.log('🔑 Auth Store: Attempting login for', username)
+
       const response = await apiClient.post('/users/login/', {
         username,
         password
@@ -41,19 +50,28 @@ export const useAuthStore = defineStore('auth', () => {
 
       const { user: userData, tokens } = response.data
       
+      console.log('✅ Login response received', {
+        hasAccessToken: !!tokens?.access,
+        hasRefreshToken: !!tokens?.refresh,
+        accessTokenPreview: tokens?.access ? `${tokens.access.substring(0, 20)}...` : 'none',
+        user: userData?.username
+      })
+
       // Store tokens
       localStorage.setItem('access_token', tokens.access)
       localStorage.setItem('refresh_token', tokens.refresh)
       localStorage.setItem('user', JSON.stringify(userData))
 
+      console.log('💾 Tokens saved to localStorage')
+
       // Update state
       user.value = userData
       isAuthenticated.value = true
 
-      console.log('Auth Store: Login successful', userData)
+      console.log('✅ Auth Store: Login successful', userData)
       return { success: true, user: userData }
     } catch (error: any) {
-      console.error('Auth Store: Login failed', error)
+      console.error('❌ Auth Store: Login failed', error)
       const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Неверные учетные данные'
       return { success: false, error: errorMessage }
     }
@@ -154,19 +172,20 @@ export const useAuthStore = defineStore('auth', () => {
   // Fetch user data
   const fetchUser = async () => {
     try {
-      console.log('Auth Store: fetchUser called')
+      console.log('👤 Auth Store: fetchUser called')
       const response = await apiClient.get('/users/profile/')
-      console.log('Auth Store: fetchUser successful, user data:', response.data)
+      console.log('✅ Auth Store: fetchUser successful, user data:', response.data.username)
       user.value = response.data
       isAuthenticated.value = true
       return { success: true, user: response.data }
     } catch (error: any) {
-      console.error('Auth Store: fetchUser failed:', error)
-      console.log('Auth Store: error response:', error.response?.data)
-      
+      console.error('❌ Auth Store: fetchUser failed:', error)
+      console.log('❌ Auth Store: error response:', error.response?.data)
+
       // If unauthorized, clear auth state
       if (error.response?.status === 401) {
-        logout()
+        console.log('❌ Auth Store: 401 response, calling logout')
+        // Don't call logout here to avoid redirect loop, let the caller handle it
       }
       
       return { success: false, error: error.message }
@@ -282,26 +301,64 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Check if running in local development mode
+  const isLocalDevelopment = () => {
+    const hostname = window.location.hostname
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  }
+
   // Check authentication status
   const checkAuth = async () => {
+    // Skip auth checks in local development mode
+    if (isLocalDevelopment()) {
+      console.log('🔓 Local development mode: Auth check skipped')
+      // Set a mock user for development
+      if (!user.value) {
+        user.value = {
+          id: 1,
+          username: 'dev_user',
+          email: 'dev@example.com',
+          first_name: 'Developer',
+          last_name: 'User',
+          level: 5,
+          experience: 1000,
+          is_online: true,
+          email_verified: true,
+          phone_verified: false,
+          two_factor_enabled: false,
+          created_at: new Date().toISOString(),
+          last_login: new Date().toISOString(),
+        }
+        isAuthenticated.value = true
+      }
+      return { success: true }
+    }
+
     const accessToken = localStorage.getItem('access_token')
     const refreshToken = localStorage.getItem('refresh_token')
     const userData = localStorage.getItem('user')
 
-    console.log('Auth Store: checkAuth called, token exists:', !!accessToken)
+    console.log('🔐 Auth Store: checkAuth called', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      hasUserData: !!userData,
+      tokenPreview: accessToken ? `${accessToken.substring(0, 20)}...` : 'none'
+    })
 
     if (accessToken) {
       try {
         // Set token for requests
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+        console.log('✅ Set Authorization header for requests')
         
         // Try to fetch user data
         await fetchUser()
+        console.log('✅ User data fetched successfully')
         
         return { success: true }
       } catch (error: any) {
-        console.log('Auth Store: Token validation failed, attempting refresh')
-        
+        console.log('⚠️ Auth Store: Token validation failed, attempting refresh', error.response?.status)
+
         if (refreshToken) {
           try {
             // Пытаемся обновить токен
@@ -310,6 +367,7 @@ export const useAuthStore = defineStore('auth', () => {
             })
 
             const { access } = refreshResponse.data
+            console.log('✅ Token refreshed successfully')
             
             // Update stored tokens
             localStorage.setItem('access_token', access)
@@ -317,27 +375,34 @@ export const useAuthStore = defineStore('auth', () => {
             
             // Retry user fetch
             await fetchUser()
+            console.log('✅ User data fetched after refresh')
             
             return { success: true }
           } catch (refreshError) {
-            console.log('Auth Store: Refresh failed, clearing auth')
+            console.log('❌ Auth Store: Refresh failed, clearing auth', refreshError)
             logout()
             return { success: false }
           }
         } else {
-          console.log('Auth Store: No refresh token, clearing auth')
+          console.log('❌ Auth Store: No refresh token, clearing auth')
           logout()
           return { success: false }
         }
       }
     } else {
-      console.log('Auth Store: No access token found')
+      console.log('ℹ️ Auth Store: No access token found')
       return { success: false }
     }
   }
 
   // Initialize auth state from localStorage
   const initializeAuth = () => {
+    // Skip initialization in local development mode - checkAuth will handle it
+    if (isLocalDevelopment()) {
+      console.log('🔓 Local development mode: Auth initialization skipped')
+      return
+    }
+
     const accessToken = localStorage.getItem('access_token')
     const userData = localStorage.getItem('user')
 
@@ -356,10 +421,184 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Follow user
+  const followUser = async (userId: number) => {
+    try {
+      await apiClient.post(`/users/${userId}/follow`)
+      if (user.value) {
+        user.value.following_count = (user.value.following_count || 0) + 1
+      }
+      return { success: true }
+    } catch (error: any) {
+      console.error('Auth Store: Follow failed', error)
+      return { success: false, error: 'Ошибка подписки' }
+    }
+  }
+
+  // Unfollow user
+  const unfollowUser = async (userId: number) => {
+    try {
+      await apiClient.delete(`/users/${userId}/follow`)
+      if (user.value) {
+        user.value.following_count = Math.max(0, (user.value.following_count || 0) - 1)
+      }
+      return { success: true }
+    } catch (error: any) {
+      console.error('Auth Store: Unfollow failed', error)
+      return { success: false, error: 'Ошибка отписки' }
+    }
+  }
+
+  // Block user
+  const blockUser = async (userId: number) => {
+    try {
+      await apiClient.post(`/users/${userId}/block`)
+      return { success: true }
+    } catch (error: any) {
+      console.error('Auth Store: Block failed', error)
+      return { success: false, error: 'Ошибка блокировки' }
+    }
+  }
+
+  // Unblock user
+  const unblockUser = async (userId: number) => {
+    try {
+      await apiClient.delete(`/users/${userId}/block`)
+      return { success: true }
+    } catch (error: any) {
+      console.error('Auth Store: Unblock failed', error)
+      return { success: false, error: 'Ошибка разблокировки' }
+    }
+  }
+
+  // Report user
+  const reportUser = async (userId: number, reason: string) => {
+    try {
+      await apiClient.post(`/users/${userId}/report`, { reason })
+      return { success: true }
+    } catch (error: any) {
+      console.error('Auth Store: Report failed', error)
+      return { success: false, error: 'Ошибка отправки жалобы' }
+    }
+  }
+
+  // Upload avatar
+  const uploadAvatar = async (file: File): Promise<string> => {
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+
+      const response = await apiClient.post<{ avatar_url: string }>('/users/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      if (user.value) {
+        user.value.avatar = response.data.avatar_url
+        localStorage.setItem('user', JSON.stringify(user.value))
+      }
+
+      return response.data.avatar_url
+    } catch (error: any) {
+      console.error('Auth Store: Upload avatar failed', error)
+      throw error
+    }
+  }
+
+  // Remove avatar
+  const removeAvatar = async () => {
+    try {
+      await apiClient.delete('/users/avatar')
+      if (user.value) {
+        user.value.avatar = undefined
+        localStorage.setItem('user', JSON.stringify(user.value))
+      }
+      return { success: true }
+    } catch (error: any) {
+      console.error('Auth Store: Remove avatar failed', error)
+      return { success: false, error: 'Ошибка удаления аватара' }
+    }
+  }
+
+  // Update privacy settings
+  const updatePrivacySettings = async (settings: any) => {
+    try {
+      const response = await apiClient.patch('/users/privacy', settings)
+      if (user.value) {
+        user.value = { ...user.value, ...response.data }
+        localStorage.setItem('user', JSON.stringify(user.value))
+      }
+      return { success: true, user: response.data }
+    } catch (error: any) {
+      console.error('Auth Store: Update privacy settings failed', error)
+      return { success: false, error: 'Ошибка обновления настроек приватности' }
+    }
+  }
+
+  // Online status management
+  const onlineUsers = ref<Map<number, { is_online: boolean; last_seen?: string }>>(new Map())
+
+  const updateUserOnlineStatus = (userId: number, isOnline: boolean) => {
+    onlineUsers.value.set(userId, { is_online: isOnline })
+    // Диспатчим событие для обновления UI
+    window.dispatchEvent(new CustomEvent('userOnlineStatusChanged', { 
+      detail: { userId, isOnline } 
+    }))
+  }
+
+  const isUserOnline = (userId: number): boolean => {
+    return onlineUsers.value.get(userId)?.is_online ?? false
+  }
+
+  // Friends / Followers
+  const friendRequests = ref<any[]>([])
+  const loadingFriendRequests = ref(false)
+
+  const loadFriendRequests = async () => {
+    loadingFriendRequests.value = true
+    try {
+      const response = await apiClient.get('/social/follows/requests/')
+      friendRequests.value = response.data.results || response.data
+      return friendRequests.value
+    } catch (error) {
+      console.error('Error loading friend requests:', error)
+      return []
+    } finally {
+      loadingFriendRequests.value = false
+    }
+  }
+
+  const acceptFriendRequest = async (requestId: number) => {
+    try {
+      await apiClient.post(`/social/follows/requests/${requestId}/accept/`)
+      friendRequests.value = friendRequests.value.filter(r => r.id !== requestId)
+      return { success: true }
+    } catch (error: any) {
+      console.error('Error accepting friend request:', error)
+      return { success: false, error: 'Ошибка принятия запроса' }
+    }
+  }
+
+  const rejectFriendRequest = async (requestId: number) => {
+    try {
+      await apiClient.post(`/social/follows/requests/${requestId}/reject/`)
+      friendRequests.value = friendRequests.value.filter(r => r.id !== requestId)
+      return { success: true }
+    } catch (error: any) {
+      console.error('Error rejecting friend request:', error)
+      return { success: false, error: 'Ошибка отклонения запроса' }
+    }
+  }
+
+  // Get token
+  const token = computed(() => localStorage.getItem('access_token'))
+
   return {
     user,
     isAuthenticated,
     loading,
+    token,
     login,
     register,
     googleLogin,
@@ -377,6 +616,21 @@ export const useAuthStore = defineStore('auth', () => {
     updateUserSettings,
     setupTwoFactor,
     checkAuth,
-    initializeAuth
+    initializeAuth,
+    followUser,
+    unfollowUser,
+    blockUser,
+    unblockUser,
+    reportUser,
+    uploadAvatar,
+    removeAvatar,
+    updatePrivacySettings,
+    onlineUsers,
+    updateUserOnlineStatus,
+    isUserOnline,
+    friendRequests,
+    loadFriendRequests,
+    acceptFriendRequest,
+    rejectFriendRequest
   }
 })

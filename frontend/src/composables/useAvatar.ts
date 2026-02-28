@@ -5,9 +5,9 @@ export function useAvatar() {
     if (!avatarPath) return ''
     if (avatarPath.startsWith('http')) return avatarPath
     if (avatarPath.startsWith('/media/')) {
-      return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${avatarPath}`
+      return `${import.meta.env.VITE_API_BASE_URL || 'https://anisphere.ru'}${avatarPath}`
     }
-    return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/media/${avatarPath}`
+    return `${import.meta.env.VITE_API_BASE_URL || 'https://anisphere.ru'}/media/${avatarPath}`
   }
 
   // Получить инициалы пользователя для placeholder

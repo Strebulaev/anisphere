@@ -1,0 +1,349 @@
+/* Шрифты */
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+/* Базовые стили шрифтов */
+:root {
+  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size: 14px;
+  --line-height: 1.5;
+  --heading-font-weight: 600;
+}
+
+/* Inter Font */
+[data-font-family="Inter"] {
+  --font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Roboto Font */
+[data-font-family="Roboto"] {
+  --font-family: 'Roboto', system-ui, sans-serif;
+}
+
+/* Open Sans Font */
+[data-font-family="Open Sans"] {
+  --font-family: 'Open Sans', system-ui, sans-serif;
+}
+
+/* Montserrat Font */
+[data-font-family="Montserrat"] {
+  --font-family: 'Montserrat', system-ui, sans-serif;
+}
+
+/* Anime Font (Noto Sans JP) */
+[data-font-family="anime"] {
+  --font-family: 'Noto Sans JP', system-ui, sans-serif;
+}
+
+/* Размеры шрифтов */
+[data-font-size="12"] {
+  --font-size: 12px;
+}
+
+[data-font-size="13"] {
+  --font-size: 13px;
+}
+
+[data-font-size="14"] {
+  --font-size: 14px;
+}
+
+[data-font-size="15"] {
+  --font-size: 15px;
+}
+
+[data-font-size="16"] {
+  --font-size: 16px;
+}
+
+[data-font-size="18"] {
+  --font-size: 18px;
+}
+
+[data-font-size="20"] {
+  --font-size: 20px;
+}
+
+/* Межстрочный интервал */
+[data-line-height="1.2"] {
+  --line-height: 1.2;
+}
+
+[data-line-height="1.4"] {
+  --line-height: 1.4;
+}
+
+[data-line-height="1.5"] {
+  --line-height: 1.5;
+}
+
+[data-line-height="1.6"] {
+  --line-height: 1.6;
+}
+
+[data-line-height="1.8"] {
+  --line-height: 1.8;
+}
+
+[data-line-height="2"] {
+  --line-height: 2;
+}
+
+/* Применение шрифтов к элементам */
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+}
+
+/* Заголовки */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--heading-font-weight);
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 2.5rem;
+}
+
+h2 {
+  font-size: 2rem;
+}
+
+h3 {
+  font-size: 1.75rem;
+}
+
+h4 {
+  font-size: 1.5rem;
+}
+
+h5 {
+  font-size: 1.25rem;
+}
+
+h6 {
+  font-size: 1rem;
+}
+
+/* Кнопки */
+button {
+  font-family: var(--font-family);
+}
+
+/* Инпуты */
+input,
+textarea,
+select {
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+}
+
+/* Код */
+code,
+pre,
+kbd,
+samp {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+[data-monospace-code="true"] code,
+[data-monospace-code="true"] pre {
+  font-family: 'Fira Code', 'Courier New', Courier, monospace;
+}
+
+/* Моноширинный шрифт */
+.font-mono {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Размеры шрифтов утилиты */
+.text-xs {
+  font-size: calc(var(--font-size) * 0.75);
+}
+
+.text-sm {
+  font-size: calc(var(--font-size) * 0.875);
+}
+
+.text-base {
+  font-size: var(--font-size);
+}
+
+.text-lg {
+  font-size: calc(var(--font-size) * 1.125);
+}
+
+.text-xl {
+  font-size: calc(var(--font-size) * 1.25);
+}
+
+.text-2xl {
+  font-size: calc(var(--font-size) * 1.5);
+}
+
+.text-3xl {
+  font-size: calc(var(--font-size) * 1.875);
+}
+
+/* Жирность шрифта */
+.font-normal {
+  font-weight: 400;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+/* Высота строки */
+.leading-tight {
+  line-height: 1.2;
+}
+
+.leading-normal {
+  line-height: var(--line-height);
+}
+
+.leading-relaxed {
+  line-height: 1.6;
+}
+
+.leading-loose {
+  line-height: 2;
+}
+
+/* Интервалы между буквами */
+.tracking-tight {
+  letter-spacing: -0.025em;
+}
+
+.tracking-normal {
+  letter-spacing: 0;
+}
+
+.tracking-wide {
+  letter-spacing: 0.025em;
+}
+
+/* Выравнивание текста */
+.text-left {
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-justify {
+  text-align: justify;
+}
+
+/* Перенос текста */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.break-words {
+  overflow-wrap: break-word;
+}
+
+.break-all {
+  word-break: break-all;
+}
+
+/* Утилиты для доступности */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.not-sr-only {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* Адаптивные размеры шрифтов */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+  }
+
+  h3 {
+    font-size: 1.5rem;
+  }
+
+  h4 {
+    font-size: 1.25rem;
+  }
+
+  h5 {
+    font-size: 1.125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  h4 {
+    font-size: 1.125rem;
+  }
+
+  h5 {
+    font-size: 1rem;
+  }
+}
+
+/* Уменьшение анимаций для пользователей с чувствительностью */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

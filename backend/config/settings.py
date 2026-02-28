@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,13 +26,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = 'False'
 
-ALLOWED_HOSTS = ['anisphere.ru', 'www.anisphere.ru', 'localhost', '127.0.0.1']
-
+ALLOWED_HOSTS = ['anisphere.ru', 'www.anisphere.ru', 'api.anisphere.ru', 'localhost', '127.0.0.1', '127.0.0.1:8000', '168.222.192.40']
 
 # Application definition
 
@@ -60,6 +64,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Добавьте для статики
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -67,6 +72,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'config.middleware.OnlineStatusMiddleware',
+    'config.middleware.AuthDebugMiddleware',  # Перемещаем в конец для логирования всех запросов
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -89,10 +95,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  # Уменьшите для безопасности
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
 }
 
 # Database
@@ -100,8 +119,16 @@ SIMPLE_JWT = {
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',  # Меняем на MySQL
+        'NAME': os.environ.get('DB_NAME', 'anisphere_db'),
+        'USER': os.environ.get('DB_USER', 'u3384518'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),  # Имя сервиса в docker-compose
+        'PORT': os.environ.get('DB_PORT', '3306'),
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+        },
     }
 }
 
@@ -123,19 +150,22 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# CORS settings for production
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",   # Vue dev server (production)
+    "https://anisphere.ru",
+    "https://www.anisphere.ru",
+    "http://localhost:3000",   # Для разработки
     "http://127.0.0.1:3000",
-    "http://localhost:5173",   # Vite dev server (development)
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://frontend:3000",    # Frontend в контейнере
-    "http://frontend:5173",    # Vite в контейнере
-    "http://localhost:8000",   # Бэкенд на хосте
+    "http://frontend:3000",
+    "http://frontend:5173",
+    "http://localhost:8000",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False  # Важно: выключите в продакшене!
 CORS_ALLOW_CREDENTIALS = True
-AUTH_USER_MODEL = 'users.User'
+
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -161,24 +191,33 @@ CORS_ALLOW_METHODS = [
     'HEAD',
 ]
 
-# Дополнительные CORS настройки
 CORS_PREFLIGHT_MAX_AGE = 86400
+
+AUTH_USER_MODEL = 'users.User'
+
 # Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
+LANGUAGE_CODE = 'ru-ru'
+TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
-
 USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # Важно для collectstatic
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+# Simplified static file serving for production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Django REST Framework settings
@@ -204,61 +243,60 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
-    ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour'
-    }
+    # Отключаем throttling временно из-за проблем с Redis
+    # 'DEFAULT_THROTTLE_CLASSES': [
+    #     'rest_framework.throttling.AnonRateThrottle',
+    #     'rest_framework.throttling.UserRateThrottle'
+    # ],
+    # 'DEFAULT_THROTTLE_RATES': {
+    #     'anon': '100/hour',
+    #     'user': '1000/hour'
+    # }
 }
 
 # Redis settings for real-time updates
-import os
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
 REDIS_DB = int(os.environ.get('REDIS_DB', 0))
 
-# Cache settings
+# Cache settings - using local memory cache
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
     }
 }
 
 # Channels settings for WebSocket support
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
         'CONFIG': {
-            'hosts': [(REDIS_HOST, REDIS_PORT)],
             'capacity': 1500,
             'expiry': 10,
         },
     },
 }
 
-# Media files (User uploaded files)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
 # Email settings для России
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.yandex.ru'  # Или 'smtp.mail.ru' для Mail.ru
+EMAIL_HOST = 'smtp.yandex.ru'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'runos.d.hino@yandex.com'  # Замените на ваш email
-EMAIL_HOST_PASSWORD = 'nvbxswlmmgkrwbml'  # Пароль приложения
-DEFAULT_FROM_EMAIL = 'runos.d.hino@yandex.com'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'runos.d.hino@yandex.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'runos.d.hino@yandex.com')
 
 # Google OAuth
-GOOGLE_CLIENT_ID = '48556278554-stce35i0jtbe6gapbuvnho1h08m393l5.apps.googleusercontent.com'
-GOOGLE_CLIENT_SECRET = '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'
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 
 # Site URL for email links and notifications
-SITE_URL = 'http://localhost:8000'
+SITE_URL = os.environ.get('SITE_URL', 'https://anisphere.ru')
 
 # Phone number settings
 PHONENUMBER_DEFAULT_REGION = 'RU'
@@ -267,17 +305,59 @@ PHONENUMBER_DEFAULT_REGION = 'RU'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
-# Session settings for email verification and OAuth
-SESSION_COOKIE_AGE = 86400  # 24 hours
-SESSION_COOKIE_DOMAIN = None
-SESSION_COOKIE_SECURE = False  # Для локальной разработки
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
+# Security settings for production
+if not DEBUG:
+    # Security settings
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Session settings
+    SESSION_COOKIE_AGE = 86400  # 24 hours
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    
+    # CSRF settings
+    CSRF_COOKIE_HTTPONLY = False
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    CSRF_TRUSTED_ORIGINS = ['https://anisphere.ru', 'https://www.anisphere.ru']
+else:
+    # Development settings
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
 
-# CSRF settings
-CSRF_COOKIE_SECURE = False  # Для локальной разработки
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
-
-# Site URL for email links and notifications
-SITE_URL = 'http://localhost:8000'
+# Logging settings
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'config.middleware': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}

@@ -1,0 +1,6 @@
+// Модуль кнопок действий
+export { default as AddToFavoriteButton } from './AddToFavoriteButton.vue'
+export { default as CollectionButton } from './CollectionButton.vue'
+export { default as ShareButton } from './ShareButton.vue'
+export { default as ReportButton } from './ReportButton.vue'
+export { default as BackButton } from './BackButton.vue'

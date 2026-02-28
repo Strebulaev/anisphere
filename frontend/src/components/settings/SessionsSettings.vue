@@ -94,8 +94,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import apiClient from '@/api/client'
-import { useAuthStore } from '@/stores/auth'
+import * as settingsApi from '@/api/settings'
 
 interface Session {
   id: number
@@ -107,7 +106,6 @@ interface Session {
   ip_address: string
 }
 
-const authStore = useAuthStore()
 const sessions = ref<Session[]>([])
 const showTerminateAll = ref(false)
 const loginNotifications = ref(true)
@@ -131,10 +129,8 @@ const inactiveSessions = computed(() => {
 // Methods
 const fetchSessions = async () => {
   try {
-    const result = await authStore.getUserSessions()
-    if (result.success) {
-      sessions.value = result.sessions
-    }
+    const data = await settingsApi.getActiveSessions()
+    sessions.value = data || []
   } catch (error) {
     console.error('Error fetching sessions:', error)
   }
@@ -178,10 +174,8 @@ const getDeviceIcon = (deviceInfo: any) => {
 
 const terminateSession = async (session: Session) => {
   try {
-    const result = await authStore.revokeSession(session.id)
-    if (result.success) {
-      sessions.value = sessions.value.filter(s => s.id !== session.id)
-    }
+    await settingsApi.terminateSession(session.session_key)
+    sessions.value = sessions.value.filter(s => s.session_key !== session.session_key)
   } catch (error) {
     console.error('Error terminating session:', error)
   }
@@ -189,12 +183,10 @@ const terminateSession = async (session: Session) => {
 
 const terminateAllOtherSessions = async () => {
   try {
-    const response = await apiClient.post('/users/active-sessions/terminate-all/')
-    if (response.status === 200) {
-      // Remove all other sessions from the list
-      sessions.value = sessions.value.filter(session => session === currentSession.value)
-      showTerminateAll.value = false
-    }
+    await settingsApi.terminateAllOtherSessions()
+    // Remove all other sessions from the list
+    sessions.value = sessions.value.filter(session => session === currentSession.value)
+    showTerminateAll.value = false
   } catch (error) {
     console.error('Error terminating all sessions:', error)
   }

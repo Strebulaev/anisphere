@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     PlaylistViewSet, PlaylistItemViewSet,
     FavoriteAnimeViewSet, FavoritePlaylistViewSet,
-    AddToPlaylistView
+    AddToPlaylistView, PlaylistSearchView
 )
 
 router = DefaultRouter()
@@ -15,4 +15,5 @@ router.register(r'favorites/playlists', FavoritePlaylistViewSet, basename='favor
 urlpatterns = [
     path('', include(router.urls)),
     path('add-to-playlist/', AddToPlaylistView.as_view(), name='add-to-playlist'),
+    path('playlists/search/', PlaylistSearchView.as_view(), name='playlist-search'),
 ]

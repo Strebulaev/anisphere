@@ -110,6 +110,16 @@ class Anime(models.Model):
     ova_count = models.PositiveIntegerField(default=0, verbose_name='Количество OVA')
     total_items = models.PositiveIntegerField(default=1, verbose_name='Общее количество элементов')
     
+    # Kodik поля
+    kodik_link = models.URLField(blank=True, verbose_name='Ссылка на плеер Kodik')
+    kodik_id = models.CharField(max_length=100, blank=True, verbose_name='Kodik ID')
+    quality = models.CharField(max_length=20, blank=True, verbose_name='Качество видео')
+    screenshots = models.JSONField(default=list, blank=True, verbose_name='Скриншоты')
+    seasons = models.JSONField(default=dict, blank=True, verbose_name='Сезоны и серии')
+    last_season = models.PositiveIntegerField(null=True, blank=True, verbose_name='Последний сезон')
+    last_episode = models.PositiveIntegerField(null=True, blank=True, verbose_name='Последняя серия')
+    translations = models.JSONField(default=list, blank=True, verbose_name='Переводы')
+    
     data_source = models.CharField(max_length=20, default='unknown', verbose_name='Источник данных')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -442,7 +452,7 @@ class Translation(models.Model):
         ('error', 'Ошибка'),
     ]
     
-    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='translations')
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='anime_translations')
     video_source = models.ForeignKey(VideoSource, on_delete=models.CASCADE, related_name='translations', null=True, blank=True)
     
     # Основная информация
@@ -547,3 +557,81 @@ class AnimeUpdate(models.Model):
     
     def __str__(self):
         return f"{self.anime.title_ru} - {self.get_update_type_display()}"
+
+
+class CustomDub(models.Model):
+    """Пользовательская озвучка аниме"""
+    MODERATION_STATUS_CHOICES = [
+        ('pending', 'На модерации'),
+        ('approved', 'Одобрено'),
+        ('rejected', 'Отклонено'),
+    ]
+    
+    QUALITY_CHOICES = [
+        ('360p', '360p'),
+        ('480p', '480p'),
+        ('720p', '720p'),
+        ('1080p', '1080p'),
+        ('4K', '4K'),
+    ]
+    
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='custom_dubs')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='uploaded_dubs'
+    )
+    
+    # Основная информация
+    name = models.CharField('Название озвучки', max_length=255)
+    studio = models.CharField('Студия', max_length=255, blank=True)
+    description = models.TextField('Описание', blank=True)
+    
+    # Техническая информация
+    quality = models.CharField('Качество', max_length=10, choices=QUALITY_CHOICES, default='720p')
+    video_url = models.URLField('Ссылка на видео')
+    logo_url = models.URLField('URL логотипа', blank=True)
+    
+    # Прогресс
+    episodes_done = models.PositiveIntegerField('Озвучено серий', default=0)
+    total_episodes = models.PositiveIntegerField('Всего серий', null=True, blank=True)
+    is_complete = models.BooleanField('Завершено', default=False)
+    
+    # Модерация
+    status = models.CharField(
+        'Статус модерации',
+        max_length=20,
+        choices=MODERATION_STATUS_CHOICES,
+        default='pending'
+    )
+    moderation_comment = models.TextField('Комментарий модератора', blank=True)
+    moderated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='moderated_dubs'
+    )
+    moderated_at = models.DateTimeField('Дата модерации', null=True, blank=True)
+    
+    # Статистика
+    views_count = models.PositiveIntegerField('Просмотров', default=0)
+    rating = models.FloatField('Рейтинг', default=0.0)
+    ratings_count = models.PositiveIntegerField('Оценок', default=0)
+    
+    # Метаданные
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    updated_at = models.DateTimeField('Дата обновления', auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Пользовательская озвучка'
+        verbose_name_plural = 'Пользовательские озвучки'
+        unique_together = ['anime', 'created_by', 'name']
+    
+    def __str__(self):
+        return f"{self.anime.title_ru} - {self.name} ({self.get_status_display()})"
+    
+    def save(self, *args, **kwargs):
+        self.updated_at = timezone.now()
+        super().save(*args, **kwargs)
