@@ -15,7 +15,7 @@
 
     <!-- Create Post Button -->
     <div class="create-post-area" @click="showCreatePost = true">
-      <img :src="currentUser?.avatar_url || '/img/default-avatar.svg'" class="user-avatar" alt="Аватар" />
+      <img :src="currentUser?.avatar_url || defaultAvatar" class="user-avatar" alt="Аватар" />
       <span class="placeholder">Что у вас нового?</span>
       <button class="btn-post">Написать</button>
     </div>
@@ -149,6 +149,7 @@ type FeedType = 'weighted' | 'followers' | 'hot' | 'top' | 'trending'
 const feedStore = useFeedStore()
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user)
+const defaultAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23333'/%3E%3Ccircle cx='20' cy='15' r='6' fill='%23666'/%3E%3Cpath d='M8 36c0-6.627 5.373-12 12-12s12 5.373 12 12' fill='%23666'/%3E%3C/svg%3E`
 
 const feedListRef = ref<HTMLElement | null>(null)
 const loadMoreRef = ref<HTMLElement | null>(null)
@@ -171,7 +172,8 @@ let intersectionObserver: IntersectionObserver | null = null
 function setupInfiniteScroll() {
   intersectionObserver = new IntersectionObserver(
     (entries) => {
-      if (entries[0].isIntersecting && feedStore.hasMore && !feedStore.loadingMore) {
+      const entry = entries[0]
+      if (entry?.isIntersecting && feedStore.hasMore && !feedStore.loadingMore) {
         feedStore.loadMore()
       }
     },

@@ -261,7 +261,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import type { FeedPost, MediaFile } from '@/api/feed'
 
+// shape used internally for template rendering (includes 'type' field)
 interface MediaItem {
   type: 'image' | 'video'
   url: string
@@ -269,47 +271,11 @@ interface MediaItem {
   caption?: string
 }
 
-interface Post {
-  id: number
-  author: number
-  author_username: string
-  author_display_name: string | null
-  author_avatar: string | null
-  title: string
-  post_type: string
-  text: string
-  image_url: string | null
+// extend API type with a few additional frontend-only props
+type Post = FeedPost & {
   image_file: string | null
-  video_url: string | null
   video_file: string | null
-  anime: any
-  anime_rating: number | null
-  playlist: any
-  group: any
-  original_post: any
-  repost_comment: string
-  likes_count: number
-  dislikes_count: number
-  comments_count: number
-  reposts_count: number
-  views_count: number
-  is_pinned: boolean
-  is_deleted: boolean
-  allow_comments: boolean
-  created_at: string
-  updated_at: string
-  edited_at: string | null
-  is_spoiler: boolean
-  media_files: MediaItem[]
-  hashtags: string[]
-  is_liked: boolean
-  is_disliked: boolean
-  is_bookmarked: boolean
   is_following: boolean
-  can_edit: boolean
-  can_delete: boolean
-  system_type?: string | null
-  reactor_post?: any
 }
 
 const props = defineProps<{
@@ -331,7 +297,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-const defaultAvatar = '/img/default-avatar.svg'
+const defaultAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23333'/%3E%3Ccircle cx='20' cy='15' r='6' fill='%23666'/%3E%3Cpath d='M8 36c0-6.627 5.373-12 12-12s12 5.373 12 12' fill='%23666'/%3E%3C/svg%3E`
 const isTextCollapsed = ref(true)
 const isSpoilerRevealed = ref(false)
 
@@ -340,9 +306,15 @@ const hasMedia = computed(() => {
   return props.post.media_files?.length > 0
 })
 
-const displayMedia = computed(() => {
+const displayMedia = computed<MediaItem[]>(() => {
   if (!props.post.media_files) return []
-  return props.post.media_files.slice(0, 10) // Max 10 images
+  // convert backend MediaFile objects to MediaItem with `type` field
+  return props.post.media_files.slice(0, 10).map((m: MediaFile) => ({
+    type: m.media_type,
+    url: m.url,
+    thumbnail: m.thumbnail,
+    caption: m.caption,
+  }))
 })
 
 const mediaGridClass = computed(() => {

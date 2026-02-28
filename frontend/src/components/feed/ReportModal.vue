@@ -83,9 +83,10 @@ const submitReport = async () => {
   submitting.value = true
 
   try {
-    await apiClient.post('/social/reports/', {
-      content_type: props.contentType,
-      content_id: props.contentId,
+    const endpoint = props.contentType === 'post'
+      ? `/social/posts/${props.contentId}/report/`
+      : `/social/comments/${props.contentId}/report/`
+    await apiClient.post(endpoint, {
       reason: selectedReason.value,
       comment: comment.value
     })

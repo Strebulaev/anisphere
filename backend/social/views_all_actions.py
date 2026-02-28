@@ -21,6 +21,10 @@ from .models import (
     PostAttachment, UserMention, PostHashtag
 )
 from users.models import User
+from .serializers import (
+    PostCommentSerializer, PostCommentCreateSerializer,
+    ReportSerializer, ReportCreateSerializer
+)
 
 logger = logging.getLogger(__name__)
 
@@ -968,11 +972,20 @@ class RepostViewSet(viewsets.ModelViewSet):
 class PostCommentViewSet(viewsets.ModelViewSet):
     """Комментарии к постам"""
     permission_classes = [IsAuthenticated]
-    serializer_class = None
+    serializer_class = PostCommentSerializer
+    
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return PostCommentCreateSerializer
+        return PostCommentSerializer
     
     def get_queryset(self):
         post_id = self.kwargs.get('post_pk')
         return PostComment.objects.filter(post_id=post_id).select_related('author')
+    
+    def perform_create(self, serializer):
+        post_id = self.kwargs.get('post_pk')
+        serializer.save(author=self.request.user, post_id=post_id)
 
 
 class BookmarkViewSet(viewsets.ModelViewSet):
@@ -986,9 +999,18 @@ class BookmarkViewSet(viewsets.ModelViewSet):
 class ReportViewSet(viewsets.ModelViewSet):
     """Жалобы"""
     permission_classes = [IsAuthenticated]
+    serializer_class = ReportSerializer
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ReportCreateSerializer
+        return ReportSerializer
     
     def get_queryset(self):
         return Report.objects.filter(reporter=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(reporter=self.request.user)
 
 
 class PostMediaViewSet(viewsets.ModelViewSet):

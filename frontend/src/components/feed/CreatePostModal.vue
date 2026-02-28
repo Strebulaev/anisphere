@@ -465,7 +465,7 @@ const selectAnime = (anime: any) => {
 const openPlaylistSelector = async () => {
   showPlaylistSelector.value = true
   try {
-    const response = await apiClient.get('/playlists/my/')
+    const response = await apiClient.get('/playlists/playlists/my/')
     playlists.value = response.data.results || []
   } catch (error) {
     console.error('Error loading playlists:', error)
