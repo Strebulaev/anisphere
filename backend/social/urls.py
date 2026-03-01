@@ -175,6 +175,7 @@ urlpatterns = [
     path('posts/<int:post_id>/report/', report_post, name='report-post'),
     path('posts/<int:post_id>/bookmark/', add_bookmark, name='add-bookmark'),
     path('posts/<int:post_id>/bookmark/remove/', remove_bookmark, name='remove-bookmark'),
+    path('bookmarks/toggle/', api_view(['POST'])(lambda r, **kw: add_bookmark(r, r.data.get('post_id'))), name='toggle-bookmark'),
     path('bookmarks/folders/', get_bookmarks_folders, name='bookmarks-folders'),
     path('posts/<int:post_id>/likers/', get_post_likers, name='get-post-likers'),
     path('posts/<int:post_id>/dislikers/', get_post_dislikers, name='get-post-dislikers'),

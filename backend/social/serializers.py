@@ -127,6 +127,155 @@ class PostSerializer(serializers.ModelSerializer):
     can_edit = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
     edited_at_display = serializers.SerializerMethodField()
+    hashtags = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = [
+            'id', 'author', 'author_username', 'author_display_name', 'author_avatar',
+            'title', 'text', 'image_url', 'image_file', 'video_url', 'video_file',
+            'anime', 'anime_title', 'anime_poster', 'anime_rating',
+            'group', 'group_name', 'group_avatar',
+            'playlist', 'playlist_title',
+            'reactor_post',
+            'post_type', 'original_post', 'original_post_data', 'repost_comment',
+            'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count', 'shares_count',
+            'is_liked', 'is_disliked', 'is_favorited', 'is_bookmarked', 'is_following',
+            'is_pinned', 'is_deleted', 'allow_comments', 'status', 'visibility',
+            'is_spoiler', 'spoiler_for',
+            'media_files', 'attachments_data', 'content_preview',
+            'media_url', 'hashtags',
+            'created_at', 'updated_at', 'edited_at', 'edited_at_display', 'published_at',
+            'can_edit', 'can_delete'
+        ]
+        read_only_fields = [
+            'id', 'author', 'created_at', 'updated_at', 'likes_count', 'published_at',
+            'dislikes_count', 'comments_count', 'reposts_count', 'views_count', 'shares_count'
+        ]
+
+    def get_group(self, obj):
+        if obj.group:
+            return {
+                'id': obj.group.id,
+                'name': obj.group.name,
+                'avatar': obj.group.avatar_file.url if obj.group.avatar_file else None
+            }
+        return None
+
+    def get_anime(self, obj):
+        if obj.anime:
+            return {
+                'id': obj.anime.id,
+                'title_ru': obj.anime.title_ru,
+                'poster_url': obj.anime.poster.url if obj.anime.poster else None
+            }
+        return None
+
+    def get_playlist(self, obj):
+        if obj.playlist:
+            return {
+                'id': obj.playlist.id,
+                'title': obj.playlist.title
+            }
+        return None
+
+    def get_reactor_post(self, obj):
+        if obj.reactor_post:
+            return {
+                'id': obj.reactor_post.id,
+                'title': obj.reactor_post.title,
+                'video_url': obj.reactor_post.video_url,
+                'user': {
+                    'id': obj.reactor_post.user.id,
+                    'username': obj.reactor_post.user.username
+                }
+            }
+        return None
+
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_is_disliked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.dislikes.filter(user=request.user).exists()
+        return False
+
+    def get_is_favorited(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.favorites.filter(user=request.user).exists()
+        return False
+
+    def get_is_bookmarked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.bookmarks.filter(user=request.user).exists()
+        return False
+
+    def get_is_following(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and obj.author:
+            return obj.author.following.filter(follower=request.user).exists()
+        return False
+
+    def get_original_post_data(self, obj):
+        if obj.original_post:
+            return PostSerializer(obj.original_post, context=self.context).data
+        return None
+
+    def get_media_files(self, obj):
+        media = obj.media_files.all() if hasattr(obj, 'media_files') else []
+        return PostMediaSerializer(media, many=True, context=self.context).data
+
+    def get_attachments_data(self, obj):
+        attachments = obj.attachments.all() if hasattr(obj, 'attachments') else []
+        return PostAttachmentSerializer(attachments, many=True, context=self.context).data
+
+    def get_content_preview(self, obj):
+        text = obj.text or ''
+        if len(text) > 200:
+            return text[:200] + '...'
+        return text
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        if request and request.user == obj.author:
+            from django.utils import timezone
+            from datetime import timedelta
+            return (timezone.now() - obj.created_at) < timedelta(minutes=5)
+        return False
+
+    def get_can_delete(self, obj):
+        request = self.context.get('request')
+        if request and (request.user == obj.author or request.user.is_staff):
+            return True
+        return False
+
+    def get_hashtags(self, obj):
+        if hasattr(obj, 'hashtag_links'):
+            return [link.hashtag.name for link in obj.hashtag_links.all()]
+        return []
+
+    def get_edited_at_display(self, obj):
+        if obj.edited_at:
+            from django.utils.relative import format_timedelta
+            from django.utils import timezone
+            delta = timezone.now() - obj.edited_at
+            if delta.days > 1:
+                return f'(изменено {obj.edited_at.strftime("%d.%m.%y")})'
+            elif delta.seconds > 3600:
+                hours = delta.seconds // 3600
+                return f'(изменено {hours}ч назад)'
+            elif delta.seconds > 60:
+                minutes = delta.seconds // 60
+                return f'(изменено {minutes}м назад)'
+            else:
+                return '(изменено сейчас)'
+        return None
 
 
 # Alias for feed - uses the same serializer
@@ -1281,7 +1430,7 @@ class PostCommentSerializer(serializers.ModelSerializer):
             'path', 'level', 'created_at', 'updated_at',
             'is_liked', 'is_disliked'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'is_edited']
+        read_only_fields = ['id', 'post', 'author', 'created_at', 'updated_at', 'is_edited']
 
     def get_is_liked(self, obj):
         request = self.context.get('request')
@@ -1305,7 +1454,7 @@ class PostCommentCreateSerializer(serializers.ModelSerializer):
     """Сериализатор создания комментария"""
     class Meta:
         model = PostComment
-        fields = ['post', 'parent', 'content']
+        fields = ['parent', 'content']
 
     def validate_content(self, value):
         if not value or not value.strip():
@@ -1315,21 +1464,10 @@ class PostCommentCreateSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate(self, data):
-        post = data.get('post')
         parent = data.get('parent')
 
-        # Проверяем, что пост существует и не удалён
-        if post.is_deleted:
-            raise serializers.ValidationError("Нельзя комментировать удалённый пост")
-
-        # Проверяем, что комментарии разрешены
-        if not post.allow_comments:
-            raise serializers.ValidationError("Комментарии к этому посту запрещены")
-
-        # Проверяем родительский комментарий
+        # Проверяем родительский комментарий (пост будет доступен через perform_create)
         if parent:
-            if parent.post != post:
-                raise serializers.ValidationError("Родительский комментарий должен быть к тому же посту")
             if parent.is_deleted:
                 raise serializers.ValidationError("Нельзя отвечать на удалённый комментарий")
 
@@ -1338,6 +1476,7 @@ class PostCommentCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         author = self.context['request'].user
         parent = validated_data.get('parent')
+        post = validated_data.get('post')
 
         # Строим path и level
         if parent:
@@ -1349,7 +1488,7 @@ class PostCommentCreateSerializer(serializers.ModelSerializer):
 
         comment = PostComment.objects.create(
             author=author,
-            post=validated_data['post'],
+            post=post,
             parent=parent,
             content=validated_data['content'],
             path=path,
@@ -1357,7 +1496,6 @@ class PostCommentCreateSerializer(serializers.ModelSerializer):
         )
 
         # Обновляем счётчик комментариев поста
-        post = validated_data['post']
         post.comments_count = PostComment.objects.filter(post=post, is_deleted=False).count()
         post.save(update_fields=['comments_count'])
 

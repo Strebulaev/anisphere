@@ -13,6 +13,7 @@ python-decouple==3.8
 drf-spectacular==0.26.5
 channels==4.0.0
 channels-redis==4.1.0
+django-model-utils
 
 # Anime parsers
 anime-parsers-ru==0.3.2

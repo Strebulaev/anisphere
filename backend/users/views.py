@@ -1910,7 +1910,7 @@ class StorageUsageView(APIView):
 
         # Подсчёт использования памяти (упрощённо)
         messages_count = Message.objects.filter(sender=user).count()
-        comments_count = Comment.objects.filter(user=user).count()
+        comments_count = Comment.objects.filter(author=user).count()
         playlists_count = Playlist.objects.filter(user=user).count()
         library_count = user.library.count() if hasattr(user, 'library') else 0
 
@@ -3231,7 +3231,7 @@ class UserFeedView(APIView):
         posts = Post.objects.filter(
             author=user,
             is_deleted=False
-        ).select_related('author').prefetch_related('media')
+        ).select_related('author').prefetch_related('media_files', 'hashtag_links__hashtag')
 
         # Пагинация
         page = int(request.query_params.get('page', 1))
@@ -3270,9 +3270,12 @@ class UserStatsView(APIView):
             except User.DoesNotExist:
                 return Response({'error': 'Пользователь не найден'}, status=404)
         elif pk:
-            # Это ID
+            # Это ID — сначала валидируем, что это число
             try:
-                user = User.objects.get(pk=pk)
+                user_id = int(pk)
+                user = User.objects.get(pk=user_id)
+            except (ValueError, TypeError):
+                return Response({'error': 'Некорректный ID пользователя'}, status=400)
             except User.DoesNotExist:
                 return Response({'error': 'Пользователь не найден'}, status=404)
         else:

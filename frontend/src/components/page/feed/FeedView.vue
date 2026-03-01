@@ -263,6 +263,7 @@ interface User {
   username: string
   display_name: string
   avatar: string
+  is_following: boolean
 }
 
 interface TrendingPost {
@@ -314,26 +315,22 @@ const feedTabs = [
 // Filters
 const filters = [
   { id: 'all', label: 'Все посты' },
-  { id: 'text', label: 'Текстовые' },
-  { id: 'image', label: 'С изображениями' },
-  { id: 'video', label: 'С видео' },
-  { id: 'anime', label: 'Об аниме' }
+  // { id: 'text', label: 'Текстовые' },
+  // { id: 'image', label: 'С изображениями' },
+  // { id: 'video', label: 'С видео' },
+  // { id: 'anime', label: 'Об аниме' }
 ]
 
 // Interest tags
-const interestTags = ['аниме', 'манга', 'рецензии', 'персонажи', 'музыка', 'арт', 'новости', 'обсуждения']
+const interestTags = ['аниме']
 
 // Trending posts (mock data)
 const trendingPosts = ref<TrendingPost[]>([
-  { id: 1, rank: 1, title: 'Топ аниме 2024 года', likes_count: 1250 },
-  { id: 2, rank: 2, title: 'Обзор на новый сезон', likes_count: 980 },
-  { id: 3, rank: 3, title: 'Мой топ манги', likes_count: 750 }
+
 ])
 
 // Suggested users (mock data)
-const suggestedUsers = ref([
-  { id: 1, username: 'anime_fan', display_name: 'Аниме Фан', avatar: null, is_following: false },
-  { id: 2, username: 'manga_lover', display_name: 'Манга Лав', avatar: null, is_following: false }
+const suggestedUsers = ref<User[]>([
 ])
 
 // Computed
@@ -671,7 +668,7 @@ onUnmounted(() => {
   position: sticky;
   top: 0;
   background: #0a0a0a;
-  z-index: 100;
+  z-index: 0;
 }
 
 .feed-tabs {

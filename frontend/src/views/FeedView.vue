@@ -196,26 +196,32 @@ async function reloadFeed() {
 }
 
 function handleLike(post: FeedPost) {
+  if (!post?.id) return
   feedStore.likePost(post.id)
 }
 
 function handleDislike(post: FeedPost) {
+  if (!post?.id) return
   feedStore.dislikePost(post.id)
 }
 
 function openComments(post: FeedPost) {
+  if (!post?.id) return
   activeCommentPost.value = post
 }
 
 function openRepost(post: FeedPost) {
+  if (!post?.id) return
   activeRepostPost.value = post
 }
 
 function handleBookmark(post: FeedPost) {
+  if (!post?.id) return
   feedStore.bookmarkPost(post.id)
 }
 
 function handleShare(post: FeedPost) {
+  if (!post?.id) return
   const url = `${window.location.origin}/post/${post.id}`
   if (navigator.clipboard) {
     navigator.clipboard.writeText(url)

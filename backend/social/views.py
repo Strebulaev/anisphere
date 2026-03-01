@@ -566,8 +566,12 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class PostCommentViewSet(ModelViewSet):
     """ViewSet для комментариев к постам (ленты)"""
-    serializer_class = PostCommentSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return PostCommentCreateSerializer
+        return PostCommentSerializer
 
     def get_queryset(self):
         post_pk = self.kwargs.get('post_pk')
@@ -579,7 +583,7 @@ class PostCommentViewSet(ModelViewSet):
             post_id=post_pk,
             parent__isnull=True,
             is_deleted=False
-        ).select_related('author__profile')
+        ).select_related('author')
 
         # Сортировка
         sort = self.request.query_params.get('sort', 'best')
@@ -597,37 +601,14 @@ class PostCommentViewSet(ModelViewSet):
         post = Post.objects.get(id=post_pk)
 
         if not post.allow_comments:
-            raise PermissionError("Комментарии к этому посту закрыты")
+            raise PermissionDenied("Комментарии к этому посту закрыты")
 
-        parent_id = self.request.data.get('parent_id')
-        parent = None
-        if parent_id:
-            parent = PostComment.objects.get(id=parent_id)
-
-        # Построение path и level для древовидной структуры
-        if parent:
-            path = f"{parent.path},{self.request.user.id}"
-            level = parent.level + 1
-        else:
-            path = f"{self.request.user.id}"
-            level = 0
-
-        comment = serializer.save(
+        # parent is already resolved by the serializer from validated_data['parent']
+        # We just pass post and author; serializer.create() handles path/level/counters
+        serializer.save(
             post=post,
             author=self.request.user,
-            parent=parent,
-            path=path,
-            level=level
         )
-
-        # Обновляем счётчик комментариев поста
-        post.comments_count += 1
-        post.save(update_fields=['comments_count'])
-
-        # Увеличиваем счётчик ответов у родителя
-        if parent:
-            parent.replies_count += 1
-            parent.save(update_fields=['replies_count'])
 
     def perform_destroy(self, instance):
         # Мягкое удаление
@@ -1743,37 +1724,58 @@ class PostViewSet(ModelViewSet):
         return PostSerializer
 
     def get_queryset(self):
-        queryset = Post.objects.filter(is_deleted=False).select_related('author', 'anime', 'group')
+        queryset = Post.objects.filter(
+            is_deleted=False,
+            status='published'
+        ).select_related(
+            'author', 'anime', 'group', 'playlist', 'reactor_post'
+        ).prefetch_related(
+            'media_files', 'attachments', 'hashtag_links__hashtag'
+        ).order_by('-created_at')
 
-        # Фильтр по группе
-        group_id = self.request.query_params.get('group')
-        if group_id:
-            queryset = queryset.filter(group_id=group_id)
+        # Фильтр по группе (преобразуем 'true' string в None или целое число)
+        group_filter = self.request.query_params.get('group')
+        if group_filter and group_filter != 'true':
+            try:
+                group_id = int(group_filter)
+                queryset = queryset.filter(group_id=group_id)
+            except (ValueError, TypeError):
+                pass
+        elif group_filter == 'true':
+            # Если group=true, показываем только посты в группах
+            queryset = queryset.exclude(group__isnull=True)
 
         # Фильтр по аниме
         anime_id = self.request.query_params.get('anime')
         if anime_id:
-            queryset = queryset.filter(anime_id=anime_id)
+            try:
+                queryset = queryset.filter(anime_id=int(anime_id))
+            except (ValueError, TypeError):
+                pass
 
-        # Лента пользователя (посты от подписок + собственные)
+        # Лента пользователя (посты от подписок)
         if self.request.query_params.get('feed') == 'true':
-            # Для простоты - все посты, кроме своих групп
-            # TODO: Добавить систему подписок
             queryset = queryset.exclude(group__isnull=False)
 
         return queryset
 
     def perform_create(self, serializer):
-        post = serializer.save(author=self.request.user)
+        post = serializer.save(author=self.request.user, status='published')
 
         # Публикуем событие создания поста
-        publish_post_created({
-            'post_id': post.id,
-            'author_id': post.author.id,
-            'author_username': post.author.username,
-            'text': post.text[:200] if post.text else '',
-            'created_at': post.created_at.isoformat()
-        })
+        try:
+            publish_post_created({
+                'post_id': post.id,
+                'author_id': post.author.id,
+                'author_username': post.author.username,
+                'text': post.text[:200] if post.text else '',
+                'created_at': post.created_at.isoformat()
+            })
+        except Exception as e:
+            # Redis недоступен, просто логируем
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Failed to publish post created event: {e}')
 
 
 class MessageListCreateView(generics.ListCreateAPIView):
@@ -2014,7 +2016,10 @@ class PrivateChatViewSet(ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Создание личного чата"""
-        from core.redis_events import publish_chat_created
+        try:
+            from core.redis_events import publish_chat_created
+        except Exception:
+            publish_chat_created = lambda x: None
 
         user2_id = request.data.get('user2')
         

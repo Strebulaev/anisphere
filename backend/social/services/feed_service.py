@@ -278,8 +278,7 @@ class TrendingService:
     @classmethod
     def get_hot_posts(cls, hours: int = 24, limit: int = 20) -> List[Post]:
         """Получить горячие посты за последние N часов"""
-        from django.db.models import F, ExpressionWrapper, FloatField
-        from django.db.models.functions import Extract
+        from django.db.models import F
         
         time_threshold = timezone.now() - timedelta(hours=hours)
         
@@ -288,13 +287,13 @@ class TrendingService:
             is_deleted=False,
             created_at__gte=time_threshold,
             post_type__in=['text', 'image', 'video', 'anime', 'playlist']
-        ).annotate(
-            hot_score=ExpressionWrapper(
-                (F('likes_count') + F('comments_count') * 2) / 
-                (Extract(timezone.now() - F('created_at'), 'epoch') / 3600 + 1) ** 0.5,
-                output_field=FloatField()
-            )
-        ).order_by('-hot_score')[:limit]
+        ).select_related(
+            'author', 'anime', 'group', 'playlist', 'reactor_post'
+        ).prefetch_related(
+            'media_files', 'hashtag_links__hashtag'
+        ).order_by(
+            '-likes_count', '-comments_count', '-created_at'
+        )[:limit]
         
         return list(posts)
     
