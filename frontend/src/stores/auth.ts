@@ -304,7 +304,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Check if running in local development mode
   const isLocalDevelopment = () => {
     const hostname = window.location.hostname
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+    return  hostname === '127.0.0.1' || hostname === '::1'
   }
 
   // Check authentication status

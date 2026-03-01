@@ -14,24 +14,53 @@ from pathlib import Path
 from datetime import timedelta
 import os
 from dotenv import load_dotenv
+import pathlib
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file.
+# Prefer an explicit path from ENV_FILE, otherwise try the common server root
+# path used on your host, falling back to a repository .env if present.
+ENV_FILE = os.environ.get(
+    'ENV_FILE',
+    '/var/www/www-root/data/www/anisphere.ru/.env',
+)
+if os.path.exists(ENV_FILE):
+    load_dotenv(ENV_FILE)
+else:
+    # fallback: load .env from repo / project (if present)
+    load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Утилиты для чтения списков из переменных окружения (comma-separated)
+def parse_env_list(name, default=None):
+    val = os.environ.get(name)
+    if val is None:
+        val = default
+    if not val:
+        return []
+    return [p.strip() for p in val.split(',') if p.strip()]
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e')
+# SECRET_KEY: prefer DJANGO_SECRET_KEY, then SECRET_KEY, then a default (unsafe) fallback
+SECRET_KEY = (
+    os.environ.get('DJANGO_SECRET_KEY')
+    or os.environ.get('SECRET_KEY')
+    or 'django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e'
+)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = 'False'
+# DEBUG: read boolean-like env var
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['anisphere.ru', 'www.anisphere.ru', 'api.anisphere.ru', 'localhost', '127.0.0.1', '127.0.0.1:8000', '168.222.192.40']
+ALLOWED_HOSTS = parse_env_list(
+    'ALLOWED_HOSTS',
+    'anisphere.ru,www.anisphere.ru,api.anisphere.ru,localhost,127.0.0.1,168.222.192.40',
+)
 
 # Application definition
 
@@ -151,17 +180,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # CORS settings for production
-CORS_ALLOWED_ORIGINS = [
-    "https://anisphere.ru",
-    "https://www.anisphere.ru",
-    "http://localhost:3000",   # Для разработки
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://frontend:3000",
-    "http://frontend:5173",
-    "http://localhost:8000",
-]
+CORS_ALLOWED_ORIGINS = parse_env_list(
+    'CORS_ALLOWED_ORIGINS',
+    'https://anisphere.ru,https://www.anisphere.ru,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://frontend:3000,http://frontend:5173,http://localhost:8000',
+)
 
 CORS_ALLOW_ALL_ORIGINS = False  # Важно: выключите в продакшене!
 CORS_ALLOW_CREDENTIALS = True
@@ -282,11 +304,11 @@ CHANNEL_LAYERS = {
     },
 }
 
-# Email settings для России
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.yandex.ru'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+# Email settings (configurable via env)
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.yandex.ru')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'runos.d.hino@yandex.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'runos.d.hino@yandex.com')

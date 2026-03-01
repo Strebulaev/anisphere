@@ -166,7 +166,7 @@ class RegisterView(generics.CreateAPIView):
         }, timeout=86400)  # 24 часа
 
         # Отправляем письмо с ссылкой подтверждения
-        confirm_url = f"http://localhost:5173/confirm-email?token={token}&email={user.email}"
+        confirm_url = f"http://anisphere.ru/confirm-email?token={token}&email={user.email}"
         send_verification_email(user.email, confirm_url, is_link=True)
 
 
@@ -231,7 +231,7 @@ class GoogleAuthView(APIView):
         print(f"DEBUG: Session key: {request.session.session_key}")
 
         # Для локальной разработки используем фиксированный redirect URI
-        redirect_uri = "http://localhost:8000/api/users/google/callback/"
+        redirect_uri = f"{settings.SITE_URL.rstrip('/')}/api/users/google/callback/"
         print(f"DEBUG: Using redirect_uri: {redirect_uri}")
 
         # Проверяем наличие Google credentials
@@ -338,15 +338,24 @@ class GoogleAuthCallbackView(APIView):
 
         try:
             # Обмениваем authorization code на access token
+            redirect_uri = f"{settings.SITE_URL.rstrip('/')}/api/users/google/callback/"
             token_data = {
                 'client_id': settings.GOOGLE_CLIENT_ID,
                 'client_secret': settings.GOOGLE_CLIENT_SECRET,
                 'code': code,
                 'grant_type': 'authorization_code',
-                'redirect_uri': "http://localhost:8000/api/users/google/callback/"
+                'redirect_uri': redirect_uri
             }
 
+            print(f"DEBUG: Token exchange request")
+            print(f"  client_id: {settings.GOOGLE_CLIENT_ID[:20]}...")
+            print(f"  redirect_uri: {redirect_uri}")
+            print(f"  code: {code[:20]}...")
+
             token_response = requests.post('https://oauth2.googleapis.com/token', data=token_data)
+            print(f"DEBUG: Token response status: {token_response.status_code}")
+            if token_response.status_code != 200:
+                print(f"DEBUG: Token error response: {token_response.text}")
             token_response.raise_for_status()
             token_json = token_response.json()
 
@@ -408,7 +417,7 @@ class GoogleAuthCallbackView(APIView):
                     localStorage.setItem('user', JSON.stringify({json.dumps(user_data)}));
 
                     // Перенаправляем на главную страницу
-                    window.location.href = 'http://localhost:5173/';
+                    window.location.href = 'https://anisphere.ru/';
                 </script>
             </head>
             <body>
@@ -420,6 +429,9 @@ class GoogleAuthCallbackView(APIView):
             return HttpResponse(html_content, content_type='text/html')
 
         except Exception as e:
+            print(f"ERROR: Google OAuth callback exception: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
             return Response({'error': f'Google OAuth callback error: {str(e)}'}, status=500)
 
 
@@ -567,7 +579,7 @@ class EmailConfirmView(APIView):
             <body>
                 <div class="success">✓ Email подтвержден!</div>
                 <div class="message">Теперь вы можете полноценно использовать AnimeCore</div>
-                <a href="http://localhost:5173/login" class="button">Войти в аккаунт</a>
+                <a href="http://anisphere.ru/login" class="button">Войти в аккаунт</a>
             </body>
             </html>
             """
@@ -3288,7 +3300,7 @@ class UserStatsView(APIView):
         followers_count = Follow.objects.filter(following=user).count()
         following_count = Follow.objects.filter(follower=user).count()
         posts_count = Post.objects.filter(author=user, is_deleted=False).count()
-        playlists_count = Playlist.objects.filter(author=user).count()
+        playlists_count = Playlist.objects.filter(user=user).count()
         achievements_count = 0  # Пока нет модели achievements
 
         # Подсчет комментариев
