@@ -1038,11 +1038,13 @@ def repost_post(request, post_id):
         # Создаём новый пост-репост
         repost_post = Post.objects.create(
             author=request.user,
-            type='repost',
-            content=comment,
+            post_type='repost',
+            text=comment,
             status='published',
             visibility='public',
-            allow_comments=True
+            allow_comments=True,
+            original_post=original_post,
+            repost_comment=comment
         )
 
         # Создаём запись о репосте
@@ -1231,7 +1233,7 @@ def get_popular_posts(request):
     else:
         since = None
 
-    queryset = Post.objects.filter(status='published', type__in=['text', 'image', 'video', 'anime'])
+    queryset = Post.objects.filter(status='published', post_type__in=['text', 'image', 'video', 'anime'])
 
     if since:
         queryset = queryset.filter(created_at__gte=since)
@@ -1777,10 +1779,9 @@ class PostViewSet(ModelViewSet):
 
                 # Calculate file size in bytes
                 file_size = file.size
-                
                 PostMedia.objects.create(
-                    post=post, 
-                    media_type=media_type, 
+                    post=post,
+                    media_type=media_type,
                     file=file,
                     file_size=file_size
                 )
