@@ -9,6 +9,7 @@ import json
 import re
 from difflib import SequenceMatcher
 from typing import List, Dict, Any
+import logging
 
 from users.models import UserLibrary
 from .models import Anime, Genre, Episode, Translation, WatchProgress, CustomDub
@@ -17,11 +18,19 @@ from .services.anime_parser_service import (
     AnimeParserService, VideoStreamingService, CacheService, AnimeUpdateService
 )
 
-# Инициализация сервисов
-anime_parser_service = AnimeParserService()
-video_streaming_service = VideoStreamingService()
-cache_service = CacheService()
-anime_update_service = AnimeUpdateService()
+# Инициализация сервисов (в try/except чтобы ошибки парсера не ломали весь модуль)
+try:
+    anime_parser_service = AnimeParserService()
+    video_streaming_service = VideoStreamingService()
+    cache_service = CacheService()
+    anime_update_service = AnimeUpdateService()
+except Exception as _svc_init_err:
+    import logging
+    logging.getLogger(__name__).warning(f'Anime parser services failed to initialize: {_svc_init_err}')
+    anime_parser_service = None
+    video_streaming_service = None
+    cache_service = None
+    anime_update_service = None
 
 # Функция для нормализации строки поиска
 def normalize_search_string(text: str) -> str:
@@ -80,7 +89,8 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
     
     try:
         query = query.strip()
-        print(f"  🔍 fuzzy_search_anime: query='{query}'")
+        # debug log, emoji removed to avoid encoding problems
+        logging.getLogger(__name__).debug("fuzzy_search_anime query=%r", query)
         
         from django.db.models import Q
         
@@ -97,6 +107,9 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
         # Форматируем результат
         formatted_results = []
         for anime in queryset:
+            # Используем poster_image_url property которое проверяет локальный poster и fallback на poster_url
+            poster_url = anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url
+            
             formatted_results.append({
                 'id': anime.id,
                 'title_ru': anime.title_ru or '',
@@ -106,17 +119,19 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
                 'status': anime.status,
                 'episodes': anime.episodes,
                 'score': anime.score,
-                'poster_url': anime.poster_url,
+                'poster_url': poster_url,  # теперь это может быть локальный путь или внешний URL
                 'description': anime.description,
                 'match_score': 1.0,
                 'source': 'database'
             })
             
-        print(f"  ✅ fuzzy_search_anime: {len(formatted_results)} результатов")
+        logging.getLogger(__name__).debug(
+            "fuzzy_search_anime returned %d results", len(formatted_results)
+        )
         return formatted_results
         
     except Exception as e:
-        print(f"❌ Ошибка в fuzzy_search_anime: {e}")
+        logging.getLogger(__name__).exception("Ошибка в fuzzy_search_anime")
         import traceback
         traceback.print_exc()
         return []
@@ -451,6 +466,8 @@ class AnimeViewSet(viewsets.ModelViewSet):
             print(f"Параметры: эпизод={episode}, перевод={translation_id}, качество={quality}")
 
             # Используем новый сервис для получения видео
+            if not video_streaming_service:
+                return Response({'error': 'Сервис видео недоступен'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             video_sources = video_streaming_service.get_video_sources(
                 str(anime.shikimori_id), episode, translation_id
             )
@@ -515,6 +532,8 @@ class AnimeViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Получаем свежие данные из парсера
+            if not anime_parser_service:
+                return Response({'error': 'Сервис парсера недоступен'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             fresh_data = anime_parser_service.get_anime_by_id(anime.shikimori_id, 'shikimori')
             
             if not fresh_data:
@@ -548,6 +567,8 @@ class AnimeViewSet(viewsets.ModelViewSet):
         
         try:
             anime = self.get_object()
+            if not video_streaming_service:
+                return Response({'error': 'Сервис видео недоступен'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             progress = video_streaming_service.get_watch_progress(request.user, anime.id)
             
             return Response({
@@ -580,6 +601,8 @@ class AnimeViewSet(viewsets.ModelViewSet):
                     'error': 'Требуется episode_id'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
+            if not video_streaming_service:
+                return Response({'error': 'Сервис видео недоступен'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             progress = video_streaming_service.save_watch_progress(
                 request.user, anime.id, episode_id, current_time, duration
             )
@@ -613,15 +636,19 @@ class SearchAPIView(APIView):
         # Получаем query параметр
         raw_query = request.query_params.get('q', '')
         query = raw_query.strip()
-        limit = int(request.query_params.get('limit', 20))
+        try:
+            limit = int(request.query_params.get('limit', 20))
+            if limit <= 0:
+                limit = 20
+        except Exception:
+            limit = 20
         
-        print(f"\n{'='*60}")
-        print(f"🔍 SearchAPIView вызван")
-        print(f"   Raw query: '{raw_query}' (repr: {repr(raw_query)})")
-        print(f"   Stripped query: '{query}' (repr: {repr(query)})")
-        print(f"   Query params: {dict(request.query_params)}")
-        print(f"   Limit: {limit}")
-        print(f"{'='*60}\n")
+        # Use logging instead of printing to avoid encoding issues and
+        # ensure messages go through Python logging infrastructure.
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug("SearchAPIView called; raw_query=%r stripped_query=%r params=%r limit=%d",
+                     raw_query, query, dict(request.query_params), limit)
         
         if not query:
             return Response({
@@ -631,13 +658,17 @@ class SearchAPIView(APIView):
         try:
             # Ищем в локальной БД
             db_results = fuzzy_search_anime(query, limit)
-            
+
             # Удаляем поле match_score перед отправкой
-            for result in db_results:
-                result.pop('match_score', None)
-            
-            print(f"\n✅ Поиск завершен: {len(db_results)} результатов\n")
-            
+            try:
+                for result in db_results:
+                    result.pop('match_score', None)
+            except Exception:
+                # если структура неожиданная — логируем и продолжаем
+                logging.getLogger(__name__).exception('Failed to sanitize db_results')
+
+            logging.getLogger(__name__).debug("Search completed: %d results", len(db_results))
+
             return Response({
                 'query': query,
                 'results': db_results,
@@ -646,17 +677,18 @@ class SearchAPIView(APIView):
             })
             
         except Exception as e:
-            print(f"\n❌ Ошибка в SearchAPIView: {e}")
             import traceback
-            traceback.print_exc()
-            # return error details to frontend for debugging
+            tb = traceback.format_exc()
+            logging.getLogger(__name__).exception("Error in SearchAPIView: %s", tb)
+            # return full traceback to frontend temporarily to aid debugging
             return Response({
                 'error': f'Ошибка поиска: {str(e)}',
                 'query': query,
                 'results': [],
                 'total': 0,
                 'source': 'error',
-                'debug': repr(e)
+                'debug': repr(e),
+                'debug_traceback': tb
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -667,6 +699,8 @@ class ParserStatusAPIView(APIView):
     def get(self, request):
         """Проверка состояния парсеров"""
         try:
+            if not anime_parser_service:
+                return Response({'error': 'Сервис парсера недоступен', 'status': 'unhealthy'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             health_status = anime_parser_service.parser.health_check()
             
             return Response({
@@ -691,6 +725,8 @@ class UpdatesAPIView(APIView):
         limit = int(request.query_params.get('limit', 50))
         
         try:
+            if not anime_update_service:
+                return Response({'error': 'Сервис обновлений недоступен', 'updates': [], 'total': 0}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             updates = anime_update_service.get_recent_updates(limit)
             
             return Response({

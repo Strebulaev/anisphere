@@ -50,9 +50,11 @@ export interface FeedPost {
 export interface MediaFile {
   id: number
   media_type: 'image' | 'video'
-  url: string
-  thumbnail?: string
-  caption?: string
+  url: string | null
+  file_url: string | null
+  thumbnail?: string | null
+  thumbnail_url?: string | null
+  caption?: string | null
   order: number
   width?: number
   height?: number

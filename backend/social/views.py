@@ -1721,6 +1721,7 @@ class PostViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
+        # use lightweight serializer for incoming data but return full representation when listing/retrieving
         if self.action in ['create', 'update', 'partial_update']:
             return PostCreateSerializer
         return PostSerializer
@@ -1761,34 +1762,140 @@ class PostViewSet(ModelViewSet):
 
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        # override to return full post representation (including anime info) after creation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        post = serializer.instance
+        output = PostSerializer(post, context={'request': request})
+        headers = self.get_success_headers(output.data)
+        return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        # similar override for updates
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        post = serializer.instance
+        output = PostSerializer(post, context={'request': request})
+        return Response(output.data)
+
     def _handle_media_uploads(self, request, post, replace=False):
         """Create PostMedia records for any files named media_*. If replace=True, clear existing media first."""
         if replace:
             post.media_files.all().delete()
 
+        # known video and image extensions for fallback when browser sends octet-stream
+        VIDEO_EXTENSIONS = {'.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v', '.ogv', '.flv'}
+        IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tiff', '.avif'}
+
+        import os
+        import imghdr
+        from mimetypes import guess_type
+        from io import BytesIO
+        try:
+            from PIL import Image
+        except Exception:
+            Image = None
+
         for key, file in request.FILES.items():
-            if key.startswith('media_'):
-                # determine type from mime
-                if file.content_type.startswith('image'):
-                    media_type = 'image'
-                elif file.content_type.startswith('video'):
-                    media_type = 'video'
-                else:
-                    # default fallback
+            if not key.startswith('media_'):
+                continue
+
+            ext = os.path.splitext(file.name)[1].lower()
+            content_type = (file.content_type or '').lower()
+
+            # initial guess: MIME first, then extension
+            if content_type.startswith('video') or ext in VIDEO_EXTENSIONS:
+                media_type = 'video'
+            elif content_type.startswith('image') or ext in IMAGE_EXTENSIONS:
+                media_type = 'image'
+            else:
+                media_type = None
+
+            # If still unknown, try to sniff file signature
+            try:
+                # read small chunk for sniffing, then rewind
+                head = file.read(4096)
+                file.seek(0)
+
+                # image signatures
+                img_type = imghdr.what(None, h=head)
+                if img_type:
                     media_type = 'image'
 
-                # Calculate file size in bytes
-                file_size = file.size
-                PostMedia.objects.create(
-                    post=post,
-                    media_type=media_type,
-                    file=file,
-                    file_size=file_size
-                )
+                # mp4/f4v/3gp: 'ftyp' usually at offset 4
+                if media_type is None:
+                    if len(head) >= 12 and b'ftyp' in head[4:12]:
+                        media_type = 'video'
+                    # webm/ebml signature
+                    elif head.startswith(b"\x1a\x45\xdf\xa3"):
+                        media_type = 'video'
+                    # mkv/ogg/avi heuristics
+                    elif head.startswith(b'RIFF') and b'AVI ' in head[8:16]:
+                        media_type = 'video'
+
+            except Exception:
+                try:
+                    file.seek(0)
+                except Exception:
+                    pass
+
+            # fallback to image if still unknown
+            if not media_type:
+                media_type = 'image'
+
+            # Calculate file size in bytes
+            file_size = getattr(file, 'size', None) or 0
+
+            # determine mime_type: prefer provided, else guess from name
+            mime_type = content_type or (guess_type(file.name)[0] or '')
+
+            # try to populate image dimensions if possible
+            width = height = duration = None
+            if media_type == 'image' and Image is not None:
+                try:
+                    # PIL may close the file object when the image is closed, which
+                    # would delete a TemporaryUploadedFile and later cause errors
+                    # such as "I/O operation on closed file" or missing temp file.
+                    # To avoid that we work on a copy of the data stored in memory
+                    # rather than passing the original file directly.
+                    data = file.read()
+                    file.seek(0)
+                    img = Image.open(BytesIO(data))
+                    width, height = img.size
+                    # closing the image is safe now since it wraps a BytesIO
+                    try:
+                        img.close()
+                    except Exception:
+                        pass
+                except Exception:
+                    # if anything goes wrong we still want to rewind the original
+                    try:
+                        file.seek(0)
+                    except Exception:
+                        pass
+
+            PostMedia.objects.create(
+                post=post,
+                media_type=media_type,
+                file=file,
+                file_size=file_size,
+                mime_type=mime_type,
+                width=width,
+                height=height,
+                duration=duration
+            )
 
     def _update_post_type(self, post):
         """Guess post_type based on attached data if it was not explicitly set."""
         new_type = post.post_type
+        # pre-fetch media queryset so we can refer to it regardless of post type
+        media_qs = post.media_files.all()
+
         # priority: playlist > anime > reactor_post > media
         if post.playlist:
             new_type = 'playlist'
@@ -1796,25 +1903,42 @@ class PostViewSet(ModelViewSet):
             new_type = 'anime'
         elif post.reactor_post:
             new_type = 'repost'
-        else:
-            media_qs = post.media_files.all()
-            if media_qs.exists():
-                # if any video exists, mark video, else image
-                if media_qs.filter(media_type='video').exists():
-                    new_type = 'video'
+        elif media_qs.exists():
+            # if any video exists, mark video, else image
+            if media_qs.filter(media_type='video').exists():
+                new_type = 'video'
+            else:
+                new_type = 'image'
+
+            # keep legacy single-file/url fields in sync with the first media item
+            first = media_qs.order_by('order').first()
+            if first:
+                if first.media_type == 'video':
+                    post.video_file = first.file
+                    post.video_url = first.url or ''
+                    post.image_file = None
+                    post.image_url = ''
                 else:
-                    new_type = 'image'
+                    post.image_file = first.file
+                    post.image_url = first.url or ''
+                    post.video_file = None
+                    post.video_url = ''
+
+        # if anything changed update post
+        fields_to_update = []
         if new_type != post.post_type:
-            post.post_type = new_type
-            post.save(update_fields=['post_type'])
+            fields_to_update.append('post_type')
+        # we may have assigned legacy media fields above
+        if media_qs.exists():
+            fields_to_update.extend(['image_file', 'image_url', 'video_file', 'video_url'])
+        if fields_to_update:
+            post.save(update_fields=list(set(fields_to_update)))
 
     def create(self, request, *args, **kwargs):
         try:
             # strip media_x fields before validation; they are handled separately
-            data = request.data.copy()
-            for key in list(data.keys()):
-                if key.startswith('media_'):
-                    data.pop(key)
+            # NOTE: cannot use request.data.copy() when FILES are present (deepcopy fails on BufferedRandom)
+            data = {k: v for k, v in request.data.items() if not k.startswith('media_')}
 
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
@@ -1856,10 +1980,7 @@ class PostViewSet(ModelViewSet):
             partial = kwargs.pop('partial', False)
             instance = self.get_object()
             # strip media fields from data before validation
-            data = request.data.copy()
-            for key in list(data.keys()):
-                if key.startswith('media_'):
-                    data.pop(key)
+            data = {k: v for k, v in request.data.items() if not k.startswith('media_')}
 
             serializer = self.get_serializer(instance, data=data, partial=partial)
             serializer.is_valid(raise_exception=True)

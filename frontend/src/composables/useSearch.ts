@@ -193,8 +193,8 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
             if (data.length > 0) {
               newResults[category.id as keyof SearchResults] = data
             }
-          } catch (error) {
-            console.error(`Error searching ${category.id}:`, error)
+          } catch (error: any) {
+            console.error(`Error searching ${category.id}:`, error, error?.response?.data)
           }
         })
       )
@@ -210,13 +210,13 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 
   const handleInput = (event: Event) => {
     const target = event.target as HTMLInputElement
-    searchQuery.value = target.value?.trim() || ''
+    searchQuery.value = target.value || ''
 
     if (searchTimeout) {
       clearTimeout(searchTimeout)
     }
 
-    if (searchQuery.value.length < minQueryLength) {
+    if (searchQuery.value.trim().length < minQueryLength) {
       results.value = {}
       return
     }

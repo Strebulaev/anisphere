@@ -134,6 +134,42 @@ class PostCreationTests(TestCase):
         # should have chosen video type because one of the files is video
         self.assertEqual(resp.data.get('post_type'), 'video')
 
+        # first item should have both url and file_url populated
+        mf = resp.data['media_files'][0]
+        self.assertIn('url', mf)
+        self.assertIn('file_url', mf)
+        self.assertTrue(mf['url'] or mf['file_url'])
+
+        # legacy single-file/video fields should reflect first media
+        if mf['media_type'] == 'video':
+            self.assertTrue(resp.data.get('video_file') or resp.data.get('video_url'))
+            self.assertFalse(resp.data.get('image_file') or resp.data.get('image_url'))
+        else:
+            self.assertTrue(resp.data.get('image_file') or resp.data.get('image_url'))
+            self.assertFalse(resp.data.get('video_file') or resp.data.get('video_url'))
+
+    def test_create_post_with_temporary_uploadedfile(self):
+        # This used to fail because PIL/other logic closed the temporary file and
+        # Django's storage then attempted to move a deleted file. See issue in
+        # journalctl logs (I/O operation on closed file / FileNotFoundError).
+        from django.core.files.uploadedfile import TemporaryUploadedFile
+        # TemporaryUploadedFile requires name, content_type, size, charset
+        tmp = TemporaryUploadedFile('pic.jpg', 'image/jpeg', 3, None)
+        # write a few bytes so size matches
+        tmp.file.write(b'abc')
+        tmp.file.seek(0)
+        data = {
+            'text': 'Temp file test',
+            'visibility': 'public',
+            'media_0': tmp,
+        }
+        resp = self.client.post('/api/social/posts/', data, format='multipart')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        jid = resp.data.get('id')
+        self.assertIsNotNone(jid)
+        from .models import PostMedia
+        self.assertEqual(PostMedia.objects.filter(post_id=jid).count(), 1)
+
     def test_create_post_with_anime_and_playlist_attachment(self):
         # create an anime and a playlist for attachments
         from anime.models import Anime
@@ -148,7 +184,12 @@ class PostCreationTests(TestCase):
         }
         resp = self.client.post('/api/social/posts/', data)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(resp.data.get('anime'), anime.id)
+        # since we now return full object, anime should be nested dict
+        anime_data = resp.data.get('anime')
+        self.assertIsInstance(anime_data, dict)
+        self.assertEqual(anime_data.get('id'), anime.id)
+        self.assertEqual(anime_data.get('title_ru'), anime.title_ru)
+        self.assertIn('poster_url', anime_data)
         self.assertEqual(resp.data.get('playlist'), playlist.id)
         # verify serializer output contains nested info
         self.assertEqual(resp.data.get('anime_title'), anime.title_ru)

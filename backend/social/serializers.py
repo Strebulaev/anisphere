@@ -111,6 +111,7 @@ class PostSerializer(serializers.ModelSerializer):
     author_avatar = serializers.ImageField(source='author.avatar', read_only=True)
     anime_title = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_poster = serializers.ImageField(source='anime.poster', read_only=True)
+    anime = serializers.SerializerMethodField()
     group_name = serializers.CharField(source='group.name', read_only=True)
     group_avatar = serializers.ImageField(source='group.avatar_file', read_only=True)
     playlist_title = serializers.CharField(source='playlist.title', read_only=True)
@@ -164,10 +165,22 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_anime(self, obj):
         if obj.anime:
+            # Получить абсолютный URL для постера
+            poster_url = None
+            if obj.anime.poster:
+                poster_url = obj.anime.poster.url
+                # Сделать абс. ссылку если нужно
+                request = self.context.get('request')
+                if request and not poster_url.startswith('http'):
+                    poster_url = request.build_absolute_uri(poster_url)
+            # Fallback to external CDN URL
+            if not poster_url:
+                poster_url = obj.anime.poster_url or None
             return {
                 'id': obj.anime.id,
                 'title_ru': obj.anime.title_ru,
-                'poster_url': obj.anime.poster.url if obj.anime.poster else None
+                'title_en': obj.anime.title_en,
+                'poster_url': poster_url
             }
         return None
 
@@ -206,9 +219,17 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_is_favorited(self, obj):
         request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            return obj.favorites.filter(user=request.user).exists()
-        return False
+        if not (request and request.user.is_authenticated):
+            return False
+        # protect against cases where the GenericRelation hasn't been added
+        favs = getattr(obj, 'favorites', None)
+        if favs is None:
+            return False
+        try:
+            return favs.filter(user=request.user).exists()
+        except Exception:
+            # if the relation is misconfigured or the field isn't a queryset
+            return False
 
     def get_is_bookmarked(self, obj):
         request = self.context.get('request')
@@ -262,7 +283,7 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_edited_at_display(self, obj):
         if obj.edited_at:
-            from django.utils.relative import format_timedelta
+            from django.utils import format_timedelta
             from django.utils import timezone
             delta = timezone.now() - obj.edited_at
             if delta.days > 1:
@@ -294,7 +315,9 @@ class PostCreateSerializer(serializers.ModelSerializer):
 
 
 class PostMediaSerializer(serializers.ModelSerializer):
+    # provide a consistently named public URL for frontend consumers
     file_url = serializers.SerializerMethodField()
+    url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     media_type_display = serializers.CharField(source='get_media_type_display', read_only=True)
 
@@ -306,13 +329,26 @@ class PostMediaSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'file_size', 'mime_type']
 
+    def _make_absolute(self, path_or_url):
+        if not path_or_url:
+            return None
+        request = self.context.get('request')
+        if request and hasattr(path_or_url, 'startswith') and path_or_url.startswith('/'):
+            return request.build_absolute_uri(path_or_url)
+        return path_or_url
+
     def get_file_url(self, obj):
         if obj.file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
-        return obj.url
+            # return absolute URL to stored file
+            return self._make_absolute(obj.file.url)
+        # fall back to external url field
+        return obj.url or None
+
+    def get_url(self, obj):
+        # `url` used by frontend; prefer file_url if available
+        if obj.file:
+            return self._make_absolute(obj.file.url)
+        return obj.url or None
 
     def get_thumbnail_url(self, obj):
         if obj.thumbnail:
@@ -1390,8 +1426,8 @@ class ChatFolderPreviewSerializer(serializers.ModelSerializer):
 
 class PostMediaSerializer(serializers.ModelSerializer):
     """Сериализатор медиафайлов поста"""
-    file_url = serializers.FileField(source='file', read_only=True)
-    thumbnail_url = serializers.ImageField(source='thumbnail', read_only=True)
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = PostMedia
@@ -1401,6 +1437,22 @@ class PostMediaSerializer(serializers.ModelSerializer):
             'width', 'height', 'duration', 'file_size', 'mime_type', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return obj.url
+
+    def get_thumbnail_url(self, obj):
+        if obj.thumbnail:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.thumbnail.url)
+            return obj.thumbnail.url
+        return None
 
 
 class PostAttachmentSerializer(serializers.ModelSerializer):
@@ -1651,11 +1703,20 @@ class FeedPostSerializer(serializers.ModelSerializer):
 
     def get_anime_data(self, obj):
         if obj.anime:
+            poster_url = None
+            if obj.anime.poster:
+                poster_url = obj.anime.poster.url
+                request = self.context.get('request')
+                if request and poster_url and not poster_url.startswith('http'):
+                    poster_url = request.build_absolute_uri(poster_url)
+            # Fallback to external URL if local poster not available or not absolute
+            if not poster_url:
+                poster_url = obj.anime.poster_url or None
             return {
                 'id': obj.anime.id,
                 'title_ru': obj.anime.title_ru,
                 'title_en': obj.anime.title_en,
-                'poster_url': obj.anime.poster.url if obj.anime.poster else None,
+                'poster_url': poster_url,
                 'rating': obj.anime_rating
             }
         return None

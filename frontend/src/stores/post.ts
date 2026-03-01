@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { postsApi, commentsApi, type FeedPost, type PostComment } from '@/api/feed'
+import { normalizeComment } from '@/utils/normalizers'
 
 export const usePostStore = defineStore('post', () => {
   const currentPost = ref<FeedPost | null>(null)
@@ -70,24 +71,26 @@ export const usePostStore = defineStore('post', () => {
   async function addComment(postId: number, content: string, parentId?: number) {
     try {
       const { data } = await commentsApi.createComment(postId, content, parentId)
+      // ensure necessary fields are present (author info/timestamp)
+      const normalized = normalizeComment(data)
 
       if (parentId) {
         // Add as reply to parent
         const parent = findComment(comments.value, parentId)
         if (parent) {
           if (!parent.replies) parent.replies = []
-          parent.replies.push(data)
+          parent.replies.push(normalized)
           parent.replies_count++
         }
       } else {
-        comments.value.unshift(data)
+        comments.value.unshift(normalized)
       }
 
       if (currentPost.value) {
         currentPost.value.comments_count++
       }
 
-      return data
+      return normalized
     } catch (err: unknown) {
       throw err
     }

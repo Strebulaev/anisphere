@@ -7,7 +7,6 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction, models
 from django.db.models import Q, Count, Max
 from rest_framework.pagination import PageNumberPagination
-from .serializers import FeedPostSerializer
 from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist
 from .serializers import (
     PlaylistSerializer, PlaylistCreateSerializer, PlaylistUpdateSerializer,

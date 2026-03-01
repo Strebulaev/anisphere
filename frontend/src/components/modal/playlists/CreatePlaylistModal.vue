@@ -155,7 +155,7 @@ const handleAnimeSearch = async (query) => {
     const addedIds = selectedAnime.value.map(a => a.id)
     searchResults.value = searchResults.value.filter(a => !addedIds.includes(a.id))
   } catch (err) {
-    console.error('Ошибка поиска аниме:', err)
+    console.error('Ошибка поиска аниме:', err, err?.response?.data)
     searchResults.value = []
   }
 }

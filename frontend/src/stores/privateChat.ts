@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import apiClient from '@/api/client'
+import { normalizeMessage } from '@/utils/normalizers'
 import { useAuthStore } from '@/stores/auth'
 
 interface PrivateChat {
@@ -193,7 +194,8 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
         chat_id: chatId // This will be handled by the backend to determine chat type
       })
 
-      const message = response.data
+      let message = response.data
+      message = normalizeMessage(message)
       messages.value.unshift(message)
 
       // Update last message time

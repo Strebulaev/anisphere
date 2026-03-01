@@ -271,7 +271,8 @@ const GroupSuggestionItem = {
   border: 1px solid var(--color-divider);
   border-radius: 12px;
   box-shadow: var(--shadow-card-hover);
-  max-height: 500px;
+  max-height: 60vh;
+  min-width: 420px;
   overflow-y: auto;
   z-index: 1000;
   margin-top: 4px;

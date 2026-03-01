@@ -158,6 +158,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import apiClient from '@/api/client'
+import { normalizeComment } from '@/utils/normalizers'
 
 interface Post {
   id: number
@@ -283,6 +284,8 @@ const submitComment = async () => {
     }
 
     const response = await apiClient.post(`/social/posts/${props.post.id}/comments/`, data)
+    // normalize missing fields before inserting
+    const newC = normalizeComment(response.data)
 
     // Добавляем комментарий в список
     if (replyToComment.value) {
@@ -290,15 +293,15 @@ const submitComment = async () => {
       if (!replyToComment.value.replies) {
         replyToComment.value.replies = []
       }
-      replyToComment.value.replies.push(response.data)
+      replyToComment.value.replies.push(newC)
       replyToComment.value.replies_count++
     } else {
-      comments.value.push(response.data)
+      comments.value.push(newC)
     }
 
     newComment.value = ''
     replyToComment.value = null
-    emit('comment-added', response.data)
+    emit('comment-added', newC)
 
     // Прокрутка к новому комментарию
     await nextTick()

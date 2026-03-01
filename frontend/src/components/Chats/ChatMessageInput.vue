@@ -337,7 +337,7 @@ const handleAnimeSearch = async (query) => {
     const response = await api.get('/anime/', { params: { search: query } })
     animeResults.value = response.data.results || response.data
   } catch (error) {
-    console.error('Ошибка поиска аниме:', error)
+    console.error('Ошибка поиска аниме:', error, error?.response?.data)
   }
 }
 

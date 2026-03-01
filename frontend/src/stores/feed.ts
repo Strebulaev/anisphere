@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { feedApi, postsApi, type FeedPost, type FeedPage } from '@/api/feed'
+import { normalizePost } from '@/utils/normalizers'
 
 type FeedType = 'weighted' | 'followers' | 'hot' | 'top' | 'trending'
 
@@ -57,7 +58,7 @@ export const useFeedStore = defineStore('feed', () => {
       }
 
       const results = Array.isArray(data) ? data : data.results
-      posts.value = results
+      posts.value = results.map(normalizePost)
       currentPage.value = 1
 
       if (!Array.isArray(data) && data.next === null) {
@@ -88,7 +89,7 @@ export const useFeedStore = defineStore('feed', () => {
           data = (await feedApi.getWeightedFeed(nextPage)).data
       }
 
-      posts.value.push(...data.results)
+      posts.value.push(...data.results.map(normalizePost))
       currentPage.value = nextPage
 
       if (data.next === null) {
@@ -224,7 +225,8 @@ export const useFeedStore = defineStore('feed', () => {
   }
 
   function addNewPost(post: FeedPost) {
-    posts.value.unshift(post)
+    const normalized = normalizePost(post)
+    posts.value.unshift(normalized)
   }
 
   function updatePost(updatedPost: FeedPost) {

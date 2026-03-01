@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.utils.text import slugify
 from django.utils import timezone
@@ -222,6 +222,9 @@ class Post(models.Model):
     # Редактирование
     edited_at = models.DateTimeField(null=True, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
+
+    # Избранное
+    favorites = GenericRelation('social.Favorite', related_query_name='posts')
 
     # Время
     created_at = models.DateTimeField(auto_now_add=True)

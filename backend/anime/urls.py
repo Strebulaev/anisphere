@@ -12,12 +12,12 @@ router.register(r'', AnimeViewSet, basename='anime')
 router.register(r'genres', GenresViewSet, basename='genres')
 
 urlpatterns = [
-    path('', include(router.urls)),
-    
-    # Новые API endpoints для anime-parsers-ru
+    # Новые API endpoints для anime-parsers-ru (должны идти до router.urls)
     path('search/', SearchAPIView.as_view(), name='anime-search'),
     path('parser/status/', ParserStatusAPIView.as_view(), name='parser-status'),
     path('updates/', UpdatesAPIView.as_view(), name='anime-updates'),
+
+    path('', include(router.urls)),
     
     # Kodik API endpoints
     path('import-from-kodik/', KodikImportView.as_view(), name='import-from-kodik'),

@@ -1,4 +1,4 @@
-<template>
+7<template>
   <div class="user-card" @click="handleClick">
     <div class="user-avatar">
       <img

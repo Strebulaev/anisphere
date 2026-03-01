@@ -52,7 +52,8 @@
             :key="index"
             class="media-item"
           >
-            <img v-if="media.type === 'image'" :src="media.url" alt="">
+            <!-- backend now returns media_type field ('image' or 'video') -->
+            <img v-if="media.media_type === 'image'" :src="media.url" alt="">
             <video v-else :src="media.url" controls></video>
           </div>
         </div>
@@ -66,15 +67,14 @@
         </div>
 
         <!-- Anime Card -->
-        <div v-if="post.anime" class="anime-card">
-          <img :src="post.anime.poster_url" alt="">
-          <div class="anime-info">
-            <span class="title">{{ post.anime.title_ru }}</span>
-            <div v-if="post.anime_rating" class="rating">
-              Оценка: {{ post.anime_rating }}/10
-            </div>
-          </div>
-        </div>
+        <AnimeCard
+          v-if="post.anime"
+          :poster-url="post.anime.poster_url"
+          :title-ru="post.anime.title_ru"
+          :title-en="post.anime.title_en"
+          :rating="post.anime_rating"
+          style="margin: 0 1.5rem 1rem;"
+        />
 
         <!-- Playlist -->
         <div v-if="post.playlist" class="playlist-card">
@@ -177,6 +177,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import apiClient from '@/api/client'
+import { normalizeComment } from '@/utils/normalizers'
+import AnimeCard from './AnimeCard.vue'
 
 interface Post {
   id: number
@@ -308,7 +310,8 @@ const submitComment = async () => {
     const response = await apiClient.post(`/social/posts/${props.post.id}/comments/`, {
       content: newComment.value
     })
-    comments.value.unshift(response.data)
+    const newC = normalizeComment(response.data)
+    comments.value.unshift(newC)
     newComment.value = ''
     props.post.comments_count++
   } catch (error) {
@@ -471,7 +474,17 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-.anime-card,
+.anime-card {
+  margin: 0 1.5rem 1rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
 .playlist-card {
   margin: 0 1.5rem 1rem;
   background: #1a1a1a;
@@ -482,20 +495,34 @@ onMounted(() => {
   gap: 1rem;
 }
 
-.anime-card img {
-  width: 50px;
-  height: 75px;
+.anime-poster {
+  width: 80px;
+  height: 120px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.anime-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .anime-info .title {
   color: #fff;
   font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.anime-info .title-en {
+  color: #888;
+  font-size: 0.8rem;
 }
 
 .anime-info .rating {
   color: #667eea;
+  font-size: 0.85rem;
   margin-top: 0.25rem;
 }
 

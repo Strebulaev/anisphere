@@ -79,6 +79,8 @@
             v-else-if="media.type === 'video'"
             :src="media.url"
             :poster="media.thumbnail"
+            controls
+            preload="metadata"
           ></video>
           <div v-if="media.type === 'video'" class="play-icon">▶</div>
           <span v-if="media.caption" class="media-caption">{{ media.caption }}</span>
@@ -104,22 +106,14 @@
       </div>
 
       <!-- Anime Card -->
-      <div v-if="post.anime" class="anime-card" @click.stop="goToAnime">
-        <img
-          :src="post.anime.poster_url"
-          :alt="post.anime.title_ru"
-          class="anime-poster"
-        >
-        <div class="anime-info">
-          <span class="anime-title">{{ post.anime.title_ru }}</span>
-          <span v-if="post.anime.title_en" class="anime-title-en">{{ post.anime.title_en }}</span>
-          <div v-if="post.anime_rating" class="anime-rating">
-            <span class="rating-label">Оценка автора:</span>
-            <span class="rating-value">{{ post.anime_rating }}/10</span>
-          </div>
-          <button class="btn-add-collection">Добавить в коллекцию</button>
-        </div>
-      </div>
+      <AnimeCard
+        v-if="post.anime"
+        :poster-url="post.anime.poster_url"
+        :title-ru="post.anime.title_ru"
+        :title-en="post.anime.title_en"
+        :rating="post.anime_rating"
+        @click.stop="goToAnime"
+      />
 
       <!-- Playlist Card -->
       <div v-if="post.playlist" class="playlist-card" @click.stop="goToPlaylist">
@@ -262,6 +256,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FeedPost, MediaFile } from '@/api/feed'
+import AnimeCard from './AnimeCard.vue'
 
 // shape used internally for template rendering (includes 'type' field)
 interface MediaItem {
@@ -309,11 +304,12 @@ const hasMedia = computed(() => {
 const displayMedia = computed<MediaItem[]>(() => {
   if (!props.post.media_files) return []
   // convert backend MediaFile objects to MediaItem with `type` field
+  // prefer file_url (absolute) over url (may be relative or null)
   return props.post.media_files.slice(0, 10).map((m: MediaFile) => ({
     type: m.media_type,
-    url: m.url,
-    thumbnail: m.thumbnail,
-    caption: m.caption,
+    url: (m.file_url || m.url) as string,
+    thumbnail: (m.thumbnail_url || m.thumbnail) as string | undefined,
+    caption: m.caption as string | undefined,
   }))
 })
 
@@ -703,6 +699,8 @@ const revealSpoiler = () => {
 /* Anime Card */
 .anime-card {
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
   gap: 1rem;
   background: #1a1a1a;
   border-radius: 8px;
@@ -717,10 +715,11 @@ const revealSpoiler = () => {
 }
 
 .anime-poster {
-  width: 60px;
-  height: 90px;
+  width: 80px;
+  height: 120px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .anime-info {

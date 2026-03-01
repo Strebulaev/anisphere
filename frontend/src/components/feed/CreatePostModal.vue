@@ -71,10 +71,11 @@
 
         <!-- Attached Content -->
         <div v-if="attachedContent" class="attached-content">
-          <div v-if="attachedContent.type === 'anime'" class="attached-anime">
-            <img :src="attachedPosterUrl" alt="">
-            <div class="attached-info">
-              <span>{{ attachedTitleRu }}</span>
+          <div v-if="attachedContent.type === 'anime'" class="attached-anime-wrap">
+            <AnimeCard
+              :poster-url="attachedPosterUrl"
+              :title-ru="attachedTitleRu"
+            >
               <div class="rating-input">
                 <label>Оценка:</label>
                 <input
@@ -83,10 +84,11 @@
                   min="1"
                   max="10"
                   placeholder="1-10"
+                  class="rating-field"
                 >
               </div>
-            </div>
-            <button class="remove-btn" @click="attachedContent = null">✕</button>
+            </AnimeCard>
+            <button class="remove-anime-btn" @click="attachedContent = null">✕</button>
           </div>
 
           <div v-else-if="attachedContent.type === 'playlist'" class="attached-playlist">
@@ -181,15 +183,17 @@
 
     <!-- Anime Selector Modal -->
     <div v-if="showAnimeSelector" class="selector-modal" @click="showAnimeSelector = false">
-      <div class="selector-content" @click.stop>
+      <div class="selector-content anime-selector" @click.stop>
         <h3>Выберите аниме</h3>
-        <div class="search-box">
-          <input
-            v-model="animeSearch"
-            type="text"
+            <div class="search-box">
+          <SearchBar
             placeholder="Поиск аниме..."
-            @input="searchAnime"
-          >
+            :categories="[{ id: 'anime', name: 'Аниме', icon: 'anime', enabled: true } ]"
+            @search="handleAnimeSearch"
+            :preventNavigationOnSelect="true"
+            :hideSuggestions="true"
+            @select-item="(category, item) => { if (category === 'anime') selectAnime(item) }"
+          />
         </div>
         <div class="results-list">
           <div
@@ -198,7 +202,7 @@
             class="result-item"
             @click="selectAnime(anime)"
           >
-            <img :src="anime.poster_url" alt="">
+            <img :src="getMediaUrl(anime.poster_url || anime.poster_image_url)" alt="">
             <span>{{ anime.title_ru }}</span>
           </div>
         </div>
@@ -266,7 +270,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import apiClient from '@/api/client'
+import apiClient, { getMediaUrl } from '@/api/client'
+import SearchBar from '@/components/Search/SearchBar.vue'
+import { normalizePost } from '@/utils/normalizers'
+import AnimeCard from './AnimeCard.vue'
 
 interface User {
   id: number
@@ -280,6 +287,7 @@ interface AttachedContent {
   id: number
   title_ru?: string
   poster_url?: string
+  poster?: string     // legacy field, may contain direct URL string
   title?: string
   video_url?: string
   duration?: number
@@ -326,7 +334,6 @@ const animeRating = ref<number | null>(null)
 const showAnimeSelector = ref(false)
 const showPlaylistSelector = ref(false)
 const showShortsSelector = ref(false)
-const animeSearch = ref('')
 const animeResults = ref<any[]>([])
 const playlists = ref<any[]>([])
 const shortsSearch = ref('')
@@ -357,7 +364,9 @@ const userDisplayName = computed((): string => {
 
 const attachedPosterUrl = computed((): string => {
   if (attachedContent.value?.type !== 'anime') return ''
-  return attachedContent.value?.poster_url || ''
+  // prefer poster_url but fall back to legacy poster field
+  const url = attachedContent.value?.poster_url || attachedContent.value?.poster || ''
+  return getMediaUrl(url) || '/placeholder-anime.jpg'
 }) as any as string
 
 const attachedTitleRu = computed((): string => {
@@ -434,29 +443,50 @@ const removeMedia = (index: number) => {
 
 const openAnimeSelector = () => {
   showAnimeSelector.value = true
-  searchAnime()
+  animeResults.value = [] // clear previous results
 }
 
-const searchAnime = async () => {
-  if (animeSearch.value.length < 2) {
+const handleAnimeSearch = async (query: string) => {
+  if (!query || query.length < 2) {
     animeResults.value = []
     return
   }
 
   try {
-    const response = await apiClient.get(`/anime/search/?q=${animeSearch.value}`)
-    animeResults.value = response.data.results?.slice(0, 10) || []
-  } catch (error) {
-    console.error('Error searching anime:', error)
+    const response = await apiClient.get(`/anime/search/`, {
+      params: { q: query, limit: 10 }
+    })
+    animeResults.value = response.data.results || []
+    console.log('🔍 Anime search results:', {
+      query,
+      count: animeResults.value.length,
+      firstResult: animeResults.value[0],
+      hasPosterUrl: animeResults.value[0]?.poster_url
+    })
+  } catch (error: any) {
+    console.error('Error searching anime:', error, error?.response?.data)
+    animeResults.value = []
   }
 }
 
 const selectAnime = (anime: any) => {
+  // poster_url = external CDN URL (absolute, e.g. shikimori)
+  // poster_image_url = local uploaded file (may be relative /media/...)
+  // Prefer external CDN URL if it's absolute, otherwise resolve the local one.
+  const rawPoster = anime.poster_url || anime.poster_image_url || ''
+  console.log('✅ Selected anime:', {
+    id: anime.id,
+    title_ru: anime.title_ru,
+    poster_url: anime.poster_url,
+    poster_image_url: anime.poster_image_url,
+    rawPoster,
+    resolvedUrl: getMediaUrl(rawPoster)
+  })
   attachedContent.value = {
     type: 'anime',
     id: anime.id,
     title_ru: anime.title_ru,
-    poster_url: anime.poster_url
+    poster_url: rawPoster
   }
   showAnimeSelector.value = false
   showSpoilerToggle.value = true
@@ -570,7 +600,10 @@ const submitPost = async () => {
       }
     })
 
-    emit('created', response.data)
+    // backend sometimes returns incomplete object (no author info or timestamps)
+    // patch it locally so UI doesn't flash "undefined"/"Invalid date"
+    const normalized = normalizePost(response.data)
+    emit('created', normalized)
   } catch (error) {
     console.error('Error creating post:', error)
     alert('Ошибка при создании поста')
@@ -614,10 +647,12 @@ onMounted(() => {
 .create-post-modal {
   background: #111;
   border-radius: 16px;
+  border: 1px solid #1f1f1f;
   width: 100%;
-  max-width: 600px;
+  max-width: 760px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
 
 .modal-header {
@@ -743,14 +778,22 @@ onMounted(() => {
   min-height: 120px;
   background: transparent;
   border: none;
+  border-bottom: 1px solid transparent;
   color: #ddd;
   font-size: 1rem;
   line-height: 1.6;
   resize: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .text-input:focus {
   outline: none;
+  border-bottom-color: #333;
+}
+
+.text-input::placeholder {
+  color: #444;
 }
 
 .char-count {
@@ -807,25 +850,64 @@ onMounted(() => {
 
 .attached-content {
   margin-top: 1rem;
-  background: #1a1a1a;
   border-radius: 8px;
-  padding: 0.75rem;
+}
+
+.attached-anime-wrap {
+  position: relative;
+}
+
+.remove-anime-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  z-index: 1;
 }
 
 .attached-anime {
   display: flex;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
   gap: 1rem;
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
 }
 
-.attached-anime img {
-  width: 50px;
-  height: 75px;
+.anime-poster {
+  width: 80px;
+  height: 120px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: block;
 }
 
-.attached-info {
+.anime-poster-placeholder {
+  width: 70px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a2a;
+  border-radius: 6px;
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.attached-anime-info {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -833,19 +915,55 @@ onMounted(() => {
   color: #fff;
 }
 
+.anime-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .rating-input {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-size: 0.85rem;
 }
 
-.rating-input input {
-  width: 50px;
-  background: #252525;
+.rating-field {
+  width: 60px;
+  background: #1a1a1a;
   border: 1px solid #333;
   color: #fff;
-  padding: 0.25rem 0.5rem;
+  padding: 0.35rem 0.5rem;
   border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.rating-field:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.btn-add-playlist {
+  background: transparent;
+  border: 1px solid #333;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.btn-add-playlist:hover {
+  background: #252525;
+  border-color: #667eea;
 }
 
 .attached-playlist {
@@ -936,24 +1054,28 @@ onMounted(() => {
 
 .attachment-buttons {
   display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 1.5rem;
   border-top: 1px solid #1f1f1f;
+  border-bottom: 1px solid #1f1f1f;
 }
 
 .attachment-buttons button {
   background: none;
   border: none;
-  font-size: 1.5rem;
-  padding: 0.5rem 0.75rem;
+  font-size: 1.3rem;
+  padding: 0.5rem 0.65rem;
   cursor: pointer;
   border-radius: 8px;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.1s;
+  opacity: 0.7;
 }
 
 .attachment-buttons button:hover {
   background: #1a1a1a;
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .submit-row {
@@ -1000,14 +1122,24 @@ onMounted(() => {
   background: #111;
   border-radius: 12px;
   padding: 1.5rem;
-  width: 90%;
-  max-width: 400px;
-  max-height: 80vh;
+  width: 95vw;
+  max-width: 95vw;
+  max-height: 90vh;
   overflow-y: auto;
 }
 
 .selector-content h3 {
   color: #fff;
+  margin-bottom: 1rem;
+}
+
+.selector-content h3 {
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.search-box {
+  width: 100%;
   margin-bottom: 1rem;
 }
 
@@ -1029,18 +1161,22 @@ onMounted(() => {
 .results-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  width: 100%;
 }
 
 .result-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: 1rem;
+  padding: 1rem;
   background: #1a1a1a;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
+  width: 100%;
 }
 
 .result-item:hover {
@@ -1048,14 +1184,17 @@ onMounted(() => {
 }
 
 .result-item img {
-  width: 32px;
-  height: 48px;
+  width: 60px;
+  height: 90px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .result-item span {
   color: #ddd;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .shorts-item {

@@ -337,7 +337,7 @@ const createPlaylist = async () => {
   display: flex;
   gap: 1rem;
   padding: 1rem;
-  background: #f9fafb;
+  background: #222222;
   border-radius: 0.5rem;
 }
 

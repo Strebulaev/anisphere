@@ -75,10 +75,11 @@ class FuzzySearchTestCase(TestCase):
         results = fuzzy_search_anime('Frieren', limit=10)
         self.assertGreater(len(results), 0)
 
-        # Проверяем, что первое результат - это Frieren
+        # Проверяем, что первый результат относится к "Frieren"
         first_result = results[0]
         self.assertIn('Frieren', first_result['title_en'])
-        self.assertEqual(first_result['match_type'], 'exact')
+        # match_score должен присутствовать и быть равно 1.0 для точного совпадения
+        self.assertEqual(first_result.get('match_score'), 1.0)
 
     def test_fuzzy_search_partial_match(self):
         """Тест частичного совпадения"""
@@ -124,4 +125,35 @@ class FuzzySearchTestCase(TestCase):
         # Все должны возвращать одинаковые результаты
         self.assertEqual(len(results1), len(results2))
         self.assertEqual(len(results2), len(results3))
+
+    def test_fuzzy_search_no_exceptions(self):
+        """Функция не должна падать даже при нестандартном вводе"""
+        try:
+            fuzzy_search_anime('тест', limit=5)
+        except Exception as e:
+            self.fail(f"fuzzy_search_anime поднял исключение: {e}")
+
+
+class AnimeAPITests(TestCase):
+    """Проверяет публичные API аниме"""
+
+    def setUp(self):
+        # reuse same data set-up as FuzzySearchTestCase
+        self.anime1 = Anime.objects.create(
+            title_ru='Тестовое',
+            title_en='TestAnime',
+            status='ongoing',
+            year=2021,
+            episodes=12,
+            score=7.5
+        )
+        self.client = APIClient()
+
+    def test_search_endpoint(self):
+        resp = self.client.get('/api/anime/search/', {'q': 'Test'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('results', resp.data)
+        self.assertIsInstance(resp.data['results'], list)
+        # должен найти наше аниме
+        self.assertTrue(any(a.get('title_en') == 'TestAnime' for a in resp.data['results']))
 

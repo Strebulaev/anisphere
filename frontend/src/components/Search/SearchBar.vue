@@ -31,12 +31,12 @@
     </div>
 
     <SearchSuggestions
-      v-if="showSuggestions"
-      :show="showSuggestions"
+      v-if="showSuggestions && !props.hideSuggestions"
+      :show="showSuggestions && !props.hideSuggestions"
       :results="(results || { anime: [], users: [], playlists: [] })"
       :is-loading="(isLoading || false)"
       :categories="categories"
-      @select="selectItem"
+      @select="onSuggestionSelect"
       @close="isFocused = false"
     />
   </div>
@@ -56,6 +56,8 @@ interface Props {
   debounceTime?: number
   searchRoute?: string
   searchQueryKey?: string
+  preventNavigationOnSelect?: boolean
+  hideSuggestions?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -64,7 +66,9 @@ const props = withDefaults(defineProps<Props>(), {
   minQueryLength: 3,
   debounceTime: 400,
   searchRoute: '/anime',
-  searchQueryKey: 'search'
+  searchQueryKey: 'search',
+  preventNavigationOnSelect: false,
+  hideSuggestions: false
 })
 
 const emit = defineEmits<{
@@ -72,6 +76,7 @@ const emit = defineEmits<{
   clear: []
   focus: []
   blur: []
+  'select-item': [category: string, item: any]
 }>()
 
 const router = useRouter()
@@ -103,7 +108,9 @@ const {
 
 const handleSearch = () => {
   emit('search', searchQuery.value || '')
-  baseHandleSearch()
+  if (!props.preventNavigationOnSelect) {
+    baseHandleSearch()
+  }
 }
 
 const clearSearch = () => {
@@ -112,6 +119,15 @@ const clearSearch = () => {
   if (searchInput.value) {
     searchInput.value.focus()
   }
+}
+
+const onSuggestionSelect = (category: string, item: any) => {
+  if (props.preventNavigationOnSelect) {
+    emit('select-item', category, item)
+  } else {
+    selectItem(category, item)
+  }
+  isFocused.value = false
 }
 
 watch(() => props.placeholder, (newPlaceholder) => {

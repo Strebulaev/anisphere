@@ -45,11 +45,28 @@
       <!-- Текст -->
       <p v-if="post.text" class="post-text">{{ post.text }}</p>
 
-      <!-- Изображение -->
-      <img v-if="post.image_url || post.image_file" :src="post.media_url" class="post-image" />
+      <!-- Галерея (новая схема) -->
+      <div v-if="post.media_files?.length" class="media-gallery">
+        <div v-for="(m, i) in post.media_files" :key="i" class="media-item">
+          <img v-if="m.media_type === 'image'" :src="m.url" class="post-image" />
+          <video v-else :src="m.url" controls class="post-video" />
+        </div>
+      </div>
 
-      <!-- Видео -->
-      <video v-if="post.video_url || post.video_file" :src="post.media_url" controls class="post-video" />
+      <!-- Фоллбэк на старые поля (для одиночного медиа)
+           используем media_url чтобы получить правильный адрес -->
+      <img
+        v-else-if="post.image_url || post.image_file"
+        :src="post.media_url"
+        class="post-image"
+      />
+
+      <video
+        v-else-if="post.video_url || post.video_file"
+        :src="post.media_url"
+        controls
+        class="post-video"
+      />
 
       <!-- Плейлист -->
       <div v-if="post.post_type === 'playlist' && post.playlist" class="post-playlist">
@@ -68,12 +85,18 @@
       </div>
 
       <!-- Аниме -->
-      <div v-if="post.post_type === 'anime' && post.anime" class="post-anime">
-        <img :src="post.anime.poster" class="anime-poster" />
+      <div v-if="post.post_type === 'anime' && post.anime" class="post-anime" @click="openAnime(post.anime?.id || post.anime)">
+        <img 
+          :src="getPostAnimePoster(post)" 
+          :alt="post.anime_title || getAnimeTitle(post.anime)"
+          class="anime-poster"
+        />
         <div class="anime-info">
-          <h4>{{ post.anime_title }}</h4>
-          <p v-if="post.text">{{ post.text }}</p>
+          <h4 class="anime-title-text">{{ post.anime_title || getAnimeTitle(post.anime) }}</h4>
+          <p v-if="post.text" class="anime-description">{{ post.text }}</p>
         </div>
+        <button @click.stop="openPlaylistSelector" class="btn-add-playlist" title="Добавить в плейлист">📁</button>
+        <button @click.stop="removeAnimeAttachment" class="btn-remove" title="Удалить">✕</button>
       </div>
 
       <!-- Оригинальный пост (для репостов) -->
@@ -133,6 +156,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { getMediaUrl } from '@/api/client'
 import {
   StarIcon,
   ShareIcon,
@@ -309,6 +333,45 @@ const shareToChat = async (chat: any) => {
   } catch (error) {
     console.error('Ошибка отправки в чат:', error)
   }
+}
+
+const openAnime = (animeId: number) => {
+  if (animeId) {
+    router.push(`/anime/${animeId}`)
+  }
+}
+
+
+const getAnimePosterUrl = (anime: any): string | undefined => {
+  let url = anime?.poster_url || anime?.poster || null
+  return getMediaUrl(url) || undefined
+}
+
+const getPostAnimePoster = (post: any): string => {
+  // `post.anime` may be an object (from API) or a string URL (legacy)
+  let url: string | undefined
+  if (post.anime) {
+    if (typeof post.anime === 'object') {
+      url = getAnimePosterUrl(post.anime) || undefined
+    } else {
+      url = getMediaUrl(post.anime as string) || undefined
+    }
+  }
+  return url || '/placeholder-anime.jpg'
+}
+
+const getAnimeTitle = (anime: any) => {
+  return anime?.title_ru || anime?.title_en || 'Неизвестное аниме'
+}
+
+const openPlaylistSelector = () => {
+  // TODO: Открыть селектор плейлиста для добавления аниме
+  console.log('Add to playlist:', props.post.anime)
+}
+
+const removeAnimeAttachment = () => {
+  // TODO: Реализовать удаление аттачмента аниме
+  console.log('Remove anime attachment')
 }
 
 const openPlaylist = (playlistId: number) => {
@@ -512,28 +575,108 @@ const openPlaylist = (playlistId: number) => {
 
 .post-anime {
   display: flex;
-  gap: 16px;
-  background: #f9f9f9;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+  border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 16px;
   margin-bottom: 16px;
 }
 
 .anime-poster {
-  width: 100px;
-  height: 150px;
-  border-radius: 8px;
+  max-width: 120px;
+  max-height: 90px;
+  border-radius: 6px;
   object-fit: cover;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s;
 }
 
-.anime-info h4 {
-  margin: 0 0 8px;
+.anime-poster:hover {
+  transform: scale(1.05);
 }
 
-.anime-info p {
+.anime-poster-placeholder {
+  width: 120px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eee;
+  border-radius: 6px;
+  font-size: 2rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.anime-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.anime-title-text {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.anime-title-text:hover {
+  color: #667eea;
+}
+
+.anime-description {
   margin: 0;
   color: #666;
+  font-size: 0.9rem;
+}
+
+.btn-add-playlist {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #333;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.btn-add-playlist:hover {
+  background: #f0f0f0;
+  border-color: #667eea;
+}
+
+.btn-remove {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #333;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.btn-remove:hover {
+  background: #ffebee;
+  border-color: #d32f2f;
+  color: #d32f2f;
 }
 
 .original-post {
