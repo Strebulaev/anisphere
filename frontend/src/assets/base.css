@@ -5,7 +5,7 @@
   --vt-c-white-mute: #f2f2f2;
 
   --vt-c-black: #181818;
-  --vt-c-black-soft: #222222;
+  --vt-c-black-soft: #111111;
   --vt-c-black-mute: #282828;
 
   --vt-c-indigo: #2c3e50;
@@ -403,7 +403,7 @@ button, .btn {
   --color-background: #0A0A0A;
   --color-background-secondary: #111111;
   --color-background-surface: #1A1A1A;
-  --color-background-active: #222222;
+  --color-background-active: #111111;
 
   /* Текстовые цвета */
   --color-text: #FFFFFF;
