@@ -1759,6 +1759,61 @@ class PostViewSet(ModelViewSet):
 
         return queryset
 
+    def _handle_media_uploads(self, request, post, replace=False):
+        """Create PostMedia records for any files named media_*. If replace=True, clear existing media first."""
+        if replace:
+            post.media_files.all().delete()
+
+        for key, file in request.FILES.items():
+            if key.startswith('media_'):
+                # determine type from mime
+                if file.content_type.startswith('image'):
+                    media_type = 'image'
+                elif file.content_type.startswith('video'):
+                    media_type = 'video'
+                else:
+                    # default fallback
+                    media_type = 'image'
+
+                PostMedia.objects.create(post=post, media_type=media_type, file=file)
+
+    def _update_post_type(self, post):
+        """Guess post_type based on attached data if it was not explicitly set."""
+        new_type = post.post_type
+        # priority: playlist > anime > reactor_post > media
+        if post.playlist:
+            new_type = 'playlist'
+        elif post.anime:
+            new_type = 'anime'
+        elif post.reactor_post:
+            new_type = 'repost'
+        else:
+            media_qs = post.media_files.all()
+            if media_qs.exists():
+                # if any video exists, mark video, else image
+                if media_qs.filter(media_type='video').exists():
+                    new_type = 'video'
+                else:
+                    new_type = 'image'
+        if new_type != post.post_type:
+            post.post_type = new_type
+            post.save(update_fields=['post_type'])
+
+    def create(self, request, *args, **kwargs):
+        # use PostCreateSerializer for validation but return full PostSerializer in response
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        # after the instance is saved, attach media files
+        post = serializer.instance
+        self._handle_media_uploads(request, post)
+        # ensure type is correct after attachments/media
+        self._update_post_type(post)
+
+        headers = self.get_success_headers(serializer.data)
+        out_serializer = PostSerializer(post, context={'request': request})
+        return Response(out_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
         post = serializer.save(author=self.request.user, status='published')
 
@@ -1776,6 +1831,19 @@ class PostViewSet(ModelViewSet):
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f'Failed to publish post created event: {e}')
+        return post
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        # handle new media uploads; if not partial update, replace existing media
+        self._handle_media_uploads(request, instance, replace=not partial)
+        self._update_post_type(instance)
+        out = PostSerializer(instance, context={'request': request})
+        return Response(out.data)
 
 
 class MessageListCreateView(generics.ListCreateAPIView):

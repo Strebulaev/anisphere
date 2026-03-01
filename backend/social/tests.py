@@ -36,6 +36,8 @@ class PostCreationTests(TestCase):
         })
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data['text'], 'Hello world')
+        # default type should be text
+        self.assertEqual(resp.data.get('post_type'), 'text')
 
     def test_create_post_requires_auth(self):
         self.client.force_authenticate(user=None)
@@ -106,6 +108,75 @@ class PostCreationTests(TestCase):
         )
         resp = self.client.delete(f'/api/social/posts/{post.id}/')
         self.assertIn(resp.status_code, [403, 404])
+
+    def test_create_post_with_media_files(self):
+        # ensure front-end file upload keys are handled
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        image = SimpleUploadedFile('pic.jpg', b'\x00\x01\x02', content_type='image/jpeg')
+        video = SimpleUploadedFile('movie.mp4', b'\x00\x01\x02', content_type='video/mp4')
+        data = {
+            'text': 'Post with media',
+            'visibility': 'public',
+            'media_0': image,
+            'media_1': video,
+        }
+        resp = self.client.post('/api/social/posts/', data, format='multipart')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        post_id = resp.data.get('id')
+        self.assertIsNotNone(post_id)
+        # media files should exist
+        from .models import PostMedia
+        medias = PostMedia.objects.filter(post_id=post_id)
+        self.assertEqual(medias.count(), 2)
+        # response should include media_files array
+        self.assertIn('media_files', resp.data)
+        self.assertEqual(len(resp.data['media_files']), 2)
+        # should have chosen video type because one of the files is video
+        self.assertEqual(resp.data.get('post_type'), 'video')
+
+    def test_create_post_with_anime_and_playlist_attachment(self):
+        # create an anime and a playlist for attachments
+        from anime.models import Anime
+        from playlists.models import Playlist
+        anime = Anime.objects.create(title_ru='Тестовое', status='ongoing')
+        playlist = Playlist.objects.create(user=self.user, title='My list', is_public=True)
+        data = {
+            'text': 'Attached content',
+            'visibility': 'public',
+            'anime': anime.id,
+            'playlist': playlist.id,
+        }
+        resp = self.client.post('/api/social/posts/', data)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data.get('anime'), anime.id)
+        self.assertEqual(resp.data.get('playlist'), playlist.id)
+        # verify serializer output contains nested info
+        self.assertEqual(resp.data.get('anime_title'), anime.title_ru)
+        self.assertEqual(resp.data.get('playlist_title'), playlist.title)
+        # post_type should reflect attachments (playlist takes precedence)
+        self.assertEqual(resp.data.get('post_type'), 'playlist')
+
+    def test_post_attachment_viewset(self):
+        # use separate endpoint to manage attachments
+        from anime.models import Anime
+        anime = Anime.objects.create(title_ru='Прикреплённое', status='ongoing')
+        post = Post.objects.create(author=self.user, text='With attachment', status='published')
+        data = {
+            'post': post.id,
+            'content_type': 'anime',
+            'object_id': anime.id
+        }
+        resp = self.client.post('/api/social/post-attachments/', data)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        attach_id = resp.data.get('id')
+        self.assertIsNotNone(attach_id)
+        # listing by post
+        list_resp = self.client.get(f'/api/social/post-attachments/?post={post.id}')
+        self.assertEqual(list_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_resp.data), 1)
+        # delete attachment
+        del_resp = self.client.delete(f'/api/social/post-attachments/{attach_id}/')
+        self.assertIn(del_resp.status_code, [200, 204])
 
 
 class LikeDislikeTests(TestCase):

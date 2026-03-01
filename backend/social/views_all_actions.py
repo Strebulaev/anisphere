@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import viewsets, status
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q, Count
@@ -23,7 +24,8 @@ from .models import (
 from users.models import User
 from .serializers import (
     PostCommentSerializer, PostCommentCreateSerializer,
-    ReportSerializer, ReportCreateSerializer
+    ReportSerializer, ReportCreateSerializer,
+    PostAttachmentSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -1019,3 +1021,26 @@ class PostMediaViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         return PostMedia.objects.all()
+
+
+class PostAttachmentViewSet(viewsets.ModelViewSet):
+    """Прикреплённый контент к постам (аниме, плейлист, shorts)"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = PostAttachmentSerializer
+
+    def get_queryset(self):
+        qs = PostAttachment.objects.all()
+        post_id = self.request.query_params.get('post')
+        if post_id:
+            try:
+                qs = qs.filter(post_id=int(post_id))
+            except (ValueError, TypeError):
+                pass
+        return qs
+
+    def perform_create(self, serializer):
+        # Ensure user is owner of the post before attaching
+        post = serializer.validated_data.get('post')
+        if post and post.author != self.request.user:
+            raise PermissionDenied('Cannot add attachment to another user\'s post')
+        serializer.save()

@@ -16,6 +16,7 @@ from .views import (
 from .views_all_actions import (
     BookmarkViewSet,
     PostMediaViewSet,
+    PostAttachmentViewSet,
     ReportViewSet,
     toggle_follow,
     toggle_post_like, toggle_post_dislike, get_post_likes, get_post_dislikers,
@@ -61,6 +62,7 @@ router.register(r'groups', GroupViewSet)
 router.register(r'posts', PostViewSet)
 router.register(r'feed', FeedViewSet, basename='feed')
 router.register(r'post-media', PostMediaViewSet, basename='post-media')
+router.register(r'post-attachments', PostAttachmentViewSet, basename='post-attachment')
 router.register(r'bookmarks', BookmarkViewSet, basename='bookmark')
 router.register(r'reports', ReportViewSet, basename='report')
 router.register(r'group-chats', GroupChatViewSet)
