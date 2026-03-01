@@ -1800,19 +1800,28 @@ class PostViewSet(ModelViewSet):
             post.save(update_fields=['post_type'])
 
     def create(self, request, *args, **kwargs):
-        # use PostCreateSerializer for validation but return full PostSerializer in response
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        # after the instance is saved, attach media files
-        post = serializer.instance
-        self._handle_media_uploads(request, post)
-        # ensure type is correct after attachments/media
-        self._update_post_type(post)
+        try:
+            # strip media_x fields before validation; they are handled separately
+            data = request.data.copy()
+            for key in list(data.keys()):
+                if key.startswith('media_'):
+                    data.pop(key)
 
-        headers = self.get_success_headers(serializer.data)
-        out_serializer = PostSerializer(post, context={'request': request})
-        return Response(out_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            post = serializer.instance
+            self._handle_media_uploads(request, post)
+            # ensure type is correct after attachments/media
+            self._update_post_type(post)
+
+            headers = self.get_success_headers(serializer.data)
+            out_serializer = PostSerializer(post, context={'request': request})
+            return Response(out_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(exc)}, status=500)
 
     def perform_create(self, serializer):
         post = serializer.save(author=self.request.user, status='published')
@@ -1834,16 +1843,26 @@ class PostViewSet(ModelViewSet):
         return post
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        # handle new media uploads; if not partial update, replace existing media
-        self._handle_media_uploads(request, instance, replace=not partial)
-        self._update_post_type(instance)
-        out = PostSerializer(instance, context={'request': request})
-        return Response(out.data)
+        try:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            # strip media fields from data before validation
+            data = request.data.copy()
+            for key in list(data.keys()):
+                if key.startswith('media_'):
+                    data.pop(key)
+
+            serializer = self.get_serializer(instance, data=data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            self._handle_media_uploads(request, instance, replace=not partial)
+            self._update_post_type(instance)
+            out = PostSerializer(instance, context={'request': request})
+            return Response(out.data)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(exc)}, status=500)
 
 
 class MessageListCreateView(generics.ListCreateAPIView):

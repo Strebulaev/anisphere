@@ -649,12 +649,14 @@ class SearchAPIView(APIView):
             print(f"\n❌ Ошибка в SearchAPIView: {e}")
             import traceback
             traceback.print_exc()
+            # return error details to frontend for debugging
             return Response({
                 'error': f'Ошибка поиска: {str(e)}',
                 'query': query,
                 'results': [],
                 'total': 0,
-                'source': 'error'
+                'source': 'error',
+                'debug': repr(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
