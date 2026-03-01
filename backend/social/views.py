@@ -1775,7 +1775,15 @@ class PostViewSet(ModelViewSet):
                     # default fallback
                     media_type = 'image'
 
-                PostMedia.objects.create(post=post, media_type=media_type, file=file)
+                # Calculate file size in bytes
+                file_size = file.size
+                
+                PostMedia.objects.create(
+                    post=post, 
+                    media_type=media_type, 
+                    file=file,
+                    file_size=file_size
+                )
 
     def _update_post_type(self, post):
         """Guess post_type based on attached data if it was not explicitly set."""
