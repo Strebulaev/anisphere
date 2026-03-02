@@ -1,10 +1,13 @@
 <template>
   <div class="anime-card-row" @click="$emit('click')">
     <img
-      :src="posterUrl || undefined"
+      v-if="posterUrl"
+      :src="posterUrl"
       :alt="titleRu"
       class="anime-card-poster"
+      loading="lazy"
     >
+    <div v-else class="anime-card-poster anime-card-poster--placeholder"></div>
     <div class="anime-card-info">
       <span class="anime-card-title">{{ titleRu }}</span>
       <span v-if="titleEn" class="anime-card-title-en">{{ titleEn }}</span>
@@ -49,6 +52,13 @@ defineEmits<{ click: [] }>()
   object-fit: cover;
   border-radius: 6px;
   flex-shrink: 0;
+  background: #2a2a2a;
+}
+
+.anime-card-poster--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #2a2a2a;
 }
 

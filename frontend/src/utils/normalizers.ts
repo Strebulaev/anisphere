@@ -1,4 +1,13 @@
 import { useAuthStore } from '@/stores/auth'
+import { getMediaBaseUrl } from '@/api/client'
+
+function toAbsoluteUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  // Относительный путь — добавляем бэкенд-домен
+  const base = getMediaBaseUrl()
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`
+}
 
 // Helpers to patch newly created objects with missing author/date info
 
@@ -32,6 +41,11 @@ export function normalizePost(post: any) {
     post.anime = post.anime_data
   } else if (post.anime && typeof post.anime === 'object' && !post.anime.poster_url && post.anime_data) {
     post.anime = post.anime_data
+  }
+
+  // Нормализуем poster_url аниме — делаем абсолютным если относительный
+  if (post.anime && typeof post.anime === 'object') {
+    post.anime.poster_url = toAbsoluteUrl(post.anime.poster_url) ?? post.anime.poster_url
   }
 
   // Similarly, normalise playlist / group from _data variants

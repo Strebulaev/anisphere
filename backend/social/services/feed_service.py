@@ -157,9 +157,15 @@ class FeedGenerationService:
         ).values_list('post_id', flat=True))
         
         base_filter = Q(status='published') & ~Q(is_deleted=True)
-        exclude_filter = Q(id__in=hidden_post_ids) | Q(author_id=user.id)
-        visibility_filter = Q(visibility='public') | Q(author_id__in=subscriptions)
+        exclude_filter = Q(id__in=hidden_post_ids)
+        visibility_filter = Q(visibility='public') | Q(author_id__in=subscriptions) | Q(author_id=user.id)
         
+        # Свои посты — всегда показываем
+        own_posts = Post.objects.filter(
+            base_filter &
+            Q(author_id=user.id)
+        ).exclude(exclude_filter).select_related('author', 'anime', 'playlist')
+
         subscription_posts = Post.objects.filter(
             base_filter &
             visibility_filter &
@@ -175,9 +181,8 @@ class FeedGenerationService:
             base_filter &
             Q(visibility='public') &
             ~Q(author_id__in=subscriptions) &
+            ~Q(author_id=user.id) &
             ~Q(group_id__in=member_groups)
-        ).exclude(
-            author_id=user.id
         ).exclude(
             id__in=hidden_post_ids
         ).order_by('-likes_count', '-comments_count', '-created_at').select_related(
@@ -186,11 +191,13 @@ class FeedGenerationService:
         
         subscription_count = int(limit * 1.5)
         group_count = int(limit * 0.5)
-        
+
+        own_posts_list = list(own_posts)
         subscription_posts = list(subscription_posts[:subscription_count])
         group_posts = list(group_posts[:group_count])
         
         mixed_posts = cls._mix_posts(
+            own_posts_list,
             subscription_posts,
             group_posts,
             list(recommended_posts),
@@ -200,28 +207,37 @@ class FeedGenerationService:
         return mixed_posts[offset:offset + limit]
     
     @classmethod
-    def _mix_posts(cls, subscription_posts: List[Post], group_posts: List[Post], 
-                   recommended_posts: List[Post], limit: int) -> List[Post]:
+    def _mix_posts(cls, own_posts: List[Post], subscription_posts: List[Post],
+                   group_posts: List[Post], recommended_posts: List[Post], limit: int) -> List[Post]:
         """Смешать посты из разных источников с учетом весов"""
         import random
-        
+
         random.shuffle(subscription_posts)
         random.shuffle(group_posts)
         random.shuffle(recommended_posts)
-        
+        # own_posts не перемешиваем — порядок по дате важен
+
         sub_count = int(limit * cls.WEIGHTS['subscriptions'])
         group_count = int(limit * cls.WEIGHTS['groups'])
         rec_count = limit - sub_count - group_count
-        
+
         result = []
+        result.extend(own_posts)              # свои посты — все
         result.extend(subscription_posts[:sub_count])
         result.extend(group_posts[:group_count])
         result.extend(recommended_posts[:rec_count])
-        
-        random.shuffle(result)
-        result.sort(key=lambda x: x.created_at, reverse=True)
-        
-        return result
+
+        # Убираем дубли (собственные могут пересекаться с подписками)
+        seen_ids = set()
+        unique_result = []
+        for post in result:
+            if post.id not in seen_ids:
+                seen_ids.add(post.id)
+                unique_result.append(post)
+
+        unique_result.sort(key=lambda x: x.created_at, reverse=True)
+
+        return unique_result
     
     @classmethod
     def get_user_feed_posts(cls, user: User, page: int = 1, per_page: int = 20):

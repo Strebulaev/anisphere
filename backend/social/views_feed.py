@@ -85,7 +85,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
             end = start + per_page
             paginated_posts = queryset[start:end]
             
-            serializer = FeedPostSerializer(paginated_posts, many=True)
+            serializer = FeedPostSerializer(paginated_posts, many=True, context={'request': request})
             
             return Response({
                 'results': serializer.data,
@@ -111,7 +111,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
             
             posts = TrendingService.get_hot_posts(hours, limit)
             
-            serializer = FeedPostSerializer(posts, many=True)
+            serializer = FeedPostSerializer(posts, many=True, context={'request': request})
             return Response(serializer.data)
         except Exception as e:
             import traceback
@@ -130,7 +130,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
             
             posts = TrendingService.get_top_posts(days, limit)
             
-            serializer = FeedPostSerializer(posts, many=True)
+            serializer = FeedPostSerializer(posts, many=True, context={'request': request})
             return Response(serializer.data)
         except Exception as e:
             import traceback
@@ -160,7 +160,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
                 'author', 'anime', 'playlist', 'group'
             ).prefetch_related('media_files')[:limit]
             
-            serializer = FeedPostSerializer(posts, many=True)
+            serializer = FeedPostSerializer(posts, many=True, context={'request': request})
             return Response(serializer.data)
         except Exception as e:
             import traceback
@@ -193,7 +193,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
                 'author', 'anime', 'playlist', 'group'
             ).prefetch_related('media_files').order_by('-created_at')[offset:offset + per_page]
             
-            serializer = FeedPostSerializer(posts, many=True)
+            serializer = FeedPostSerializer(posts, many=True, context={'request': request})
             
             return Response({
                 'results': serializer.data,

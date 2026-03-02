@@ -1659,9 +1659,9 @@ class FeedPostSerializer(serializers.ModelSerializer):
     author_avatar = serializers.ImageField(source='author.avatar', read_only=True)
     author_display_name = serializers.CharField(source='author.display_name', read_only=True)
 
-    anime_data = serializers.SerializerMethodField()
-    playlist_data = serializers.SerializerMethodField()
-    group_data = serializers.SerializerMethodField()
+    anime = serializers.SerializerMethodField()
+    playlist = serializers.SerializerMethodField()
+    group = serializers.SerializerMethodField()
     original_post_data = serializers.SerializerMethodField()
 
     media_files = PostMediaSerializer(many=True, read_only=True)
@@ -1683,10 +1683,10 @@ class FeedPostSerializer(serializers.ModelSerializer):
             'id', 'author', 'author_username', 'author_avatar', 'author_display_name',
             'title', 'post_type', 'status', 'visibility', 'text', 'content_preview',
             'image_url', 'image_file', 'video_url', 'video_file',
-            'anime', 'anime_data', 'anime_rating',
-            'playlist', 'playlist_data',
+            'anime', 'anime_rating',
+            'playlist',
             'reactor_post',
-            'group', 'group_data',
+            'group',
             'original_post', 'original_post_data', 'repost_comment',
             'system_type',
             'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count',
@@ -1701,7 +1701,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             'is_pinned', 'pinned_at', 'edited_at', 'published_at', 'created_at', 'updated_at'
         ]
 
-    def get_anime_data(self, obj):
+    def get_anime(self, obj):
         if obj.anime:
             poster_url = None
             if obj.anime.poster:
@@ -1709,7 +1709,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 if request and poster_url and not poster_url.startswith('http'):
                     poster_url = request.build_absolute_uri(poster_url)
-            # Fallback to external URL if local poster not available or not absolute
+            # Fallback to external CDN URL
             if not poster_url:
                 poster_url = obj.anime.poster_url or None
             return {
@@ -1721,7 +1721,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             }
         return None
 
-    def get_playlist_data(self, obj):
+    def get_playlist(self, obj):
         if obj.playlist:
             return {
                 'id': obj.playlist.id,
@@ -1731,7 +1731,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             }
         return None
 
-    def get_group_data(self, obj):
+    def get_group(self, obj):
         if obj.group:
             return {
                 'id': obj.group.id,
