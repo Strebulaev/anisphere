@@ -56,22 +56,10 @@
           {{ text.length }}/5000
         </div>
 
-        <!-- Media Preview -->
-        <div v-if="mediaPreview.length > 0" class="media-preview">
-          <div
-            v-for="(item, index) in mediaPreview"
-            :key="index"
-            class="preview-item"
-          >
-            <img v-if="item.type === 'image'" :src="item.url" alt="Preview">
-            <video v-else :src="item.url"></video>
-            <button class="remove-btn" @click="removeMedia(index)">✕</button>
-          </div>
-        </div>
-
-        <!-- Attached Content -->
+        <!-- Attached Content (playlist / shorts остаются как есть) -->
         <div v-if="attachedContent" class="attached-content">
           <div v-if="attachedContent.type === 'anime'" class="attached-anime-wrap">
+            <!-- аниме теперь через MediaAttachmentPicker, но оставляем совместимость -->
             <AnimeCard
               :poster-url="attachedPosterUrl"
               :title-ru="attachedTitleRu"
@@ -110,6 +98,22 @@
           </div>
         </div>
 
+        <!-- Аниме через пикер (с оценкой) -->
+        <div v-if="attachedAnime && !attachedContent" class="attached-anime-outer">
+          <!-- уже отображается внутри MediaAttachmentPicker -->
+          <div class="rating-input" style="margin-top:0.5rem">
+            <label>Оценка:</label>
+            <input
+              type="number"
+              v-model.number="animeRating"
+              min="1"
+              max="10"
+              placeholder="1-10"
+              class="rating-field"
+            >
+          </div>
+        </div>
+
         <!-- Spoiler Warning -->
         <div v-if="showSpoilerToggle" class="spoiler-toggle">
           <label>
@@ -132,15 +136,16 @@
 
       <!-- Attachment Buttons -->
       <div class="attachment-buttons">
-        <button @click="triggerFileInput('image')" title="Фото">
-          📷
-        </button>
-        <button @click="triggerFileInput('video')" title="Видео">
-          🎥
-        </button>
-        <button @click="openAnimeSelector" title="Аниме">
-          🎬
-        </button>
+        <!-- фото / видео / аниме через модуль -->
+        <MediaAttachmentPicker
+          ref="attachmentPicker"
+          :allow-photo="true"
+          :allow-video="true"
+          :allow-anime="true"
+          @update:media-files="mediaPreview = $event"
+          @update:attached-anime="onAnimeSelected"
+          @error="onAttachmentError"
+        />
         <button @click="openPlaylistSelector" title="Плейлист">
           📁
         </button>
@@ -152,22 +157,7 @@
         </button>
       </div>
 
-      <!-- Hidden File Inputs -->
-      <input
-        ref="imageInput"
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
-        multiple
-        @change="handleFileSelect"
-        hidden
-      >
-      <input
-        ref="videoInput"
-        type="file"
-        accept="video/mp4,video/webm,video/quicktime"
-        @change="handleFileSelect"
-        hidden
-      >
+      <!-- file-инпуты теперь внутри MediaAttachmentPicker -->
 
       <!-- Submit -->
       <div class="submit-row">
@@ -189,10 +179,8 @@
           <SearchBar
             placeholder="Поиск аниме..."
             :categories="[{ id: 'anime', name: 'Аниме', icon: 'anime', enabled: true } ]"
-            @search="handleAnimeSearch"
-            :preventNavigationOnSelect="true"
+              :preventNavigationOnSelect="true"
             :hideSuggestions="true"
-            @select-item="(category, item) => { if (category === 'anime') selectAnime(item) }"
           />
         </div>
         <div class="results-list">
@@ -200,7 +188,7 @@
             v-for="anime in animeResults"
             :key="anime.id"
             class="result-item"
-            @click="selectAnime(anime)"
+            @click="legacySelectAnime(anime)"
           >
             <img :src="getMediaUrl(anime.poster_url || anime.poster_image_url)" alt="">
             <span>{{ anime.title_ru }}</span>
@@ -274,6 +262,8 @@ import apiClient, { getMediaUrl } from '@/api/client'
 import SearchBar from '@/components/Search/SearchBar.vue'
 import { normalizePost } from '@/utils/normalizers'
 import AnimeCard from './AnimeCard.vue'
+import MediaAttachmentPicker from '@/components/common/MediaAttachmentPicker.vue'
+import type { AnimeAttachment } from '@/components/common/MediaAttachmentPicker.vue'
 
 interface User {
   id: number
@@ -324,10 +314,10 @@ const showVisibilityMenu = ref(false)
 const showSpoilerToggle = ref(false)
 
 // Media
-const imageInput = ref<HTMLInputElement | null>(null)
-const videoInput = ref<HTMLInputElement | null>(null)
-const mediaPreview = ref<MediaPreview[]>([])
+const attachmentPicker = ref<InstanceType<typeof MediaAttachmentPicker> | null>(null)
+const mediaPreview = ref<any[]>([])
 const attachedContent = ref<AttachedContent | null>(null)
+const attachedAnime = ref<AnimeAttachment | null>(null)
 const animeRating = ref<number | null>(null)
 
 // Selectors
@@ -364,8 +354,7 @@ const userDisplayName = computed((): string => {
 
 const attachedPosterUrl = computed((): string => {
   if (attachedContent.value?.type !== 'anime') return ''
-  // prefer poster_url but fall back to legacy poster field
-  const url = attachedContent.value?.poster_url || attachedContent.value?.poster || ''
+  const url = attachedContent.value?.poster_url || (attachedContent.value as any)?.poster || ''
   return getMediaUrl(url) || '/placeholder-anime.jpg'
 }) as any as string
 
@@ -377,11 +366,35 @@ const attachedTitleRu = computed((): string => {
 const canSubmit = computed(() => {
   const hasText = text.value.trim().length > 0
   const hasMedia = mediaPreview.value.length > 0
-  const hasAttachment = attachedContent.value !== null
+  const hasAttachment = attachedContent.value !== null || attachedAnime.value !== null
   const withinLimit = text.value.length <= 5000
 
   return (hasText || hasMedia || hasAttachment) && withinLimit
 })
+
+// Обработчик ошибок из пикера
+const onAttachmentError = (msg: string) => {
+  alert(msg)
+}
+
+// Обработчик выбора аниме из пикера
+const onAnimeSelected = (anime: AnimeAttachment | null) => {
+  attachedAnime.value = anime
+  showSpoilerToggle.value = !!anime
+}
+
+// Оставляем совместимость для legacy модалки выбора аниме
+const legacySelectAnime = (anime: any) => {
+  attachedAnime.value = {
+    id: anime.id,
+    title_ru: anime.title_ru,
+    title_en: anime.title_en,
+    poster_url: anime.poster_url,
+    poster_image_url: anime.poster_image_url,
+  }
+  showAnimeSelector.value = false
+  showSpoilerToggle.value = true
+}
 
 // Methods
 const autoResize = () => {
@@ -400,97 +413,10 @@ const setVisibility = (key: string) => {
   showVisibilityMenu.value = false
 }
 
-const triggerFileInput = (type: 'image' | 'video') => {
-  if (type === 'image') {
-    imageInput.value?.click()
-  } else {
-    videoInput.value?.click()
-  }
-}
+// triggerFileInput / handleFileSelect / removeMedia / openAnimeSelector
+// теперь инкапсулированы в MediaAttachmentPicker
 
-const handleFileSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const files = target.files
-
-  if (!files || files.length === 0) return
-
-  const file = files[0]
-  if (!file) return
-
-  const type = file.type.startsWith('image/') ? 'image' : 'video'
-
-  // Check limits
-  if (type === 'image' && mediaPreview.value.length >= 10) {
-    alert('Максимум 10 изображений')
-    return
-  }
-
-  if (file.size > (type === 'image' ? 10 * 1024 * 1024 : 100 * 1024 * 1024)) {
-    alert(`Максимальный размер ${type === 'image' ? '10 МБ' : '100 МБ'}`)
-    return
-  }
-
-  const url = URL.createObjectURL(file)
-  mediaPreview.value.push({ type, url, file })
-
-  target.value = ''
-}
-
-const removeMedia = (index: number) => {
-  URL.revokeObjectURL(mediaPreview.value[index]!.url)
-  mediaPreview.value.splice(index, 1)
-}
-
-const openAnimeSelector = () => {
-  showAnimeSelector.value = true
-  animeResults.value = [] // clear previous results
-}
-
-const handleAnimeSearch = async (query: string) => {
-  if (!query || query.length < 2) {
-    animeResults.value = []
-    return
-  }
-
-  try {
-    const response = await apiClient.get(`/anime/search/`, {
-      params: { q: query, limit: 10 }
-    })
-    animeResults.value = response.data.results || []
-    console.log('🔍 Anime search results:', {
-      query,
-      count: animeResults.value.length,
-      firstResult: animeResults.value[0],
-      hasPosterUrl: animeResults.value[0]?.poster_url
-    })
-  } catch (error: any) {
-    console.error('Error searching anime:', error, error?.response?.data)
-    animeResults.value = []
-  }
-}
-
-const selectAnime = (anime: any) => {
-  // poster_url = external CDN URL (absolute, e.g. shikimori)
-  // poster_image_url = local uploaded file (may be relative /media/...)
-  // Prefer external CDN URL if it's absolute, otherwise resolve the local one.
-  const rawPoster = anime.poster_url || anime.poster_image_url || ''
-  console.log('✅ Selected anime:', {
-    id: anime.id,
-    title_ru: anime.title_ru,
-    poster_url: anime.poster_url,
-    poster_image_url: anime.poster_image_url,
-    rawPoster,
-    resolvedUrl: getMediaUrl(rawPoster)
-  })
-  attachedContent.value = {
-    type: 'anime',
-    id: anime.id,
-    title_ru: anime.title_ru,
-    poster_url: rawPoster
-  }
-  showAnimeSelector.value = false
-  showSpoilerToggle.value = true
-}
+// handleAnimeSearch / selectAnime теперь инкапсулированы в MediaAttachmentPicker
 
 const openPlaylistSelector = async () => {
   showPlaylistSelector.value = true
@@ -576,7 +502,14 @@ const submitPost = async () => {
     formData.append('allow_comments', allowComments.value.toString())
     formData.append('is_spoiler', isSpoiler.value.toString())
 
-    if (attachedContent.value?.type === 'anime') {
+    // Аниме может быть прикреплено либо через legacy attachedContent (совместимость),
+    // либо через новый attachedAnime из пикера
+    if (attachedAnime.value) {
+      formData.append('anime', attachedAnime.value.id.toString())
+      if (animeRating.value) {
+        formData.append('anime_rating', animeRating.value.toString())
+      }
+    } else if (attachedContent.value?.type === 'anime') {
       formData.append('anime', attachedContent.value.id.toString())
       if (animeRating.value) {
         formData.append('anime_rating', animeRating.value.toString())
@@ -587,8 +520,8 @@ const submitPost = async () => {
       formData.append('reactor_post', attachedContent.value.id.toString())
     }
 
-    // Add media files
-    mediaPreview.value.forEach((media, index) => {
+    // Add media files (структура { type, url, file } из MediaAttachmentPicker)
+    mediaPreview.value.forEach((media: any, index: number) => {
       if (media.file) {
         formData.append(`media_${index}`, media.file)
       }
@@ -600,8 +533,10 @@ const submitPost = async () => {
       }
     })
 
-    // backend sometimes returns incomplete object (no author info or timestamps)
-    // patch it locally so UI doesn't flash "undefined"/"Invalid date"
+    // Сбрасываем пикер и локальное состояние
+    attachmentPicker.value?.reset()
+    attachedAnime.value = null
+    animeRating.value = null
     const normalized = normalizePost(response.data)
     emit('created', normalized)
   } catch (error) {

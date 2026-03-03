@@ -8,6 +8,7 @@ from rest_framework import viewsets, status
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db import models
 from django.db.models import Q, Count
 from datetime import timedelta
 import logging
@@ -18,14 +19,14 @@ from .models import (
     Achievement, UserAchievement, Group, GroupMembership,
     Message, PrivateChat, GroupChat, ChatSettings,
     ChatFolder, ChatInvite, ChatRole, Reaction, Attachment,
-    EmailLog, FeedView, UserPostHidden, Hashtag, PostMedia,
+    EmailLog, FeedView, UserPostHidden, UserNotInterested, Hashtag, PostMedia,
     PostAttachment, UserMention, PostHashtag
 )
 from users.models import User
 from .serializers import (
     PostCommentSerializer, PostCommentCreateSerializer,
     ReportSerializer, ReportCreateSerializer,
-    PostAttachmentSerializer
+    PostAttachmentSerializer, FeedPostSerializer, UserSimpleSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -269,6 +270,34 @@ def remove_bookmark(request, post_id):
         'removed': deleted > 0,
         'message': 'Удалено из закладок' if deleted else 'Не было в закладках'
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggle_bookmark_view(request):
+    """Переключить закладку"""
+    post_id = request.data.get('post_id')
+    if not post_id:
+        return Response({'error': 'Требуется post_id'}, status=400)
+    
+    post = get_object_or_404(Post, id=post_id)
+    
+    bookmark = Bookmark.objects.filter(user=request.user, post=post).first()
+    
+    if bookmark:
+        bookmark.delete()
+        return Response({
+            'success': True,
+            'bookmarked': False,
+            'message': 'Удалено из закладок'
+        })
+    else:
+        Bookmark.objects.create(user=request.user, post=post)
+        return Response({
+            'success': True,
+            'bookmarked': True,
+            'message': 'Добавлено в закладки'
+        })
 
 
 @api_view(['GET'])
@@ -1044,3 +1073,737 @@ class PostAttachmentViewSet(viewsets.ModelViewSet):
         if post and post.author != self.request.user:
             raise PermissionDenied('Cannot add attachment to another user\'s post')
         serializer.save()
+
+
+# ==================== SUBSCRIPTIONS (FOLLOW) ====================
+
+class SubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Подписки пользователя"""
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Follow.objects.filter(follower=self.request.user).select_related('following')
+    
+    def list(self, request):
+        """Получить список подписок"""
+        follows = self.get_queryset().order_by('-created_at')
+        
+        # Пагинация
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        offset = (page - 1) * page_size
+        
+        # Поиск
+        search = request.query_params.get('search', '')
+        if search:
+            follows = follows.filter(following__username__icontains=search) | \
+                      follows.filter(following__display_name__icontains=search)
+        
+        # Сортировка
+        sort = request.query_params.get('sort', 'date')  # date, name, activity
+        if sort == 'name':
+            follows = follows.order_by('following__username')
+        elif sort == 'activity':
+            follows = follows.order_by('-following__last_activity')
+        else:
+            follows = follows.order_by('-created_at')
+        
+        total = follows.count()
+        follows = follows[offset:offset + page_size]
+        
+        from users.serializers import UserSerializer
+        users = [f.following for f in follows]
+        data = UserSerializer(users, many=True, context={'request': request}).data
+        
+        # Добавляем информацию о подписке
+        for i, user_data in enumerate(data):
+            user_data['subscribed_at'] = follows[i].created_at.isoformat() if follows else None
+            user_data['is_subscribed'] = True
+        
+        return Response({
+            'results': data,
+            'count': total,
+            'next': page + 1 if offset + page_size < total else None,
+            'previous': page - 1 if page > 1 else None
+        })
+
+
+# ==================== NOT INTERESTED (HIDDEN PROFILES) ====================
+
+class NotInterestedViewSet(viewsets.ReadOnlyModelViewSet):
+    """Скрытые профили пользователя"""
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return UserNotInterested.objects.filter(user=self.request.user).select_related('target_user')
+    
+    def list(self, request):
+        """Получить список скрытых профилей"""
+        not_interested = self.get_queryset().order_by('-created_at')
+        
+        # Пагинация
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        offset = (page - 1) * page_size
+        
+        # Поиск
+        search = request.query_params.get('search', '')
+        if search:
+            not_interested = not_interested.filter(target_user__username__icontains=search)
+        
+        total = not_interested.count()
+        not_interested = not_interested[offset:offset + page_size]
+        
+        from users.serializers import UserSerializer
+        users = [ni.target_user for ni in not_interested]
+        data = UserSerializer(users, many=True, context={'request': request}).data
+        
+        # Добавляем информацию о скрытии
+        for i, user_data in enumerate(data):
+            user_data['hidden_at'] = not_interested[i].created_at.isoformat() if not_interested else None
+            user_data['reason'] = not_interested[i].reason if not_interested else None
+        
+        return Response({
+            'results': data,
+            'count': total,
+            'next': page + 1 if offset + page_size < total else None,
+            'previous': page - 1 if page > 1 else None
+        })
+    
+    @action(detail=False, methods=['post'], url_path='(?P<user_id>[^/.]+)')
+    def add_or_remove(self, request, user_id=None):
+        """Добавить/удалить пользователя из скрытых"""
+        target_user = get_object_or_404(User, id=user_id)
+        
+        if target_user == request.user:
+            return Response({'error': 'Нельзя скрыть самого себя'}, status=400)
+        
+        existing = UserNotInterested.objects.filter(
+            user=request.user,
+            target_user=target_user
+        ).first()
+        
+        if existing:
+            existing.delete()
+            return Response({'hidden': False, 'message': 'Пользователь удалён из скрытых'})
+        else:
+            reason = request.data.get('reason', '')
+            UserNotInterested.objects.create(
+                user=request.user,
+                target_user=target_user,
+                reason=reason
+            )
+            return Response({'hidden': True, 'message': 'Пользователь добавлен в скрытые'})
+
+
+# ==================== CHATS FOR FORWARD ====================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_chats_for_forward(request):
+    """Получить список чатов для пересылки постов"""
+    user = request.user
+    
+    # Поиск
+    search = request.query_params.get('search', '')
+    
+    results = []
+    
+    # Приватные чаты
+    private_chats = PrivateChat.objects.filter(
+        models.Q(user1=user) | models.Q(user2=user)
+    )
+    
+    if search:
+        private_chats = private_chats.filter(
+            models.Q(user1__username__icontains=search, user2=user) |
+            models.Q(user2__username__icontains=search, user1=user) |
+            models.Q(user1__display_name__icontains=search, user2=user) |
+            models.Q(user2__display_name__icontains=search, user1=user)
+        )
+    
+    for chat in private_chats[:20]:
+        other = chat.other_user(user)
+        if other:
+            results.append({
+                'id': chat.id,
+                'type': 'private',
+                'name': other.display_name or other.username,
+                'avatar': other.avatar.url if other.avatar else None,
+                'is_online': getattr(other, 'is_online', False)
+            })
+    
+    # Групповые чаты
+    group_chats = GroupChat.objects.filter(
+        members__user=user
+    )
+    
+    if search:
+        group_chats = group_chats.filter(name__icontains=search)
+    
+    for chat in group_chats[:20]:
+        results.append({
+            'id': chat.id,
+            'type': 'group',
+            'name': chat.name,
+            'avatar': chat.avatar.url if chat.avatar else None,
+            'members_count': chat.members_count
+        })
+    
+    return Response(results)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def forward_post_to_chat(request, chat_id):
+    """Переслать пост в чат"""
+    post_id = request.data.get('post_id')
+    if not post_id:
+        return Response({'error': 'Требуется post_id'}, status=400)
+    
+    post = get_object_or_404(Post, id=post_id)
+    
+    # Пробуем групповой чат, затем приватный
+    chat = None
+    chat_type = None
+    
+    try:
+        chat = GroupChat.objects.get(id=chat_id)
+        chat_type = 'group'
+    except GroupChat.DoesNotExist:
+        try:
+            chat = PrivateChat.objects.get(id=chat_id)
+            chat_type = 'private'
+        except PrivateChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=404)
+    
+    # Проверяем доступ к чату
+    if chat_type == 'group':
+        if not chat.members.filter(user=request.user).exists():
+            return Response({'error': 'Вы не состоите в этом чате'}, status=403)
+    else:
+        if chat.user1 != request.user and chat.user2 != request.user:
+            return Response({'error': 'Вы не состоите в этом чате'}, status=403)
+    
+    # Создаём сообщение с постом
+    message = Message.objects.create(
+        sender=request.user,
+        shared_post=post,
+        text=request.data.get('message', '')
+    )
+    
+    if chat_type == 'group':
+        message.chat = chat
+    else:
+        message.private_chat = chat
+    
+    message.save()
+    
+    # Обновляем счётчик репостов
+    post.shares_count += 1
+    post.save(update_fields=['shares_count'])
+    
+    return Response({
+        'success': True,
+        'message_id': message.id,
+        'message': 'Пост переслан'
+    })
+
+
+# ==================== MODERATION (REPORTS) ====================
+
+class ModerationReportViewSet(viewsets.ModelViewSet):
+    """Жалобы для модераторов"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReportSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_staff and not user.is_superuser:
+            # Обычные пользователи видят только свои жалобы
+            return Report.objects.filter(reporter=user)
+        
+        # Модераторы видят все жалобы
+        queryset = Report.objects.all()
+        
+        # Фильтры
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        reason_filter = self.request.query_params.get('reason')
+        if reason_filter:
+            queryset = queryset.filter(reason=reason_filter)
+        
+        content_type = self.request.query_params.get('content_type')
+        if content_type:
+            queryset = queryset.filter(content_type=content_type)
+        
+        return queryset.select_related('reporter')
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Получить детали жалобы"""
+        instance = self.get_object()
+        
+        # Получаем связанный контент
+        content = None
+        if instance.content_type == 'post':
+            try:
+                content = Post.objects.get(id=instance.content_id)
+                from .serializers import PostSerializer
+                content_data = PostSerializer(content, context={'request': request}).data
+            except Post.DoesNotExist:
+                content_data = None
+        elif instance.content_type == 'comment':
+            try:
+                content = PostComment.objects.get(id=instance.content_id)
+                content_data = {
+                    'id': content.id,
+                    'text': content.content,
+                    'author': UserSimpleSerializer(content.author).data
+                }
+            except PostComment.DoesNotExist:
+                content_data = None
+        
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        data['content_data'] = content_data
+        
+        return Response(data)
+    
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        """Рассмотреть жалобу"""
+        report = self.get_object()
+        
+        action = request.data.get('action')  # 'delete_content', 'warn_author', 'ban_author', 'reject'
+        comment = request.data.get('comment', '')
+        
+        if report.status != 'pending':
+            return Response({'error': 'Жалоба уже рассмотрена'}, status=400)
+        
+        report.status = 'resolved'
+        report.resolved_by = request.user
+        report.resolved_at = timezone.now()
+        report.moderation_comment = comment
+        
+        # Выполняем действие
+        if action == 'delete_content':
+            if report.content_type == 'post':
+                try:
+                    post = Post.objects.get(id=report.content_id)
+                    post.is_deleted = True
+                    post.deleted_at = timezone.now()
+                    post.save(update_fields=['is_deleted', 'deleted_at'])
+                except Post.DoesNotExist:
+                    pass
+            elif report.content_type == 'comment':
+                try:
+                    comment = PostComment.objects.get(id=report.content_id)
+                    comment.is_deleted = True
+                    comment.deleted_at = timezone.now()
+                    comment.save(update_fields=['is_deleted', 'deleted_at'])
+                except PostComment.DoesNotExist:
+                    pass
+            report.action_taken = 'content_deleted'
+        
+        elif action == 'warn_author':
+            report.action_taken = 'author_warned'
+            # Здесь можно добавить отправку уведомления автору
+        
+        elif action == 'ban_author':
+            report.action_taken = 'author_banned'
+            # Получаем автора контента и блокируем
+            if report.content_type == 'post':
+                try:
+                    post = Post.objects.get(id=report.content_id)
+                    post.author.is_active = False
+                    post.author.save(update_fields=['is_active'])
+                except Post.DoesNotExist:
+                    pass
+            elif report.content_type == 'comment':
+                try:
+                    comment = PostComment.objects.get(id=report.content_id)
+                    comment.author.is_active = False
+                    comment.author.save(update_fields=['is_active'])
+                except PostComment.DoesNotExist:
+                    pass
+        
+        elif action == 'reject':
+            report.status = 'rejected'
+            report.action_taken = 'rejected'
+        
+        report.save()
+        
+        return Response({
+            'success': True,
+            'message': f'Жалоба рассмотрена: {report.get_action_taken_display() if hasattr(report, "get_action_taken_display") else action}'
+        })
+
+
+# ==================== EXTENDED FEED ====================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_extended_feed(request):
+    """Расширенная лента с фильтрами и сортировкой"""
+    user = request.user
+    
+    # Параметры
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+    sort = request.query_params.get('sort', 'new')  # new, old, best, discussed
+    
+    # Фильтры
+    anime_id = request.query_params.get('anime_id')
+    my_posts = request.query_params.get('my_posts') == 'true'
+    subscriptions = request.query_params.get('subscriptions') == 'true'
+    groups = request.query_params.get('groups') == 'true'
+    tags = request.query_params.getlist('tags')
+    date_range = request.query_params.get('date_range')  # all, month, week, day
+    
+    # Базовый запрос
+    queryset = Post.objects.filter(
+        status='published',
+        is_deleted=False
+    )
+    
+    # Исключаем скрытые посты и профили
+    hidden_post_ids = UserPostHidden.objects.filter(user=user).values_list('post_id', flat=True)
+    hidden_user_ids = UserNotInterested.objects.filter(user=user).values_list('target_user_id', flat=True)
+    queryset = queryset.exclude(id__in=hidden_post_ids).exclude(author_id__in=hidden_user_ids)
+    
+    # Применяем фильтры
+    if anime_id:
+        try:
+            anime_id_int = int(anime_id)
+            queryset = queryset.filter(anime_id=anime_id_int)
+        except (ValueError, TypeError):
+            pass  # Игнорируем невалидный anime_id (NaN, пустая строка и т.д.)
+    
+    if my_posts:
+        queryset = queryset.filter(author=user)
+    
+    if subscriptions:
+        following_ids = Follow.objects.filter(follower=user).values_list('following_id', flat=True)
+        queryset = queryset.filter(author_id__in=following_ids)
+    
+    if groups:
+        group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
+        queryset = queryset.filter(group_id__in=group_ids)
+    
+    if tags:
+        queryset = queryset.filter(hashtag_links__hashtag__name__in=tags)
+    
+    if date_range:
+        from datetime import timedelta
+        now = timezone.now()
+        if date_range == 'month':
+            queryset = queryset.filter(created_at__gte=now - timedelta(days=30))
+        elif date_range == 'week':
+            queryset = queryset.filter(created_at__gte=now - timedelta(days=7))
+        elif date_range == 'day':
+            queryset = queryset.filter(created_at__gte=now - timedelta(days=1))
+    
+    # Сортировка
+    if sort == 'old':
+        queryset = queryset.order_by('created_at')
+    elif sort == 'best':
+        queryset = queryset.order_by('-likes_count', '-created_at')
+    elif sort == 'discussed':
+        queryset = queryset.order_by('-comments_count', '-created_at')
+    else:  # new
+        queryset = queryset.order_by('-created_at')
+    
+    # Оптимизация запроса
+    queryset = queryset.select_related(
+        'author', 'anime', 'group', 'playlist', 'reactor_post'
+    ).prefetch_related('media_files', 'hashtag_links__hashtag')
+    
+    # Пагинация
+    offset = (page - 1) * page_size
+    total = queryset.count()
+    posts = queryset[offset:offset + page_size]
+    
+    serializer = FeedPostSerializer(posts, many=True, context={'request': request})
+    
+    return Response({
+        'results': serializer.data,
+        'count': total,
+        'next': page + 1 if offset + page_size < total else None,
+        'previous': page - 1 if page > 1 else None,
+        'page': page,
+        'page_size': page_size
+    })
+
+
+# ==================== SUBSCRIPTION VIEWSET ====================
+
+class SubscriptionViewSet(viewsets.ViewSet):
+    """Управление подписками текущего пользователя"""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """Список пользователей, на которых подписан текущий пользователь"""
+        sort = request.query_params.get('sort', 'date')  # date | name
+        search = request.query_params.get('search', '').strip()
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+
+        follows = Follow.objects.filter(
+            follower=request.user
+        ).select_related('following')
+
+        if search:
+            follows = follows.filter(
+                Q(following__username__icontains=search) |
+                Q(following__display_name__icontains=search)
+            )
+
+        if sort == 'name':
+            follows = follows.order_by('following__display_name', 'following__username')
+        else:
+            follows = follows.order_by('-created_at')
+
+        total = follows.count()
+        offset = (page - 1) * page_size
+        follows_page = follows[offset:offset + page_size]
+
+        from core.online_status import online_status as os_service
+        results = []
+        for follow in follows_page:
+            u = follow.following
+            is_online = False
+            try:
+                is_online = os_service.is_online(u.id)
+            except Exception:
+                pass
+            results.append({
+                'id': u.id,
+                'username': u.username,
+                'display_name': u.display_name or u.username,
+                'avatar_url': u.avatar.url if u.avatar else None,
+                'followers_count': Follow.objects.filter(following=u).count(),
+                'is_online': is_online,
+                'followed_at': follow.created_at.isoformat(),
+            })
+
+        return Response({
+            'results': results,
+            'count': total,
+            'next': page + 1 if offset + page_size < total else None,
+            'previous': page - 1 if page > 1 else None,
+        })
+
+    @action(detail=True, methods=['delete'])
+    def unfollow(self, request, pk=None):
+        """Отписаться от пользователя"""
+        target_user = get_object_or_404(User, id=pk)
+        deleted, _ = Follow.objects.filter(
+            follower=request.user, following=target_user
+        ).delete()
+        if deleted:
+            return Response({'success': True, 'message': 'Вы отписались'})
+        return Response({'error': 'Вы не подписаны на этого пользователя'}, status=400)
+
+
+# ==================== NOT INTERESTED VIEWSET ====================
+
+class NotInterestedViewSet(viewsets.ViewSet):
+    """Пользователи, отмеченные как неинтересные"""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """Список скрытых пользователей"""
+        search = request.query_params.get('search', '').strip()
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+
+        qs = UserNotInterested.objects.filter(
+            user=request.user
+        ).select_related('target_user')
+
+        if search:
+            qs = qs.filter(
+                Q(target_user__username__icontains=search) |
+                Q(target_user__display_name__icontains=search)
+            )
+
+        qs = qs.order_by('-created_at')
+        total = qs.count()
+        offset = (page - 1) * page_size
+        page_qs = qs[offset:offset + page_size]
+
+        results = []
+        for item in page_qs:
+            u = item.target_user
+            results.append({
+                'id': u.id,
+                'username': u.username,
+                'display_name': u.display_name or u.username,
+                'avatar_url': u.avatar.url if u.avatar else None,
+                'hidden_at': item.created_at.isoformat(),
+            })
+
+        return Response({
+            'results': results,
+            'count': total,
+            'next': page + 1 if offset + page_size < total else None,
+            'previous': page - 1 if page > 1 else None,
+        })
+
+    def destroy(self, request, pk=None):
+        """Убрать пользователя из списка неинтересных"""
+        target_user = get_object_or_404(User, id=pk)
+        deleted, _ = UserNotInterested.objects.filter(
+            user=request.user, target_user=target_user
+        ).delete()
+        if deleted:
+            return Response({'success': True, 'message': 'Пользователь убран из списка'})
+        return Response({'error': 'Пользователь не найден в списке'}, status=404)
+
+
+# ==================== HIDE/NOT-INTERESTED FOR AUTHOR ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def hide_author_from_feed(request, user_id):
+    """Скрыть все посты автора (добавить в список неинтересных)"""
+    target_user = get_object_or_404(User, id=user_id)
+    if target_user == request.user:
+        return Response({'error': 'Нельзя скрыть самого себя'}, status=400)
+    UserNotInterested.objects.get_or_create(
+        user=request.user, target_user=target_user
+    )
+    return Response({'success': True, 'message': f'Посты от @{target_user.username} скрыты'})
+
+
+# ==================== MODERATION REPORTS VIEWSET ====================
+
+class ModerationReportViewSet(viewsets.ViewSet):
+    """Модерация жалоб (только для модераторов)"""
+    permission_classes = [IsAuthenticated]
+
+    def _check_moderator(self, user):
+        return user.is_staff or user.is_superuser or getattr(user, 'role', None) in ('moderator', 'admin')
+
+    def list(self, request):
+        """Список жалоб для модераторов"""
+        if not self._check_moderator(request.user):
+            return Response({'error': 'Нет доступа'}, status=403)
+
+        report_status = request.query_params.get('status', 'pending')
+        content_type = request.query_params.get('content_type', '')
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+
+        qs = Report.objects.select_related('reporter', 'resolved_by')
+
+        if report_status:
+            qs = qs.filter(status=report_status)
+        if content_type:
+            qs = qs.filter(content_type=content_type)
+
+        qs = qs.order_by('-created_at')
+        total = qs.count()
+        offset = (page - 1) * page_size
+        page_qs = qs[offset:offset + page_size]
+
+        results = []
+        for report in page_qs:
+            # Получаем данные о контенте
+            content_data = None
+            if report.content_type == 'post':
+                try:
+                    post = Post.objects.get(id=report.content_id)
+                    content_data = {
+                        'id': post.id,
+                        'text': post.text[:200] if post.text else '',
+                        'author': post.author.username if post.author else None,
+                    }
+                except Post.DoesNotExist:
+                    pass
+            elif report.content_type == 'comment':
+                from .models import PostComment
+                try:
+                    comment = PostComment.objects.get(id=report.content_id)
+                    content_data = {
+                        'id': comment.id,
+                        'text': comment.content[:200] if comment.content else '',
+                        'author': comment.author.username if comment.author else None,
+                    }
+                except Exception:
+                    pass
+
+            results.append({
+                'id': report.id,
+                'content_type': report.content_type,
+                'content_id': report.content_id,
+                'reason': report.reason,
+                'comment': report.comment,
+                'status': report.status,
+                'reporter': {
+                    'id': report.reporter.id,
+                    'username': report.reporter.username,
+                },
+                'resolved_by': {
+                    'id': report.resolved_by.id,
+                    'username': report.resolved_by.username,
+                } if report.resolved_by else None,
+                'resolved_at': report.resolved_at.isoformat() if report.resolved_at else None,
+                'created_at': report.created_at.isoformat(),
+                'content': content_data,
+            })
+
+        return Response({
+            'results': results,
+            'count': total,
+            'next': page + 1 if offset + page_size < total else None,
+            'previous': page - 1 if page > 1 else None,
+        })
+
+    def partial_update(self, request, pk=None):
+        """Обработать жалобу (resolve/reject + optional action)"""
+        if not self._check_moderator(request.user):
+            return Response({'error': 'Нет доступа'}, status=403)
+
+        report = get_object_or_404(Report, id=pk)
+
+        new_status = request.data.get('status')  # resolved / rejected
+        action_type = request.data.get('action')  # delete_content | warn | None
+        moderator_comment = request.data.get('moderator_comment', '')
+
+        if new_status not in ('resolved', 'rejected'):
+            return Response({'error': 'Неверный статус'}, status=400)
+
+        report.status = new_status
+        report.resolved_by = request.user
+        report.resolved_at = timezone.now()
+        if moderator_comment:
+            report.comment = (report.comment or '') + f'\n[Модератор]: {moderator_comment}'
+        report.save()
+
+        # Действие над контентом
+        if action_type == 'delete_content' and new_status == 'resolved':
+            if report.content_type == 'post':
+                try:
+                    post = Post.objects.get(id=report.content_id)
+                    post.is_deleted = True
+                    post.save(update_fields=['is_deleted'])
+                except Post.DoesNotExist:
+                    pass
+            elif report.content_type == 'comment':
+                from .models import PostComment
+                try:
+                    comment = PostComment.objects.get(id=report.content_id)
+                    comment.is_deleted = True
+                    comment.save(update_fields=['is_deleted'])
+                except Exception:
+                    pass
+
+        return Response({
+            'success': True,
+            'report_id': report.id,
+            'status': report.status,
+            'action': action_type,
+        })

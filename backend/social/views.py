@@ -31,7 +31,7 @@ from .serializers import (
     ChatSettingsSerializer,
     MessageSerializer,
     ContestSerializer, ContestEntrySerializer, ContestVoteSerializer,
-    GroupChatSerializer, GroupChatCreateSerializer, ChatRoleSerializer, ChatMemberSerializer, ChatAdminLogSerializer,
+    GroupChatSerializer, GroupChatCreateSerializer, GroupChatSettingsSerializer, ChatRoleSerializer, ChatMemberSerializer, ChatAdminLogSerializer,
     PrivateChatSerializer, PrivateChatUserSettingsSerializer,
     FollowSerializer, PostLikeSerializer, PostDislikeSerializer, RepostSerializer,
     AchievementSerializer, UserAchievementSerializer, UploadedFileSerializer, FavoriteSerializer,
@@ -560,6 +560,80 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.get_object().author != self.request.user:
             self.permission_denied(self.request, message="Cannot edit others' comments")
         serializer.save()
+
+
+# ==================== FOLLOW VIEW SET ====================
+
+class FollowViewSet(ModelViewSet):
+    """ViewSet для подписок/подписчиков"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = FollowSerializer
+
+    def get_queryset(self):
+        return Follow.objects.filter(follower=self.request.user)
+
+    def get_followers_queryset(self):
+        """Получить подписчиков текущего пользователя"""
+        return Follow.objects.filter(following=self.request.user)
+
+    def get_following_queryset(self):
+        """Получить подписки текущего пользователя"""
+        return Follow.objects.filter(follower=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def followers(self, request):
+        """Получить список подписчиков"""
+        follows = self.get_followers_queryset().select_related('follower')
+        data = []
+        for follow in follows:
+            data.append({
+                'id': follow.id,
+                'user': {
+                    'id': follow.follower.id,
+                    'username': follow.follower.username,
+                    'display_name': follow.follower.display_name,
+                    'avatar_url': follow.follower.avatar.url if follow.follower.avatar else None
+                },
+                'created_at': follow.created_at.isoformat()
+            })
+        return Response(data)
+
+    @action(detail=False, methods=['get'])
+    def following(self, request):
+        """Получить список подписок"""
+        follows = self.get_following_queryset().select_related('following')
+        data = []
+        for follow in follows:
+            data.append({
+                'id': follow.id,
+                'user': {
+                    'id': follow.following.id,
+                    'username': follow.following.username,
+                    'display_name': follow.following.display_name,
+                    'avatar_url': follow.following.avatar.url if follow.following.avatar else None
+                },
+                'created_at': follow.created_at.isoformat()
+            })
+        return Response(data)
+
+    @action(detail=False, methods=['get'])
+    def is_following(self, request):
+        """Проверить, подписан ли текущий пользователь на указанного"""
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id required'}, status=400)
+        
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+        
+        is_following = Follow.objects.filter(
+            follower=request.user,
+            following=target_user
+        ).exists()
+        
+        return Response({'is_following': is_following})
 
 
 # ==================== POST COMMENTS VIEW SET ====================
@@ -1720,6 +1794,14 @@ class PostViewSet(ModelViewSet):
     queryset = Post.objects.filter(is_deleted=False)
     permission_classes = [IsAuthenticated]
 
+    def destroy(self, request, *args, **kwargs):
+        """Мягкое удаление поста (is_deleted=True)"""
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.deleted_at = timezone.now()
+        instance.save(update_fields=['is_deleted', 'deleted_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def get_serializer_class(self):
         # use lightweight serializer for incoming data but return full representation when listing/retrieving
         if self.action in ['create', 'update', 'partial_update']:
@@ -2366,6 +2448,148 @@ def mark_as_read(self, request, pk=None):
     })
 
 
+class PrivateChatSettingsView(APIView):
+    """Настройки приватного чата"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, chat_id):
+        """Получить настройки чата"""
+        try:
+            chat = PrivateChat.objects.get(id=chat_id)
+        except PrivateChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Проверяем доступ
+        if request.user not in [chat.user1, chat.user2]:
+            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Получаем или создаем настройки
+        settings, created = PrivateChatUserSettings.objects.get_or_create(
+            chat=chat,
+            user=request.user
+        )
+
+        serializer = PrivateChatUserSettingsSerializer(settings, context={'request': request})
+        return Response(serializer.data)
+
+    def put(self, request, chat_id):
+        """Обновить настройки чата"""
+        try:
+            chat = PrivateChat.objects.get(id=chat_id)
+        except PrivateChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Проверяем доступ
+        if request.user not in [chat.user1, chat.user2]:
+            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Получаем или создаем настройки
+        settings, created = PrivateChatUserSettings.objects.get_or_create(
+            chat=chat,
+            user=request.user
+        )
+
+        serializer = PrivateChatUserSettingsSerializer(settings, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GroupChatSettingsView(APIView):
+    """Настройки группового чата"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, chat_id):
+        """Получить настройки чата"""
+        try:
+            chat = GroupChat.objects.get(id=chat_id)
+        except GroupChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Проверяем доступ
+        member = chat.members.filter(user=request.user).first()
+        if not member:
+            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = GroupChatSettingsSerializer(chat, context={'request': request})
+        return Response(serializer.data)
+
+    def put(self, request, chat_id):
+        """Обновить настройки чата"""
+        try:
+            chat = GroupChat.objects.get(id=chat_id)
+        except GroupChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Проверяем доступ (только админы могут менять настройки)
+        member = chat.members.filter(user=request.user, is_admin=True).first()
+        if not member:
+            return Response({'error': 'Нет доступа к настройкам чата'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = GroupChatSettingsSerializer(chat, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChatSettingsListView(APIView):
+    """Список настроек чатов пользователя"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Получить все настройки чатов пользователя"""
+        user = request.user
+
+        # Получаем все приватные чаты пользователя
+        private_chats = PrivateChat.objects.filter(
+            models.Q(user1=user) | models.Q(user2=user)
+        )
+
+        private_settings = []
+        for chat in private_chats:
+            settings, created = PrivateChatUserSettings.objects.get_or_create(
+                chat=chat,
+                user=user
+            )
+            # Determine the other user
+            other = chat.user2 if chat.user1 == user else chat.user1
+            private_settings.append({
+                'chat_id': chat.id,
+                'chat_type': 'private',
+                'other_user': {
+                    'id': other.id,
+                    'username': other.username,
+                    'display_name': other.display_name,
+                    'avatar_url': other.avatar.url if other.avatar else None
+                },
+                'settings': PrivateChatUserSettingsSerializer(settings, context={'request': request}).data
+            })
+
+        # Получаем все групповые чаты пользователя
+        group_chats = GroupChat.objects.filter(members__user=user)
+
+        group_settings = []
+        for chat in group_chats:
+            member = chat.members.filter(user=user).first()
+            group_settings.append({
+                'chat_id': chat.id,
+                'chat_type': 'group',
+                'chat_name': chat.name,
+                'chat_avatar_url': chat.avatar.url if chat.avatar else None,
+                'is_admin': member.is_admin if member else False,
+                'can_send_messages': member.can_send_messages if member else False,
+                'can_send_media': chat.can_send_media,
+                'can_invite_users': chat.can_invite_users,
+            })
+
+        return Response({
+            'private_chats': private_settings,
+            'group_chats': group_settings
+        })
+
+
 class MessageViewSet(ModelViewSet):
     queryset = Message.objects.filter(is_deleted=False)
     serializer_class = MessageSerializer
@@ -2511,183 +2735,3 @@ class CreateGroupChatView(APIView):
         )
 
         return Response(GroupChatSerializer(chat).data, status=status.HTTP_201_CREATED)
-
-
-# Настройки чатов
-class PrivateChatSettingsView(APIView):
-    """Персональные настройки личного чата (только для того, кто изменяет)"""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, chat_id):
-        """Получить настройки чата для текущего пользователя"""
-        try:
-            chat = PrivateChat.objects.get(id=chat_id)
-        except PrivateChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=404)
-
-        # Проверяем доступ
-        if request.user not in [chat.user1, chat.user2]:
-            return Response({'error': 'Нет доступа к чату'}, status=403)
-
-        # Получаем или создаем настройки
-        settings, created = PrivateChatUserSettings.objects.get_or_create(
-            chat=chat,
-            user=request.user,
-            defaults={'notifications_enabled': True}
-        )
-
-        serializer = PrivateChatUserSettingsSerializer(settings, context={'request': request})
-        return Response(serializer.data)
-
-    def put(self, request, chat_id):
-        """Обновить настройки чата (только для текущего пользователя)"""
-        try:
-            chat = PrivateChat.objects.get(id=chat_id)
-        except PrivateChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=404)
-
-        # Проверяем доступ
-        if request.user not in [chat.user1, chat.user2]:
-            return Response({'error': 'Нет доступа к чату'}, status=403)
-
-        # Обрабатываем FormData
-        custom_name = request.data.get('custom_name', '')
-        avatar = request.data.get('custom_avatar')
-        notifications = request.data.get('notifications_enabled')
-
-        # Обновляем или создаем настройки
-        settings, created = PrivateChatUserSettings.objects.update_or_create(
-            chat=chat,
-            user=request.user,
-            defaults={
-                'custom_name': custom_name,
-                'notifications_enabled': notifications if notifications is not None else True
-            }
-        )
-
-        # Сохраняем аватарку если есть
-        if avatar and hasattr(avatar, 'name'):
-            settings.custom_avatar.save(avatar.name, avatar, save=True)
-
-        serializer = PrivateChatUserSettingsSerializer(settings, context={'request': request})
-        return Response(serializer.data)
-
-
-class GroupChatSettingsView(APIView):
-    """Общие настройки группового чата (для всех участников)"""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, chat_id):
-        """Получить настройки чата"""
-        try:
-            chat = GroupChat.objects.get(id=chat_id)
-        except GroupChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=404)
-
-        # Проверяем, что пользователь участник
-        if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
-            return Response({'error': 'Нет доступа к чату'}, status=403)
-
-        serializer = GroupChatSerializer(chat, context={'request': request})
-        return Response(serializer.data)
-
-    def put(self, request, chat_id):
-        """Обновить настройки чата (общие для всех)"""
-        try:
-            chat = GroupChat.objects.get(id=chat_id)
-        except GroupChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=404)
-
-        # Проверяем, что пользователь участник
-        if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
-            return Response({'error': 'Нет доступа к чату'}, status=403)
-
-        # Проверяем права на изменение настроек (владелец или админ)
-        member = ChatMember.objects.get(chat=chat, user=request.user)
-        is_owner = chat.created_by == request.user
-        is_admin = member.is_admin
-
-        if not (is_owner or is_admin):
-            return Response({'error': 'Нет прав на изменение настроек чата'}, status=403)
-
-        serializer = GroupChatSerializer(
-            chat,
-            data=request.data,
-            partial=True,
-            context={'request': request}
-        )
-
-        if serializer.is_valid():
-            # Обрабатываем аватарку отдельно если это FormData
-            avatar = request.data.get('avatar')
-            if avatar and hasattr(avatar, 'name'):
-                chat.avatar.save(avatar.name, avatar, save=True)
-
-            serializer.save()
-
-            # Логируем
-            ChatAdminLog.objects.create(
-                chat=chat,
-                user=request.user,
-                action='chat_updated',
-                details={'updated_fields': list(request.data.keys())}
-            )
-            
-            return Response(serializer.data)
-
-        return Response(serializer.errors, status=400)
-
-
-class ChatSettingsListView(APIView):
-    """Список настроек всех чатов пользователя"""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        """Получить все настройки чатов пользователя"""
-        # Настройки личных чатов
-        private_settings = PrivateChatUserSettings.objects.filter(user=request.user)
-
-        # Настройки групповых чатов (общие)
-        group_chats = GroupChat.objects.filter(members__user=request.user)
-
-        return Response({
-            'private_chats': PrivateChatUserSettingsSerializer(
-                private_settings, many=True, context={'request': request}
-            ).data,
-            'group_chats': GroupChatSerializer(
-                group_chats, many=True, context={'request': request}
-            ).data
-        })
-
-
-# ==================== FOLLOW SYSTEM ====================
-
-class FollowViewSet(ModelViewSet):
-    """Подписки на пользователей"""
-    serializer_class = FollowSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Follow.objects.filter(follower=self.request.user)
-
-    def perform_create(self, serializer):
-        following_id = self.request.data.get('following')
-        if following_id == self.request.user.id:
-            raise ValidationError("Нельзя подписаться на самого себя")
-        serializer.save(follower=self.request.user)
-
-    @action(detail=False, methods=['get'])
-    def followers(self, request):
-        """Получить подписчиков пользователя"""
-        user_id = request.query_params.get('user_id')
-        if user_id:
-            try:
-                user_id = int(user_id)
-            except ValueError:
-                user_id = request.user.id
-        else:
-            user_id = request.user.id
-        
-        follows = Follow.objects.filter(following_id=user_id).select_related('follower__profile')
-        serializer = FollowSerializer(follows, many=True)
-        return Response(serializer.data)

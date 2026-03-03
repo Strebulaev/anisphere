@@ -234,6 +234,120 @@ export const commentsApi = {
     apiClient.post(`/social/comments/${commentId}/report/`, { reason }),
 }
 
+// ==================== SUBSCRIPTIONS ====================
+
+export interface SubscriptionUser {
+  id: number
+  username: string
+  display_name: string | null
+  avatar_url: string | null
+  followers_count: number
+  is_online: boolean
+  followed_at: string
+}
+
+export interface NotInterestedUser {
+  id: number
+  username: string
+  display_name: string | null
+  avatar_url: string | null
+  hidden_at: string
+}
+
+export interface ReportItem {
+  id: number
+  reporter: number
+  reporter_username: string
+  content_type: 'post' | 'comment'
+  content_id: number
+  reason: string
+  comment: string
+  status: 'pending' | 'resolved' | 'rejected'
+  resolved_by: number | null
+  resolved_at: string | null
+  created_at: string
+  content_preview?: string
+  content_author?: string
+  moderation_comment?: string
+}
+
+export const subscriptionsApi = {
+  // Подписки
+  getSubscriptions: (page = 1, search?: string, sort = 'date') =>
+    apiClient.get<{ results: SubscriptionUser[]; count: number; next: number | null }>('/social/subscriptions/', {
+      params: { page, search, sort }
+    }),
+
+  unfollow: (userId: number) =>
+    apiClient.delete<{ success: boolean; message: string }>(`/social/subscriptions/${userId}/unfollow/`),
+
+  // Скрытые профили
+  getNotInterested: (page = 1, search?: string) =>
+    apiClient.get<{ results: NotInterestedUser[]; count: number; next: number | null }>('/social/not-interested/', {
+      params: { page, search }
+    }),
+
+  removeNotInterested: (userId: number) =>
+    apiClient.delete<{ hidden: boolean; message: string }>(`/social/not-interested/${userId}/`),
+
+  addNotInterested: (userId: number) =>
+    apiClient.post<{ success: boolean; message: string }>(`/social/users/${userId}/hide/`),
+
+  // Жалобы
+  getReports: (params?: { status?: string; content_type?: string; reason?: string; page?: number }) =>
+    apiClient.get<{ results: ReportItem[]; count: number; next: number | null }>('/social/moderation/reports/', { params }),
+
+  resolveReport: (id: number, action: string, comment?: string) =>
+    apiClient.patch<ReportItem>(`/social/moderation/reports/${id}/`, { status: action === 'reject' ? 'rejected' : 'resolved', action, moderator_comment: comment }),
+
+  rejectReport: (id: number, comment?: string) =>
+    apiClient.patch<ReportItem>(`/social/moderation/reports/${id}/`, { status: 'rejected', moderator_comment: comment }),
+}
+
+// ==================== CHATS FOR FORWARD ====================
+
+export interface ForwardChat {
+  id: number
+  type: 'private' | 'group'
+  name: string
+  avatar: string | null
+  is_online?: boolean
+  members_count?: number
+}
+
+export const chatsApi = {
+  getChatsForForward: (search?: string) =>
+    apiClient.get<ForwardChat[]>('/social/chats/for-forward/', { params: { search } }),
+
+  forwardPost: (chatId: number, postId: number, message?: string) =>
+    apiClient.post<{ success: boolean; message_id: number }>(`/social/chats/${chatId}/forward/`, {
+      post_id: postId,
+      message
+    }),
+}
+
+// ==================== EXTENDED FEED ====================
+
+export interface ExtendedFeedParams {
+  page?: number
+  page_size?: number
+  sort?: 'new' | 'old' | 'best' | 'discussed'
+  anime_id?: number
+  my_posts?: boolean
+  subscriptions?: boolean
+  groups?: boolean
+  tags?: string[]
+  date_range?: 'all' | 'month' | 'week' | 'day'
+}
+
+export const extendedFeedApi = {
+  getFeed: (params: ExtendedFeedParams = {}) =>
+    apiClient.get<{ results: FeedPost[]; count: number; next: number | null; previous: number | null }>(
+      '/social/feed/extended/',
+      { params }
+    ),
+}
+
 // ==================== FOLLOWS ====================
 
 export const followsApi = {

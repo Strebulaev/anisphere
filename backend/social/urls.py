@@ -18,15 +18,18 @@ from .views_all_actions import (
     PostMediaViewSet,
     PostAttachmentViewSet,
     ReportViewSet,
+    SubscriptionViewSet,
+    NotInterestedViewSet,
+    ModerationReportViewSet,
     toggle_follow,
     toggle_post_like, toggle_post_dislike, get_post_likes, get_post_dislikers,
     toggle_comment_like, toggle_comment_dislike,
-    pin_post, unpin_post, report_post, add_bookmark, remove_bookmark,
+    pin_post, unpin_post, report_post, add_bookmark, remove_bookmark, toggle_bookmark_view,
     get_bookmarks_folders, repost_post, unrepost_post, create_repost, delete_repost,
     track_post_view, get_post_viewers,
     get_comment_replies, report_comment,
     edit_post, edit_comment,
-    hide_post_from_feed, mark_post_not_interested,
+    hide_post_from_feed, mark_post_not_interested, hide_author_from_feed,
     get_feed_statistics, get_popular_posts, get_user_posts, get_group_posts,
     get_hashtag_posts, search_hashtags,
     get_user_notification_settings, update_user_notification_settings,
@@ -43,6 +46,8 @@ from .views_all_actions import (
     search_messages, reindex_messages,
     ChatFolderViewSet, get_folder_chats,
     RepostViewSet,
+    get_chats_for_forward, forward_post_to_chat,
+    get_extended_feed,
 )
 
 
@@ -80,6 +85,9 @@ router.register(r'reactions', ReactionViewSet, basename='reaction')
 router.register(r'attachments', AttachmentViewSet, basename='attachment')
 router.register(r'email-logs', EmailLogViewSet, basename='email-log')
 router.register(r'chat-folders', ChatFolderViewSet, basename='chat-folder')
+router.register(r'subscriptions', SubscriptionViewSet, basename='subscription')
+router.register(r'not-interested', NotInterestedViewSet, basename='not-interested')
+router.register(r'moderation/reports', ModerationReportViewSet, basename='moderation-report')
 
 urlpatterns = [
     # ВАЖНО: эти маршруты должны быть ПЕРЕД router.urls
@@ -177,7 +185,7 @@ urlpatterns = [
     path('posts/<int:post_id>/report/', report_post, name='report-post'),
     path('posts/<int:post_id>/bookmark/', add_bookmark, name='add-bookmark'),
     path('posts/<int:post_id>/bookmark/remove/', remove_bookmark, name='remove-bookmark'),
-    path('bookmarks/toggle/', api_view(['POST'])(lambda r, **kw: add_bookmark(r, r.data.get('post_id'))), name='toggle-bookmark'),
+    path('bookmarks/toggle/', toggle_bookmark_view, name='toggle-bookmark'),
     path('bookmarks/folders/', get_bookmarks_folders, name='bookmarks-folders'),
     path('posts/<int:post_id>/likers/', get_post_likers, name='get-post-likers'),
     path('posts/<int:post_id>/dislikers/', get_post_dislikers, name='get-post-dislikers'),
@@ -206,4 +214,19 @@ urlpatterns = [
     # Notification Settings
     path('notifications/settings/', get_user_notification_settings, name='notification-settings'),
     path('notifications/settings/update/', update_user_notification_settings, name='update-notification-settings'),
+
+    # Subscriptions (подписки)
+    path('subscriptions/toggle/<int:user_id>/', toggle_follow, name='toggle-subscription'),
+
+    # Not Interested (скрытые профили)
+    path('not-interested/user/<int:user_id>/', mark_post_not_interested, name='not-interested-user'),
+    path('users/<int:user_id>/hide/', hide_author_from_feed, name='hide-author'),
+
+    # Forward Post (пересылка)
+    path('chats/for-forward/', get_chats_for_forward, name='chats-for-forward'),
+    path('chats/<int:chat_id>/forward/', forward_post_to_chat, name='forward-post'),
+
+    # Extended Feed
+    path('feed/extended/', get_extended_feed, name='feed-extended'),
+    path('feed/', get_extended_feed, name='feed'),
 ] + router.urls

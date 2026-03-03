@@ -1665,3 +1665,24 @@ class UserNotificationSettings(models.Model):
         """Получить или создать настройки для пользователя"""
         settings, created = cls.objects.get_or_create(user=user)
         return settings
+
+
+class UserNotInterested(models.Model):
+    """Пользователи, отмеченные как неинтересные (скрытые профили)"""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='not_interested_users')
+    target_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hidden_by_users')
+
+    # Причина (опционально)
+    reason = models.CharField(max_length=500, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'target_user']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} not interested in {self.target_user.username}"

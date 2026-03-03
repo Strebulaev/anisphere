@@ -160,7 +160,9 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const userId = ref(parseInt(route.params.id))
+// route.params.id может быть username (строка) или числовой id
+const routeId = route.params.id
+const userId = ref(NaN)  // будет заполнен после загрузки профиля
 const user = ref({})
 const stats = ref({})
 const isOnline = ref(false)
@@ -183,8 +185,29 @@ const currentUser = computed(() => authStore.user)
 const loadProfile = async () => {
   loading.value = true
   try {
-    const response = await api.get(`/users/profile/${userId.value}/`)
+    // Пробуем по username (строка), затем по числовому id
+    const isNumericId = /^\d+$/.test(String(routeId))
+    let response
+    if (isNumericId) {
+      response = await api.get(`/users/profile/${routeId}/`)
+    } else {
+      // Ищем пользователя по username через поиск
+      response = await api.get(`/users/search/?q=${encodeURIComponent(routeId)}&exact=true`)
+      if (response.data?.results?.length) {
+        const found = response.data.results[0]
+        response = await api.get(`/users/profile/${found.id}/`)
+      } else {
+        // Fallback: попробуем напрямую как username
+        response = await api.get(`/users/search/?username=${encodeURIComponent(routeId)}`)
+        if (response.data?.id) {
+          // search вернул прямой объект
+        } else if (response.data?.results?.length) {
+          response = await api.get(`/users/profile/${response.data.results[0].id}/`)
+        }
+      }
+    }
     user.value = response.data
+    userId.value = response.data.id  // сохраняем числовой id из ответа
     isOnline.value = response.data.is_online
   } catch (error) {
     console.error('Ошибка загрузки профиля:', error)
@@ -195,6 +218,7 @@ const loadProfile = async () => {
 }
 
 const loadStats = async () => {
+  if (!userId.value || isNaN(userId.value)) return
   try {
     const response = await api.get(`/users/${userId.value}/stats/`)
     stats.value = response.data
@@ -204,7 +228,7 @@ const loadStats = async () => {
 }
 
 const loadFollowStatus = async () => {
-  if (!currentUser.value) return
+  if (!currentUser.value || !userId.value || isNaN(userId.value)) return
 
   try {
     const [followResponse, favoriteResponse] = await Promise.all([
@@ -277,8 +301,8 @@ const formatDate = (date) => {
   })
 }
 
-onMounted(() => {
-  loadProfile()
+onMounted(async () => {
+  await loadProfile()  // сначала загружаем профиль чтобы получить числовой userId
   loadStats()
   loadFollowStatus()
 })

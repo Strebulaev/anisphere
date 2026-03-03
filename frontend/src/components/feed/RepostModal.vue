@@ -206,7 +206,7 @@ const submitRepost = async () => {
       data.chat_id = selectedChat.value.id
     }
 
-    await apiClient.post(`/social/posts/${props.post.id}/repost/`, data)
+    await apiClient.post(`/social/posts/${props.post.id}/repost/action/`, data)
     emit('reposted', props.post)
   } catch (error) {
     console.error('Error reposting:', error)

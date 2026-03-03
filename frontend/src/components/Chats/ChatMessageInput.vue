@@ -34,7 +34,7 @@
 
     <!-- Превью аниме -->
     <div v-if="sharedAnime" class="shared-anime-preview">
-      <img :src="sharedAnime.poster" class="anime-preview-image" />
+      <img :src="sharedAnime.poster_url || sharedAnime.poster_image_url || sharedAnime.poster" class="anime-preview-image" />
       <div class="anime-preview-info">
         <span class="anime-title">{{ sharedAnime.title_ru }}</span>
       </div>
@@ -79,14 +79,27 @@
 
     <!-- Меню прикрепления -->
     <div v-if="showAttachmentMenu" class="attachment-menu">
-      <button @click="selectFiles('image')">
-        <PhotoIcon class="w-5 h-5" />
-        <span>Изображение</span>
-      </button>
-      <button @click="selectFiles('video')">
-        <VideoCameraIcon class="w-5 h-5" />
-        <span>Видео</span>
-      </button>
+      <!-- Фото / Видео / Аниме через модуль -->
+      <MediaAttachmentPicker
+        ref="chatAttachmentPicker"
+        :allow-photo="true"
+        :allow-video="true"
+        :allow-anime="true"
+        @update:media-files="onChatMediaFiles"
+        @update:attached-anime="onChatAnime"
+        @error="console.error"
+      >
+        <template #icon-photo>
+          <PhotoIcon class="w-5 h-5" /><span>Изображение</span>
+        </template>
+        <template #icon-video>
+          <VideoCameraIcon class="w-5 h-5" /><span>Видео</span>
+        </template>
+        <template #icon-anime>
+          <FilmIcon class="w-5 h-5" /><span>Аниме</span>
+        </template>
+      </MediaAttachmentPicker>
+
       <button @click="selectFiles('document')">
         <DocumentIcon class="w-5 h-5" />
         <span>Документ</span>
@@ -98,10 +111,6 @@
       <button @click="sharePost">
         <ShareIcon class="w-5 h-5" />
         <span>Пост</span>
-      </button>
-      <button @click="shareAnime">
-        <FilmIcon class="w-5 h-5" />
-        <span>Аниме</span>
       </button>
     </div>
 
@@ -140,29 +149,11 @@
       </div>
     </Modal>
 
-    <!-- Модалка выбора аниме -->
-    <Modal v-if="showAnimeSelector" @close="showAnimeSelector = false">
-      <div class="anime-selector">
-        <h3>Выберите аниме</h3>
-        <SearchBar @search="handleAnimeSearch" />
-        <div class="anime-list">
-          <div
-            v-for="anime in animeResults"
-            :key="anime.id"
-            @click="selectAnime(anime)"
-            class="anime-item"
-          >
-            <img :src="anime.poster" class="anime-poster" />
-            <span>{{ anime.title_ru }}</span>
-          </div>
-        </div>
-      </div>
-    </Modal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import {
   PaperClipIcon,
   PaperAirplaneIcon,
@@ -177,6 +168,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import Modal from '@/components/ui/Modal.vue'
 import SearchBar from '@/components/Search/SearchBar.vue'
+import MediaAttachmentPicker from '@/components/common/MediaAttachmentPicker.vue'
 import api from '@/api'
 
 const props = defineProps({
@@ -200,12 +192,27 @@ const sharedAnime = ref(null)
 const showAttachmentMenu = ref(false)
 const showEmojiPicker = ref(false)
 const showPostSelector = ref(false)
-const showAnimeSelector = ref(false)
 const fileInput = ref(null)
 const messageInput = ref(null)
 const postSearch = ref('')
-const animeResults = ref([])
 const posts = ref([])
+
+// MediaAttachmentPicker для чата
+const chatAttachmentPicker = ref(null)
+
+const onChatMediaFiles = (files) => {
+  // Преобразуем MediaFile[] в формат attachments
+  // Файлы будут загружены при отправке через отдельный upload
+  chatMediaFiles.value = files
+  showAttachmentMenu.value = false
+}
+
+const onChatAnime = (anime) => {
+  sharedAnime.value = anime
+  showAttachmentMenu.value = false
+}
+
+const chatMediaFiles = ref([])
 
 const commonEmojis = [
   '😀', '😂', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎',
@@ -325,26 +332,7 @@ const selectPost = (post) => {
   showPostSelector.value = false
 }
 
-const shareAnime = () => {
-  showAnimeSelector.value = true
-  showAttachmentMenu.value = false
-}
-
-const handleAnimeSearch = async (query) => {
-  if (!query) return
-
-  try {
-    const response = await api.get('/anime/', { params: { search: query } })
-    animeResults.value = response.data.results || response.data
-  } catch (error) {
-    console.error('Ошибка поиска аниме:', error, error?.response?.data)
-  }
-}
-
-const selectAnime = (anime) => {
-  sharedAnime.value = anime
-  showAnimeSelector.value = false
-}
+// shareAnime / handleAnimeSearch / selectAnime — теперь в MediaAttachmentPicker
 
 const insertEmoji = (emoji) => {
   messageText.value += emoji
@@ -361,10 +349,14 @@ const sendMessage = async () => {
     private_chat: props.chatType === 'private' ? props.chatId : null
   }
 
-  // Добавляем файлы
-  if (attachments.value.length > 0) {
-    messageData.media = attachments.value[0].file
-    messageData.media_type = attachments.value[0].type
+  // Добавляем файлы из старых attachments (документы) или из chatMediaFiles через пикер
+  const allMediaFiles = [
+    ...attachments.value,
+    ...(chatMediaFiles.value.length > 0 ? [{ file: chatMediaFiles.value[0].file, type: chatMediaFiles.value[0].type }] : [])
+  ]
+  if (allMediaFiles.length > 0) {
+    messageData.media = allMediaFiles[0].file
+    messageData.media_type = allMediaFiles[0].type
   }
 
   // Добавляем геолокацию
@@ -390,9 +382,11 @@ const sendMessage = async () => {
     // Очищаем форму
     messageText.value = ''
     attachments.value = []
+    chatMediaFiles.value = []
     location.value = null
     sharedPost.value = null
     sharedAnime.value = null
+    chatAttachmentPicker.value?.reset()
     messageInput.value.style.height = 'auto'
   } catch (error) {
     console.error('Ошибка отправки сообщения:', error)
