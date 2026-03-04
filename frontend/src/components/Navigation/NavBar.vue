@@ -125,155 +125,115 @@ const handleSearch = (query: string) => {
 <style scoped>
 .navbar {
   position: fixed;
-  top: 1px;
-  left: 240px;
+  top: 0;
+  left: var(--sidebar-width);
   right: 0;
-  height: 72px;
-  background-color: var(--color-background-secondary);
-  z-index: 100;
+  height: var(--navbar-height);
+  background-color: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: var(--z-navbar);
   display: flex;
   align-items: center;
-  transition: left 0.3s ease;
+  transition: left var(--duration-slow) var(--ease-out);
 }
 
 .sidebar-collapsed .navbar {
-  left: 72px;
+  left: var(--sidebar-width-collapsed);
 }
 
 .navbar-content {
-  height: 72px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 0 24px;
+  padding: 0 var(--space-5);
   width: 100%;
-  gap: 12px;
+  height: 100%;
+  gap: var(--space-3);
 }
 
-/* Кнопка бургер-меню */
-.burger-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background-color: var(--color-background-surface);
-  border: 1px solid var(--color-divider);
-  border-radius: 8px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.burger-btn:hover {
-  background-color: var(--color-background-active);
-  color: var(--color-text);
-  border-color: var(--color-accent);
-}
-
-/* Логотип */
-.navbar-logo {
-  flex-shrink: 0;
-}
-
-.logo-link {
-  text-decoration: none;
-}
-
-.logo-text {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 20px;
-  font-weight: 600;
-  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-teal) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Навигация */
+/* ── Навигация ───────────────────────────────────────────── */
 .navbar-navigation {
   display: flex;
-  gap: 30px;
+  gap: var(--space-1);
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
   background: transparent;
   border: none;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
   font-weight: 500;
-  transition: all 0.2s var(--transition-smooth);
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
   white-space: nowrap;
   cursor: pointer;
+  min-height: 32px;
 }
 
 .nav-link:hover {
-  background-color: var(--color-background-active);
-  color: var(--color-text);
+  background-color: var(--surface-4);
+  color: var(--text-primary);
 }
 
-.nav-icon {
-  font-size: 1rem;
-}
+.nav-icon { font-size: var(--text-md); }
+.nav-label { font-size: var(--text-base); }
 
-.nav-label {
-  font-size: 0.875rem;
-}
-
-/* Поиск */
+/* ── Поиск ──────────────────────────────────────────────── */
 .navbar-search {
-  width: 400px;
+  width: 360px;
   flex-shrink: 0;
   position: relative;
-  z-index: 1001;
+  z-index: calc(var(--z-navbar) + 1);
 }
 
-/* Правая часть */
+/* ── Действия ───────────────────────────────────────────── */
 .navbar-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-2);
   margin-left: auto;
 }
 
 .navbar-icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #222222;
-  color: var(--color-text-secondary);
-  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.15s var(--transition-smooth);
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
   position: relative;
   border: none;
 }
 
 .navbar-icon-btn:hover {
-  background-color: var(--color-background-surface);
-  color: #888888;
+  background-color: var(--surface-4);
+  color: var(--text-primary);
 }
 
 .notification-dot {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  background-color: var(--color-accent-pink);
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  background-color: var(--danger);
   border-radius: 50%;
-  border: 2px solid var(--color-background-secondary);
+  border: 2px solid var(--surface-2);
 }
 
-/* Профиль */
+/* ── Профиль ─────────────────────────────────────────────── */
 .navbar-profile {
   display: flex;
   align-items: center;
@@ -284,19 +244,19 @@ const handleSearch = (query: string) => {
 }
 
 .profile-avatar {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background-color: var(--color-background-surface);
-  border: 2px solid var(--color-divider);
+  background-color: var(--surface-4);
+  border: 2px solid var(--border-default);
   overflow: hidden;
   position: relative;
   cursor: pointer;
-  transition: border-color 0.15s var(--transition-smooth);
+  transition: border-color var(--duration-base) var(--ease-out);
 }
 
 .profile-avatar:hover {
-  border-color: var(--color-accent);
+  border-color: var(--accent);
 }
 
 .avatar-image {
@@ -311,46 +271,31 @@ const handleSearch = (query: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .online-indicator {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 10px;
-  height: 10px;
-  background-color: var(--color-accent-teal);
+  width: 9px;
+  height: 9px;
+  background-color: var(--success);
   border-radius: 50%;
-  border: 2px solid var(--color-background-secondary);
+  border: 2px solid var(--surface-2);
 }
 
-/* Адаптивность */
+/* ── Адаптивность ──────────────────────────────────────────── */
 @media (max-width: 1400px) {
-  .navbar-navigation {
-    gap: 4px;
-  }
-
-  .nav-link {
-    padding: 8px 12px;
-  }
-
-  .nav-label {
-    display: none;
-  }
-
-  .nav-icon {
-    font-size: 1.25rem;
-  }
+  .navbar-navigation { gap: 0; }
+  .nav-link { padding: var(--space-2); }
+  .nav-label { display: none; }
+  .nav-icon { font-size: var(--text-xl); }
 }
 
 @media (max-width: 1023px) {
   .navbar {
     left: 0;
-  }
-
-  .navbar-logo {
-    display: block;
   }
 
   .navbar-navigation {

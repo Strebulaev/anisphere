@@ -920,7 +920,7 @@ class UserLibrary(models.Model):
                 self.started_at = timezone.now()
 
         # Проверяем, завершено ли аниме
-        if self.anime and episode >= self.anime.episodes_count:
+        if self.anime and self.anime.episodes and episode >= self.anime.episodes:
             self.status = 'completed'
             if not self.completed_at:
                 self.completed_at = timezone.now()
@@ -929,9 +929,9 @@ class UserLibrary(models.Model):
 
     def get_progress_percentage(self):
         """Получить прогресс в процентах"""
-        if not self.anime or self.anime.episodes_count == 0:
+        if not self.anime or not self.anime.episodes or self.anime.episodes == 0:
             return 0
-        return int((self.current_episode / self.anime.episodes_count) * 100)
+        return int((self.current_episode / self.anime.episodes) * 100)
 
     def mark_as_favorite(self):
         """Отметить как любимое"""

@@ -57,120 +57,105 @@ const handleClick = (event: MouseEvent) => {
 
 <style scoped>
 .base-button {
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: 500;
   border-radius: var(--radius-button);
   cursor: pointer;
-  transition: all 0.15s var(--transition-smooth);
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: none;
+  gap: var(--space-2);
+  border: 1px solid transparent;
   outline: none;
-  min-height: 44px;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.base-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .base-button:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
-/* Варианты */
+/* ── Варианты ───────────────────────────────────── */
 .base-button--primary {
-  background-color: var(--color-accent);
-  color: white;
+  background-color: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
 }
-
 .base-button--primary:hover {
-  background-color: var(--color-accent-hover);
-}
-
-.base-button--primary:active {
-  background-color: var(--color-accent-active);
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
 .base-button--secondary {
-  background-color: transparent;
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent);
+  background-color: var(--surface-4);
+  color: var(--text-primary);
+  border-color: var(--border-default);
 }
-
 .base-button--secondary:hover {
-  background-color: rgba(58, 134, 255, 0.1);
-}
-
-.base-button--secondary:active {
-  background-color: rgba(58, 134, 255, 0.2);
+  background-color: var(--surface-5);
+  border-color: var(--border-strong);
 }
 
 .base-button--tertiary {
   background-color: transparent;
-  color: var(--color-accent);
-  border: none;
-  padding: 0 8px;
+  color: var(--accent);
+  border-color: transparent;
+  padding: 0 var(--space-2);
 }
-
 .base-button--tertiary:hover {
-  text-decoration: underline;
+  background-color: var(--accent-subtle);
 }
 
 .base-button--danger {
-  background-color: var(--color-accent-pink);
-  color: white;
+  background-color: var(--danger-subtle);
+  color: var(--danger);
+  border-color: transparent;
 }
-
 .base-button--danger:hover {
-  background-color: var(--color-accent-pink-hover);
+  background-color: var(--danger);
+  color: #fff;
 }
 
-/* Размеры */
-.base-button--small {
-  padding: 8px 16px;
-  font-size: 12px;
-  min-height: 32px;
-}
+/* ── Размеры ────────────────────────────────────── */
+.base-button--small  { padding: 0 var(--space-3); min-height: 28px; font-size: var(--text-sm); }
+.base-button--medium { padding: 0 var(--space-4); min-height: 36px; font-size: var(--text-base); }
+.base-button--large  { padding: 0 var(--space-6); min-height: 44px; font-size: var(--text-md); }
 
-.base-button--medium {
-  padding: 10px 16px;
-  font-size: 14px;
-  min-height: 40px;
-}
-
-.base-button--large {
-  padding: 12px 24px;
-  font-size: 16px;
-  min-height: 48px;
-}
-
-/* Состояния */
+/* ── Состояния ──────────────────────────────────── */
 .base-button--disabled {
-  background-color: var(--color-background-active);
-  color: var(--color-text-disabled);
+  background-color: var(--surface-4);
+  color: var(--text-disabled);
   border-color: transparent;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
-.base-button--loading {
-  pointer-events: none;
-}
+.base-button--loading { pointer-events: none; opacity: 0.7; }
+.base-button--full-width { width: 100%; }
 
-.base-button--full-width {
-  width: 100%;
-}
-
-/* Спиннер загрузки */
+/* ── Спиннер ────────────────────────────────────── */
 .button-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top-color: var(--color-text);
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-top-color: currentColor;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin var(--duration-slower) linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

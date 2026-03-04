@@ -1,6 +1,21 @@
 <template>
   <nav class="bottom-nav">
     <div class="nav-items">
+      <!-- Главная -->
+      <router-link
+        to="/"
+        class="nav-item"
+        :class="{ active: isActiveRoute('/') }"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span>Главная</span>
+      </router-link>
+
       <!-- Лента -->
       <router-link
         to="/feed"
@@ -31,35 +46,6 @@
           <line x1="17" y1="7" x2="22" y2="7"/>
         </svg>
         <span>Аниме</span>
-      </router-link>
-
-      <!-- Reactor -->
-      <router-link
-        to="/reactor"
-        class="nav-item"
-        :class="{ active: isActiveRoute('/reactor') }"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-        </svg>
-        <span>Reactor</span>
-      </router-link>
-
-      <!-- Плейлисты -->
-      <router-link
-        to="/playlists"
-        class="nav-item"
-        :class="{ active: isActiveRoute('/playlists') }"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="8" y1="6" x2="21" y2="6"/>
-          <line x1="8" y1="12" x2="21" y2="12"/>
-          <line x1="8" y1="18" x2="21" y2="18"/>
-          <line x1="3" y1="6" x2="3.01" y2="6"/>
-          <line x1="3" y1="12" x2="3.01" y2="12"/>
-          <line x1="3" y1="18" x2="3.01" y2="18"/>
-        </svg>
-        <span>Плейлисты</span>
       </router-link>
 
       <!-- Чаты -->
@@ -99,7 +85,7 @@ const isActiveRoute = (path: string) => {
   if (path === '/') {
     return route.path === '/'
   }
-  return route.path.startsWith(path)
+  return route.path === path || route.path.startsWith(path + '/')
 }
 </script>
 
@@ -109,12 +95,13 @@ const isActiveRoute = (path: string) => {
   bottom: 0;
   left: 0;
   right: 0;
-  height: var(--height-nav-mobile);
-  background-color: var(--color-background-secondary);
-  backdrop-filter: blur(var(--blur-nav));
-  border-top: 1px solid var(--color-divider);
-  z-index: 100;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.5);
+  height: var(--bottom-nav-height);
+  background-color: var(--surface-2);
+  backdrop-filter: var(--blur-nav);
+  -webkit-backdrop-filter: var(--blur-nav);
+  border-top: 1px solid var(--border-subtle);
+  z-index: var(--z-navbar);
+  box-shadow: 0 -1px 0 var(--border-subtle), 0 -8px 24px rgba(0,0,0,0.4);
 }
 
 .nav-items {
@@ -128,49 +115,54 @@ const isActiveRoute = (path: string) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 8px 0;
-  color: var(--color-text-tertiary);
+  gap: 3px;
+  padding: var(--space-2) 0;
+  color: var(--text-tertiary);
   text-decoration: none;
-  transition: all 0.15s var(--transition-smooth);
+  transition:
+    color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
   cursor: pointer;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-item svg {
   flex-shrink: 0;
-  transition: all 0.15s var(--transition-smooth);
+  transition: transform var(--duration-base) var(--ease-spring);
 }
 
 .nav-item span {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 500;
-  transition: all 0.15s var(--transition-smooth);
+  line-height: 1;
 }
 
 .nav-item:hover {
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .nav-item.active {
-  color: var(--color-accent);
+  color: var(--accent);
 }
 
 .nav-item.active svg {
-  transform: scale(1.1);
+  transform: scale(1.1) translateY(-1px);
 }
 
-/* Активный индикатор */
-.nav-item.active::after {
+/* Точка-индикатор сверху активного */
+.nav-item.active::before {
   content: '';
   position: absolute;
-  bottom: 0;
-  width: 32px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
   height: 2px;
-  background-color: var(--color-accent);
-  border-radius: 2px 2px 0 0;
+  background-color: var(--accent);
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
 }
 
-/* Адаптивность */
 @media (min-width: 768px) {
   .bottom-nav {
     display: none;

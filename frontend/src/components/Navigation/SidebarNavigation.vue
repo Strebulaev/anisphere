@@ -16,6 +16,20 @@
     <!-- Навигационные ссылки -->
     <nav class="sidebar-nav">
       <router-link 
+        to="/" 
+        class="nav-item"
+        :class="{ active: isActiveRoute('/') }"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span>Главная</span>
+      </router-link>
+
+      <router-link 
         to="/feed" 
         class="nav-item"
         :class="{ active: isActiveRoute('/feed') }"
@@ -184,7 +198,8 @@ const isActiveRoute = (path: string) => {
   if (path === '/') {
     return route.path === '/'
   }
-  return route.path.startsWith(path)
+  // Точное совпадение для /feed чтобы не пересекалось с /feed/...
+  return route.path === path || route.path.startsWith(path + '/')
 }
 </script>
 
@@ -193,25 +208,47 @@ const isActiveRoute = (path: string) => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 240px;
+  width: var(--sidebar-width);
   height: 100vh;
-  background-color: var(--color-background-secondary);
-  border-right: 1px solid var(--color-divider);
-  z-index: 101;
+  background-color: var(--surface-2);
+  border-right: 1px solid var(--border-subtle);
+  z-index: var(--z-sidebar);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
+  transition: width var(--duration-slow) var(--ease-out);
+  overflow: hidden;
 }
 
-/* Заголовок с логотипом */
+/* ── Заголовок ─────────────────────────────────────────────── */
 .sidebar-header {
-  height: 72px;
+  height: var(--navbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--color-divider);
-  gap: 8px;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  gap: var(--space-2);
+}
+
+.sidebar-logo {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow: hidden;
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  white-space: nowrap;
 }
 
 .collapse-btn {
@@ -220,130 +257,67 @@ const isActiveRoute = (path: string) => {
   justify-content: center;
   width: 28px;
   height: 28px;
+  min-height: 28px;
   background: transparent;
-  border: 1px solid var(--color-divider);
-  border-radius: 6px;
-  color: var(--color-text-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-base) var(--ease-out);
   flex-shrink: 0;
 }
 
 .collapse-btn:hover {
-  background-color: var(--color-background-surface);
-  color: var(--color-text);
-  border-color: var(--color-text-tertiary);
+  background-color: var(--surface-4);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 .collapse-btn svg {
-  transition: transform 0.2s;
+  transition: transform var(--duration-base) var(--ease-out);
 }
 
 .collapse-btn svg.rotated {
   transform: rotate(180deg);
 }
 
-.sidebar-logo {
-  text-decoration: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.logo-text {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 20px;
-  font-weight: 600;
-  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-teal) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.logo-tagline {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  margin-top: 2px;
-}
-
-/* Состояние свернутого меню */
-.sidebar.collapsed {
-  width: 72px;
-}
-
-.sidebar.collapsed .sidebar-header {
-  justify-content: center;
-  padding: 0 8px;
-}
-
-.sidebar.collapsed .sidebar-logo {
-  display: none;
-}
-
-.sidebar.collapsed .collapse-btn {
-  position: absolute;
-  right: -14px;
-  background-color: var(--color-background-secondary);
-  z-index: 10;
-}
-
-.sidebar.collapsed .nav-item {
-  justify-content: center;
-  padding: 12px;
-}
-
-.sidebar.collapsed .nav-item span:not(.nav-icon) {
-  display: none;
-}
-
-.sidebar.collapsed .nav-item.active::before {
-  display: none;
-}
-
-.sidebar.collapsed .nav-item-secondary {
-  justify-content: center;
-  padding: 10px;
-}
-
-.sidebar.collapsed .nav-item-secondary span {
-  display: none;
-}
-
-.sidebar.collapsed .sidebar-divider {
-  margin: 0 8px;
-}
-
-/* Основная навигация */
+/* ── Основная навигация ────────────────────────────────────── */
 .sidebar-nav {
   flex: 1;
-  padding: 16px;
+  padding: var(--space-3) var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  color: var(--color-text-secondary);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-secondary);
   text-decoration: none;
-  border-radius: 6px;
-  font-size: 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   font-weight: 500;
-  transition: all 0.15s var(--transition-smooth);
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
   position: relative;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .nav-item:hover {
-  background-color: var(--color-background-surface);
-  color: var(--color-text);
+  background-color: var(--surface-4);
+  color: var(--text-primary);
 }
 
 .nav-item.active {
-  background-color: var(--color-background-surface);
-  color: var(--color-accent);
+  background-color: var(--accent-subtle);
+  color: var(--accent);
 }
 
 .nav-item.active::before {
@@ -353,58 +327,125 @@ const isActiveRoute = (path: string) => {
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 24px;
-  background-color: var(--color-accent);
-  border-radius: 0 3px 3px 0;
+  height: 18px;
+  background-color: var(--accent);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
 }
 
 .nav-item svg {
   flex-shrink: 0;
+  opacity: 0.8;
+  transition: opacity var(--duration-base) var(--ease-out);
 }
 
-/* Разделитель */
+.nav-item:hover svg,
+.nav-item.active svg {
+  opacity: 1;
+}
+
+/* ── Разделитель ───────────────────────────────────────────── */
 .sidebar-divider {
   height: 1px;
-  background-color: var(--color-divider);
-  margin: 0 16px;
+  background-color: var(--border-subtle);
+  margin: var(--space-2) var(--space-2);
+  flex-shrink: 0;
 }
 
-/* Вторичная навигация */
+/* ── Вторичная навигация ───────────────────────────────────── */
 .sidebar-nav-secondary {
-  padding: 16px;
+  padding: var(--space-2) var(--space-2) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .nav-item-secondary {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  color: var(--color-text-tertiary);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-tertiary);
   text-decoration: none;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   font-weight: 500;
-  transition: all 0.15s var(--transition-smooth);
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .nav-item-secondary:hover {
-  background-color: var(--color-background-surface);
-  color: var(--color-text-secondary);
+  background-color: var(--surface-4);
+  color: var(--text-secondary);
 }
 
 .nav-item-secondary.active {
-  background-color: var(--color-background-surface);
-  color: var(--color-accent);
+  background-color: var(--accent-subtle);
+  color: var(--accent);
 }
 
 .nav-item-secondary svg {
   flex-shrink: 0;
+  opacity: 0.7;
 }
 
-/* Адаптивность */
+.nav-item-secondary:hover svg,
+.nav-item-secondary.active svg {
+  opacity: 1;
+}
+
+/* ── Свёрнутое состояние ───────────────────────────────────── */
+.sidebar.collapsed {
+  width: var(--sidebar-width-collapsed);
+}
+
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 0 var(--space-2);
+}
+
+.sidebar.collapsed .sidebar-logo {
+  display: none;
+}
+
+.sidebar.collapsed .collapse-btn {
+  position: absolute;
+  right: -13px;
+  background-color: var(--surface-3);
+  border-color: var(--border-default);
+  z-index: 10;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.sidebar.collapsed .nav-item span {
+  display: none;
+}
+
+.sidebar.collapsed .nav-item.active::before {
+  display: none;
+}
+
+.sidebar.collapsed .nav-item-secondary {
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+.sidebar.collapsed .nav-item-secondary span {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-divider {
+  margin: var(--space-2) var(--space-1);
+}
+
+/* ── Адаптивность ──────────────────────────────────────────── */
 @media (max-width: 1023px) {
   .sidebar {
     display: none;

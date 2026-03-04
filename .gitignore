@@ -26,3 +26,8 @@ Thumbs.db
 
 # Logs
 *.log
+/commit.bat
+/commit.ps1
+/do_commit.bat
+/*.bat
+/*.ps1

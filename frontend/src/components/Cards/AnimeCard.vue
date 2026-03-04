@@ -397,103 +397,109 @@ checkFavorite()
 </script>
 
 <style>
+/* ── AnimeCard — глобальные стили (не scoped) ─────────────── */
 .anime-card {
-  background-color: #222222;
+  background-color: var(--surface-3);
   border-radius: var(--radius-card);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: transform 0.2s var(--transition-smooth), box-shadow 0.2s var(--transition-smooth);
+  transition:
+    transform var(--duration-slow) var(--ease-out),
+    box-shadow var(--duration-slow) var(--ease-out),
+    border-color var(--duration-slow) var(--ease-out);
 }
 
 .anime-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-default);
 }
 
+/* ── Постер ──────────────────────────────────────────────── */
 .anime-poster {
   position: relative;
   width: 100%;
-  padding-bottom: 115%;  /* <-- ИЗМЕНИТЕ ЗДЕСЬ: уменьшите до 120% или 115% чтобы сделать короче */
-  background-color: var(--color-background-secondary);
+  padding-bottom: 140%;
+  background-color: var(--surface-4);
   overflow: hidden;
 }
 
 .poster-image {
   position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s var(--transition-smooth), filter 0.3s var(--transition-smooth);
+  transition:
+    transform var(--duration-slow) var(--ease-out),
+    filter var(--duration-slow) var(--ease-out);
 }
 
 .anime-card:hover .poster-image {
-  transform: scale(1.05);
-  filter: brightness(1.1);
+  transform: scale(1.04);
 }
 
 .poster-placeholder {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   display: none;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-background-active);
-  color: var(--color-text-tertiary);
+  background-color: var(--surface-4);
+  color: var(--text-tertiary);
 }
 
-/* Градиентный оверлей */
+/* ── Градиент ────────────────────────────────────────────── */
 .poster-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 40%;
-  background: linear-gradient(to top, rgba(10, 10, 10, 0.95) 0%, transparent 100%);
+  height: 50%;
+  background: linear-gradient(
+    to top,
+    rgba(8, 8, 9, 0.96) 0%,
+    rgba(8, 8, 9, 0.5) 50%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 
-/* Индикатор живой обложки */
+/* ── Live cover ──────────────────────────────────────────── */
 .live-cover-indicator {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: var(--space-2);
+  right: var(--space-2);
   width: 20px;
   height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-accent);
+  color: var(--accent);
   opacity: 0.5;
-  transition: opacity 0.2s var(--transition-smooth);
+  transition: opacity var(--duration-base) var(--ease-out);
   z-index: 5;
 }
 
-.live-cover-indicator:hover {
-  opacity: 1;
-}
+.anime-card:hover .live-cover-indicator { opacity: 1; }
 
-.anime-card:hover .live-cover-indicator {
-  opacity: 1;
-  animation: pulse-slow 1.5s infinite;
-}
-
-/* Кнопки действий */
+/* ── Кнопки действий ─────────────────────────────────────── */
 .card-actions {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: var(--space-2);
+  right: var(--space-2);
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: var(--space-1);
   opacity: 0;
-  transform: translateY(-10px);
-  transition: opacity 0.2s var(--transition-smooth), transform 0.2s var(--transition-smooth);
+  transform: translateY(-6px);
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
   z-index: 10;
 }
 
@@ -503,244 +509,183 @@ checkFavorite()
 }
 
 .action-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
+  background-color: rgba(8, 8, 9, 0.8);
+  color: var(--text-primary);
   border-radius: 50%;
   cursor: pointer;
-  transition: all 0.2s var(--transition-smooth);
+  transition: all var(--duration-base) var(--ease-out);
   border: none;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 }
 
-.action-btn:hover {
-  background-color: var(--color-accent);
-  transform: scale(1.1);
-}
+.action-btn:hover           { background-color: var(--accent); transform: scale(1.1); }
+.favorite-btn.active        { color: var(--danger); background-color: rgba(239,68,68,0.85); }
+.favorite-btn.active:hover  { background-color: var(--danger); }
+.discuss-btn:hover          { background-color: var(--accent); }
+.playlist-btn:hover         { background-color: var(--accent-2); }
+.reminder-btn:hover         { background-color: var(--warning); }
 
-.favorite-btn:hover {
-  background-color: rgba(58, 134, 255, 0.9);
-}
-
-.favorite-btn.active {
-  color: var(--color-accent-pink);
-  background-color: rgba(255, 42, 109, 0.9);
-}
-
-.favorite-btn.active:hover {
-  background-color: rgba(255, 42, 109, 1);
-}
-
-.discuss-btn:hover {
-  background-color: var(--color-accent-purple);
-}
-
-.playlist-btn:hover {
-  background-color: var(--color-accent-teal);
-}
-
-.reminder-btn:hover {
-  background-color: var(--color-accent-orange);
-}
-
-/* Статус в коллекции */
+/* ── Статус коллекции ────────────────────────────────────── */
 .collection-status {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
-  width: 28px;
-  height: 28px;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: var(--color-accent-teal);
+  background-color: rgba(8, 8, 9, 0.85);
+  color: var(--accent-2);
   border-radius: 50%;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
   z-index: 5;
 }
 
-/* Прогресс просмотра */
+/* ── Прогресс-полоска ────────────────────────────────────── */
 .progress-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 3px;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(8, 8, 9, 0.4);
   z-index: 5;
 }
 
 .progress-fill {
   height: 100%;
-  background-color: var(--color-accent);
-  transition: width 0.3s var(--transition-smooth);
+  background-color: var(--accent);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 
-/* Рейтинг */
+/* ── Рейтинг ─────────────────────────────────────────────── */
 .score-badge {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  bottom: var(--space-2);
+  left: var(--space-2);
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 4px 8px;
-  background-color: rgba(10, 10, 10, 0.9);
-  color: var(--color-accent-orange);
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 3px var(--space-2);
+  background-color: rgba(8, 8, 9, 0.88);
+  color: var(--warning);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   font-weight: 700;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
   z-index: 5;
 }
 
-/* Информация */
+/* ── Информация ──────────────────────────────────────────── */
 .anime-info {
-  padding: 8px;
-  position: relative;
-  background-color: #222222;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  background-color: var(--surface-3);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .anime-title {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 6px 0;
+  color: var(--text-primary);
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .anime-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--color-text-secondary);
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
   flex-wrap: wrap;
-  margin-bottom: 6px;
 }
 
-.meta-item {
-  font-weight: 400;
-}
+.meta-item      { font-weight: 400; }
+.meta-separator { color: var(--text-tertiary); }
+.meta-status    { font-weight: 500; }
 
-.meta-separator {
-  color: var(--color-text-tertiary);
-}
+.status-ongoing  { color: var(--accent); }
+.status-finished { color: var(--text-tertiary); }
+.status-announced{ color: var(--accent); }
+.status-released { color: var(--accent-2); }
 
-.meta-status {
-  font-weight: 500;
-}
-
-.status-ongoing {
-  color: var(--color-accent);
-}
-
-.status-finished {
-  color: var(--color-text-secondary);
-}
-
-.status-announced {
-  color: var(--color-accent);
-}
-
-.status-released {
-  color: var(--color-accent-teal);
-}
-
-/* Жанры */
+/* ── Жанры ───────────────────────────────────────────────── */
 .anime-genres {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: var(--space-1);
 }
 
 .genre-tag {
-  font-size: 10px;
-  color: var(--color-accent);
-  background-color: rgba(58, 134, 255, 0.1);
-  padding: 2px 6px;
-  border-radius: 10px;
+  font-size: var(--text-xs);
+  color: var(--accent);
+  background-color: var(--accent-subtle);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
   white-space: nowrap;
   font-weight: 500;
 }
 
 .genre-more {
-  font-size: 10px;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
-/* Прогресс просмотра */
+/* ── Прогресс просмотра ──────────────────────────────────── */
 .anime-progress {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--color-accent-teal);
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--accent-2);
 }
 
-.progress-text {
-  font-weight: 500;
-}
+.progress-text { font-weight: 500; }
 
-/* Статусная полоска */
+/* ── Статусная полоска ───────────────────────────────────── */
 .status-bar {
-  height: 3px;
+  height: 2px;
   width: 100%;
-  border-radius: 2px;
-  margin-top: 6px;
+  border-radius: var(--radius-full);
+  margin-top: auto;
 }
 
-.status-bar-watching {
-  background-color: var(--color-status-watching);
-}
+.status-bar-watching  { background-color: var(--status-watching); }
+.status-bar-completed { background-color: var(--status-completed); }
+.status-bar-planned   { background-color: var(--status-planned); }
+.status-bar-dropped   { background-color: var(--status-dropped); }
+.status-bar-onhold    { background-color: var(--status-onhold); }
 
-.status-bar-completed {
-  background-color: var(--color-status-completed);
-}
-
-.status-bar-planned {
-  background-color: var(--color-status-planned);
-}
-
-.status-bar-dropped {
-  background-color: var(--color-status-dropped);
-}
-
-.status-bar-onhold {
-  background-color: var(--color-status-onhold);
-}
-
-/* Адаптивность для мобильных */
+/* ── Мобильная адаптация ─────────────────────────────────── */
 @media (max-width: 767px) {
   .card-actions {
     opacity: 1;
     transform: translateY(0);
   }
-  
+
   .action-btn {
     width: 28px;
     height: 28px;
+    min-height: 28px;
   }
-  
-  .anime-title {
-    font-size: 12px;
-  }
-  
-  .anime-meta {
-    font-size: 10px;
-  }
+
+  .anime-title  { font-size: var(--text-sm); }
+  .anime-meta   { font-size: calc(var(--text-xs) - 1px); }
 }
 </style>

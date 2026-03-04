@@ -3,11 +3,9 @@
     <h2>О программе</h2>
 
     <div class="settings-group">
-      <h3>🎌 anisphere</h3>
       
       <div class="app-info">
         <div class="app-logo">
-          <span class="logo-text">🎌</span>
         </div>
         <div class="app-details">
           <div class="app-name">anisphere</div>

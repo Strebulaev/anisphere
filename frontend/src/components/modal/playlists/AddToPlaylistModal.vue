@@ -77,9 +77,6 @@
           :alt="anime.title_ru"
           class="anime-poster"
         />
-        <div v-else class="anime-poster placeholder">
-          <span>🎌</span>
-        </div>
         <div class="anime-info">
           <h4 class="anime-title">{{ anime.title_ru }}</h4>
           <div class="anime-meta">

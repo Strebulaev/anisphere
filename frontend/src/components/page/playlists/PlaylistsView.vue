@@ -449,7 +449,7 @@ onMounted(() => {
 .page-header h1 {
   font-size: 2rem;
   font-weight: 700;
-  color: #1f2937;
+  color: white;
   margin: 0;
 }
 

@@ -3317,8 +3317,8 @@ class UserStatsView(APIView):
             'achievements': achievements_count,
             'comments': comments_count,
             'messages': messages_count,
-            'level': user.level,
-            'xp': user.xp,
+            'level': getattr(user, 'level', 1),
+            'xp': getattr(user, 'xp', 0),
         }
 
         return Response(stats)

@@ -58,23 +58,17 @@ const isReady = ref(false)
 const playerUrl = computed(() => {
   let url = props.link
   const params: string[] = []
-  
-  if (props.autoplay) {
-    params.push('autoplay=1')
-  }
-  
-  if (props.season !== undefined) {
-    params.push(`season=${props.season}`)
-  }
-  
-  if (props.episode !== undefined) {
-    params.push(`episode=${props.episode}`)
-  }
-  
+
+  if (props.autoplay) params.push('autoplay=1')
+  if (props.season  !== undefined && props.season  !== null) params.push(`season=${props.season}`)
+  if (props.episode !== undefined && props.episode !== null) params.push(`episode=${props.episode}`)
+
+  // Дополнительные параметры для лучшего UX
+  params.push('only_shorts=false')
+
   if (params.length > 0) {
     url += (url.includes('?') ? '&' : '?') + params.join('&')
   }
-  
   return url
 })
 

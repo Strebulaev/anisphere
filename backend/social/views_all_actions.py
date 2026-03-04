@@ -24,7 +24,7 @@ from .models import (
 )
 from users.models import User
 from .serializers import (
-    PostCommentSerializer, PostCommentCreateSerializer,
+    ChatFolderCreateSerializer, ChatFolderSerializer, PostCommentSerializer, PostCommentCreateSerializer,
     ReportSerializer, ReportCreateSerializer,
     PostAttachmentSerializer, FeedPostSerializer, UserSimpleSerializer
 )
@@ -880,8 +880,8 @@ def get_unread_chats(request):
     
     chats = []
     
-    # Приватные чаты
-    private_chats = PrivateChat.objects.filter(members__user=user)
+    # Приватные чаты - используем Q для фильтрации по user1 или user2
+    private_chats = PrivateChat.objects.filter(Q(user1=user) | Q(user2=user))
     for chat in private_chats:
         unread = chat.get_unread_count(user)
         if unread > 0:
@@ -965,6 +965,12 @@ def reindex_messages(request):
 class ChatFolderViewSet(viewsets.ModelViewSet):
     """Папки чатов"""
     permission_classes = [IsAuthenticated]
+    serializer_class = ChatFolderSerializer
+    
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return ChatFolderCreateSerializer
+        return ChatFolderSerializer
     
     def get_queryset(self):
         return ChatFolder.objects.filter(user=self.request.user)
@@ -998,13 +1004,13 @@ class RepostViewSet(viewsets.ModelViewSet):
     """Репосты"""
     permission_classes = [IsAuthenticated]
     queryset = Repost.objects.none()
-    
+
 
 class PostCommentViewSet(viewsets.ModelViewSet):
     """Комментарии к постам"""
     permission_classes = [IsAuthenticated]
     serializer_class = PostCommentSerializer
-    
+
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return PostCommentCreateSerializer
@@ -1022,7 +1028,7 @@ class PostCommentViewSet(viewsets.ModelViewSet):
 class BookmarkViewSet(viewsets.ModelViewSet):
     """Закладки"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return Bookmark.objects.filter(user=self.request.user).select_related('post')
 
@@ -1169,7 +1175,7 @@ class NotInterestedViewSet(viewsets.ReadOnlyModelViewSet):
             'next': page + 1 if offset + page_size < total else None,
             'previous': page - 1 if page > 1 else None
         })
-    
+
     @action(detail=False, methods=['post'], url_path='(?P<user_id>[^/.]+)')
     def add_or_remove(self, request, user_id=None):
         """Добавить/удалить пользователя из скрытых"""

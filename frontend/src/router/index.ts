@@ -33,13 +33,13 @@ const router = createRouter({
   routes: [
     {
       path: '',
-      name: 'anime',
-      component: AnimeView
+      name: 'home',
+      component: HomeView
     },
     {
       path: '/',
-      name: 'anime',
-      component: AnimeView
+      name: 'home',
+      component: HomeView
     },
     {
       path: '/login',
@@ -55,7 +55,7 @@ const router = createRouter({
     },
     {
       path: '/anime',
-      name: 'anime',
+      name: 'anime-catalog',
       component: AnimeView
     },
     {

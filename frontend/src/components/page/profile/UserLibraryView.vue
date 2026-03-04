@@ -1,750 +1,593 @@
 <template>
-  <div class="user-library-page">
-    <div class="library-header">
-      <h1>Моя коллекция</h1>
-    </div>
+  <div class="library-page">
 
-    <div class="library-tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        class="tab-button"
-        :class="{ active: activeTab === tab.id }"
-        @click="activeTab = tab.id"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="tab.icon"></svg>
-        {{ tab.name }}
-        <span v-if="tab.count !== undefined" class="tab-count">{{ tab.count }}</span>
-      </button>
-    </div>
-
-    <div class="library-content">
-      <!-- Хочу посмотреть -->
-      <div v-if="activeTab === 'want_to_watch'" class="tab-content">
-        <div class="tab-actions">
-          <button @click="showAddAnimeModal = true" class="btn btn-primary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
+    <!-- ══ ШАПКА ══════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="header-left">
+        <h1 class="page-title">
+          Моя коллекция
+        </h1>
+        <p class="page-subtitle">Ваша личная библиотека аниме</p>
+      </div>
+      <div class="header-right">
+        <div class="search-box">
+          <svg class="search-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            v-model="searchQuery"
+            class="search-input"
+            placeholder="Поиск по коллекции..."
+            @input="debouncedSearch"
+          />
+          <button v-if="searchQuery" class="search-clear" @click="clearSearch">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
-            Добавить аниме
           </button>
         </div>
+        <select class="sort-select" v-model="ordering" @change="loadItems">
+          <option value="-updated_at">Недавно обновлённые</option>
+          <option value="-added_at">Недавно добавленные</option>
+          <option value="-rating">По оценке</option>
+          <option value="current_episode">По прогрессу</option>
+        </select>
+      </div>
+    </div>
 
-        <div v-if="loading" class="loading-container">
-          <div class="spinner"></div>
-          <p>Загрузка...</p>
-        </div>
+    <!-- ══ СТАТУСНЫЕ ВКЛАДКИ ═══════════════════════════════════ -->
+    <div class="tabs-row" v-if="stats">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        class="tab-btn"
+        :class="{ active: activeTab === tab.key }"
+        @click="setTab(tab.key)"
+      >
+        <span class="tab-icon">{{ tab.icon }}</span>
+        <span class="tab-label">{{ tab.label }}</span>
+        <span class="tab-count">{{ getCount(tab.key) }}</span>
+      </button>
+    </div>
+    <div class="tabs-row" v-else>
+      <div v-for="n in 7" :key="n" class="tab-btn-skel"></div>
+    </div>
 
-        <div v-else-if="wantToWatchList.length === 0" class="empty-state">
-          <div class="empty-icon">📝</div>
-          <h3>Список пуст</h3>
-          <p>Добавьте аниме, которые хотите посмотреть</p>
-        </div>
-
-        <div v-else class="anime-grid">
-          <div
-            v-for="item in wantToWatchList"
-            :key="item.anime.id"
-            class="anime-card"
-          >
-            <div class="anime-poster-wrapper">
-              <router-link :to="`/anime/${item.anime.id}`" class="anime-poster-link">
-                <img :src="item.anime.poster_url" :alt="item.anime.title_ru" class="anime-poster">
-                <div class="anime-overlay">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                  </svg>
-                </div>
-              </router-link>
-              <button @click="removeFromLibrary(item.id)" class="remove-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-            <div class="anime-info">
-              <router-link :to="`/anime/${item.anime.id}`" class="anime-title">
-                {{ item.anime.title_ru || item.anime.title_en }}
-              </router-link>
-              <div class="anime-meta">
-                <span v-if="item.anime.year" class="meta-item">{{ item.anime.year }}</span>
-                <span class="meta-item">{{ item.anime.episodes }} эп.</span>
-              </div>
-            </div>
+    <!-- ══ СВОДКА (только «Все») ═══════════════════════════════ -->
+    <Transition name="fade">
+      <div v-if="activeTab === '' && stats && !loading && stats.total > 0" class="summary-card">
+        <div class="summary-numbers">
+          <div class="sn-item">
+            <span class="sn-val">{{ stats.total }}</span>
+            <span class="sn-key">аниме</span>
           </div>
+          <div class="sn-sep"></div>
+          <div class="sn-item">
+            <span class="sn-val">{{ stats.episodes_watched.toLocaleString('ru') }}</span>
+            <span class="sn-key">серий</span>
+          </div>
+          <div class="sn-sep"></div>
+          <div class="sn-item">
+            <span class="sn-val">{{ Math.round(stats.episodes_watched * 0.4) }}</span>
+            <span class="sn-key">часов</span>
+          </div>
+        </div>
+        <div class="summary-bar">
+          <div
+            v-for="seg in statusSegments"
+            :key="seg.key"
+            class="bar-seg"
+            :style="{ width: seg.pct + '%', background: seg.color }"
+            :title="seg.label + ': ' + seg.count"
+          ></div>
+        </div>
+        <div class="summary-legend">
+          <span v-for="seg in statusSegments" :key="seg.key" class="leg-item">
+            <span class="leg-dot" :style="{ background: seg.color }"></span>
+            {{ seg.label }} · {{ seg.count }}
+          </span>
         </div>
       </div>
+    </Transition>
 
-      <!-- В процессе просмотра -->
-      <div v-if="activeTab === 'watching'" class="tab-content">
-        <div v-if="loading" class="loading-container">
-          <div class="spinner"></div>
-          <p>Загрузка...</p>
-        </div>
-
-        <div v-else-if="watchingList.length === 0" class="empty-state">
-          <div class="empty-icon">🎬</div>
-          <h3>Ничего не смотрите</h3>
-          <p>Начните смотреть аниме, и оно появится здесь</p>
-        </div>
-
-        <div v-else class="watching-list">
-          <div
-            v-for="item in watchingList"
-            :key="item.anime.id"
-            class="watching-item"
-          >
-            <div class="watching-poster">
-              <router-link :to="`/anime/${item.anime.id}/watch`">
-                <img :src="item.anime.poster_url" :alt="item.anime.title_ru">
-                <div class="play-overlay">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                  </svg>
-                </div>
-              </router-link>
-            </div>
-            <div class="watching-info">
-              <router-link :to="`/anime/${item.anime.id}/watch`" class="watching-title">
-                {{ item.anime.title_ru || item.anime.title_en }}
-              </router-link>
-              <div class="watching-progress">
-                <div class="progress-info">
-                  <span class="episode-info">Серия {{ item.last_episode }} из {{ item.anime.episodes }}</span>
-                  <span class="progress-percent">{{ Math.round((item.watched_episodes / item.anime.episodes) * 100) }}%</span>
-                </div>
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: (item.watched_episodes / item.anime.episodes) * 100 + '%' }"></div>
-                </div>
-              </div>
-              <div class="watching-actions">
-                <button @click="continueWatching(item)" class="btn btn-primary btn-sm">
-                  Продолжить
-                </button>
-                <button @click="removeFromLibrary(item.id)" class="btn btn-outline btn-sm">
-                  Удалить
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Просмотрено -->
-      <div v-if="activeTab === 'completed'" class="tab-content">
-        <div v-if="loading" class="loading-container">
-          <div class="spinner"></div>
-          <p>Загрузка...</p>
-        </div>
-
-        <div v-else-if="completedList.length === 0" class="empty-state">
-          <div class="empty-icon">✅</div>
-          <h3>Пока пусто</h3>
-          <p>Здесь будут аниме, которые вы посмотрели</p>
-        </div>
-
-        <div v-else class="anime-grid">
-          <div
-            v-for="item in completedList"
-            :key="item.anime.id"
-            class="anime-card completed"
-          >
-            <div class="anime-poster-wrapper">
-              <router-link :to="`/anime/${item.anime.id}`" class="anime-poster-link">
-                <img :src="item.anime.poster_url" :alt="item.anime.title_ru" class="anime-poster">
-                <div class="completed-badge">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-              </router-link>
-            </div>
-            <div class="anime-info">
-              <router-link :to="`/anime/${item.anime.id}`" class="anime-title">
-                {{ item.anime.title_ru || item.anime.title_en }}
-              </router-link>
-              <div class="anime-meta">
-                <span v-if="item.anime.year" class="meta-item">{{ item.anime.year }}</span>
-                <span class="meta-item">{{ item.anime.episodes }} эп.</span>
-                <span class="meta-item rating">{{ item.anime.score?.toFixed(1) }}</span>
-              </div>
-            </div>
-          </div>
+    <!-- ══ СКЕЛЕТОН ════════════════════════════════════════════ -->
+    <div v-if="loading" class="cards-grid">
+      <div v-for="n in 16" :key="n" class="card-skel">
+        <div class="skel-poster"></div>
+        <div class="skel-body">
+          <div class="skel-line w70"></div>
+          <div class="skel-line w45"></div>
         </div>
       </div>
     </div>
 
-    <!-- Модальное окно добавления аниме -->
-    <AddToLibraryModal
-      :show="showAddAnimeModal"
-      @close="showAddAnimeModal = false"
-      @added="onAnimeAdded"
-    />
+    <!-- ══ ОШИБКА ══════════════════════════════════════════════ -->
+    <div v-else-if="error" class="state-box">
+      <span class="state-icon">⚠️</span>
+      <p class="state-title">Не удалось загрузить коллекцию</p>
+      <button class="state-btn" @click="loadItems">Повторить</button>
+    </div>
+
+    <!-- ══ ПУСТО ════════════════════════════════════════════════ -->
+    <div v-else-if="items.length === 0" class="state-box">
+      <span class="state-icon">{{ currentTab?.icon ?? '📚' }}</span>
+      <p class="state-title">{{ emptyMessage }}</p>
+      <p class="state-sub">Добавляйте аниме прямо на их страницах</p>
+      <button class="state-btn accent" @click="router.push('/anime')">Найти аниме</button>
+    </div>
+
+    <!-- ══ КАРТОЧКИ ════════════════════════════════════════════ -->
+    <div v-else class="cards-grid">
+      <LibraryCard
+        v-for="item in items"
+        :key="item.id"
+        :item="item"
+        @updated="onUpdated"
+        @deleted="onDeleted"
+      />
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import apiClient from '@/api/client'
-import AddToLibraryModal from '@/components/modal/anime/AddToLibraryModal.vue'
+import LibraryCard from '@/components/Cards/LibraryCard.vue'
 
 const router = useRouter()
+const route  = useRoute()
 
-const activeTab = ref('want_to_watch')
-const loading = ref(false)
-const showAddAnimeModal = ref(false)
+// ── Состояние ────────────────────────────────────────────────
+const items      = ref<any[]>([])
+const stats      = ref<any>(null)
+const loading    = ref(true)
+const error      = ref(false)
+const searchQuery= ref('')
+const ordering   = ref('-updated_at')
+const activeTab  = ref<string>('')
 
-const library = ref<any[]>([])
-const wantToWatchList = computed(() => library.value.filter(item => item.status === 'want_to_watch'))
-const watchingList = computed(() => library.value.filter(item => item.status === 'watching'))
-const completedList = computed(() => library.value.filter(item => item.status === 'completed'))
+// ── Вкладки ──────────────────────────────────────────────────
+const tabs = [
+  { key: '',          label: 'Все',           icon: '📚' },
+  { key: 'started',   label: 'В процессе',    icon: '▶️' },
+  { key: 'completed', label: 'Просмотрено',   icon: '✅' },
+  { key: 'planned',   label: 'Запланировано', icon: '📅' },
+  { key: 'on_hold',   label: 'Отложено',      icon: '⏸️' },
+  { key: 'dropped',   label: 'Брошено',       icon: '❌' },
+  { key: 'favorite',  label: 'Избранное',     icon: '⭐' },
+]
 
-const tabs = computed(() => [
-  {
-    id: 'want_to_watch',
-    name: 'Хочу посмотреть',
-    icon: '<path d="M12 1l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z"/>',
-    count: wantToWatchList.value.length
-  },
-  {
-    id: 'watching',
-    name: 'Смотрю сейчас',
-    icon: '<circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>',
-    count: watchingList.value.length
-  },
-  {
-    id: 'completed',
-    name: 'Просмотрено',
-    icon: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
-    count: completedList.value.length
+const currentTab = computed(() => tabs.find(t => t.key === activeTab.value))
+
+const getCount = (key: string): number => {
+  if (!stats.value) return 0
+  if (key === '') return stats.value.total ?? 0
+  if (key === 'favorite') return stats.value.favorites ?? 0
+  return stats.value[key] ?? 0
+}
+
+const emptyMessage = computed(() => {
+  const map: Record<string, string> = {
+    '': 'Коллекция пока пуста',
+    started:   'Нет аниме в процессе',
+    completed: 'Нет завершённых',
+    planned:   'Нет запланированных',
+    on_hold:   'Нет отложенных',
+    dropped:   'Нет брошенных',
+    favorite:  'Нет избранных',
   }
-])
+  return map[activeTab.value] ?? 'Ничего не найдено'
+})
 
-const loadLibrary = async () => {
+// ── Сегменты прогресс-бара ────────────────────────────────────
+const statusSegments = computed(() => {
+  if (!stats.value || !stats.value.total) return []
+  const s = stats.value
+  const total = s.total
+  return [
+    { key: 'started',   label: 'В процессе',  count: s.started,   color: 'var(--accent)'  },
+    { key: 'completed', label: 'Просмотрено', count: s.completed, color: '#22c55e'        },
+    { key: 'planned',   label: 'Планирую',    count: s.planned,   color: '#a78bfa'        },
+    { key: 'on_hold',   label: 'Отложено',    count: s.on_hold,   color: '#f59e0b'        },
+    { key: 'dropped',   label: 'Брошено',     count: s.dropped,   color: '#ef4444'        },
+  ].filter(x => x.count > 0).map(x => ({ ...x, pct: Math.max(1, Math.round(x.count / total * 100)) }))
+})
+
+// ── Поиск с debounce ─────────────────────────────────────────
+let searchTimer: ReturnType<typeof setTimeout>
+const debouncedSearch = () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadItems(), 350)
+}
+const clearSearch = () => { searchQuery.value = ''; loadItems() }
+
+// ── Загрузка данных ──────────────────────────────────────────
+const loadItems = async () => {
+  loading.value = true
+  error.value   = false
   try {
-    loading.value = true
-    const response = await apiClient.get('/library/')
-    library.value = response.data.library || []
-  } catch (err) {
-    console.error('Ошибка загрузки библиотеки:', err)
+    const params: any = { ordering: ordering.value }
+    if (activeTab.value === 'favorite') {
+      params.is_favorite = 'true'
+    } else if (activeTab.value) {
+      params.status = activeTab.value
+    }
+    if (searchQuery.value.trim()) params.search = searchQuery.value.trim()
+
+    const res = await apiClient.get('/users/library/', { params })
+    items.value = Array.isArray(res.data) ? res.data : (res.data.results ?? [])
+  } catch (e) {
+    console.error(e)
+    error.value = true
   } finally {
     loading.value = false
   }
 }
 
-const removeFromLibrary = async (itemId: number) => {
-  if (!confirm('Удалить аниме из коллекции?')) return
-  
+const loadStats = async () => {
   try {
-    await apiClient.delete(`/library/${itemId}/`)
-    library.value = library.value.filter(item => item.id !== itemId)
-  } catch (err) {
-    console.error('Ошибка удаления:', err)
-    alert('Не удалось удалить аниме')
-  }
+    const res = await apiClient.get('/users/library/statistics/')
+    stats.value = res.data
+  } catch (e) { console.error('Ошибка статистики', e) }
 }
 
-const continueWatching = (item: any) => {
-  router.push(`/anime/${item.anime.id}/watch`)
+// ── Переключение вкладок ──────────────────────────────────────
+const setTab = (key: string) => {
+  activeTab.value = key
+  loadItems()
+  router.replace({ query: key ? { status: key } : {} })
 }
 
-const onAnimeAdded = () => {
-  showAddAnimeModal.value = false
-  loadLibrary()
-}
+// ── Callbacks ─────────────────────────────────────────────────
+const onUpdated = () => { loadItems(); loadStats() }
+const onDeleted = () => { loadItems(); loadStats() }
 
+// ── Инициализация ─────────────────────────────────────────────
 onMounted(() => {
-  loadLibrary()
+  const p = route.query.status as string
+  if (p && tabs.find(t => t.key === p)) activeTab.value = p
+  loadStats()
+  loadItems()
 })
 </script>
 
 <style scoped>
-.user-library-page {
-  min-height: 100vh;
-  background-color: var(--color-background);
-  padding: 2rem;
-  color: var(--color-text);
-}
-
-.library-header {
-  max-width: 1400px;
-  margin: 0 auto 2rem;
-}
-
-.library-header h1 {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin: 0;
-  color: var(--color-text);
-}
-
-/* Табы */
-.library-tabs {
-  display: flex;
-  gap: 1rem;
-  max-width: 1400px;
-  margin: 0 auto 2rem;
-  border-bottom: 1px solid var(--color-divider);
-  padding-bottom: 0;
-}
-
-.tab-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 1.5rem;
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  color: var(--color-text-secondary);
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.tab-button:hover {
-  color: var(--color-text);
-}
-
-.tab-button.active {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
-}
-
-.tab-count {
-  padding: 0.125rem 0.5rem;
-  background: var(--color-background-active);
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--color-accent);
-}
-
-/* Контент */
-.library-content {
-  max-width: 1400px;
+/* ═══ СТРАНИЦА ══════════════════════════════════════════════ */
+.library-page {
+  max-width: 1440px;
   margin: 0 auto;
-}
-
-.tab-content {
-  min-height: 400px;
-}
-
-.tab-actions {
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-button);
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: none;
-}
-
-.btn-primary {
-  background: var(--color-accent);
-  color: var(--color-text);
-}
-
-.btn-primary:hover {
-  background: var(--color-accent-hover);
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--color-divider);
-  color: var(--color-text);
-}
-
-.btn-outline:hover {
-  background: var(--color-background-active);
-  border-color: var(--color-divider-light);
-}
-
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-}
-
-/* Загрузка */
-.loading-container {
+  padding: var(--space-6) var(--space-5);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem;
-  color: var(--color-text-secondary);
+  gap: var(--space-6);
 }
 
-.spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid var(--color-divider);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Пустое состояние */
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
-
-.empty-state h3 {
-  margin: 0 0 0.5rem;
-  font-size: 1.5rem;
-  color: var(--color-text);
-}
-
-.empty-state p {
-  margin: 0;
-  color: var(--color-text-secondary);
-}
-
-/* Сетка аниме */
-.anime-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1.5rem;
-}
-
-.anime-card {
-  background: var(--color-background-surface);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  transition: all 0.15s ease;
-}
-
-.anime-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-card);
-}
-
-.anime-card.completed {
-  opacity: 0.8;
-}
-
-.anime-poster-wrapper {
-  position: relative;
-  aspect-ratio: 2/3;
-  overflow: hidden;
-}
-
-.anime-poster-link {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.anime-poster {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.15s ease;
-}
-
-.anime-card:hover .anime-poster {
-  transform: scale(1.05);
-}
-
-.anime-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+/* ═══ ШАПКА ═════════════════════════════════════════════════ */
+.page-header {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.anime-card:hover .anime-overlay {
-  opacity: 1;
-}
-
-.anime-overlay svg {
-  color: var(--color-text);
-  transform: scale(0.8);
-  transition: transform 0.15s ease;
-}
-
-.anime-card:hover .anime-overlay svg {
-  transform: scale(1);
-}
-
-.remove-btn {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 32px;
-  height: 32px;
-  background: var(--color-accent-pink);
-  border: none;
-  border-radius: var(--radius-button);
-  color: var(--color-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.15s ease;
-}
-
-.anime-card:hover .remove-btn {
-  opacity: 1;
-}
-
-.remove-btn:hover {
-  background: var(--color-accent-pink-hover);
-  transform: scale(1.1);
-}
-
-.completed-badge {
-  position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  width: 32px;
-  height: 32px;
-  background: var(--color-accent-teal);
-  border-radius: var(--radius-button);
-  color: var(--color-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.anime-info {
-  padding: 1rem;
-}
-
-.anime-title {
-  display: block;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-text);
-  text-decoration: none;
-  margin-bottom: 0.5rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.4;
-}
-
-.anime-title:hover {
-  color: var(--color-accent);
-}
-
-.anime-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
-.meta-item {
-  font-size: 0.8rem;
-  color: var(--color-text-tertiary);
-  padding: 0.125rem 0.5rem;
-  background: var(--color-background);
-  border-radius: 4px;
-}
-
-.meta-item.rating {
-  color: var(--color-accent-orange);
-  background: var(--color-background-active);
-}
-
-/* Список "Смотрю сейчас" */
-.watching-list {
+.page-title {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.03em;
 }
 
-.watching-item {
+.title-emoji { font-size: 26px; line-height: 1; }
+
+.page-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.header-right {
   display: flex;
-  gap: 1.5rem;
-  background: var(--color-background-surface);
-  border-radius: var(--radius-card);
-  padding: 1rem;
-  transition: all 0.15s ease;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-.watching-item:hover {
-  background: var(--color-background-active);
-  transform: translateX(4px);
-}
-
-.watching-poster {
+.search-box {
   position: relative;
-  width: 120px;
-  flex-shrink: 0;
-  aspect-ratio: 2/3;
-  border-radius: var(--radius-button);
-  overflow: hidden;
-}
-
-.watching-poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.play-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
   display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.search-ic {
+  position: absolute;
+  left: 11px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.search-input {
+  height: 36px;
+  width: 100%;
+  padding: 0 32px 0 34px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+  transition: border-color var(--duration-base);
+}
+
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-tertiary); }
+
+.search-clear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.search-clear:hover { color: var(--text-primary); }
+
+.sort-select {
+  height: 36px;
+  padding: 0 var(--space-3);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  outline: none;
+  white-space: nowrap;
+}
+
+/* ═══ ВКЛАДКИ ═══════════════════════════════════════════════ */
+.tabs-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 var(--space-4);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+  user-select: none;
+}
+
+.tab-btn:hover { background: var(--surface-4); color: var(--text-primary); border-color: var(--border-default); }
+
+.tab-btn.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tab-icon { font-size: 13px; line-height: 1; }
+.tab-label { font-weight: 500; }
+.tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--surface-5);
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s ease;
 }
 
-.watching-poster:hover .play-overlay {
-  opacity: 1;
+.tab-btn.active .tab-count { background: var(--accent); color: white; }
+
+.tab-btn-skel {
+  width: 110px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  animation: shimmer 1.4s ease-in-out infinite;
+  background-size: 400% 100%;
+  background-image: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-4) 50%, var(--surface-3) 75%);
 }
 
-.play-overlay svg {
-  color: var(--color-text);
-}
-
-.watching-info {
-  flex: 1;
+/* ═══ СВОДКА ════════════════════════════════════════════════ */
+.summary-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5) var(--space-6);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: var(--space-4);
 }
 
-.watching-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text);
-  text-decoration: none;
-  margin-bottom: 0.75rem;
-}
-
-.watching-title:hover {
-  color: var(--color-accent);
-}
-
-.watching-progress {
-  margin-bottom: 1rem;
-}
-
-.progress-info {
+.summary-numbers {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  gap: var(--space-6);
+  flex-wrap: wrap;
 }
 
-.episode-info {
-  color: var(--color-text-secondary);
+.sn-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
-.progress-percent {
-  color: var(--color-accent);
-  font-weight: 600;
+.sn-val {
+  font-size: clamp(20px, 2.5vw, 28px);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-.progress-bar {
-  height: 6px;
-  background: var(--color-background);
-  border-radius: 3px;
+.sn-key {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sn-sep {
+  width: 1px;
+  height: 36px;
+  background: var(--border-subtle);
+}
+
+.summary-bar {
+  display: flex;
+  height: 7px;
+  gap: 2px;
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 
-.progress-fill {
-  height: 100%;
-  background: var(--color-accent);
-  transition: width 0.3s ease;
-}
+.bar-seg { border-radius: var(--radius-full); }
 
-.watching-actions {
+.summary-legend {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
-/* Адаптивность */
-@media (max-width: 1024px) {
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
-
-  .watching-item {
-    flex-direction: column;
-  }
-
-  .watching-poster {
-    width: 100%;
-    max-width: 200px;
-    margin: 0 auto;
-  }
+.leg-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
 }
 
-@media (max-width: 768px) {
-  .user-library-page {
-    padding: 1rem;
-  }
+.leg-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 
-  .library-header h1 {
-    font-size: 1.75rem;
-  }
+/* ═══ СЕТКА ══════════════════════════════════════════════════ */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
 
-  .library-tabs {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
+/* ═══ СКЕЛЕТОН ══════════════════════════════════════════════ */
+.card-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 
-  .tab-button {
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
-  }
+.skel-poster {
+  width: 100%;
+  aspect-ratio: 2/3;
+  border-radius: var(--radius-lg);
+  animation: shimmer 1.4s ease-in-out infinite;
+  background-image: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-4) 50%, var(--surface-3) 75%);
+  background-size: 400% 100%;
+}
 
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 1rem;
-  }
+.skel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px;
+}
 
-  .watching-actions {
-    flex-direction: column;
-  }
+.skel-line {
+  height: 11px;
+  border-radius: 4px;
+  animation: shimmer 1.4s ease-in-out infinite;
+  background-image: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-4) 50%, var(--surface-3) 75%);
+  background-size: 400% 100%;
+}
 
-  .watching-actions .btn {
-    width: 100%;
-  }
+.skel-line.w70 { width: 70%; }
+.skel-line.w45 { width: 45%; }
+
+/* ═══ СОСТОЯНИЯ ══════════════════════════════════════════════ */
+.state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 80px var(--space-6);
+  text-align: center;
+}
+
+.state-icon { font-size: 52px; line-height: 1; }
+.state-title { font-size: var(--text-xl); font-weight: 600; color: var(--text-primary); margin: 0; }
+.state-sub { font-size: var(--text-sm); color: var(--text-tertiary); margin: 0; }
+
+.state-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 var(--space-6);
+  background: var(--surface-4);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-base);
+}
+
+.state-btn.accent {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+.state-btn:hover { opacity: 0.85; }
+
+/* ═══ АНИМАЦИИ ══════════════════════════════════════════════ */
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+.fade-enter-active,
+.fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; transform: translateY(-8px); }
+
+/* ═══ АДАПТИВ ═══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  .library-page { padding: var(--space-4) var(--space-3); gap: var(--space-4); }
+  .page-header { flex-direction: column; align-items: flex-start; }
+  .header-right { width: 100%; }
+  .search-box { max-width: 100%; flex: 1; }
+  .cards-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: var(--space-3); }
 }
 </style>

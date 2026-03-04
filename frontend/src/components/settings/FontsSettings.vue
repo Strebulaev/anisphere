@@ -86,7 +86,6 @@
 
         <label class="font-option" :class="{ active: selectedFont === 'anime' }">
           <input type="radio" v-model="selectedFont" value="anime" />
-          <span class="font-preview anime">🎌 Аниме</span>
         </label>
       </div>
 

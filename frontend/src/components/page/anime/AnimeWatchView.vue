@@ -21,6 +21,7 @@
               @currentEpisode="onCurrentEpisode"
               @videoStarted="onVideoStarted"
               @videoEnded="onVideoEnded"
+              @skipButton="onSkipButton"
               @error="onPlayerError"
             />
             <CustomVideoPlayer
@@ -181,7 +182,14 @@
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
           </div>
-          <p class="progress-hint">Серия считается просмотренной при достижении 50%</p>
+          <p class="progress-hint">
+            <span v-if="endingStartTime !== null">
+              ✅ Серия засчитана — эндинг обнаружен
+            </span>
+            <span v-else>
+              Серия засчитывается при начале эндинга или 85% времени
+            </span>
+          </p>
         </div>
 
         <!-- Жанры -->
@@ -256,6 +264,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
 import KodikPlayer from '@/components/Players/KodikPlayer.vue'
 import CustomVideoPlayer from '@/components/Players/CustomVideoPlayer.vue'
@@ -264,6 +273,7 @@ import { getTranslationAvatarUrl } from '@/utils/translationAvatars'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const anime = ref<any>(null)
 const kodikLink = ref('')
@@ -444,6 +454,17 @@ const loadAnime = async () => {
     const response = await apiClient.get(`/anime/${animeId}/`)
     anime.value = response.data
 
+    // Читаем номер серии из query-параметра ?episode=N
+    const episodeFromQuery = route.query.episode
+    if (episodeFromQuery) {
+      const ep = parseInt(episodeFromQuery as string, 10)
+      if (!isNaN(ep) && ep >= 1) {
+        currentEpisode.value = ep
+        autoplay.value = true
+        console.log(`[Watch] Стартуем с серии ${ep} из URL`)
+      }
+    }
+
     // Проверяем, есть ли аниме в библиотеке
     await checkLibraryStatus()
 
@@ -464,38 +485,60 @@ const loadAnime = async () => {
 }
 
 const checkLibraryStatus = async () => {
+  if (!authStore.isAuthenticated) return
   try {
-    const response = await apiClient.get('/library/')
-    const library = response.data.library || []
-    const item = library.find((i: any) => i.anime.id === anime.value?.id)
-    
+    // GET /users/library/ — DRF ViewSet возвращает прямой список
+    const response = await apiClient.get('/users/library/')
+    // Поддерживаем и pagination (results), и прямой список
+    const items: any[] = response.data.results ?? response.data
+    if (!Array.isArray(items)) { return }
+
+    const item = items.find((i: any) => {
+      const aid = typeof i.anime === 'object' ? i.anime?.id : i.anime
+      return aid === anime.value?.id
+    })
+
     if (item) {
       isInLibrary.value = true
       libraryItemId.value = item.id
+      addedToLibrary.value = true // защита от повторного добавления
+      // Восстанавливаем текущую серию (если ещё не задана через ?episode=)
+      const savedEp = item.current_episode ?? 0
+      if (savedEp > 0 && !route.query.episode) {
+        currentEpisode.value = savedEp
+        console.log('[Library] Серия из библиотеки:', savedEp)
+      }
+      console.log('[Library] Итем:', item.id, 'current_episode:', savedEp)
     } else {
       isInLibrary.value = false
       libraryItemId.value = null
     }
   } catch (err) {
-    // Если пользователь не авторизован или ошибка, игнорируем
     isInLibrary.value = false
   }
 }
 
 const addToLibraryAutomatically = async () => {
+  if (!authStore.isAuthenticated) return
   try {
-    const response = await apiClient.post('/library/', {
+    // Добавляем/обновляем через UserLibraryCreateSerializer (get_or_create)
+    const response = await apiClient.post('/users/library/', {
       anime: anime.value?.id,
-      status: 'watching',
-      last_episode: currentEpisode.value,
-      watched_episodes: Object.values(watchProgress.value).filter(p => p >= 95).length,
-      total_progress: calculateTotalProgress()
+      status: 'started',
     })
-    
     isInLibrary.value = true
     libraryItemId.value = response.data.id
-  } catch (err) {
-    console.error('Ошибка автоматического добавления в библиотеку:', err)
+    console.log('[Library] Аниме добавлено в библиотеку, id=', response.data.id)
+    // Сразу сохраняем текущую серию
+    await updateLibraryProgress()
+  } catch (err: any) {
+    // 409 = уже есть — получаем id через GET
+    if (err.response?.status === 409 || err.response?.status === 400) {
+      await checkLibraryStatus()
+      if (isInLibrary.value) await updateLibraryProgress()
+    } else {
+      console.error('Ошибка автодобавления в библиотеку:', err)
+    }
   }
 }
 
@@ -645,6 +688,34 @@ const onPause = () => {
   isPlaying.value = false
 }
 
+// Время начала опенинга и эндинга (через kodik_player_skip_button)
+const openingStartTime  = ref<number | null>(null) // Начало опенинга — триггер добавления в библиотеку
+const endingStartTime   = ref<number | null>(null) // Начало эндинга — триггер просмотренной серии
+const addedToLibrary    = ref(false) // Защита от дубликата
+const episodeMarkedWatched = ref(false)
+
+// Добавляем в библиотеку (один раз)
+const triggerLibraryAdd = () => {
+  if (addedToLibrary.value || isInLibrary.value) return
+  addedToLibrary.value = true
+  addToLibraryAutomatically()
+}
+
+// Засчитываем серию как просмотренную
+const markEpisodeWatched = () => {
+  if (episodeMarkedWatched.value) return
+  episodeMarkedWatched.value = true
+  watchProgress.value[currentEpisode.value] = 100
+  saveWatchProgress()
+  if (isInLibrary.value && libraryItemId.value) {
+    updateLibraryProgress()
+  } else {
+    // Ещё не в библиотеке — добавляем
+    addToLibraryAutomatically()
+  }
+  console.log(`[Watch] Серия ${currentEpisode.value} засчитана просмотренной`)
+}
+
 const onTimeUpdate = (time: number) => {
   currentTime.value = time
 
@@ -652,12 +723,32 @@ const onTimeUpdate = (time: number) => {
     const progress = (time / duration.value) * 100
     watchProgress.value[currentEpisode.value] = Math.min(progress, 100)
 
+    // Триггер добавления — начало опенинга (кнопка skip_button c соотв. текстом)
+    // Фоллбэк: если openigStartTime нет, срабатываем после 30 секунд
+    if (!addedToLibrary.value && !isInLibrary.value) {
+      if (openingStartTime.value !== null || time >= 30) {
+        triggerLibraryAdd()
+      }
+    }
+
+    // Засчитываем как просмотренную:
+    // 1. При начале эндинга (кнопка пропустить эндинг появилась)
+    if (endingStartTime.value !== null && !episodeMarkedWatched.value) {
+      if (time >= endingStartTime.value) {
+        markEpisodeWatched()
+      }
+    }
+    // 2. Фоллбэк — 85% длительности (если кнопка эндинга не появилась)
+    if (!episodeMarkedWatched.value && progress >= 85) {
+      markEpisodeWatched()
+    }
+
     // Сохраняем прогресс каждые 10 секунд
     if (Math.floor(time) % 10 === 0) {
       saveWatchProgress()
-      // Автоматически добавляем в библиотеку при достижении 10%
-      if (progress >= 10 && !isInLibrary.value) {
-        addToLibraryAutomatically()
+      // Если в библиотеке, обновляем прогресс
+      if (isInLibrary.value && libraryItemId.value) {
+        updateLibraryProgress()
       }
     }
   }
@@ -669,8 +760,13 @@ const onDurationUpdate = (dur: number) => {
 
 const onCurrentEpisode = (data: any) => {
   console.log('Текущая серия:', data)
-  if (data.episode) {
+  if (data.episode && data.episode !== currentEpisode.value) {
     currentEpisode.value = data.episode
+    // Сбрасываем флаги при смене серии
+    openingStartTime.value = null
+    endingStartTime.value = null
+    episodeMarkedWatched.value = false
+    addedToLibrary.value = isInLibrary.value // если уже в библиотеке, не добавляем ещё раз
   }
   if (data.season) {
     currentSeason.value = data.season
@@ -679,15 +775,7 @@ const onCurrentEpisode = (data: any) => {
 
 const onVideoEnded = () => {
   isPlaying.value = false
-  
-  // Отмечаем серию как просмотренную (100%)
-  watchProgress.value[currentEpisode.value] = 100
-  saveWatchProgress()
-
-  // Обновляем прогресс в библиотеке
-  if (isInLibrary.value && libraryItemId.value) {
-    updateLibraryProgress()
-  }
+  markEpisodeWatched()
 
   // Автоматически переключаем на следующую серию
   if (currentEpisode.value < (anime.value?.episodes || 1)) {
@@ -696,15 +784,39 @@ const onVideoEnded = () => {
   }
 }
 
+// Обработка кнопки "Пропустить" от Kodik (опенинг или эндинг)
+const onSkipButton = (data: { title: string }) => {
+  const title = data?.title?.toLowerCase() || ''
+  const isOpening = title.includes('опенинг') || title.includes('опенин') || title.includes('opening') || title.includes('intro')
+  const isEnding  = title.includes('эндинг') || title.includes('титры') || title.includes('ending') || title.includes('outro')
+
+  // Опенинг появился — триггер добавления в библиотеку
+  if (isOpening && openingStartTime.value === null && currentTime.value >= 0) {
+    openingStartTime.value = currentTime.value
+    console.log(`[Watch] Опенинг на ${currentTime.value}с — добавляем в библиотеку`)
+    triggerLibraryAdd()
+  }
+
+  // Эндинг появился — триггер просмотренной серии
+  if (isEnding && endingStartTime.value === null && currentTime.value > 0) {
+    endingStartTime.value = currentTime.value
+    console.log(`[Watch] Эндинг на ${currentTime.value}с — засчитываем серию`)
+    markEpisodeWatched()
+  }
+}
+
 const updateLibraryProgress = async () => {
+  if (!libraryItemId.value) return
   try {
-    await apiClient.put(`/library/${libraryItemId.value}/`, {
-      last_episode: currentEpisode.value,
-      watched_episodes: Object.values(watchProgress.value).filter(p => p >= 95).length,
-      total_progress: calculateTotalProgress()
+    const episodesWatched = Object.values(watchProgress.value).filter(p => p >= 85).length
+    await apiClient.patch(`/users/library/${libraryItemId.value}/`, {
+      current_episode: currentEpisode.value,
+      episodes_watched: episodesWatched,
+      status: 'started',
     })
+    console.log(`[Library] Прогресс обновлён: серия ${currentEpisode.value}, просмотрено ${episodesWatched}`)
   } catch (err) {
-    console.error('Ошибка обновления прогресса в библиотеке:', err)
+    console.error('Ошибка обновления прогресса:', err)
   }
 }
 
@@ -728,9 +840,34 @@ const loadWatchProgress = () => {
   }
 }
 
-const saveWatchProgress = () => {
+const saveWatchProgress = async () => {
   const key = `anime_progress_${anime.value?.id}`
   localStorage.setItem(key, JSON.stringify(watchProgress.value))
+  
+  // Синхронизация с БД
+  if (!anime.value?.id || !authStore.isAuthenticated) return
+  
+  try {
+    // Пробуем получить episode_id из episodes_list
+    const episodes = anime.value?.episodes_list || []
+    const currentEpData = episodes.find((ep: any) => ep.number === currentEpisode.value)
+    
+    // Если есть episode_id - сохраняем прогресс просмотра
+    if (currentEpData?.id && currentTime.value > 0) {
+      await apiClient.post(`/anime/${anime.value.id}/save_watch_progress/`, {
+        episode_id: currentEpData.id,
+        current_time: Math.floor(currentTime.value),
+        duration: duration.value ? Math.floor(duration.value) : undefined
+      })
+    }
+    
+    // Обновляем прогресс в библиотеке (это основное)
+    if (isInLibrary.value && libraryItemId.value) {
+      await updateLibraryProgress()
+    }
+  } catch (err) {
+    console.warn('Ошибка синхронизации прогресса с БД:', err)
+  }
 }
 
 const retryLoad = () => {
@@ -942,21 +1079,31 @@ watch(selectedTranslation, (newVal, oldVal) => {
 .poster-side {
   background: rgba(0, 0, 0, 0.3);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: hidden;        /* Важно: скрываем всё, что выходит за пределы */
   padding: 0.5rem;
-  flex-shrink: 0;
-  width: 350px;
+  width: 100%;
+  max-width: 350px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Высота будет установлена динамически через JavaScript */
+  align-items: center;     /* Центрирование по вертикали */
+  justify-content: center; /* Центрирование по горизонтали */
+  margin: 0 auto;
+  aspect-ratio: 2/3;
+  position: relative;      /* Добавляем для контроля дочерних элементов */
 }
 
 .poster-image {
-  width: auto;
-  object-fit: cover;
+  width: 100%;
+  height: 100%;            /* Важно: занимает всю высоту родителя */
+  object-fit: cover;       /* МЕНЯЕМ contain НА cover - заполняет всю область */
+  object-position: center; /* Центрирует изображение */
   border-radius: 8px;
   display: block;
+  position: absolute;      /* Абсолютное позиционирование */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;            /* Дополнительное центрирование */
 }
 
 .poster-placeholder {
@@ -1253,7 +1400,7 @@ watch(selectedTranslation, (newVal, oldVal) => {
   gap: 1.5rem;
   height: fit-content;
   align-self: start;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 /* Карточки */

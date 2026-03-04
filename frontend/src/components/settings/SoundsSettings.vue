@@ -9,7 +9,7 @@
           <option value="classic">🔔 Классический</option>
           <option value="quiet">🤫 Тихий (только важные)</option>
           <option value="silent">🔇 Без звука</option>
-          <option value="anime">🎌 Аниме-коллекция</option>
+          <option value="anime">Аниме-коллекция</option>
         </select>
         <button @click="previewProfile" class="preview-btn">
           ▶️ Протестировать

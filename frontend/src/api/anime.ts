@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { HomeData } from '@/types'
 
 export interface Anime {
   id: number
@@ -297,6 +298,24 @@ export const animeApi = {
       params: { limit }
     })
     return Array.isArray(response.data) ? response.data : [response.data]
+  },
+
+  // Получить данные для домашней страницы
+  getHomeData: async (): Promise<HomeData> => {
+    const response = await apiClient.get<HomeData>('/anime/home/')
+    return response.data
+  },
+
+  // Добавить аниме в коллекцию пользователя
+  addToLibrary: async (data: {
+    anime: number
+    status: 'planned' | 'started' | 'completed' | 'dropped'
+    rating?: number | null
+    current_episode?: number
+    notes?: string
+  }): Promise<any> => {
+    const response = await apiClient.post('/users/library/', data)
+    return response.data
   }
 }
 

@@ -12,9 +12,6 @@
           :alt="item.anime_title"
           class="preview-poster"
         />
-        <div v-else class="preview-poster placeholder">
-          <span>🎌</span>
-        </div>
         <div class="preview-info">
           <h3 class="preview-title">{{ item.anime_title }}</h3>
           <div class="preview-meta">

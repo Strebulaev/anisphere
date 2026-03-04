@@ -380,91 +380,127 @@ const openPlaylist = (playlistId: number) => {
 </script>
 
 <style scoped>
+/* ── Основа карточки ──────────────────────────────────── */
 .post-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 16px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
   overflow: hidden;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.post-card:hover {
+  border-color: var(--border-default);
 }
 
 .post-card.is-embedded {
   box-shadow: none;
-  border: 1px solid #e0e0e0;
+  border-color: var(--border-subtle);
+  background: var(--surface-4);
 }
 
+/* ── Шапка ─────────────────────────────────────────── */
 .post-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: var(--space-3) var(--space-4);
 }
 
 .author-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   cursor: pointer;
 }
 
 .avatar {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid var(--border-subtle);
+  flex-shrink: 0;
+  transition: border-color var(--duration-base) var(--ease-out);
+}
+
+.author-info:hover .avatar {
+  border-color: var(--accent);
 }
 
 .author-name {
   display: block;
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .author-username {
-  color: #999;
-  font-size: 13px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
 .post-time {
-  color: #999;
-  font-size: 12px;
-  margin-left: 8px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  margin-left: var(--space-2);
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .btn-follow {
-  padding: 6px 16px;
-  background: #667eea;
-  color: white;
+  padding: 0 var(--space-3);
+  height: 30px;
+  min-height: 30px;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
-  border-radius: 20px;
-  font-size: 13px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.3s;
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
 }
 
 .btn-follow:hover {
-  background: #5568d3;
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
 .btn-unfollow {
-  padding: 6px 16px;
-  background: #e0e0e0;
-  color: #666;
-  border: none;
-  border-radius: 20px;
-  font-size: 13px;
+  padding: 0 var(--space-3);
+  height: 30px;
+  min-height: 30px;
+  background: var(--surface-5);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 500;
   cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+}
+
+.btn-unfollow:hover {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .btn-favorite,
 .btn-share {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -472,84 +508,84 @@ const openPlaylist = (playlistId: number) => {
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  color: #999;
-  transition: all 0.3s;
+  color: var(--text-tertiary);
+  transition: all var(--duration-base) var(--ease-out);
 }
 
 .btn-favorite:hover,
 .btn-share:hover {
-  background: #f5f5f5;
-  color: #667eea;
+  background: var(--surface-4);
+  color: var(--text-primary);
 }
 
-.btn-favorite.active {
-  color: #ffc107;
-}
+.btn-favorite.active { color: var(--warning); }
 
+/* ── Репост ────────────────────────────────────────── */
 .repost-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: #f9f9f9;
-  font-size: 13px;
-  color: #666;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-4);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.repost-icon {
-  font-size: 16px;
-}
-
+/* ── Контент ────────────────────────────────────────── */
 .post-content {
-  padding: 0 16px 16px;
+  padding: 0 var(--space-4) var(--space-4);
 }
 
 .post-text {
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-3);
   white-space: pre-wrap;
   line-height: 1.6;
+  color: var(--text-primary);
+  font-size: var(--text-base);
 }
 
 .post-image,
 .post-video {
   width: 100%;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border-subtle);
 }
 
+/* ── Плейлист ───────────────────────────────────────── */
 .post-playlist {
-  background: #f9f9f9;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+  background: var(--surface-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .playlist-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.playlist-icon {
-  font-size: 24px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .playlist-title {
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .playlist-anime {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .mini-anime-card {
-  width: 60px;
-  height: 90px;
-  border-radius: 6px;
+  width: 56px;
+  height: 80px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .mini-anime-card img {
@@ -560,150 +596,130 @@ const openPlaylist = (playlistId: number) => {
 
 .btn-playlist-link {
   width: 100%;
-  padding: 10px;
-  background: #667eea;
-  color: white;
+  padding: var(--space-2) var(--space-4);
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color var(--duration-base) var(--ease-out);
 }
 
-.btn-playlist-link:hover {
-  background: #5568d3;
-}
+.btn-playlist-link:hover { background: var(--accent-hover); }
 
+/* ── Аниме ──────────────────────────────────────────── */
 .post-anime {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  transition: border-color var(--duration-base) var(--ease-out);
 }
 
+.post-anime:hover { border-color: var(--border-default); }
+
 .anime-poster {
-  max-width: 120px;
-  max-height: 90px;
-  border-radius: 6px;
+  max-width: 110px;
+  max-height: 80px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform var(--duration-base) var(--ease-out);
 }
 
-.anime-poster:hover {
-  transform: scale(1.05);
-}
-
-.anime-poster-placeholder {
-  width: 120px;
-  height: 90px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #eee;
-  border-radius: 6px;
-  font-size: 2rem;
-  flex-shrink: 0;
-  cursor: pointer;
-}
+.anime-poster:hover { transform: scale(1.04); }
 
 .anime-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-1);
 }
 
 .anime-title-text {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--text-base);
   font-weight: 600;
+  color: var(--text-primary);
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color var(--duration-base) var(--ease-out);
 }
 
-.anime-title-text:hover {
-  color: #667eea;
-}
+.anime-title-text:hover { color: var(--accent); }
 
 .anime-description {
   margin: 0;
-  color: #666;
-  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.4;
 }
 
-.btn-add-playlist {
+.btn-add-playlist,
+.btn-remove {
   background: transparent;
-  border: 1px solid #ddd;
-  color: #333;
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.2s;
+  transition: all var(--duration-base) var(--ease-out);
 }
 
 .btn-add-playlist:hover {
-  background: #f0f0f0;
-  border-color: #667eea;
-}
-
-.btn-remove {
-  background: transparent;
-  border: 1px solid #ddd;
-  color: #333;
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s;
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .btn-remove:hover {
-  background: #ffebee;
-  border-color: #d32f2f;
-  color: #d32f2f;
+  background: var(--danger-subtle);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
+/* ── Оригинальный пост (репост) ────────────────────────── */
 .original-post {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-4);
   overflow: hidden;
 }
 
-.repost-content {
-  padding: 12px;
-}
+.repost-content { padding: var(--space-3); }
 
 .repost-author {
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
 }
 
 .repost-text {
   margin: 0;
   line-height: 1.5;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
+/* ── Действия ───────────────────────────────────────── */
 .post-actions {
   display: flex;
-  gap: 4px;
-  padding: 8px 16px;
-  border-top: 1px solid #f0f0f0;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .action-btn {
@@ -711,96 +727,84 @@ const openPlaylist = (playlistId: number) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px;
+  gap: var(--space-1);
+  padding: var(--space-2);
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  color: #666;
-  font-size: 14px;
-  transition: all 0.3s;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
+  min-height: 34px;
 }
 
 .action-btn:hover {
-  background: #f5f5f5;
+  background: var(--surface-4);
+  color: var(--text-secondary);
 }
 
-.action-btn.active {
-  color: #667eea;
-}
+.action-btn.active { color: var(--accent); }
 
+/* ── Комментарии ─────────────────────────────────────── */
 .comments-section {
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.repost-modal,
-.share-modal {
-  padding: 20px;
-  max-width: 500px;
-}
-
-.repost-modal h3,
-.share-modal h3 {
-  margin: 0 0 16px;
-}
-
-.repost-modal textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  resize: vertical;
-  margin-bottom: 16px;
-}
-
+/* ── Вспомогательные классы (modal, chat) ─────────── */
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .btn-cancel {
-  padding: 8px 16px;
-  background: #e0e0e0;
-  color: #666;
-  border: none;
-  border-radius: 8px;
+  padding: 0 var(--space-4);
+  height: 36px;
+  min-height: 36px;
+  background: var(--surface-5);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   cursor: pointer;
+  font-size: var(--text-base);
 }
 
 .btn-confirm {
-  padding: 8px 16px;
-  background: #667eea;
-  color: white;
+  padding: 0 var(--space-4);
+  height: 36px;
+  min-height: 36px;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
+  font-size: var(--text-base);
+  font-weight: 500;
 }
 
-.chats-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
+.btn-confirm:hover { background: var(--accent-hover); }
+
+.chats-list { max-height: 400px; overflow-y: auto; }
 
 .chat-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color var(--duration-base) var(--ease-out);
 }
 
-.chat-item:hover {
-  background: #f5f5f5;
-}
+.chat-item:hover { background: var(--surface-4); }
 
 .chat-avatar {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
 }

@@ -1,4 +1,5 @@
 from django.http import HttpResponseBadRequest, HttpResponseServerError, StreamingHttpResponse
+from django.db.models import Q
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -1397,3 +1398,205 @@ class UserLibraryDetailView(APIView):
             return Response({
                 'error': f'Ошибка удаления: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class HomeAPIView(APIView):
+    """API для домашней страницы с каруселями"""
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """Получение данных для домашней страницы"""
+        from django.db.models import Q, Count
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Определяем, авторизован ли пользователь
+        user = request.user if request.user.is_authenticated else None
+        
+        # 1. Продолжить просмотр (В процессе)
+        continue_watching = []
+        if user:
+            continue_watching = self._get_continue_watching(user)
+        
+        # 2. Пересмотреть (Просмотрено)
+        rewatch = []
+        if user:
+            rewatch = self._get_rewatch(user)
+        
+        # 3. Рекомендации
+        recommendations = self._get_recommendations(user)
+        
+        # 4. Популярное на этой неделе (Trending)
+        trending = self._get_trending()
+        
+        return Response({
+            'continue_watching': continue_watching,
+            'rewatch': rewatch,
+            'recommendations': recommendations,
+            'trending': trending
+        })
+    
+    def _get_continue_watching(self, user):
+        """Получение аниме со статусом 'started' (В процессе)"""
+        from users.models import UserLibrary
+        
+        library_items = UserLibrary.objects.filter(
+            user=user,
+            status='started'
+        ).select_related('anime').order_by('-updated_at')[:15]
+        
+        result = []
+        for item in library_items:
+            anime = item.anime
+            total_episodes = anime.episodes or 1
+            progress_percent = min(100, int((item.current_episode / total_episodes) * 100)) if total_episodes else 0
+            
+            result.append({
+                'anime_id': anime.id,
+                'title': anime.title_ru or anime.title_en or '',
+                'title_en': anime.title_en or '',
+                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
+                'current_episode': item.current_episode,
+                'total_episodes': anime.episodes,
+                'progress_percent': progress_percent,
+                'last_watched': item.updated_at.isoformat() if item.updated_at else None
+            })
+        
+        return result
+    
+    def _get_rewatch(self, user):
+        """Получение просмотренных аниме для пересмотра"""
+        from users.models import UserLibrary
+        
+        library_items = UserLibrary.objects.filter(
+            user=user,
+            status='completed'
+        ).select_related('anime').order_by('-completed_at')[:15]
+        
+        result = []
+        for item in library_items:
+            anime = item.anime
+            
+            result.append({
+                'anime_id': anime.id,
+                'title': anime.title_ru or anime.title_en or '',
+                'title_en': anime.title_en or '',
+                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
+                'completed_date': item.completed_at.strftime('%d.%m.%Y') if item.completed_at else None,
+                'user_rating': item.rating
+            })
+        
+        return result
+    
+    def _get_recommendations(self, user):
+        """Получение рекомендаций на основе истории просмотров"""
+        from users.models import UserLibrary
+        
+        if user:
+            # Получаем жанры из просмотренных аниме
+            watched_anime = UserLibrary.objects.filter(
+                user=user,
+                status__in=['completed', 'started']
+            ).select_related('anime')
+            
+            # Собираем жанры
+            genre_counts = {}
+            watched_ids = []
+            
+            for item in watched_anime:
+                watched_ids.append(item.anime.id)
+                genres = item.anime.genres or []
+                for genre in genres:
+                    genre_counts[genre] = genre_counts.get(genre, 0) + 1
+            
+            # Сортируем жанры по частоте
+            top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+            top_genre_names = [g[0] for g in top_genres]
+            
+            if top_genre_names:
+                # Ищем аниме с похожими жанрами, которые пользователь НЕ смотрел
+                from django.db.models import Q
+                queryset = Anime.objects.filter(
+                    Q(status='finished') | Q(status='ongoing')
+                )
+                
+                # Исключаем уже просмотренные
+                if watched_ids:
+                    queryset = queryset.exclude(id__in=watched_ids)
+                
+                # Фильтруем по жанрам
+                for genre in top_genre_names[:3]:
+                    queryset = queryset.filter(genres__contains=genre)
+                
+                # Добавляем популярные аниме текущего сезона
+                queryset = queryset.order_by('-score', '-year')[:20]
+                
+                result = []
+                for anime in queryset:
+                    genres_list = anime.genres or []
+                    rating_count = int((anime.score or 0) * 1000)  # Приблизительное количество
+                    
+                    result.append({
+                        'anime_id': anime.id,
+                        'title': anime.title_ru or anime.title_en or '',
+                        'title_en': anime.title_en or '',
+                        'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
+                        'genres': genres_list[:3],
+                        'rating': anime.score,
+                        'rating_count': rating_count,
+                        'year': anime.year,
+                        'status': anime.status
+                    })
+                
+                # Если мало результатов, добираем популярными
+                if len(result) < 10:
+                    additional = Anime.objects.filter(
+                        Q(status='finished') | Q(status='ongoing')
+                    ).exclude(id__in=watched_ids).order_by('-score')[:15]
+                    
+                    existing_ids = [r['anime_id'] for r in result]
+                    for anime in additional:
+                        if anime.id not in existing_ids and len(result) < 15:
+                            result.append({
+                                'anime_id': anime.id,
+                                'title': anime.title_ru or anime.title_en or '',
+                                'title_en': anime.title_en or '',
+                                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
+                                'genres': (anime.genres or [])[:3],
+                                'rating': anime.score,
+                                'rating_count': int((anime.score or 0) * 1000),
+                                'year': anime.year,
+                                'status': anime.status
+                            })
+                
+                return result
+        
+        # Для нового пользователя или если нет истории - показываем популярное
+        return self._get_trending()
+    
+    def _get_trending(self):
+        """Получение популярного аниме за последнюю неделю"""
+        # Показываем топ аниме по рейтингу
+        anime_list = Anime.objects.filter(
+            Q(status='finished') | Q(status='ongoing')
+        ).order_by('-score', '-year')[:20]
+        
+        result = []
+        for anime in anime_list:
+            genres_list = anime.genres or []
+            rating_count = int((anime.score or 0) * 1000)
+            
+            result.append({
+                'anime_id': anime.id,
+                'title': anime.title_ru or anime.title_en or '',
+                'title_en': anime.title_en or '',
+                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
+                'genres': genres_list[:3],
+                'rating': anime.score,
+                'rating_count': rating_count,
+                'year': anime.year,
+                'status': anime.status,
+                'weekly_views': rating_count  # Заглушка - в будущем добавить реальную статистику
+            })
+        
+        return result

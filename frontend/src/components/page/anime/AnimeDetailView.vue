@@ -54,7 +54,6 @@
               :alt="anime.title_ru || anime.title_en"
               class="poster-image"
             />
-            <div v-else class="poster-placeholder-large">🎌</div>
           </div>
     
           <!-- Детали -->

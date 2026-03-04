@@ -241,3 +241,44 @@ export interface PlaylistItem {
 
 export type { Chat } from './chat'
 export type { ChatFolder, CreateFolderData, UpdateFolderData } from './chat'
+
+// Типы для домашней страницы
+export interface ContinueWatchingItem {
+  anime_id: number
+  title: string
+  title_en: string
+  poster: string
+  current_episode: number
+  total_episodes: number
+  progress_percent: number
+  last_watched: string | null
+}
+
+export interface RewatchItem {
+  anime_id: number
+  title: string
+  title_en: string
+  poster: string
+  completed_date: string | null
+  user_rating: number | null
+}
+
+export interface RecommendationItem {
+  anime_id: number
+  title: string
+  title_en: string
+  poster: string
+  genres: string[]
+  rating: number | null
+  rating_count: number
+  year: number | null
+  status: string
+  weekly_views?: number
+}
+
+export interface HomeData {
+  continue_watching: ContinueWatchingItem[]
+  rewatch: RewatchItem[]
+  recommendations: RecommendationItem[]
+  trending: RecommendationItem[]
+}

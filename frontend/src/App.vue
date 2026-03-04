@@ -41,37 +41,35 @@ onMounted(() => {
 <style scoped>
 .app {
   min-height: 100vh;
-  background-color: var(--color-background);
+  background-color: var(--surface-1);
   display: flex;
   flex-direction: column;
 }
 
 .main-content {
   flex: 1;
-  padding-top: 120px;
-  padding-bottom: var(--height-nav-mobile);
+  /* мобиль: navbar сверху + bottom-nav снизу */
+  padding-top: var(--bottom-nav-height);
+  padding-bottom: var(--bottom-nav-height);
+  min-height: 100vh;
 }
 
 @media (min-width: 768px) {
   .main-content {
     padding-bottom: 0;
-    padding-left: 240px;
-    padding-top: 120px;
+    padding-left: var(--sidebar-width);
+    padding-top: var(--navbar-height);
+    transition: padding-left var(--duration-slow) var(--ease-out);
   }
 
-  /* Свернутое меню */
   .app.sidebar-collapsed .main-content {
-    padding-left: 72px;
-  }
-
-  .app.sidebar-collapsed :deep(.sidebar) {
-    width: 72px;
+    padding-left: var(--sidebar-width-collapsed);
   }
 }
 
 @media (min-width: 1024px) {
   .main-content {
-    padding-top: 72px;
+    padding-top: var(--navbar-height);
   }
 }
 </style>

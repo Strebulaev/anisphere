@@ -4,7 +4,7 @@ from .views import (
     AnimeViewSet, GenresViewSet, proxy_video, 
     SearchAPIView, ParserStatusAPIView, UpdatesAPIView,
     KodikImportView, KodikFiltersView, KodikTranslationsView,
-    CustomDubListView, CustomDubDetailView
+    CustomDubListView, CustomDubDetailView, HomeAPIView
 )
 
 router = DefaultRouter()
@@ -16,6 +16,7 @@ urlpatterns = [
     path('search/', SearchAPIView.as_view(), name='anime-search'),
     path('parser/status/', ParserStatusAPIView.as_view(), name='parser-status'),
     path('updates/', UpdatesAPIView.as_view(), name='anime-updates'),
+    path('home/', HomeAPIView.as_view(), name='anime-home'),
 
     path('', include(router.urls)),
     

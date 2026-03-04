@@ -555,7 +555,7 @@ class UserLibrarySerializer(serializers.ModelSerializer):
     anime_title_ru = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
     anime_poster = serializers.ImageField(source='anime.poster', read_only=True)
-    anime_episodes_count = serializers.IntegerField(source='anime.episodes_count', read_only=True)
+    anime_episodes_count = serializers.IntegerField(source='anime.episodes', read_only=True)
     anime_status_display = serializers.CharField(source='get_status_display', read_only=True)
     progress_percentage = serializers.SerializerMethodField()
 
@@ -579,13 +579,18 @@ class UserLibraryCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserLibrary
-        fields = ['anime', 'status', 'rating', 'notes', 'is_favorite']
+        fields = ['anime', 'status', 'rating', 'notes', 'is_favorite', 'current_episode', 'episodes_watched']
+        extra_kwargs = {
+            'status': {'required': False},
+            'current_episode': {'required': False},
+            'episodes_watched': {'required': False},
+        }
 
     def create(self, validated_data):
         user = self.context['request'].user
         anime = validated_data['anime']
 
-        # Проверяем, есть ли уже в библиотеке
+        # get_or_create — не дублируем
         library_item, created = UserLibrary.objects.get_or_create(
             user=user,
             anime=anime,
@@ -593,10 +598,18 @@ class UserLibraryCreateSerializer(serializers.ModelSerializer):
         )
 
         if not created:
-            # Если уже есть, обновляем
+            # Обновляем только переданные поля
             for key, value in validated_data.items():
                 if key != 'anime':
-                    setattr(library_item, key, value)
+                    # Серию обновляем только если новая больше
+                    if key == 'current_episode':
+                        if value > (library_item.current_episode or 0):
+                            setattr(library_item, key, value)
+                    elif key == 'episodes_watched':
+                        if value > (library_item.episodes_watched or 0):
+                            setattr(library_item, key, value)
+                    else:
+                        setattr(library_item, key, value)
             library_item.save()
 
         return library_item
@@ -610,19 +623,32 @@ class UserLibraryUpdateSerializer(serializers.ModelSerializer):
         fields = ['status', 'current_episode', 'episodes_watched', 'rating', 'notes', 'is_favorite']
 
     def update(self, instance, validated_data):
-        # Обновляем статус если указан
+        # Обновляем прогресс
+        if 'current_episode' in validated_data:
+            new_episode = validated_data['current_episode']
+            instance.current_episode = new_episode
+            instance.episodes_watched = max(instance.episodes_watched, new_episode)
+
+            # Авто-старт: если начали смотреть
+            if new_episode > 0 and instance.status == 'planned':
+                instance.status = 'started'
+                if not instance.started_at:
+                    instance.started_at = timezone.now()
+
+            # Авто-завершение: если досмотрели все эпизоды
+            total = instance.anime.episodes if instance.anime and instance.anime.episodes else None
+            if total and new_episode >= total and instance.status not in ('completed',):
+                instance.status = 'completed'
+                if not instance.completed_at:
+                    instance.completed_at = timezone.now()
+
+        # Обновляем статус если явно указан (перезаписывает авто-логику)
         if 'status' in validated_data:
             instance.status = validated_data['status']
-            # Обновляем даты начала/завершения
             if instance.status == 'started' and not instance.started_at:
                 instance.started_at = timezone.now()
             if instance.status == 'completed' and not instance.completed_at:
                 instance.completed_at = timezone.now()
-
-        # Обновляем прогресс
-        if 'current_episode' in validated_data:
-            instance.current_episode = validated_data['current_episode']
-            instance.episodes_watched = max(instance.episodes_watched, validated_data['current_episode'])
 
         # Обновляем остальные поля
         for attr, value in validated_data.items():
