@@ -421,7 +421,7 @@ onMounted(() => loadHomeData())
 }
 
 /* ═══ Секция ════════════════════════════════════════════════ */
-.home-section {}
+/* .home-section {} */
 
 .section-header {
   display: flex;

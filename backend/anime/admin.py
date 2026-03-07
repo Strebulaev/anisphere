@@ -1,9 +1,28 @@
 from django.contrib import admin
-from .models import (
-    Genre, Studio, Anime, Playlist, PlaylistItem, VoiceActor, DubStudio,
+from anime.models import (
+    Franchise, Genre, Studio, Anime, Playlist, PlaylistItem, VoiceActor, DubStudio,
     Dub, DubRole, UserDubRating, VideoSource, Episode, Translation,
     WatchProgress, VideoQuality, AnimeUpdate
 )
+
+
+class FranchiseEntryInline(admin.TabularInline):
+    model = Anime
+    fk_name = 'franchise'
+    extra = 0
+    fields = ('title_ru', 'kind', 'year', 'episodes', 'score', 'franchise_order')
+    ordering = ('franchise_order', 'year')
+    show_change_link = True
+
+
+@admin.register(Franchise)
+class FranchiseAdmin(admin.ModelAdmin):
+    list_display  = ('id', 'name', 'score', 'year_start', 'year_end', 'created_at')
+    search_fields = ('name', 'description')
+    readonly_fields = ('created_at', 'updated_at')
+    prepopulated_fields = {'slug': ('name',)}
+    inlines = [FranchiseEntryInline]
+
 
 class PlaylistItemInline(admin.TabularInline):
     model = PlaylistItem

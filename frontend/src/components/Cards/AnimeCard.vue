@@ -23,6 +23,15 @@
       <!-- Градиентный оверлей снизу -->
       <div class="poster-overlay"></div>
 
+      <!-- Оверлей с кнопкой play при наведении -->
+      <div class="hover-overlay" @click.stop="handleClick">
+        <button class="play-btn" @click.stop="handleClick">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </button>
+      </div>
+
       <!-- Индикатор живой обложки (правый верхний угол) -->
       <div 
         v-if="hasLiveCover" 
@@ -467,6 +476,57 @@ checkFavorite()
     transparent 100%
   );
   pointer-events: none;
+}
+
+/* ── Hover оверлей с кнопкой play ────────────────────────── */
+.hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+  z-index: 4;
+}
+
+.anime-card:hover .hover-overlay {
+  opacity: 1;
+}
+
+/* Квадратная синяя кнопка с анимацией распыления */
+.play-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(0.6);
+  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0);
+}
+
+.anime-card:hover .play-btn {
+  transform: scale(1);
+  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5);
+}
+
+.play-btn:hover {
+  transform: scale(1.15) !important;
+  background: var(--accent-hover);
+  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6);
+}
+
+.play-btn svg {
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
 }
 
 /* ── Live cover ──────────────────────────────────────────── */

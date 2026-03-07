@@ -135,7 +135,7 @@
     </div>
 
     <!-- Пустое состояние -->
-    <div v-else-if="animeList.length === 0" class="catalog-empty">
+    <div v-else-if="deduplicatedList.length === 0" class="catalog-empty">
       <EmptyState
         title="Ничего не найдено"
         message="Попробуйте изменить параметры поиска или сбросить фильтры"
@@ -149,12 +149,12 @@
     <!-- Список аниме -->
     <div v-else class="catalog-content">
       <div class="results-info">
-        <span>Показано {{ animeList.length }} из {{ totalCount }} аниме</span>
+        <span>Показано {{ deduplicatedList.length }} из {{ totalCount }} аниме</span>
       </div>
       <div class="anime-grid">
         <AnimeCard
-          v-for="anime in animeList"
-          :key="anime.id"
+          v-for="anime in deduplicatedList"
+          :key="(anime as any).franchise_id ? 'f' + (anime as any).franchise_id : anime.id"
           :anime="anime as any"
           @click="handleAnimeClick(anime)"
           @watch="handleWatchAnime(anime)"
@@ -374,6 +374,35 @@ const handlePageChange = (newPage: number) => {
   emit('pageChange', newPage)
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
+
+// Дедуплицируем список: из аниме одной франшизы оставляем только лучшую карточку
+// и подменяем title/poster на данные самой франшизы
+const deduplicatedList = computed(() => {
+  const seen = new Map<string, any>()
+  for (const a of props.animeList) {
+    const fid = (a as any).franchise_id
+    if (fid) {
+      const key = `franchise_${fid}`
+      const existing = seen.get(key)
+      if (!existing || ((a as any).score || 0) > ((existing as any).score || 0)) {
+        // Подменяем название и постер на данные франшизы если есть
+        const franchiseName = (a as any).franchise_name
+        const franchisePoster = (a as any).franchise_poster_image_url
+        seen.set(key, {
+          ...a,
+          // Используем название франшизы если оно есть
+          title_ru: franchiseName || (a as any).title_ru,
+          // Используем постер франшизы если он есть
+          poster_image_url: franchisePoster || (a as any).poster_image_url,
+          poster_url: franchisePoster || (a as any).poster_url,
+        })
+      }
+    } else {
+      seen.set(`anime_${a.id}`, a)
+    }
+  }
+  return Array.from(seen.values())
+})
 
 const handleAnimeClick = (anime: Anime) => {
   emit('animeClick', anime)

@@ -262,20 +262,40 @@ export const animeApi = {
     return response.data
   },
 
-  // Получить онгоинги
-  getOngoings: async (limit: number = 12): Promise<Anime[]> => {
-    const response = await apiClient.get<AnimeListResponse>('/anime/', {
-      params: { status: 'ongoing', ordering: '-score', page_size: limit }
-    })
-    return response.data.results || []
+  // Получить онгоинги — все без лимита, постранично
+  getOngoings: async (): Promise<Anime[]> => {
+    const PAGE_SIZE = 200
+    const all: Anime[] = []
+    let page = 1
+    while (true) {
+      const response = await apiClient.get<AnimeListResponse>('/anime/', {
+        params: { status: 'ongoing', ordering: '-score', page_size: PAGE_SIZE, page }
+      })
+      const results = response.data.results || []
+      all.push(...results)
+      const totalPages = response.data.total_pages ?? 1
+      if (page >= totalPages || results.length === 0) break
+      page++
+    }
+    return all
   },
 
-  // Получить анонсы
-  getAnnouncements: async (limit: number = 12): Promise<Anime[]> => {
-    const response = await apiClient.get<AnimeListResponse>('/anime/', {
-      params: { status: 'announced', ordering: '-year', page_size: limit }
-    })
-    return response.data.results || []
+  // Получить анонсы — все без лимита, постранично
+  getAnnouncements: async (): Promise<Anime[]> => {
+    const PAGE_SIZE = 200
+    const all: Anime[] = []
+    let page = 1
+    while (true) {
+      const response = await apiClient.get<AnimeListResponse>('/anime/', {
+        params: { status: 'announced', ordering: '-year', page_size: PAGE_SIZE, page }
+      })
+      const results = response.data.results || []
+      all.push(...results)
+      const totalPages = response.data.total_pages ?? 1
+      if (page >= totalPages || results.length === 0) break
+      page++
+    }
+    return all
   },
 
   // Получить рекомендации (базовая реализация на сервере)

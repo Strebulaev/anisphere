@@ -139,29 +139,55 @@ const handleImageError = (event: Event) => {
   color: var(--text-tertiary);
 }
 
+/* Оверлей как в AnimeCard */
 .poster-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0 !important;
+  transition: opacity 0.15s ease-out !important;
+  z-index: 100 !important;
+  pointer-events: none !important;
 }
 
-.rewatch-card:hover .poster-overlay { opacity: 1; }
+.rewatch-card:hover .poster-overlay {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
 
+/* Квадратная синяя кнопка с анимацией распыления (как в AnimeCard) */
 .rewatch-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--surface-3);
-  border: 2px solid var(--border-default);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-primary);
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: var(--accent) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: white !important;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  transform: scale(0.6) !important;
+  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0) !important;
+}
+
+.rewatch-card:hover .rewatch-icon {
+  transform: scale(1) !important;
+  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5) !important;
+}
+
+.rewatch-icon:hover {
+  transform: scale(1.15) !important;
+  background: var(--accent-hover) !important;
+  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6) !important;
 }
 
 .rating-badge {
@@ -234,5 +260,11 @@ const handleImageError = (event: Event) => {
 @media (max-width: 767px) {
   .rewatch-card { flex: 0 0 140px; width: 140px; }
   .card-poster   { height: 190px; }
+
+  /* На мобильных оверлей всегда виден */
+  .poster-overlay {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.3);
+  }
 }
 </style>

@@ -55,6 +55,14 @@
           >
             <StarIcon class="w-5 h-5" />
           </button>
+          <!-- Оверлей при наведении -->
+          <div class="poster-overlay">
+            <button class="overlay-play" @click.stop="openAnime(item.anime.id)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="info">
           <h3>{{ item.anime.title_ru }}</h3>
@@ -261,19 +269,26 @@ onMounted(() => {
 
 <style scoped>
 .my-collection {
-  padding: 20px;
+  padding: var(--space-5);
 }
 
 .collection-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
+}
+
+.collection-header h2 {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .stats {
   display: flex;
-  gap: 20px;
+  gap: var(--space-5);
 }
 
 .stat-item {
@@ -282,40 +297,43 @@ onMounted(() => {
 
 .stat-value {
   display: block;
-  font-size: 24px;
-  font-weight: bold;
-  color: #667eea;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .stat-label {
-  font-size: 12px;
-  color: #999;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
 .status-tabs {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   overflow-x: auto;
-  padding-bottom: 10px;
-  margin-bottom: 20px;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-5);
 }
 
 .tab-btn {
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border: none;
-  background: #f5f5f5;
-  border-radius: 20px;
+  background: var(--surface-3);
+  border-radius: var(--radius-full);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.3s;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  transition: all var(--duration-base);
 }
 
 .tab-btn:hover {
-  background: #e0e0e0;
+  background: var(--surface-4);
+  color: var(--text-primary);
 }
 
 .tab-btn.active {
-  background: #667eea;
+  background: var(--accent);
   color: white;
 }
 
@@ -328,33 +346,46 @@ onMounted(() => {
 }
 
 .search-bar {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .search-bar input {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--duration-base);
+}
+
+.search-bar input:focus {
+  border-color: var(--accent);
+}
+
+.search-bar input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .anime-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--space-4);
 }
 
 .anime-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--surface-3);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
+  transition: transform var(--duration-slow) var(--ease-out), box-shadow var(--duration-slow) var(--ease-out);
 }
 
 .anime-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
 }
 
 .poster {
@@ -362,158 +393,240 @@ onMounted(() => {
   aspect-ratio: 2/3;
   overflow: hidden;
   cursor: pointer;
+  background: var(--surface-4);
 }
 
 .poster img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+
+.anime-card:hover .poster img {
+  transform: scale(1.04);
+}
+
+/* Оверлей при наведении */
+.poster-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+  z-index: 10;
+}
+
+.anime-card:hover .poster-overlay {
+  opacity: 1;
+}
+
+/* Квадратная синяя кнопка с анимацией распыления */
+.overlay-play {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding-left: 4px;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(0.6);
+  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0);
+}
+
+.anime-card:hover .overlay-play {
+  transform: scale(1);
+  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5);
+}
+
+.overlay-play:hover {
+  transform: scale(1.15) !important;
+  background: var(--accent-hover);
+  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6);
 }
 
 .status-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: var(--space-2);
+  left: var(--space-2);
   padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
   color: white;
 }
 
-.status-badge.started { background: #4caf50; }
-.status-badge.completed { background: #2196f3; }
-.status-badge.on_hold { background: #ff9800; }
-.status-badge.dropped { background: #f44336; }
-.status-badge.planned { background: #9c27b0; }
+.status-badge.started { background: var(--status-watching); }
+.status-badge.completed { background: var(--status-completed); }
+.status-badge.on_hold { background: var(--status-onhold); }
+.status-badge.dropped { background: var(--status-dropped); }
+.status-badge.planned { background: var(--status-planned); }
 
 .favorite-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.9);
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 32px;
+  height: 32px;
+  background: rgba(8, 8, 9, 0.8);
   border: none;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s;
+  transition: all var(--duration-base);
+  backdrop-filter: blur(8px);
+  color: var(--text-tertiary);
 }
 
 .favorite-btn:hover {
   transform: scale(1.1);
+  background: var(--accent);
 }
 
 .favorite-btn.active {
-  color: #ffc107;
+  color: var(--warning);
+  background: rgba(251, 191, 36, 0.2);
 }
 
 .info {
-  padding: 12px;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .info h3 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  line-height: 1.4;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
-  box-orient: vertical;
   overflow: hidden;
 }
 
 .episodes {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 8px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
 }
 
 .progress-bar {
-  height: 4px;
-  background: #e0e0e0;
-  border-radius: 2px;
+  height: 3px;
+  background: var(--surface-5);
+  border-radius: var(--radius-full);
   overflow: hidden;
-  margin-bottom: 12px;
 }
 
 .progress {
   height: 100%;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  transition: width 0.3s;
+  background: var(--accent);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .status-select {
   flex: 1;
   padding: 6px 8px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  background: var(--surface-4);
+  color: var(--text-primary);
 }
 
 .episode-btn {
   padding: 6px 12px;
-  background: #667eea;
+  background: var(--accent);
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
   cursor: pointer;
+  transition: background var(--duration-base);
+}
+
+.episode-btn:hover {
+  background: var(--accent-hover);
 }
 
 .empty {
   text-align: center;
-  padding: 60px 20px;
-  color: #999;
+  padding: var(--space-8);
+  color: var(--text-tertiary);
 }
 
 .btn-primary {
-  padding: 12px 24px;
-  background: #667eea;
+  padding: var(--space-3) var(--space-6);
+  background: var(--accent);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
   cursor: pointer;
-  margin-top: 20px;
+  margin-top: var(--space-5);
+  transition: background var(--duration-base);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
 }
 
 .episode-selector {
-  padding: 20px;
+  padding: var(--space-5);
 }
 
 .episode-selector h3 {
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-5);
+  color: var(--text-primary);
 }
 
 .episode-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-  gap: 8px;
+  gap: var(--space-2);
   max-height: 400px;
   overflow-y: auto;
 }
 
 .episode-grid .episode-btn {
-  padding: 12px;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  padding: var(--space-3);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   cursor: pointer;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.episode-grid .episode-btn:hover {
+  background: var(--surface-4);
 }
 
 .episode-grid .episode-btn.current {
-  background: #667eea;
+  background: var(--accent);
   color: white;
-  border-color: #667eea;
+  border-color: var(--accent);
 }
 </style>

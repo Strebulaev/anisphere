@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Anime, Genre, Studio
+from .models import Anime, Franchise, Genre, Studio
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,6 +10,43 @@ class AnimeSerializer(serializers.ModelSerializer):
     genres = serializers.SerializerMethodField()
     studios = serializers.SerializerMethodField()
     poster_image_url = serializers.SerializerMethodField()
+    franchise_id = serializers.SerializerMethodField()
+    is_franchise = serializers.SerializerMethodField()
+    franchise_name = serializers.SerializerMethodField()
+    franchise_poster_image_url = serializers.SerializerMethodField()
+
+    def get_franchise_id(self, obj):
+        try:
+            return obj.franchise_id  # Django FK id поле — безопасно, не делает запрос
+        except Exception:
+            return None
+
+    def get_is_franchise(self, obj):
+        try:
+            return obj.franchise_id is not None
+        except Exception:
+            return False
+
+    def get_franchise_name(self, obj):
+        try:
+            if not obj.franchise_id:
+                return None
+            return obj.franchise.name if obj.franchise else None
+        except Exception:
+            return None
+
+    def get_franchise_poster_image_url(self, obj):
+        try:
+            if not obj.franchise_id:
+                return None
+            f = obj.franchise
+            if not f:
+                return None
+            if f.poster and hasattr(f.poster, 'url'):
+                return f.poster.url
+            return f.poster_url or None
+        except Exception:
+            return None
     
     def get_genres(self, obj):
         """Получение жанров из JSON поля"""
@@ -56,9 +93,12 @@ class AnimeSerializer(serializers.ModelSerializer):
             'description', 'year', 'status', 'kind', 'episodes',
             'score', 'poster_url', 'poster', 'poster_image_url', 'genres', 'studios',
             'movies', 'ovas', 'movie_count', 'ova_count', 'total_items',
-            'created_at', 'updated_at', 'shikimori_id', 'data_source'
+            'created_at', 'updated_at', 'shikimori_id', 'data_source',
+            'franchise_id', 'is_franchise', 'franchise_order',
+            'franchise_name', 'franchise_poster_image_url',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
 
 class StudioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -69,7 +109,21 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
     genres = serializers.SerializerMethodField()
     studios = serializers.SerializerMethodField()
     poster_image_url = serializers.SerializerMethodField()
-    
+    franchise_id = serializers.SerializerMethodField()
+    is_franchise = serializers.SerializerMethodField()
+
+    def get_franchise_id(self, obj):
+        try:
+            return obj.franchise_id
+        except Exception:
+            return None
+
+    def get_is_franchise(self, obj):
+        try:
+            return obj.franchise_id is not None
+        except Exception:
+            return False
+
     # Дополнительные поля для Kodik
     kodik_link = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
     kodik_id = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
@@ -141,6 +195,69 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
             # Kodik поля
             'kodik_link', 'kodik_id', 'quality', 'screenshots',
             'seasons', 'last_season', 'last_episode', 'seasons_count',
-            'translations'
+            'translations',
+            'franchise_id', 'is_franchise', 'franchise_order',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+class FranchiseEntrySerializer(serializers.ModelSerializer):
+    """Mini-сериалайзер элемента франшизы"""
+    poster_image_url = serializers.SerializerMethodField()
+
+    def get_poster_image_url(self, obj):
+        if obj.poster and hasattr(obj.poster, 'url'):
+            return obj.poster.url
+        return obj.poster_url or ''
+
+    class Meta:
+        model = Anime
+        fields = [
+            'id', 'title_ru', 'title_en', 'title_jp',
+            'kind', 'episodes', 'year', 'score', 'status',
+            'poster_url', 'poster_image_url',
+            'franchise_order', 'kodik_link',
+        ]
+
+
+class FranchiseSerializer(serializers.ModelSerializer):
+    """Cписок франшиз для каталога"""
+    poster_image_url = serializers.SerializerMethodField()
+    entries_count    = serializers.SerializerMethodField()
+
+    def get_poster_image_url(self, obj):
+        if obj.poster and hasattr(obj.poster, 'url'):
+            return obj.poster.url
+        return obj.poster_url or ''
+
+    def get_entries_count(self, obj):
+        return obj.entries.count()
+
+    class Meta:
+        model = Franchise
+        fields = [
+            'id', 'name', 'slug', 'description',
+            'poster_url', 'poster_image_url',
+            'score', 'year_start', 'year_end',
+            'entries_count', 'created_at', 'updated_at',
+        ]
+
+
+class FranchiseDetailSerializer(serializers.ModelSerializer):
+    """Dетальная страница франшизы со всеми энтриями"""
+    poster_image_url = serializers.SerializerMethodField()
+    entries          = FranchiseEntrySerializer(many=True, read_only=True)
+
+    def get_poster_image_url(self, obj):
+        if obj.poster and hasattr(obj.poster, 'url'):
+            return obj.poster.url
+        return obj.poster_url or ''
+
+    class Meta:
+        model = Franchise
+        fields = [
+            'id', 'name', 'slug', 'description',
+            'poster_url', 'poster_image_url',
+            'score', 'year_start', 'year_end',
+            'entries', 'created_at', 'updated_at',
+        ]

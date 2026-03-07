@@ -6,6 +6,39 @@ from django.contrib.postgres.fields import ArrayField
 from django.conf import settings
 from multiprocessing import connection
 
+class Franchise(models.Model):
+    """Франшиза — группировка аниме (сезоны, фильмы, OVA и т.д.)"""
+    name        = models.CharField(max_length=255, verbose_name='Название')
+    slug        = models.SlugField(max_length=255, blank=True, verbose_name='Слаг')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    poster_url  = models.URLField(blank=True, verbose_name='URL постера')
+    poster      = models.ImageField(upload_to='franchise_posters/', null=True, blank=True)
+    score       = models.FloatField(null=True, blank=True, verbose_name='Рейтинг (усредн.)')
+    year_start  = models.PositiveIntegerField(null=True, blank=True, verbose_name='Год начала')
+    year_end    = models.PositiveIntegerField(null=True, blank=True, verbose_name='Год конца')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-score']
+        verbose_name = 'Франшиза'
+        verbose_name_plural = 'Франшизы'
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def poster_image_url(self):
+        if self.poster and hasattr(self.poster, 'url'):
+            return self.poster.url
+        return self.poster_url
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
 class Genre(models.Model):
     name = models.CharField(max_length=50, unique=True)
     slug = models.SlugField(max_length=50, unique=True)
@@ -123,6 +156,16 @@ class Anime(models.Model):
     data_source = models.CharField(max_length=20, default='unknown', verbose_name='Источник данных')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Франшиза
+    franchise       = models.ForeignKey(
+        'Franchise',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='entries',
+        verbose_name='Франшиза'
+    )
+    franchise_order = models.PositiveIntegerField(default=0, verbose_name='Порядок во франшизе')
     
     class Meta:
         verbose_name = 'Аниме'

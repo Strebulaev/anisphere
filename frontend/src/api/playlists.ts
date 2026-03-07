@@ -102,6 +102,7 @@ export interface AddToPlaylistRequest {
 
 export interface PlaylistsParams {
   page?: number
+  page_size?: number
   my?: boolean
   is_public?: boolean
   favorites?: boolean

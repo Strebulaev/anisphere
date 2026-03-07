@@ -1,15 +1,17 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    AnimeViewSet, GenresViewSet, proxy_video, 
+    AnimeViewSet, GenresViewSet, FranchiseViewSet, proxy_video,
     SearchAPIView, ParserStatusAPIView, UpdatesAPIView,
     KodikImportView, KodikFiltersView, KodikTranslationsView,
-    CustomDubListView, CustomDubDetailView, HomeAPIView
+    CustomDubListView, CustomDubDetailView, HomeAPIView,
+    RandomAnimeView, CurrentlyWatchingView,
 )
 
 router = DefaultRouter()
-router.register(r'', AnimeViewSet, basename='anime')
+router.register(r'franchises', FranchiseViewSet, basename='franchise')
 router.register(r'genres', GenresViewSet, basename='genres')
+router.register(r'', AnimeViewSet, basename='anime')
 
 urlpatterns = [
     # Новые API endpoints для anime-parsers-ru (должны идти до router.urls)
@@ -17,6 +19,8 @@ urlpatterns = [
     path('parser/status/', ParserStatusAPIView.as_view(), name='parser-status'),
     path('updates/', UpdatesAPIView.as_view(), name='anime-updates'),
     path('home/', HomeAPIView.as_view(), name='anime-home'),
+    path('random/', RandomAnimeView.as_view(), name='anime-random'),
+    path('currently-watching/', CurrentlyWatchingView.as_view(), name='anime-currently-watching'),
 
     path('', include(router.urls)),
     

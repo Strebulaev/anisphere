@@ -30,7 +30,11 @@
       </button>
 
       <!-- Карточки -->
-      <div class="carousel-track" ref="trackRef">
+      <div 
+        class="carousel-track" 
+        ref="trackRef"
+        :class="{ 'is-dragging': isDragging }"
+      >
         <!-- Скелетоны при загрузке -->
         <template v-if="loading">
           <div 
@@ -147,6 +151,11 @@ const isAtEnd = ref(false)
 const currentPage = ref(0)
 const containerWidth = ref(0)
 
+// Drag-to-scroll state
+const isDragging = ref(false)
+const startX = ref(0)
+const scrollLeftStart = ref(0)
+
 const cardWidth = 200 // ширина карточки + gap
 const skeletonCount = computed(() => Math.min(props.itemsCount || 5, 5))
 
@@ -169,6 +178,43 @@ const checkScrollPosition = () => {
   isAtEnd.value = track.scrollLeft + track.clientWidth >= track.scrollWidth - 10
   
   currentPage.value = Math.round(track.scrollLeft / (cardWidth * props.scrollStep))
+}
+
+// Drag-to-scroll handlers
+const handleMouseDown = (e: MouseEvent) => {
+  // Allow both left and right mouse buttons
+  if (e.button !== 0 && e.button !== 2) return
+  
+  isDragging.value = true
+  startX.value = e.pageX
+  
+  if (trackRef.value) {
+    scrollLeftStart.value = trackRef.value.scrollLeft
+  }
+  
+  // Prevent text selection and context menu
+  e.preventDefault()
+}
+
+const handleMouseMove = (e: MouseEvent) => {
+  if (!isDragging.value || !trackRef.value) return
+  
+  const x = e.pageX
+  const walk = (startX.value - x) * 1.5 // Scroll speed multiplier
+  trackRef.value.scrollLeft = scrollLeftStart.value + walk
+}
+
+const handleMouseUp = () => {
+  isDragging.value = false
+}
+
+const handleMouseLeave = () => {
+  isDragging.value = false
+}
+
+// Prevent context menu on track
+const handleContextMenu = (e: MouseEvent) => {
+  e.preventDefault()
 }
 
 const scrollLeft = () => {
@@ -208,6 +254,11 @@ let resizeObserver: ResizeObserver | null = null
 onMounted(() => {
   if (trackRef.value) {
     trackRef.value.addEventListener('scroll', checkScrollPosition)
+    
+    // Add drag-to-scroll event listeners
+    trackRef.value.addEventListener('mousedown', handleMouseDown)
+    trackRef.value.addEventListener('contextmenu', handleContextMenu)
+    
     checkScrollPosition()
     
     resizeObserver = new ResizeObserver(checkScrollPosition)
@@ -215,15 +266,24 @@ onMounted(() => {
       resizeObserver.observe(carouselRef.value)
     }
   }
+  
+  // Global mouse events for dragging
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
 })
 
 onUnmounted(() => {
   if (trackRef.value) {
     trackRef.value.removeEventListener('scroll', checkScrollPosition)
+    trackRef.value.removeEventListener('mousedown', handleMouseDown)
+    trackRef.value.removeEventListener('contextmenu', handleContextMenu)
   }
   if (resizeObserver) {
     resizeObserver.disconnect()
   }
+  
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
 })
 
 watch(() => props.itemsCount, () => {
@@ -275,6 +335,14 @@ watch(() => props.itemsCount, () => {
   overflow: hidden;
 }
 
+.carousel-container.is-dragging {
+  cursor: grabbing;
+}
+
+.carousel-container.is-dragging * {
+  cursor: grab !important;
+}
+
 .carousel-track {
   display: flex;
   gap: 16px;
@@ -283,6 +351,17 @@ watch(() => props.itemsCount, () => {
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding: 4px;
+  cursor: grab;
+  user-select: none;
+}
+
+.carousel-track:active {
+  cursor: grabbing;
+}
+
+.carousel-track.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
 }
 
 .carousel-track::-webkit-scrollbar {

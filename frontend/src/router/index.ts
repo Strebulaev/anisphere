@@ -5,6 +5,7 @@ import LoginView from '@/components/page/auth/LoginView.vue'
 import RegisterView from '@/components/page/auth/RegisterView.vue'
 import AnimeView from '@/components/page/anime/AnimeView.vue'
 import AnimeDetailView from '@/components/page/anime/AnimeDetailView.vue'
+import FranchiseView from '@/components/page/anime/FranchiseView.vue'
 import AnimeWatchView from '@/components/page/anime/AnimeWatchView.vue'
 import OwnProfileView from '@/components/page/profile/OwnProfileView.vue'
 import UserProfileView from '@/components/page/profile/UserProfileView.vue'
@@ -62,6 +63,12 @@ const router = createRouter({
       path: '/anime/:id',
       name: 'anime-detail',
       component: AnimeDetailView,
+      props: true
+    },
+    {
+      path: '/franchise/:id',
+      name: 'franchise-detail',
+      component: FranchiseView,
       props: true
     },
     {

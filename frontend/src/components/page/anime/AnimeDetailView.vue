@@ -303,6 +303,45 @@
           </div>
         </div>
 
+        <!-- Франшиза: другие части -->
+        <div v-if="franchise" class="franchise-section">
+          <h3 class="franchise-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="2" width="8" height="8"/><rect x="14" y="2" width="8" height="8"/>
+              <rect x="2" y="14" width="8" height="8"/><rect x="14" y="14" width="8" height="8"/>
+            </svg>
+            Франшиза «{{ franchise.name }}»
+            <router-link :to="`/franchise/${franchise.id}`" class="franchise-link-all">Все части →</router-link>
+          </h3>
+          <div class="franchise-entries">
+            <div
+              v-for="entry in franchise.entries"
+              :key="entry.id"
+              :class="['franchise-entry', { 'is-current': entry.id === anime!.id }]"
+              @click="entry.id !== anime!.id && $router.push(`/anime/${entry.id}`)"
+            >
+              <div class="fe-poster">
+                <img
+                  v-if="entry.poster_image_url || entry.poster_url"
+                  :src="entry.poster_image_url || entry.poster_url"
+                  :alt="entry.title_ru"
+                  class="fe-poster-img"
+                />
+                <div v-else class="fe-poster-empty">?</div>
+                <span class="fe-kind" :class="`fek-${entry.kind}`">{{ kindLabel(entry.kind) }}</span>
+                <div v-if="entry.id === anime!.id" class="fe-current-badge">Сейчас</div>
+              </div>
+              <div class="fe-info">
+                <span class="fe-title">{{ entry.title_ru || entry.title_en }}</span>
+                <span class="fe-meta">
+                  <span v-if="entry.year">{{ entry.year }}</span>
+                  <span v-if="entry.score" class="fe-score">★ {{ Number(entry.score).toFixed(1) }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Разделы -->
         <div class="anime-sections">
           <!-- Где смотреть -->
@@ -438,9 +477,27 @@
     dub_info: Dub
   }
   
+  interface FranchiseEntry {
+    id: number
+    title_ru: string
+    title_en: string
+    kind: string
+    year: number | null
+    score: number | null
+    poster_url: string
+    poster_image_url: string
+    franchise_order: number
+  }
+  interface FranchiseDetail {
+    id: number
+    name: string
+    entries: FranchiseEntry[]
+  }
+
   const route = useRoute()
   const router = useRouter()
   const anime = ref<Anime | null>(null)
+  const franchise = ref<FranchiseDetail | null>(null)
   const dubs = ref<Dub[]>([])
   const dubGroups = ref<DubGroup[]>([])
   const showAddDubModal = ref(false)
@@ -514,31 +571,11 @@
   }
   
   const fetchAnime = async () => {
-    console.log('=== fetchAnime: начало загрузки ===')
     try {
       const animeId = route.params.id
-      console.log('=== fetchAnime: запрашиваем ID:', animeId)
-      
-      const urlsToTry = [
-        `/anime/${animeId}/`,
-        `/anime/anime/${animeId}/`
-      ]
-      
-      for (const url of urlsToTry) {
-        try {
-          console.log('Пробуем URL:', url)
-          const response = await apiClient.get(url)
-          console.log('Успех! Ответ от', url)
-          anime.value = response.data
-          loading.value = false
-          return
-        } catch (err: any) {
-          console.log('Ошибка для URL', url, ':', err.response?.status)
-        }
-      }
-      
-      throw new Error('Не удалось загрузить аниме')
-      
+      const response = await apiClient.get(`/anime/${animeId}/`)
+      anime.value = response.data
+      loading.value = false
     } catch (err: any) {
       console.error('Ошибка загрузки аниме:', err)
       error.value = err.response?.data?.detail || 'Не удалось загрузить аниме'
@@ -605,10 +642,35 @@
     showPlaylistModal.value = false
   }
 
+  const fetchFranchise = async (franchiseId: number) => {
+    try {
+      const res = await apiClient.get(`/anime/franchises/${franchiseId}/`)
+      franchise.value = {
+        id: res.data.id,
+        name: res.data.name,
+        entries: (res.data.entries || []).sort(
+          (a: FranchiseEntry, b: FranchiseEntry) =>
+            a.franchise_order - b.franchise_order || (a.year || 0) - (b.year || 0)
+        )
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки франшизы:', e)
+    }
+  }
+
+  const kindLabel = (kind: string) => {
+    const map: Record<string, string> = {
+      tv: 'TV', movie: 'Фильм', ova: 'OVA', ona: 'ONA', special: 'Спешл', music: 'Клип'
+    }
+    return map[kind] || kind.toUpperCase()
+  }
+
   onMounted(async () => {
     await fetchAnime()
     if (anime.value) {
       await fetchDubs()
+      const fid = (anime.value as any).franchise_id
+      if (fid) await fetchFranchise(fid)
     }
   })
 </script>
@@ -1326,5 +1388,160 @@
   .screenshots-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Франшиза ───────────────────────────────────────────── */
+.franchise-section {
+  padding: 2rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.franchise-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.franchise-link-all {
+  margin-left: auto;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+}
+.franchise-link-all:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.franchise-entries {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.franchise-entry {
+  flex: 0 0 130px;
+  cursor: pointer;
+  transition: transform 0.25s;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--color-background);
+  border: 2px solid transparent;
+}
+
+.franchise-entry:hover:not(.is-current) {
+  transform: translateY(-4px);
+  border-color: var(--color-primary);
+}
+
+.franchise-entry.is-current {
+  cursor: default;
+  border-color: rgba(99,102,241,0.6);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+}
+
+.fe-poster {
+  position: relative;
+  width: 100%;
+  padding-bottom: 140%;
+  background: var(--color-border);
+  overflow: hidden;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.fe-poster-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.franchise-entry:hover .fe-poster-img { transform: scale(1.05); }
+
+.fe-poster-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--color-text-muted);
+}
+
+.fe-kind {
+  position: absolute;
+  top: 0.375rem;
+  left: 0.375rem;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.75);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+.fe-kind.fek-tv     { background: var(--color-primary); color: white; }
+.fe-kind.fek-movie  { background: #f59e0b; color: #000; }
+.fe-kind.fek-ova    { background: #22c55e; color: white; }
+.fe-kind.fek-special { background: #a855f7; color: white; }
+
+.fe-current-badge {
+  position: absolute;
+  bottom: 0.375rem;
+  right: 0.375rem;
+  padding: 2px 7px;
+  background: rgba(99,102,241,0.9);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.fe-info {
+  padding: 0.5rem 0.5rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fe-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+}
+
+.fe-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.fe-score { color: #fbbf24; font-weight: 600; }
+
+@media (max-width: 768px) {
+  .franchise-section { padding: 1.5rem; }
+  .franchise-section-title { font-size: 1.25rem; }
+  .franchise-entry { flex: 0 0 110px; }
 }
 </style>

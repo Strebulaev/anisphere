@@ -554,7 +554,7 @@ class UserLibrarySerializer(serializers.ModelSerializer):
     """Сериализатор библиотеки аниме пользователя"""
     anime_title_ru = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
-    anime_poster = serializers.ImageField(source='anime.poster', read_only=True)
+    anime_poster = serializers.SerializerMethodField()
     anime_episodes_count = serializers.IntegerField(source='anime.episodes', read_only=True)
     anime_status_display = serializers.CharField(source='get_status_display', read_only=True)
     progress_percentage = serializers.SerializerMethodField()
@@ -569,6 +569,16 @@ class UserLibrarySerializer(serializers.ModelSerializer):
             'notes', 'is_favorite', 'rewatch_count', 'progress_percentage'
         ]
         read_only_fields = ['id', 'user', 'added_at', 'updated_at']
+
+    def get_anime_poster(self, obj):
+        """Получаем URL постера - сначала локальный, потом внешний"""
+        # Сначала пробуем получить локальный постер
+        if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
+            return obj.anime.poster.url
+        # Если нет локального, используем внешний URL
+        if obj.anime.poster_url:
+            return obj.anime.poster_url
+        return None
 
     def get_progress_percentage(self, obj):
         return obj.get_progress_percentage()

@@ -317,6 +317,9 @@ const openEdit = () => {
 
 .col-card:hover .poster-img { transform: scale(1.05); }
 
+/* ── Постер - обёртка ─────────────────────────────────────── */
+/* Убеждаемся что overflow:hidden и position:relative стоят */
+
 .poster-placeholder {
   width: 100%;
   height: 100%;
@@ -381,25 +384,27 @@ const openEdit = () => {
   transition: width 0.4s ease;
 }
 
-/* ── Оверлей ─────────────────────────────────────────────────  */
+/* ── Оверлей - весь постер ───────────────────────────────────── */
 .poster-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   opacity: 0;
   transition: opacity var(--duration-base);
+  z-index: 4;
 }
 
 .col-card:hover .poster-overlay { opacity: 1; }
 
+/* Квадратные синие кнопки с анимацией распыления */
 .overlay-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   border: none;
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(8px);
@@ -408,17 +413,42 @@ const openEdit = () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background var(--duration-base), transform var(--duration-base);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(0.6);
+  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0);
 }
 
-.overlay-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
+.col-card:hover .overlay-btn {
+  transform: scale(1);
+  box-shadow: 0 0 20px 3px rgba(124, 92, 252, 0.4);
+}
+
+.overlay-btn:hover { 
+  background: rgba(255,255,255,0.3); 
+  transform: scale(1.15) !important; 
+}
+
 .overlay-btn.primary {
   background: var(--accent);
-  width: 48px;
-  height: 48px;
-  padding-left: 3px;
+  width: 64px;
+  height: 64px;
+  padding-left: 4px;
 }
-.overlay-btn.primary:hover { background: var(--accent-hover); }
+
+.col-card:hover .overlay-btn.primary {
+  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5);
+}
+
+.overlay-btn.primary:hover { 
+  background: var(--accent-hover); 
+  transform: scale(1.2) !important;
+  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6);
+}
+
+.overlay-btn svg {
+  width: 24px;
+  height: 24px;
+}
 
 /* ═══ Инфо ══════════════════════════════════════════════════ */
 .card-info {

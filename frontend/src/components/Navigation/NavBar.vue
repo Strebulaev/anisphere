@@ -28,10 +28,11 @@
           v-for="item in navigationItems"
           :key="item.key"
           @click="navigateToSection(item)"
-          class="nav-link"
+          :class="['nav-link', { loading: item.key === 'random' && randomLoading }]"
+          :disabled="item.key === 'random' && randomLoading"
           type="button"
         >
-          <span class="nav-icon">{{ item.icon }}</span>
+          <span class="nav-icon" :class="{ spin: item.key === 'random' && randomLoading }">{{ item.icon }}</span>
           <span class="nav-label">{{ item.label }}</span>
         </button>
       </div>
@@ -71,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSidebar } from '@/composables/useSidebar'
@@ -89,19 +90,35 @@ const searchCategories = [
 ]
 
 const navigationItems = [
-  { key: 'ongoings', label: 'Онгоинги', icon: '🔥', to: '/anime?section=ongoings' },
+  { key: 'ongoings',         label: 'Онгоинги',    icon: '🔥', to: '/anime?section=ongoings'         },
   { key: 'recommendations', label: 'Рекомендации', icon: '⭐', to: '/anime?section=recommendations' },
-  { key: 'announcements', label: 'Анонсы', icon: '📢', to: '/anime?section=announcements' },
-  { key: 'random', label: 'Рандом', icon: '🎲', to: '/anime?section=random' },
+  { key: 'announcements',   label: 'Анонсы',       icon: '📢', to: '/anime?section=announcements'   },
+  { key: 'random',          label: 'Рандом',        icon: '🎲', to: null },
 ]
 
-const navigateToSection = (item: any) => {
+const randomLoading = ref(false)
+
+const navigateToSection = async (item: any) => {
+  // Рандом — запрашиваем бэкенд и переходим на страницу аниме
+  if (item.key === 'random') {
+    if (randomLoading.value) return
+    randomLoading.value = true
+    try {
+      const { default: apiClient } = await import('@/api/client')
+      const res = await apiClient.get('/anime/random/')
+      const id = res.data?.id || res.data?.[0]?.id
+      if (id) router.push(`/anime/${id}`)
+    } catch (e) {
+      console.error('Random anime error:', e)
+    } finally {
+      randomLoading.value = false
+    }
+    return
+  }
   const [path, queryStr] = item.to.split('?')
   const params = new URLSearchParams(queryStr)
   const query: Record<string, string> = {}
-  params.forEach((value, key) => {
-    query[key] = value
-  })
+  params.forEach((value, key) => { query[key] = value })
   router.replace({ path, query })
 }
 
@@ -180,7 +197,10 @@ const handleSearch = (query: string) => {
   color: var(--text-primary);
 }
 
-.nav-icon { font-size: var(--text-md); }
+.nav-icon { font-size: var(--text-md); display: inline-block; }
+.nav-link.loading { opacity: .6; cursor: not-allowed; }
+.spin { animation: nb-spin .7s linear infinite; }
+@keyframes nb-spin { to { transform: rotate(360deg); } }
 .nav-label { font-size: var(--text-base); }
 
 /* ── Поиск ──────────────────────────────────────────────── */

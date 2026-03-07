@@ -153,7 +153,7 @@ export function useAnimeSections() {
     ongoingsError.value = null
 
     try {
-      const data = (await animeApi.getOngoings(12)) as any
+      const data = (await animeApi.getOngoings()) as any
       ongoings.value = data
       originalOngoings.value = [...data]
     } catch (err: any) {
@@ -172,7 +172,7 @@ export function useAnimeSections() {
     announcementsError.value = null
 
     try {
-      const data = (await animeApi.getAnnouncements(12)) as any
+      const data = (await animeApi.getAnnouncements()) as any
       announcements.value = data
       originalAnnouncements.value = [...data]
     } catch (err: any) {

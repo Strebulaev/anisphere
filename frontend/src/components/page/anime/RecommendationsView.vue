@@ -1,650 +1,245 @@
 <template>
-  <div class="recommendations-view">
-    <!-- Настройки отображения -->
-    <div class="settings-bar">
-      <div class="view-modes">
-        <button
-          v-for="mode in viewModes"
-          :key="mode.value"
-          @click="setViewMode(mode.value)"
-          :class="['mode-btn', { active: displaySettings.viewMode === mode.value }]"
-          type="button"
-          :title="mode.label"
-        >
-          <span v-html="mode.icon"></span>
+  <div class="rec-view">
+
+    <!-- ══ Шапка ═════════════════════════════════════════════ -->
+    <div class="rec-header">
+      <div class="rec-header-row">
+        <div>
+          <h2 class="rec-title">⭐ Рекомендации для вас</h2>
+          <p class="rec-subtitle">Подборки на любой вкус — классика, новинки и персональные советы</p>
+        </div>
+        <button class="rec-refresh-btn" @click="loadAll" :disabled="globalLoading" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            :class="{ spin: globalLoading }">
+            <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Обновить всё
         </button>
       </div>
-      
-      <div class="settings-actions">
-        <button @click="toggleSettingsPanel" class="settings-btn" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-          Настройки
-        </button>
-        <button @click="refreshAll" class="refresh-btn" type="button" :disabled="loading">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ spin: loading }">
-            <polyline points="23 4 23 10 17 10"/>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-          </svg>
-        </button>
-      </div>
+
+      <!-- Мультивыбор жанров -->
+      <GenreFilter v-model="selectedGenres" />
     </div>
 
-    <!-- Панель настроек -->
-    <transition name="slide">
-      <div v-if="showSettingsPanel" class="settings-panel">
-        <h3>Настройки рекомендаций</h3>
-        
-        <div class="setting-group">
-          <label>Исключать просмотренное</label>
-          <label class="toggle">
-            <input type="checkbox" v-model="localSettings.excludeWatched" @change="applySettings" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        
-        <div class="setting-group">
-          <label>Предпочитаемый год</label>
-          <select v-model="localSettings.preferYear" @change="applySettings">
-            <option value="mixed">Смешанно</option>
-            <option value="new">Только новинки</option>
-            <option value="classic">Только классика</option>
-          </select>
-        </div>
-        
-        <div class="setting-group">
-          <label>Предпочитаемая длина</label>
-          <select v-model="localSettings.preferLength" @change="applySettings">
-            <option value="any">Любая</option>
-            <option value="short">Короткие (до 24 эп.)</option>
-            <option value="medium">Средние (24-50)</option>
-            <option value="long">Длинные (50+)</option>
-          </select>
-        </div>
-        
-        <div class="setting-group">
-          <label>Степень риска</label>
-          <select v-model="localSettings.riskLevel" @change="applySettings">
-            <option value="conservative">Консервативно</option>
-            <option value="balanced">Сбалансированно</option>
-            <option value="experimental">Экспериментально</option>
-          </select>
-        </div>
-        
-        <div class="setting-group">
-          <label>Приоритет озвучки</label>
-          <select v-model="localSettings.voicePriority" @change="applySettings">
-            <option value="any">Не важно</option>
-            <option value="yes">С русской озвучкой</option>
-            <option value="no">Без озвучки</option>
-          </select>
-        </div>
-      </div>
-    </transition>
-
-    <!-- Состояние загрузки -->
-    <div v-if="loading" class="loading-state">
-      <LoadingState type="skeleton" :count="12" />
-    </div>
-
-    <!-- Состояние ошибки -->
-    <div v-else-if="error" class="error-state">
-      <ErrorState
-        title="Не удалось загрузить рекомендации"
-        :message="error"
-        :show-retry="true"
-        @retry="refreshAll"
+    <!-- ══ Блоки рекомендаций ═════════════════════════════════ -->
+    <div class="rec-blocks">
+      <RecBlock
+        v-for="block in blocks"
+        :key="block.key"
+        :title="block.title"
+        :description="block.desc"
+        :icon="block.icon"
+        :anime="getFiltered(block.key)"
+        :loading="blockLoading[block.key]"
+        :has-view-all="!!block.route"
+        @view-all="goToViewAll(block)"
       />
-    </div>
-
-    <!-- Нет данных для рекомендаций -->
-    <div v-else-if="!hasUserData" class="empty-state">
-      <div class="empty-icon">📊</div>
-      <h3>Нужно больше данных</h3>
-      <p>Для персонализации рекомендаций нам нужно больше информации о ваших предпочтениях.</p>
-      <p>Начните добавлять аниме в коллекцию и оценивать понравившиеся!</p>
-      <button @click="goToCatalog" class="action-btn">Перейти в каталог</button>
-    </div>
-
-    <!-- Режим: Горизонтальные ленты -->
-    <div v-else-if="displaySettings.viewMode === 'horizontal'" class="horizontal-view">
-      <div v-for="type in availableTypes" :key="type" class="recommendation-row">
-        <div class="row-header">
-          <h3>{{ getTypeLabel(type) }}</h3>
-          <p>{{ getTypeDescription(type) }}</p>
-        </div>
-        
-        <div v-if="recommendations[type]?.length > 0" class="anime-scroller">
-          <AnimeCard
-            v-for="anime in recommendations[type]"
-            :key="anime.id"
-            :anime="anime as any"
-            @click="goToDetail(anime)"
-          />
-        </div>
-        <div v-else class="no-results">
-          Не удалось загрузить рекомендации
-        </div>
-      </div>
-    </div>
-
-    <!-- Режим: Сетка -->
-    <div v-else-if="displaySettings.viewMode === 'grid'" class="grid-view">
-      <div class="all-recommendations">
-        <div class="grid-header">
-          <h3>Все рекомендации</h3>
-          <span>{{ allRecommendations.length }} аниме</span>
-        </div>
-        <div class="anime-grid">
-          <AnimeCard
-            v-for="anime in allRecommendations"
-            :key="anime.id"
-            :anime="anime as any"
-            @click="goToDetail(anime)"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Режим: Только новинки -->
-    <div v-else-if="displaySettings.viewMode === 'new'" class="new-view">
-      <div class="section-header">
-        <h3>Новинки для вас</h3>
-        <p>Аниме за последние 2 года</p>
-      </div>
-      <div class="anime-grid">
-        <AnimeCard
-          v-for="anime in newAnime"
-          :key="anime.id"
-          :anime="anime as any"
-          @click="goToDetail(anime)"
-        />
-      </div>
-    </div>
-
-    <!-- Режим: Только классика -->
-    <div v-else-if="displaySettings.viewMode === 'classic'" class="classic-view">
-      <div class="section-header">
-        <h3>Классика жанра</h3>
-        <p>Легендарные аниме до 2010 года</p>
-      </div>
-      <div class="anime-grid">
-        <AnimeCard
-          v-for="anime in classicAnime"
-          :key="anime.id"
-          :anime="anime as any"
-          @click="goToDetail(anime)"
-        />
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import AnimeCard from '@/components/Cards/AnimeCard.vue'
-import { LoadingState, ErrorState } from '@/components/Info'
-import { useRecommendations, type RecommendationType, type RecommendationSettings, type DisplaySettings } from '@/composables/useRecommendations'
-import type { Anime } from '@/types'
+import apiClient from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+import RecBlock from '@/components/Cards/RecBlock.vue'
+import GenreFilter from '@/components/Cards/GenreFilter.vue'
 
-const router = useRouter()
+type BlockKey = 'top_rated' | 'new_season' | 'classics' | 'based_on_watched'
+  | 'explore_new' | 'short' | 'movies' | 'seasonal'
 
-const {
-  recommendations,
-  loading,
-  error,
-  hasUserData,
-  availableTypes,
-  settings,
-  displaySettings,
-  fetchRecommendations,
-  updateSettings,
-  updateDisplaySettings
-} = useRecommendations()
+interface Block { key: BlockKey; title: string; desc: string; icon: string; route?: string }
 
-// Локальное состояние UI
-const showSettingsPanel = ref(false)
-const localSettings = reactive<RecommendationSettings>({
-  includeAge: true,
-  preferLength: 'any',
-  preferYear: 'mixed',
-  riskLevel: 'balanced',
-  excludeWatched: true,
-  voicePriority: 'any'
-})
+const router    = useRouter()
+const authStore = useAuthStore()
 
-// Режимы отображения
-const viewModes = [
-  { value: 'horizontal' as const, label: 'Ленты', icon: '📊' },
-  { value: 'grid' as const, label: 'Сетка', icon: '⊞' },
-  { value: 'new' as const, label: 'Новинки', icon: '🆕' },
-  { value: 'classic' as const, label: 'Классика', icon: '🏆' }
+const blocks: Block[] = [
+  { key: 'top_rated',        title: 'Топ аниме',               desc: 'Лучшее по рейтингу сообщества',           icon: '🏆', route: '/anime?ordering=-score'              },
+  { key: 'new_season',       title: 'Новинки',                  desc: 'Аниме за последние 2 года',               icon: '🆕', route: '/anime?ordering=-year'               },
+  { key: 'based_on_watched', title: 'На основе просмотренного', desc: 'Похожее на то, что вы уже смотрели',      icon: '🎯'                                            },
+  { key: 'seasonal',         title: 'Сезонное',                 desc: 'Онгоинги текущего сезона',                icon: '🌸', route: '/anime?status=ongoing'               },
+  { key: 'classics',         title: 'Классика',                 desc: 'Легендарные тайтлы до 2010 года',         icon: '📜', route: '/anime?ordering=-score&year_to=2010' },
+  { key: 'explore_new',      title: 'Откройте новое',           desc: 'Случайные находки с рейтингом выше 7',    icon: '🔭'                                            },
+  { key: 'short',            title: 'Короткие аниме',           desc: 'До 13 серий — идеально для старта',       icon: '⚡'                                            },
+  { key: 'movies',           title: 'Полнометражные',           desc: 'Фильмы и OVA с высоким рейтингом',        icon: '🎬'                                            },
 ]
 
-// Вычисляемые свойства
-const allRecommendations = computed(() => {
-  const all: Anime[] = []
-  Object.values(recommendations.value).forEach(list => {
-    all.push(...list)
-  })
-  // Убираем дубликаты по id
-  const unique = new Map()
-  all.forEach(a => unique.set(a.id, a))
-  return Array.from(unique.values())
-})
+// ── Данные блоков ─────────────────────────────────────────
+const blockData:    Record<BlockKey, any[]>   = reactive({} as any)
+const blockLoading: Record<BlockKey, boolean> = reactive({} as any)
+blocks.forEach(b => { blockData[b.key] = []; blockLoading[b.key] = false })
 
-const newAnime = computed(() => {
-  const currentYear = new Date().getFullYear()
-  return allRecommendations.value.filter(a => a.year && a.year >= currentYear - 2)
-})
+// ── Жанры ─────────────────────────────────────────────────
+const selectedGenres = ref<string[]>([])
+const globalLoading  = computed(() => Object.values(blockLoading).some(Boolean))
 
-const classicAnime = computed(() => {
-  return allRecommendations.value.filter(a => a.year && a.year <= 2010)
-})
-
-// Методы
-const getTypeLabel = (type: RecommendationType): string => {
-  const labels: Record<RecommendationType, string> = {
-    watched: 'На основе просмотренного',
-    liked: 'Вам понравятся',
-    favorites: 'Похожее на избранное',
-    similar_users: 'Популярное у похожих',
-    new_genres: 'Откройте новое',
-    seasonal: 'Сезонные',
-    classic: 'Классика жанра',
-    last_watched: 'После ' + (useRecommendations().userAnimeData.value.lastWatched?.title_ru || 'просмотренного')
+// ── Нормализация жанров {id,name,slug} → string[] ─────────
+const toNames = (raw: any): string[] => {
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw.map((g: any) => typeof g === 'object' && g ? g.name : String(g)).filter(Boolean)
+  if (typeof raw === 'string') {
+    try {
+      const p = JSON.parse(raw)
+      return Array.isArray(p) ? p.map((g: any) => typeof g === 'object' && g ? g.name : String(g)).filter(Boolean) : [raw]
+    } catch { return raw.split(',').map((s: string) => s.trim()).filter(Boolean) }
   }
-  return labels[type]
+  return []
 }
 
-const getTypeDescription = (type: RecommendationType): string => {
-  const descriptions: Record<RecommendationType, string> = {
-    watched: 'Мы рекомендуем это на основе того, что вы смотрели',
-    liked: 'Аниме, похожее на то, что вы оценили высоко',
-    favorites: 'Потому что вам понравилось в избранном',
-    similar_users: 'То, что смотрят люди с похожими вкусами',
-    new_genres: 'Попробуйте жанры, которые вы ещё не смотрели',
-    seasonal: 'Сезонные новинки и онгоинги',
-    classic: 'Must-watch тайтлы в любимых жанрах',
-    last_watched: 'Похожее на последнее, что вы смотрели'
-  }
-  return descriptions[type]
-}
-
-const toggleSettingsPanel = () => {
-  showSettingsPanel.value = !showSettingsPanel.value
-}
-
-const applySettings = () => {
-  updateSettings(localSettings)
-}
-
-const setViewMode = (mode: DisplaySettings['viewMode']) => {
-  updateDisplaySettings({ viewMode: mode })
-}
-
-const refreshAll = () => {
-  fetchRecommendations()
-}
-
-const goToDetail = (anime: Anime) => {
-  router.push(`/anime/${anime.id}`)
-}
-
-const goToCatalog = () => {
-  router.push('/anime?section=catalog')
-}
-
-// Синхронизация настроек при загрузке
-onMounted(() => {
-  Object.assign(localSettings, settings.value)
+// ── Нормализация аниме ────────────────────────────────────
+const norm = (a: any) => ({
+  id:     a.id,
+  title:  a.title_ru || a.title_en || 'Без названия',
+  poster: a.poster_image_url || a.poster_url || a.poster || null,
+  year:   a.year,
+  score:  a.score ? parseFloat(a.score).toFixed(1) : null,
+  genres: toNames(a.genres),
+  status: a.status,
+  type:   a.kind || a.type,
 })
+
+// ── Клиентская фильтрация по выбранным жанрам ─────────────
+const getFiltered = (key: BlockKey) => {
+  const list = blockData[key] || []
+  if (!selectedGenres.value.length) return list
+  return list.filter((a: any) =>
+    selectedGenres.value.every(sg =>
+      (a.genres || []).some((g: string) => g.toLowerCase() === sg.toLowerCase())
+    )
+  )
+}
+
+// ── Загрузка одного блока ─────────────────────────────────
+const loadBlock = async (key: BlockKey, params: Record<string, any>) => {
+  blockLoading[key] = true
+  try {
+    const res = await apiClient.get('/anime/', { params: { page_size: 24, ordering: '-score', ...params } })
+    blockData[key] = (res.data.results || []).map(norm)
+  } catch (e) {
+    console.error(`[Recs] loadBlock ${key}:`, e)
+    blockData[key] = []
+  } finally {
+    blockLoading[key] = false
+  }
+}
+
+// ── Персональные рекомендации ─────────────────────────────
+const loadBasedOnWatched = async () => {
+  blockLoading['based_on_watched'] = true
+  try {
+    // Пробуем получить историю через users API
+    let pickedGenres = ''
+    try {
+      const libRes = await apiClient.get('/users/library/', { params: { page_size: 100 } })
+      const items: any[] = libRes.data?.results || libRes.data?.library || []
+      const genreMap: Record<string, number> = {}
+      items.forEach((it: any) => {
+        const genres = it.anime?.genres || it.genres || []
+        toNames(genres).forEach((g: string) => { genreMap[g] = (genreMap[g] || 0) + 1 })
+      })
+      const top = Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0])
+      pickedGenres = top.join(',')
+    } catch { /* не авторизован */ }
+
+    await loadBlock('based_on_watched',
+      pickedGenres
+        ? { genres: pickedGenres, ordering: '-score', score_from: 6 }
+        : { ordering: '-score', score_from: 7, year_from: new Date().getFullYear() - 5 }
+    )
+  } catch {
+    await loadBlock('based_on_watched', { ordering: '-score' })
+  }
+}
+
+// ── Загрузка всех блоков ──────────────────────────────────
+const loadAll = async () => {
+  const y = new Date().getFullYear()
+  await Promise.all([
+    // Топ — просто по рейтингу
+    loadBlock('top_rated',   { ordering: '-score' }),
+
+    // Новинки — за последние 2 года
+    loadBlock('new_season',  { ordering: '-year', year_from: y - 2 }),
+
+    // Классика — до 2010, рейтинг >= 7
+    loadBlock('classics',    { ordering: '-score', year_to: 2010, score_from: 7 }),
+
+    // Сезонное — онгоинги
+    loadBlock('seasonal',    { status: 'ongoing', ordering: '-score' }),
+
+    // Откройте новое — средний рейтинг, случайная страница
+    loadBlock('explore_new', { ordering: '-score', score_from: 6, page: Math.floor(Math.random() * 5) + 1 }),
+
+    // Короткие — episodes <= 13
+    loadBlock('short',       { ordering: '-score', episodes_to: 13 }),
+
+    // Полнометражные — тип movie/ova
+    loadBlock('movies',      { ordering: '-score', type: 'movie' }),
+
+    // На основе просмотренного
+    authStore.isAuthenticated ? loadBasedOnWatched() : loadBlock('based_on_watched', { ordering: '-score' }),
+  ])
+}
+
+const goToViewAll = (block: Block) => { if (block.route) router.push(block.route) }
+
+onMounted(() => { loadAll() })
 </script>
 
 <style scoped>
-.recommendations-view {
-  width: 100%;
-}
-
-.settings-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  background-color: var(--color-background-surface);
-  border-radius: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.view-modes {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.mode-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background-color: var(--color-background-active);
-  border: 1px solid var(--color-divider-light);
-  border-radius: 0.5rem;
-  font-size: 1.125rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.mode-btn:hover {
-  border-color: var(--color-accent);
-}
-
-.mode-btn.active {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
-.settings-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.settings-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--color-background-active);
-  border: 1px solid var(--color-divider-light);
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.settings-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
-.refresh-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background-color: var(--color-background-active);
-  border: 1px solid var(--color-divider-light);
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.settings-panel {
-  padding: 1.5rem;
-  background-color: var(--color-background-elevated);
-  border-radius: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.settings-panel h3 {
-  margin: 0 0 1rem;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.setting-group {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-divider);
-}
-
-.setting-group:last-child {
-  border-bottom: none;
-}
-
-.setting-group label {
-  font-size: 0.875rem;
-  color: var(--color-text);
-}
-
-.setting-group select {
-  padding: 0.5rem 0.75rem;
-  background-color: var(--color-background-surface);
-  border: 1px solid var(--color-divider);
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--color-text);
-}
-
-.toggle {
-  position: relative;
-  display: inline-block;
-  width: 48px;
-  height: 24px;
-}
-
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--color-divider);
-  transition: 0.3s;
-  border-radius: 24px;
-}
-
-.toggle-slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.3s;
-  border-radius: 50%;
-}
-
-.toggle input:checked + .toggle-slider {
-  background-color: var(--color-accent);
-}
-
-.toggle input:checked + .toggle-slider:before {
-  transform: translateX(24px);
-}
-
-.slide-enter-active,
-.slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.slide-enter-from,
-.slide-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
-
-.empty-state h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 0.5rem;
-}
-
-.empty-state p {
-  color: var(--color-text-secondary);
-  margin: 0.5rem 0;
-}
-
-.action-btn {
-  margin-top: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-accent);
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.action-btn:hover {
-  background-color: var(--color-accent-hover);
-}
-
-/* Горизонтальные ленты */
-.horizontal-view {
+/* ── Шапка ────────────────────────────────────────────────── */
+.rec-header {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+  padding: var(--space-5);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
 }
 
-.recommendation-row {
-  width: 100%;
-}
-
-.row-header {
-  margin-bottom: 1rem;
-}
-
-.row-header h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 0.25rem;
-}
-
-.row-header p {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.anime-scroller {
+.rec-header-row {
   display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  scroll-behavior: smooth;
-}
-
-.anime-scroller::-webkit-scrollbar {
-  height: 8px;
-}
-
-.anime-scroller::-webkit-scrollbar-track {
-  background: var(--color-background-surface);
-  border-radius: 4px;
-}
-
-.anime-scroller::-webkit-scrollbar-thumb {
-  background: var(--color-divider);
-  border-radius: 4px;
-}
-
-.anime-scroller::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-tertiary);
-}
-
-.no-results {
-  padding: 2rem;
-  text-align: center;
-  color: var(--color-text-secondary);
-  background-color: var(--color-background-surface);
-  border-radius: 0.5rem;
-}
-
-/* Сетка */
-.grid-view .grid-header {
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
-.grid-view .grid-header h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
+.rec-title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-1) 0;
+  letter-spacing: -0.02em;
 }
 
-.grid-view .grid-header span {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-}
+.rec-subtitle { font-size: var(--text-sm); color: var(--text-secondary); margin: 0; }
 
-.anime-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
+.rec-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-4);
+  background: var(--surface-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-base);
+  flex-shrink: 0;
 }
+.rec-refresh-btn:hover:not(:disabled) { background: var(--surface-5); color: var(--text-primary); }
+.rec-refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* Режимы new и classic */
-.new-view .section-header,
-.classic-view .section-header {
-  margin-bottom: 1.5rem;
-}
+/* ── Блоки ────────────────────────────────────────────────── */
+.rec-blocks { display: flex; flex-direction: column; }
 
-.new-view .section-header h3,
-.classic-view .section-header h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 0.25rem;
-}
-
-.new-view .section-header p,
-.classic-view .section-header p {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

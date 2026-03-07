@@ -46,11 +46,11 @@
             <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
         </button>
-        <button class="ov-more" @click.stop="openMenu" title="Ещё">
+        <!-- <button class="ov-more" @click.stop="openMenu" title="Ещё">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
           </svg>
-        </button>
+        </button> -->
       </div>
     </div>
 
@@ -489,43 +489,79 @@ const saveEdit = async () => {
 
 /* Оверлей */
 .poster-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  opacity: 0;
-  transition: opacity var(--duration-base);
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: var(--space-2) !important;
+  opacity: 0 !important;
+  transition: opacity 0.15s ease-out !important;
+  z-index: 100 !important;
+  pointer-events: none !important;
 }
 
-.lib-card:hover .poster-overlay { opacity: 1; }
+.lib-card:hover .poster-overlay {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
 
+/* Квадратные синие кнопки с анимацией распыления */
 .ov-play, .ov-more {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255,255,255,0.15);
-  backdrop-filter: blur(6px);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background var(--duration-base), transform var(--duration-base);
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: rgba(255,255,255,0.15) !important;
+  backdrop-filter: blur(6px) !important;
+  color: white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  transform: scale(0.6) !important;
+  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0) !important;
+}
+
+.lib-card:hover .ov-play,
+.lib-card:hover .ov-more {
+  transform: scale(1) !important;
+  box-shadow: 0 0 20px 3px rgba(124, 92, 252, 0.4) !important;
 }
 
 .ov-play {
-  width: 46px;
-  height: 46px;
-  background: var(--accent);
-  padding-left: 2px;
+  width: 64px !important;
+  height: 64px !important;
+  background: var(--accent) !important;
+  padding-left: 4px !important;
 }
 
-.ov-play:hover { background: var(--accent-hover); transform: scale(1.08); }
-.ov-more:hover { background: rgba(255,255,255,0.28); transform: scale(1.08); }
+.lib-card:hover .ov-play {
+  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5) !important;
+}
+
+.ov-play:hover { 
+  background: var(--accent-hover) !important;
+  transform: scale(1.2) !important;
+  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6) !important;
+}
+
+.ov-more:hover { 
+  background: rgba(255,255,255,0.28) !important;
+  transform: scale(1.15) !important;
+}
+
+.ov-play svg, .ov-more svg {
+  width: 24px;
+  height: 24px;
+}
 
 /* ═══ ИНФО ══════════════════════════════════════════════════ */
 .card-meta {
@@ -717,6 +753,7 @@ const saveEdit = async () => {
   color: var(--text-primary);
   margin: 0;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;

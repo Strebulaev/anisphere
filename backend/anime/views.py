@@ -13,8 +13,11 @@ from typing import List, Dict, Any
 import logging
 
 from users.models import UserLibrary
-from .models import Anime, Genre, Episode, Translation, WatchProgress, CustomDub
-from .serializers import AnimeSerializer, AnimeDetailSerializer, GenreSerializer
+from .models import Anime, Franchise, Genre, Episode, Translation, WatchProgress, CustomDub
+from .serializers import (
+    AnimeSerializer, AnimeDetailSerializer, GenreSerializer,
+    FranchiseSerializer, FranchiseDetailSerializer,
+)
 from .services.anime_parser_service import (
     AnimeParserService, VideoStreamingService, CacheService, AnimeUpdateService
 )
@@ -199,7 +202,7 @@ class AnimeViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Настройка queryset с оптимизацией"""
-        return Anime.objects.select_related()
+        return Anime.objects.select_related('franchise')
     
     def list(self, request, *args, **kwargs):
         """Список аниме с пагинацией и фильтрацией"""
@@ -229,42 +232,61 @@ class AnimeViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=status)
             print(f"After status filter count: {queryset.count()}")
         
-        # Фильтр по жанрам - для JSONField используем contains
-        genres = request.query_params.get('genres')
-        if genres:
-            print(f"Genres filter: {genres}")
-            genre_ids = [int(g) for g in genres.split(',') if g.strip().isdigit()]
-            print(f"Genre IDs: {genre_ids}")
-            # Получаем названия жанров по ID
-            genre_names = list(Genre.objects.filter(id__in=genre_ids).values_list('name', flat=True))
-            print(f"Genre names: {genre_names}")
-            
-            # Для JSONField используем contains для поиска элементов в массиве
+        # Фильтр по жанрам — поддержка как ID (через Genre), так и прямых строк
+        genres_param = request.query_params.get('genres')
+        if genres_param:
+            genre_values = [g.strip() for g in genres_param.split(',') if g.strip()]
+            genre_names = []
+            for val in genre_values:
+                if val.isdigit():
+                    name = Genre.objects.filter(id=int(val)).values_list('name', flat=True).first()
+                    if name:
+                        genre_names.append(name)
+                else:
+                    genre_names.append(val)
             if genre_names:
-                # Ищем аниме, у которых есть хотя бы один из выбранных жанров
-                for genre_name in genre_names:
-                    queryset = queryset.filter(genres__contains=genre_name)
-                # Убираем дубликаты после OR
-                queryset = queryset.distinct()
-                print(f"After genres filter count: {queryset.count()}")
+                from django.db.models import Q
+                genre_q = Q()
+                for gn in genre_names:
+                    genre_q |= Q(genres__icontains=gn)
+                queryset = queryset.filter(genre_q).distinct()
         
         # Фильтр по году
         year_from = request.query_params.get('year_from')
         year_to = request.query_params.get('year_to')
         if year_from:
-            print(f"Year from filter: {year_from}")
             queryset = queryset.filter(year__gte=int(year_from))
         if year_to:
-            print(f"Year to filter: {year_to}")
             queryset = queryset.filter(year__lte=int(year_to))
-        
+
+        # Фильтр по рейтингу
+        score_from = request.query_params.get('score_from')
+        score_to = request.query_params.get('score_to')
+        if score_from:
+            queryset = queryset.filter(score__gte=float(score_from))
+        if score_to:
+            queryset = queryset.filter(score__lte=float(score_to))
+
+        # Фильтр по эпизодам
+        episodes_from = request.query_params.get('episodes_from')
+        episodes_to = request.query_params.get('episodes_to')
+        if episodes_from:
+            queryset = queryset.filter(episodes__gte=int(episodes_from))
+        if episodes_to:
+            queryset = queryset.filter(episodes__lte=int(episodes_to), episodes__isnull=False)
+
+        # Фильтр по типу (kind)
+        type_param = request.query_params.get('type')
+        if type_param:
+            queryset = queryset.filter(kind=type_param)
+
         # Сортировка
         ordering = request.query_params.get('ordering', '-score')
         print(f"Ordering: {ordering}")
         queryset = queryset.order_by(ordering)
         
         # Пагинация
-        page_size = int(request.query_params.get('page_size', 20))
+        page_size = min(int(request.query_params.get('page_size', 20)), 500)  # макс. 500 записей за запрос
         page = int(request.query_params.get('page', 1))
         
         start = (page - 1) * page_size
@@ -288,12 +310,16 @@ class AnimeViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         """Получение детальной информации об аниме"""
         try:
-            anime = self.get_object()
+            anime = Anime.objects.select_related('franchise').get(pk=kwargs['pk'])
             serializer = AnimeDetailSerializer(anime)
             return Response(serializer.data)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            import traceback
             return Response({
-                'error': f'Ошибка получения аниме: {str(e)}'
+                'error': f'Ошибка получения аниме: {str(e)}',
+                'detail': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=True, methods=['get'])
@@ -626,6 +652,53 @@ class AnimeViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': f'Ошибка сохранения прогресса: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
+    """Франшизы — чтение и просмотр"""
+    queryset = Franchise.objects.prefetch_related('entries').all()
+    permission_classes = [permissions.AllowAny]
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return FranchiseDetailSerializer
+        return FranchiseSerializer
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+
+        search = request.query_params.get('search')
+        if search:
+            qs = qs.filter(name__icontains=search)
+
+        page_size = min(int(request.query_params.get('page_size', 20)), 200)
+        page      = int(request.query_params.get('page', 1))
+        start     = (page - 1) * page_size
+        end       = start + page_size
+        total     = qs.count()
+
+        serializer = FranchiseSerializer(qs[start:end], many=True)
+        return Response({
+            'results':     serializer.data,
+            'count':       total,
+            'page':        page,
+            'page_size':   page_size,
+            'total_pages': (total + page_size - 1) // page_size,
+        })
+
+    def retrieve(self, request, *args, **kwargs):
+        franchise = self.get_object()
+        # энтрии сортируем по порядку, потом по году
+        franchise._prefetched_objects_cache = {}
+        franchise.entries_sorted = franchise.entries.order_by('franchise_order', 'year')
+        serializer = FranchiseDetailSerializer(franchise)
+        data = serializer.data
+        # переписываем entries сортированными энтриями
+        from .serializers import FranchiseEntrySerializer
+        data['entries'] = FranchiseEntrySerializer(
+            franchise.entries.order_by('franchise_order', 'year'), many=True
+        ).data
+        return Response(data)
 
 
 class SearchAPIView(APIView):
@@ -1398,6 +1471,66 @@ class UserLibraryDetailView(APIView):
             return Response({
                 'error': f'Ошибка удаления: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RandomAnimeView(APIView):
+    """Возвращает случайное аниме из БД"""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        import random
+        try:
+            ids = list(Anime.objects.values_list('id', flat=True))
+            if not ids:
+                return Response({'error': 'Нет аниме'}, status=status.HTTP_404_NOT_FOUND)
+            random_id = random.choice(ids)
+            anime = Anime.objects.get(id=random_id)
+            serializer = AnimeSerializer(anime)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CurrentlyWatchingView(APIView):
+    """Возвращает аниме, которые сейчас смотрят (активность за последние 30 минут)"""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.db.models import Count
+        try:
+            cutoff = timezone.now() - timedelta(minutes=30)
+            # WatchProgress.аниме — прямой FK, last_watched — auto_now
+            active = (
+                WatchProgress.objects
+                .filter(last_watched__gte=cutoff)
+                .values('anime_id')
+                .annotate(viewers=Count('user', distinct=True))
+                .order_by('-viewers')
+            )
+            anime_ids = [r['anime_id'] for r in active]
+            viewers_map = {r['anime_id']: r['viewers'] for r in active}
+
+            if not anime_ids:
+                return Response({'results': [], 'count': 0})
+
+            animes = Anime.objects.filter(id__in=anime_ids)
+            animes_dict = {a.id: a for a in animes}
+
+            results = []
+            for aid in anime_ids:
+                a = animes_dict.get(aid)
+                if not a:
+                    continue
+                data = AnimeSerializer(a).data
+                data['viewers_count'] = viewers_map[aid]
+                results.append(data)
+
+            return Response({'results': results, 'count': len(results)})
+        except Exception as e:
+            import traceback
+            return Response({'error': str(e), 'detail': traceback.format_exc()}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class HomeAPIView(APIView):
