@@ -1,6 +1,13 @@
 import apiClient from './client'
 import type { ChatFolder, CreateFolderData, UpdateFolderData, FolderPreview, Chat } from '@/types/chat'
-import { animeDiscussionsApi, type AnimeDiscussionGroup } from './animeDiscussions'
+
+// Хелпер для получения полного URL медиа
+const getMediaUrl = (path: string | null | undefined): string => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://anisphere.ru'
+  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
+}
 
 export const chatFoldersApi = {
   async getAll(): Promise<ChatFolder[]> {
@@ -37,30 +44,55 @@ export const chatFoldersApi = {
   },
 
   async getPreview(id: number): Promise<FolderPreview> {
-    // Для папки обсуждений используем специальный API
+    // Для папки обсуждений загружаем из group-chats с фильтром по anime
     if (id === -4) {
-      const discussions = await animeDiscussionsApi.getUserJoinedDiscussions()
-      return {
-        folder_id: id,
-        chat_count: discussions.length,
-        unread_count: discussions.reduce((sum, d) => sum + 0, 0), // TODO: добавить unread_count
-        chats: discussions.map(d => ({
-          id: d.id,
-          type: 'group' as const,
-          name: d.name,
-          description: d.description,
-          avatar_url: d.avatar_url,
-          members_count: d.members_count,
+      try {
+        const response = await apiClient.get('/social/group-chats/')
+        const allChats = response.data.results || response.data
+        
+        // Фильтруем только чаты с аниме (обсуждения)
+        const discussionChats = allChats.filter((chat: any) => chat.anime_id || chat.anime_title)
+        
+        return {
+          folder_id: id,
+          chat_count: discussionChats.length,
+          unread_count: discussionChats.reduce((sum: number, d: any) => sum + (d.unread_count || 0), 0),
+          chats: discussionChats.map((d: any) => {
+            // Проверяем anime_poster на пустую строку, null и undefined
+            const animePoster = d.anime_poster
+            const hasAnimePoster = animePoster && typeof animePoster === 'string' && animePoster.trim() !== ''
+            
+            return {
+              id: d.id,
+              type: 'group' as const,
+              name: d.anime_title || d.name,
+              description: d.description,
+              avatar_url: hasAnimePoster ? getMediaUrl(animePoster) : d.avatar_url,
+              // Поля для групп обсуждений аниме
+              anime_id: d.anime_id,
+              anime_title: d.anime_title,
+              anime_poster: hasAnimePoster ? getMediaUrl(animePoster) : null,
+              members_count: d.members_count,
+              unread_count: d.unread_count || 0,
+              created_at: d.created_at,
+              updated_at: d.updated_at || d.created_at,
+              is_pinned: d.user_member_settings?.is_pinned || false,
+              is_archived: d.user_member_settings?.is_archived || false,
+              is_muted: d.user_member_settings?.is_muted || false,
+              members: d.members || [],
+              owner: d.created_by || { id: 0, username: '' },
+              is_public: d.is_public
+            } as Chat
+          })
+        }
+      } catch (error) {
+        console.error('Error loading discussions:', error)
+        return {
+          folder_id: id,
+          chat_count: 0,
           unread_count: 0,
-          created_at: d.created_at,
-          updated_at: d.created_at,
-          is_pinned: false,
-          is_archived: false,
-          is_muted: false,
-          members: [],
-          owner: { id: 0, username: '' },
-          is_public: d.is_public
-        })) as Chat[]
+          chats: []
+        }
       }
     }
 
@@ -69,26 +101,46 @@ export const chatFoldersApi = {
   },
 
   async getFolderChats(id: number): Promise<Chat[]> {
-    // Для папки обсуждений используем специальный API
+    // Для папки обсуждений загружаем из group-chats с фильтром по anime
     if (id === -4) {
-      const discussions = await animeDiscussionsApi.getUserJoinedDiscussions()
-      return discussions.map(d => ({
-        id: d.id,
-        type: 'group' as const,
-        name: d.name,
-        description: d.description,
-        avatar_url: d.avatar_url,
-        members_count: d.members_count,
-        unread_count: 0,
-        created_at: d.created_at,
-        updated_at: d.created_at,
-        is_pinned: false,
-        is_archived: false,
-        is_muted: false,
-        members: [],
-        owner: { id: 0, username: '' },
-        is_public: d.is_public
-      })) as Chat[]
+      try {
+        const response = await apiClient.get('/social/group-chats/')
+        const allChats = response.data.results || response.data
+        
+        // Фильтруем только чаты с аниме (обсуждения)
+        const discussionChats = allChats.filter((chat: any) => chat.anime_id || chat.anime_title)
+        
+        return discussionChats.map((d: any) => {
+          // Проверяем anime_poster на пустую строку, null и undefined
+          const animePoster = d.anime_poster
+          const hasAnimePoster = animePoster && typeof animePoster === 'string' && animePoster.trim() !== ''
+          
+          return {
+            id: d.id,
+            type: 'group' as const,
+            name: d.anime_title || d.name,
+            description: d.description,
+            avatar_url: hasAnimePoster ? getMediaUrl(animePoster) : d.avatar_url,
+            // Поля для групп обсуждений аниме
+            anime_id: d.anime_id,
+            anime_title: d.anime_title,
+            anime_poster: hasAnimePoster ? getMediaUrl(animePoster) : null,
+            members_count: d.members_count,
+            unread_count: d.unread_count || 0,
+            created_at: d.created_at,
+            updated_at: d.updated_at || d.created_at,
+            is_pinned: d.user_member_settings?.is_pinned || false,
+            is_archived: d.user_member_settings?.is_archived || false,
+            is_muted: d.user_member_settings?.is_muted || false,
+            members: d.members || [],
+            owner: d.created_by || { id: 0, username: '' },
+            is_public: d.is_public
+          } as Chat
+        })
+      } catch (error) {
+        console.error('Error loading folder chats:', error)
+        return []
+      }
     }
 
     const response = await apiClient.get(`/social/chat-folders/${id}/chats/`)

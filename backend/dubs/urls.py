@@ -6,6 +6,7 @@ router = DefaultRouter()
 router.register(r'groups', views.DubGroupViewSet, basename='dub-group')
 router.register(r'dubs', views.DubViewSet, basename='dub')
 router.register(r'actors', views.VoiceActorViewSet, basename='voice-actor')
+router.register(r'people', views.PersonViewSet, basename='person')
 
 urlpatterns = [
     path('', include(router.urls)),

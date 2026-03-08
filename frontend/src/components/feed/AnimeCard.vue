@@ -1,8 +1,8 @@
 <template>
   <div class="anime-card-row" @click="$emit('click')">
     <img
-      v-if="posterUrl"
-      :src="posterUrl"
+      v-if="posterImageUrl"
+      :src="posterImageUrl"
       :alt="titleRu"
       class="anime-card-poster"
       loading="lazy"
@@ -20,7 +20,10 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+import { getMediaUrl } from '@/api/client'
+
+const props = defineProps<{
   posterUrl?: string | null
   titleRu: string
   titleEn?: string | null
@@ -28,6 +31,11 @@ defineProps<{
 }>()
 
 defineEmits<{ click: [] }>()
+
+const posterImageUrl = computed(() => {
+  if (!props.posterUrl) return null
+  return getMediaUrl(props.posterUrl)
+})
 </script>
 
 <style scoped>

@@ -247,7 +247,12 @@ import MessageSearchModal from '@/components/modal/chats/MessageSearchModal.vue'
 import ForwardMessageModal from '@/components/modal/chats/ForwardMessageModal.vue'
 import ChatInviteModal from '@/components/modal/chats/ChatInviteModal.vue'
 import { chatsApi } from '@/api/chats'
-import apiClient from '@/api/client'
+import apiClient, { getMediaUrl } from '@/api/client'
+
+interface Props {
+  chatId?: number
+}
+const props = defineProps<Props>()
 
 const route = useRoute()
 const router = useRouter()
@@ -290,9 +295,13 @@ const popupPosition = ref({ x: 0, y: 0 })
 
 const reactionEmojis = ['👍', '❤️', '😢', '😮', '😡', '🎉', '🔥', '👀', '🙏']
 
-// Computed для получения ID чата - из route или из props
+// Computed для получения ID чата - из prop или route
 const currentChatId = computed(() => {
-  // Сначала пробуем из route
+  // Приоритет пропа, так как компонент может использоваться внутри ChatsView
+  if (props.chatId) {
+    return props.chatId
+  }
+  // Иначе берём из route
   const routeId = route.params.id
   if (routeId && routeId !== 'undefined') {
     return parseInt(routeId as string)
@@ -317,6 +326,10 @@ const chatName = computed(() => {
       || (chat.value.user1?.id === authStore.user?.id ? chat.value.user2 : chat.value.user1)
     return other?.display_name || other?.username || 'Личный чат'
   }
+  // Для групп обсуждений показываем название аниме
+  if (chat.value.type === 'group' && chat.value.anime_title) {
+    return chat.value.anime_title
+  }
   return chat.value.name || 'Групповой чат'
 })
 
@@ -326,6 +339,10 @@ const otherUser = computed(() => {
 })
 
 const chatAvatar = computed(() => {
+  // Если это группа обсуждения с аниме - используем постер аниме
+  if (chat.value?.type === 'group' && chat.value.anime_poster) {
+    return getMediaUrl(chat.value.anime_poster)
+  }
   if (chat.value?.type === 'private' && otherUser.value?.avatar) {
     return getAvatarUrl(otherUser.value.avatar)
   }
@@ -585,8 +602,8 @@ const handleTyping = () => {
 }
 
 const loadChat = async () => {
-  const chatId = route.params.id
-  if (!chatId || chatId === 'undefined') {
+  const chatId = currentChatId.value
+  if (!chatId) {
     console.warn('Нет chatId для загрузки чата')
     return
   }
@@ -900,36 +917,27 @@ const setupMessageObserver = () => {
 }
 
 onMounted(async () => {
-  // Закрытие контекстного меню при клике вне его
   document.addEventListener('click', closeContextMenu)
   
-  const chatId = route.params.id
-  if (chatId && chatId !== 'undefined') {
+  const chatId = currentChatId.value
+  if (chatId) {
     await loadChat()
     connectWebSocket()
     
-    // Отметить все сообщения как прочитанные при открытии чата
     try {
       const chatType = chat.value?.type
       const endpoint = chatType === 'private'
         ? `/social/private-chats/${chatId}/mark_as_read/`
         : `/social/group-chats/${chatId}/mark_as_read/`
-      
-      // Отправляем пустой запрос - сервер отметит все как прочитанные
       await apiClient.post(endpoint)
-      
     } catch (e) {
       console.error('Error marking all as read:', e)
     }
     
-    // Настроить observer для автоматического чтения при скролле
-    nextTick(() => {
-      setupMessageObserver()
-    })
+    nextTick(() => { setupMessageObserver() })
   }
   connectGlobalWebSocket()
   loadChatsList()
-  // Обновить непрочитанные сообщения
   chatExtrasStore.loadUnreadChats()
 })
 
@@ -948,7 +956,8 @@ onUnmounted(() => {
   readMessages.clear()
 })
 
-watch(() => route.params.id, async (newId, oldId) => {
+// Следим за изменением prop.chatId (ChatsView) или route.params.id
+watch(currentChatId, async (newId, oldId) => {
   if (newId && newId !== oldId) {
     disconnectWebSocket()
     messages.value = []
@@ -956,19 +965,14 @@ watch(() => route.params.id, async (newId, oldId) => {
     await loadChat()
     connectWebSocket()
     
-    // Отметить все сообщения как прочитанные при смене чата
-    if (newId && newId !== 'undefined') {
-      try {
-        const chatType = chat.value?.type
-        const endpoint = chatType === 'private'
-          ? `/social/private-chats/${newId}/mark_as_read/`
-          : `/social/group-chats/${newId}/mark_as_read/`
-        
-        await apiClient.post(endpoint)
-        
-      } catch (e) {
-        console.error('Error marking all as read:', e)
-      }
+    try {
+      const chatType = chat.value?.type
+      const endpoint = chatType === 'private'
+        ? `/social/private-chats/${newId}/mark_as_read/`
+        : `/social/group-chats/${newId}/mark_as_read/`
+      await apiClient.post(endpoint)
+    } catch (e) {
+      console.error('Error marking all as read:', e)
     }
   }
 })

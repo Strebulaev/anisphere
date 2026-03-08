@@ -196,6 +196,29 @@ class GlobalEventsConsumer(AsyncWebsocketConsumer):
         except json.JSONDecodeError:
             pass
     
+    async def notification_event(self, event):
+        """
+        Handle notification events sent via channel_layer.group_send().
+        NotificationService sends: {'type': 'notification_event', 'action': 'notification', 'notification': {...}}
+        """
+        try:
+            await self.send(text_data=json.dumps({
+                'action': event.get('action', 'notification'),
+                'notification': event.get('notification', {}),
+            }))
+        except Exception as e:
+            print(f"Error sending notification event: {e}")
+
+    async def chat_message(self, event):
+        """Forward chat messages from channel layer to WebSocket."""
+        try:
+            await self.send(text_data=json.dumps({
+                'action': 'new_message',
+                'message': event.get('message', {}),
+            }))
+        except Exception as e:
+            print(f"Error sending chat message: {e}")
+
     @database_sync_to_async
     def get_user_from_token(self, token):
         """Get user from JWT token"""

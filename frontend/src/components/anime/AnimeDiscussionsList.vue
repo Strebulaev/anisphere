@@ -26,7 +26,7 @@
         class="discussion-card"
       >
         <div class="discussion-poster">
-          <img v-if="discussion.anime_poster" :src="discussion.anime_poster" :alt="discussion.anime_title" />
+          <img v-if="discussion.anime_poster" :src="getPosterUrl(discussion.anime_poster)" :alt="discussion.anime_title" />
           <div v-else class="poster-placeholder">🎬</div>
         </div>
 
@@ -64,9 +64,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { animeDiscussionsApi } from '@/api/animeDiscussions'
+import { getMediaUrl } from '@/api/client'
 import type { AnimeDiscussionGroup } from '@/api/animeDiscussions'
 
 const router = useRouter()
@@ -74,6 +75,12 @@ const router = useRouter()
 const discussions = ref<AnimeDiscussionGroup[]>([])
 const loading = ref(false)
 const error = ref('')
+
+// Функция для получения URL постера
+const getPosterUrl = (poster: string | undefined | null): string | undefined => {
+  if (!poster) return undefined
+  return getMediaUrl(poster)
+}
 
 const loadDiscussions = async () => {
   loading.value = true

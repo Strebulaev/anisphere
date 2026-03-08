@@ -6,6 +6,8 @@
         :src="posterUrl"
         :alt="title"
         class="poster-image"
+        loading="lazy"
+        decoding="async"
         @error="handleImageError"
       />
       <div v-else class="poster-placeholder">

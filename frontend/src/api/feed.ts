@@ -65,14 +65,15 @@ export interface AnimeCard {
   id: number
   title_ru: string
   title_en?: string
-  poster_url?: string
+  poster_url?: string  // URL Shikimori (не использовать)
+  poster?: string | null  // Локальный путь к файлу (приоритетный)
 }
 
 export interface PlaylistCard {
   id: number
   title: string
   anime_count: number
-  anime?: AnimeCard[]
+  anime?: (AnimeCard & { poster?: string | null })[]
 }
 
 export interface ReactorCard {

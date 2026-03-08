@@ -602,6 +602,45 @@ class AnimeUpdate(models.Model):
         return f"{self.anime.title_ru} - {self.get_update_type_display()}"
 
 
+class UserEpisodeProgress(models.Model):
+    """Прогресс просмотра по каждой серии — основа системы отметок"""
+
+    STATUS_CHOICES = [
+        ('not_started', 'Не начато'),
+        ('in_progress', 'В процессе'),
+        ('watched',     'Просмотрено'),
+        ('skipped',     'Пропущено'),
+    ]
+
+    user          = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='episode_progress')
+    anime         = models.ForeignKey(Anime,   on_delete=models.CASCADE, related_name='episode_progress')
+    episode_number = models.PositiveIntegerField('Номер серии')
+
+    status            = models.CharField('Статус',         max_length=20, choices=STATUS_CHOICES, default='not_started')
+    last_position     = models.PositiveIntegerField('Позиция (сек)', default=0)
+    duration          = models.PositiveIntegerField('Длительность (сек)', null=True, blank=True)
+    is_manually_marked = models.BooleanField('Ручная отметка', default=False)
+
+    watched_at    = models.DateTimeField('Дата просмотра', null=True, blank=True)
+    last_watched  = models.DateTimeField('Последнее обновление', auto_now=True)
+    created_at    = models.DateTimeField('Создан', auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'anime', 'episode_number']
+        ordering = ['episode_number']
+        verbose_name = 'Прогресс серии'
+        verbose_name_plural = 'Прогресс серий'
+
+    def __str__(self):
+        return f'{self.user.username} | {self.anime.title_ru} ep{self.episode_number} — {self.status}'
+
+    @property
+    def progress_percent(self):
+        if self.duration and self.duration > 0:
+            return round(self.last_position / self.duration * 100, 1)
+        return 0
+
+
 class CustomDub(models.Model):
     """Пользовательская озвучка аниме"""
     MODERATION_STATUS_CHOICES = [

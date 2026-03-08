@@ -10,8 +10,9 @@ export interface Anime {
   title_ru: string
   title_en?: string
   title_jp?: string
-  poster_url?: string
+  poster?: string | null  // Локальный путь к файлу (приоритетный)
   poster_file?: string | null
+  poster_url?: string  // URL Shikimori (НЕ ИСПОЛЬЗОВАТЬ)
   poster_image_url?: string
   description?: string
   year?: number | null
@@ -237,6 +238,8 @@ export interface PlaylistItem {
   source_url: string
   episode?: number
   note?: string
+  anime_poster?: string
+  anime_poster_url?: string
 }
 
 export type { Chat } from './chat'

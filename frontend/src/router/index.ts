@@ -18,6 +18,7 @@ import CreatePlaylistView from '@/components/page/playlists/CreatePlaylistView.v
 import PublicPlaylistsView from '@/components/page/playlists/PublicPlaylistsView.vue'
 import FavoritesView from '@/components/page/other/FavoritesView.vue'
 import NotificationsView from '@/components/page/notifications/NotificationsView.vue'
+import NotificationSettingsView from '@/components/page/notifications/NotificationSettingsView.vue'
 import SettingsView from '@/components/page/settings/SettingsView.vue'
 import ReactorView from '@/components/page/feed/ReactorView.vue'
 import CompetitionsView from '@/components/page/admin/CompetitionsView.vue'
@@ -28,6 +29,8 @@ import KodikImport from '@/components/page/admin/KodikImport.vue'
 import UserLibraryView from '@/components/page/profile/UserLibraryView.vue'
 import OnlineUsers from '@/components/page/other/OnlineUsers.vue'
 import AchievementsView from '@/components/page/other/AchievementsView.vue'
+import PeopleView from '@/views/PeopleView.vue'
+import PeopleDetailView from '@/views/PeopleDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -201,6 +204,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/notifications/settings',
+      name: 'notification-settings',
+      component: NotificationSettingsView,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: SettingsView,
@@ -211,6 +220,17 @@ const router = createRouter({
       name: 'kodik-import',
       component: KodikImport,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/people',
+      name: 'people',
+      component: PeopleView
+    },
+    {
+      path: '/people/:id',
+      name: 'people-detail',
+      component: PeopleDetailView,
+      props: true
     }
   ]
 })

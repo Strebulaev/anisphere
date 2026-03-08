@@ -6,6 +6,7 @@ from .views import (
     KodikImportView, KodikFiltersView, KodikTranslationsView,
     CustomDubListView, CustomDubDetailView, HomeAPIView,
     RandomAnimeView, CurrentlyWatchingView,
+    EpisodeProgressView, EpisodeProgressUndoView,
 )
 
 router = DefaultRouter()
@@ -21,6 +22,10 @@ urlpatterns = [
     path('home/', HomeAPIView.as_view(), name='anime-home'),
     path('random/', RandomAnimeView.as_view(), name='anime-random'),
     path('currently-watching/', CurrentlyWatchingView.as_view(), name='anime-currently-watching'),
+
+    # Episode Progress System
+    path('<int:anime_id>/episode-progress/', EpisodeProgressView.as_view(), name='episode-progress'),
+    path('<int:anime_id>/episode-progress/<int:episode_number>/undo/', EpisodeProgressUndoView.as_view(), name='episode-progress-undo'),
 
     path('', include(router.urls)),
     

@@ -63,6 +63,10 @@ export interface GroupChat {
   description?: string
   avatar?: string
   avatar_url?: string
+  // Поля для группы обсуждения аниме
+  anime_id?: number | null
+  anime_title?: string | null
+  anime_poster?: string | null
   members_count: number
   members: GroupChatMember[]
   owner: User

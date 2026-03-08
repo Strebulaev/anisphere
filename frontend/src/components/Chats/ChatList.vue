@@ -166,6 +166,11 @@ type LocalChat = {
   type: 'private' | 'group'
   name: string
   avatar?: string | null
+  avatar_url?: string | null
+  // Поля для группы обсуждения аниме
+  anime_id?: number | null
+  anime_title?: string | null
+  anime_poster?: string | null
   lastMessage?: {
     text: string
     timestamp: string
@@ -212,6 +217,14 @@ const contextMenu = ref({
 })
 
 const chatListContent = ref<HTMLElement | null>(null)
+
+// Хелпер для получения полного URL медиа
+const getMediaUrl = (path: string): string => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://anisphere.ru'
+  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
+}
 
 // Computed
 const allChats = computed((): LocalChat[] => {
@@ -275,15 +288,27 @@ const allChats = computed((): LocalChat[] => {
 
   // Add group chats
   groupChatsList.value.forEach(groupChat => {
+    // Для групп обсуждений используем постер аниме (уже с полным URL)
+    // Проверяем на пустую строку, null и undefined
+    const animePoster = groupChat.anime_poster
+    const hasAnimePoster = animePoster && typeof animePoster === 'string' && animePoster.trim() !== ''
+    const displayAvatar = hasAnimePoster ? animePoster : (groupChat.avatar_url || undefined)
+    const displayName = groupChat.anime_title || groupChat.name
+    
     chats.push({
       id: groupChat.id,
       type: 'group',
-      name: groupChat.name,
-      avatar: groupChat.avatar_url || undefined,
+      name: displayName,
+      avatar: displayAvatar,
+      avatar_url: displayAvatar, // Дублируем для совместимости
+      // Поля для группы обсуждения аниме
+      anime_id: groupChat.anime_id || null,
+      anime_title: groupChat.anime_title || null,
+      anime_poster: animePoster || null,
       lastMessage: groupChat.last_message ? {
         text: groupChat.last_message.text,
         timestamp: groupChat.last_message.created_at,
-        sender: groupChat.last_message.sender.username
+        sender: groupChat.last_message.sender?.username || ''
       } : undefined,
       unreadCount: groupChat.unread_count || 0,
       isPinned: groupChat.user_member_settings?.is_pinned || false,
@@ -298,11 +323,24 @@ const allChats = computed((): LocalChat[] => {
     folderChats.value.forEach(folderChat => {
       // Check if already added
       if (!chats.find(c => c.id === folderChat.id)) {
+        // Для групп обсуждений используем постер аниме
+        // anime_poster уже содержит полный URL из chatFoldersApi
+        // Проверяем на пустую строку, null и undefined
+        const animePoster = folderChat.anime_poster
+        const hasAnimePoster = animePoster && typeof animePoster === 'string' && animePoster.trim() !== ''
+        const displayAvatar = hasAnimePoster ? animePoster : (folderChat.avatar_url || undefined)
+        const displayName = folderChat.anime_title || folderChat.name
+        
         chats.push({
           id: folderChat.id,
           type: 'group',
-          name: folderChat.name,
-          avatar: folderChat.avatar_url || undefined,
+          name: displayName,
+          avatar: displayAvatar,
+          avatar_url: displayAvatar, // Дублируем для совместимости
+          // Поля для группы обсуждения аниме
+          anime_id: folderChat.anime_id || null,
+          anime_title: folderChat.anime_title || null,
+          anime_poster: animePoster || null,
           lastMessage: folderChat.last_message ? {
             text: folderChat.last_message.text,
             timestamp: folderChat.last_message.created_at,
@@ -325,6 +363,14 @@ const loadGroupChats = async () => {
     loadingGroupChats.value = true
     const response = await apiClient.get('/social/group-chats/')
     groupChatsList.value = response.data.results || response.data
+    
+    // Debug: проверим, какие данные приходят для групп обсуждений
+    const discussionChats = (groupChatsList.value as any[]).filter(
+      (chat: any) => chat.anime_id || chat.anime_title
+    )
+    if (discussionChats.length > 0) {
+      console.log('DEBUG: Discussion chats from API:', discussionChats)
+    }
   } catch (error) {
     console.error('Error loading group chats:', error)
   } finally {
@@ -711,13 +757,18 @@ watch(searchQuery, () => {
 
 // Lifecycle
 onMounted(async () => {
-  // Load chats and folders
+  // Load chats and folders - всегда загружаем свежие данные
   await Promise.all([
     privateChatStore.loadChats(),
     loadGroupChats(),
     chatFoldersStore.loadFolders(),
     chatExtrasStore.loadUnreadChats()
   ])
+  
+  // Дополнительно загружаем папку обсуждений если она активна или нужно показать все чаты
+  if (chatFoldersStore.activeFolderId === -4 || !chatFoldersStore.activeFolderId) {
+    await loadFolderChats()
+  }
 })
 
 // Watch for folder changes to load folder chats

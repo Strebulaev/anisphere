@@ -13,7 +13,7 @@ from typing import List, Dict, Any
 import logging
 
 from users.models import UserLibrary
-from .models import Anime, Franchise, Genre, Episode, Translation, WatchProgress, CustomDub
+from .models import Anime, Franchise, Genre, Episode, Translation, WatchProgress, CustomDub, UserEpisodeProgress
 from .serializers import (
     AnimeSerializer, AnimeDetailSerializer, GenreSerializer,
     FranchiseSerializer, FranchiseDetailSerializer,
@@ -311,6 +311,34 @@ class AnimeViewSet(viewsets.ModelViewSet):
         """Получение детальной информации об аниме"""
         try:
             anime = Anime.objects.select_related('franchise').get(pk=kwargs['pk'])
+            
+            # Если скриншоты пустые и есть shikimori_id, загружаем из Kodik API
+            if not anime.screenshots and anime.shikimori_id:
+                try:
+                    KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
+                    KODIK_API_BASE = 'https://kodikapi.com'
+                    
+                    search_params = {
+                        'token': KODIK_API_TOKEN,
+                        'shikimori_id': anime.shikimori_id,
+                        'with_material_data': True,
+                        'limit': 1
+                    }
+                    
+                    response = requests.get(f'{KODIK_API_BASE}/search', params=search_params, timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        results = data.get('results', [])
+                        if results:
+                            result = results[0]
+                            kodik_screenshots = result.get('screenshots', [])
+                            if kodik_screenshots:
+                                anime.screenshots = kodik_screenshots
+                                anime.save(update_fields=['screenshots', 'updated_at'])
+                except Exception as e:
+                    # Не блокируем ошибку загрузки скриншотов
+                    print(f"Не удалось загрузить скриншоты из Kodik: {e}")
+            
             serializer = AnimeDetailSerializer(anime)
             return Response(serializer.data)
         except Anime.DoesNotExist:
@@ -1584,11 +1612,18 @@ class HomeAPIView(APIView):
             total_episodes = anime.episodes or 1
             progress_percent = min(100, int((item.current_episode / total_episodes) * 100)) if total_episodes else 0
             
+            # Используем локальный файл постера (приоритет) или URL
+            poster_url = None
+            if anime.poster:
+                poster_url = anime.poster.url
+            if not poster_url:
+                poster_url = anime.poster_url
+            
             result.append({
                 'anime_id': anime.id,
                 'title': anime.title_ru or anime.title_en or '',
                 'title_en': anime.title_en or '',
-                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
+                'poster': poster_url,
                 'current_episode': item.current_episode,
                 'total_episodes': anime.episodes,
                 'progress_percent': progress_percent,
@@ -1596,140 +1631,323 @@ class HomeAPIView(APIView):
             })
         
         return result
-    
+
     def _get_rewatch(self, user):
-        """Получение просмотренных аниме для пересмотра"""
+        """Получение аниме со статусом 'completed' для пересмотра"""
         from users.models import UserLibrary
-        
+
         library_items = UserLibrary.objects.filter(
             user=user,
             status='completed'
-        ).select_related('anime').order_by('-completed_at')[:15]
+        ).select_related('anime').order_by('-updated_at')[:10]
         
         result = []
         for item in library_items:
             anime = item.anime
             
+            # Используем локальный файл постера (приоритет) или URL
+            poster_url = None
+            if anime.poster:
+                poster_url = anime.poster.url
+            if not poster_url:
+                poster_url = anime.poster_url
+            
             result.append({
                 'anime_id': anime.id,
                 'title': anime.title_ru or anime.title_en or '',
                 'title_en': anime.title_en or '',
-                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
-                'completed_date': item.completed_at.strftime('%d.%m.%Y') if item.completed_at else None,
+                'poster': poster_url,
+                'completed_date': item.updated_at.isoformat() if item.updated_at else None,
                 'user_rating': item.rating
             })
         
         return result
-    
+
     def _get_recommendations(self, user):
-        """Получение рекомендаций на основе истории просмотров"""
-        from users.models import UserLibrary
-        
-        if user:
-            # Получаем жанры из просмотренных аниме
-            watched_anime = UserLibrary.objects.filter(
-                user=user,
-                status__in=['completed', 'started']
-            ).select_related('anime')
-            
-            # Собираем жанры
-            genre_counts = {}
-            watched_ids = []
-            
-            for item in watched_anime:
-                watched_ids.append(item.anime.id)
-                genres = item.anime.genres or []
-                for genre in genres:
-                    genre_counts[genre] = genre_counts.get(genre, 0) + 1
-            
-            # Сортируем жанры по частоте
-            top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-            top_genre_names = [g[0] for g in top_genres]
-            
-            if top_genre_names:
-                # Ищем аниме с похожими жанрами, которые пользователь НЕ смотрел
-                from django.db.models import Q
-                queryset = Anime.objects.filter(
-                    Q(status='finished') | Q(status='ongoing')
-                )
-                
-                # Исключаем уже просмотренные
-                if watched_ids:
-                    queryset = queryset.exclude(id__in=watched_ids)
-                
-                # Фильтруем по жанрам
-                for genre in top_genre_names[:3]:
-                    queryset = queryset.filter(genres__contains=genre)
-                
-                # Добавляем популярные аниме текущего сезона
-                queryset = queryset.order_by('-score', '-year')[:20]
-                
-                result = []
-                for anime in queryset:
-                    genres_list = anime.genres or []
-                    rating_count = int((anime.score or 0) * 1000)  # Приблизительное количество
-                    
-                    result.append({
-                        'anime_id': anime.id,
-                        'title': anime.title_ru or anime.title_en or '',
-                        'title_en': anime.title_en or '',
-                        'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
-                        'genres': genres_list[:3],
-                        'rating': anime.score,
-                        'rating_count': rating_count,
-                        'year': anime.year,
-                        'status': anime.status
-                    })
-                
-                # Если мало результатов, добираем популярными
-                if len(result) < 10:
-                    additional = Anime.objects.filter(
-                        Q(status='finished') | Q(status='ongoing')
-                    ).exclude(id__in=watched_ids).order_by('-score')[:15]
-                    
-                    existing_ids = [r['anime_id'] for r in result]
-                    for anime in additional:
-                        if anime.id not in existing_ids and len(result) < 15:
-                            result.append({
-                                'anime_id': anime.id,
-                                'title': anime.title_ru or anime.title_en or '',
-                                'title_en': anime.title_en or '',
-                                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
-                                'genres': (anime.genres or [])[:3],
-                                'rating': anime.score,
-                                'rating_count': int((anime.score or 0) * 1000),
-                                'year': anime.year,
-                                'status': anime.status
-                            })
-                
-                return result
-        
-        # Для нового пользователя или если нет истории - показываем популярное
-        return self._get_trending()
-    
-    def _get_trending(self):
-        """Получение популярного аниме за последнюю неделю"""
-        # Показываем топ аниме по рейтингу
-        anime_list = Anime.objects.filter(
-            Q(status='finished') | Q(status='ongoing')
-        ).order_by('-score', '-year')[:20]
+        """Получение рекомендаций на основе рейтинга"""
+        from anime.models import Anime
+
+        # Берем аниме с высоким рейтингом
+        animes = Anime.objects.filter(
+            score__gte=7.0,
+            status='finished'
+        ).order_by('-score')[:20]
         
         result = []
-        for anime in anime_list:
-            genres_list = anime.genres or []
-            rating_count = int((anime.score or 0) * 1000)
+        for anime in animes:
+            # Используем локальный файл постера (приоритет) или URL
+            poster_url = None
+            if anime.poster:
+                poster_url = anime.poster.url
+            if not poster_url:
+                poster_url = anime.poster_url
             
             result.append({
                 'anime_id': anime.id,
                 'title': anime.title_ru or anime.title_en or '',
                 'title_en': anime.title_en or '',
-                'poster': anime.poster_image_url if hasattr(anime, 'poster_image_url') else anime.poster_url,
-                'genres': genres_list[:3],
+                'poster': poster_url,
+                'genres': anime.genres or [],
                 'rating': anime.score,
-                'rating_count': rating_count,
+                'rating_count': getattr(anime, 'favorites', 0) or 0,
                 'year': anime.year,
-                'status': anime.status,
-                'weekly_views': rating_count  # Заглушка - в будущем добавить реальную статистику
+                'status': anime.status
             })
         
         return result
+
+    def _get_trending(self):
+        """Получение популярного (по рейтингу и количеству эпизодов)"""
+        from anime.models import Anime
+        
+        # Берем аниме по рейтингу
+        animes = Anime.objects.filter(
+            score__isnull=False
+        ).order_by('-score')[:20]
+        
+        result = []
+        for anime in animes:
+            # Используем локальный файл постера (приоритет) или URL
+            poster_url = None
+            if anime.poster:
+                poster_url = anime.poster.url
+            if not poster_url:
+                poster_url = anime.poster_url
+            
+            result.append({
+                'anime_id': anime.id,
+                'title': anime.title_ru or anime.title_en or '',
+                'title_en': anime.title_en or '',
+                'poster': poster_url,
+                'genres': anime.genres or [],
+                'rating': anime.score,
+                'year': anime.year,
+                'status': anime.status
+            })
+        
+        return result
+
+
+# ═══════════════════════════════════════════════════════════════
+# EPISODE PROGRESS SYSTEM
+# ═══════════════════════════════════════════════════════════════
+
+class EpisodeProgressView(APIView):
+    """
+    GET  /api/anime/{anime_id}/episode-progress/           — прогресс всех серий
+    POST /api/anime/{anime_id}/episode-progress/           — обновить прогресс серии
+    POST /api/anime/{anime_id}/episode-progress/bulk/      — булк-синхр (ползунок)
+    POST /api/anime/{anime_id}/episode-progress/mark/      — ручная отметка
+    POST /api/anime/{anime_id}/episode-progress/skip/      — пропустить серию
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    # ── Получить прогресс всех серий аниме ───────────────────
+    def get(self, request, anime_id):
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        rows = UserEpisodeProgress.objects.filter(user=request.user, anime=anime)
+        data = [
+            {
+                'episode_number':   r.episode_number,
+                'status':           r.status,
+                'last_position':    r.last_position,
+                'duration':         r.duration,
+                'progress_percent': r.progress_percent,
+                'is_manually_marked': r.is_manually_marked,
+                'watched_at':       r.watched_at.isoformat() if r.watched_at else None,
+            }
+            for r in rows
+        ]
+
+        watched_count = sum(1 for r in rows if r.status in ('watched', 'skipped'))
+        total = anime.episodes or 0
+
+        return Response({
+            'anime_id':     anime_id,
+            'total':        total,
+            'watched_count': watched_count,
+            'percent':      round(watched_count / total * 100) if total else 0,
+            'episodes':     data,
+        })
+
+    # ── Обновить позицию / статус серии (10-сек таймер) ─────
+    def post(self, request, anime_id):
+        episode_number = request.data.get('episode_number')
+        last_position  = request.data.get('last_position', 0)
+        duration       = request.data.get('duration')
+        action_type    = request.data.get('action', 'progress')  # progress | mark | skip | bulk
+
+        if action_type == 'bulk':
+            return self._bulk_sync(request, anime_id)
+        if action_type == 'mark':
+            return self._mark_watched(request, anime_id, episode_number, manual=True)
+        if action_type == 'skip':
+            return self._skip_episode(request, anime_id, episode_number)
+
+        # Стандартное обновление прогресса (10 сек)
+        if episode_number is None:
+            return Response({'error': 'Требуется episode_number'}, status=400)
+
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        ep, _ = UserEpisodeProgress.objects.get_or_create(
+            user=request.user, anime=anime, episode_number=episode_number,
+            defaults={'status': 'in_progress'}
+        )
+
+        # Не перезаписываем уже просмотренные
+        if ep.status not in ('watched', 'skipped'):
+            ep.last_position = int(last_position)
+            if duration:
+                ep.duration = int(duration)
+            # Автоотметка: 85%+ → watched
+            if ep.duration and ep.duration > 0:
+                pct = ep.last_position / ep.duration * 100
+                if pct >= 85:
+                    return self._mark_watched(request, anime_id, episode_number, instance=ep)
+            ep.status = 'in_progress'
+            ep.save(update_fields=['last_position', 'duration', 'status'])
+
+        return Response({
+            'episode_number':   ep.episode_number,
+            'status':           ep.status,
+            'last_position':    ep.last_position,
+            'progress_percent': ep.progress_percent,
+        })
+
+    # ── Отметить просмотренной ────────────────────────────────
+    def _mark_watched(self, request, anime_id, episode_number, manual=False, instance=None):
+        from django.utils import timezone
+        if episode_number is None:
+            return Response({'error': 'Требуется episode_number'}, status=400)
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        if instance is None:
+            instance, _ = UserEpisodeProgress.objects.get_or_create(
+                user=request.user, anime=anime, episode_number=episode_number
+            )
+
+        instance.status = 'watched'
+        instance.is_manually_marked = manual
+        instance.watched_at = timezone.now()
+        if instance.duration and not instance.last_position:
+            instance.last_position = instance.duration
+        instance.save()
+
+        # Обновляем UserLibrary
+        self._sync_library(request.user, anime)
+
+        return Response({
+            'episode_number':    instance.episode_number,
+            'status':            'watched',
+            'is_manually_marked': manual,
+            'auto_marked':       not manual,
+        })
+
+    # ── Пропустить серию ───────────────────────────────────
+    def _skip_episode(self, request, anime_id, episode_number):
+        if episode_number is None:
+            return Response({'error': 'Требуется episode_number'}, status=400)
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        ep, _ = UserEpisodeProgress.objects.get_or_create(
+            user=request.user, anime=anime, episode_number=episode_number
+        )
+        ep.status = 'skipped'
+        ep.is_manually_marked = True
+        ep.save(update_fields=['status', 'is_manually_marked'])
+        self._sync_library(request.user, anime)
+
+        return Response({'episode_number': episode_number, 'status': 'skipped'})
+
+    # ── Булк-синхр (ползунок "я смотрел до X серии") ────
+    def _bulk_sync(self, request, anime_id):
+        from django.utils import timezone
+        watched_up_to = request.data.get('watched_up_to')  # последняя просмотренная
+        reset         = request.data.get('reset', False)   # начать заново
+
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        if reset:
+            UserEpisodeProgress.objects.filter(user=request.user, anime=anime).delete()
+            self._sync_library(request.user, anime)
+            return Response({'reset': True, 'watched_count': 0})
+
+        if watched_up_to is None:
+            return Response({'error': 'Требуется watched_up_to'}, status=400)
+
+        total = int(watched_up_to)
+        now = timezone.now()
+        marked = 0
+        for ep_num in range(1, total + 1):
+            _, created = UserEpisodeProgress.objects.update_or_create(
+                user=request.user, anime=anime, episode_number=ep_num,
+                defaults={
+                    'status': 'watched',
+                    'is_manually_marked': True,
+                    'watched_at': now,
+                }
+            )
+            marked += 1
+
+        self._sync_library(request.user, anime)
+        return Response({'watched_count': marked, 'watched_up_to': total})
+
+    # ── Синх UserLibrary ───────────────────────────────────
+    def _sync_library(self, user, anime):
+        try:
+            watched = UserEpisodeProgress.objects.filter(
+                user=user, anime=anime, status__in=['watched', 'skipped']
+            ).count()
+            total = anime.episodes or 0
+            lib, _ = UserLibrary.objects.get_or_create(
+                user=user, anime=anime,
+                defaults={'status': 'started'}
+            )
+            if total and watched >= total:
+                lib.status = 'completed'
+            elif watched > 0:
+                lib.status = 'started'
+            lib.current_episode = UserEpisodeProgress.objects.filter(
+                user=user, anime=anime, status__in=['watched', 'skipped']
+            ).order_by('-episode_number').values_list('episode_number', flat=True).first() or 0
+            lib.save(update_fields=['status', 'current_episode', 'updated_at'])
+        except Exception as e:
+            logging.getLogger(__name__).warning('_sync_library error: %s', e)
+
+
+class EpisodeProgressUndoView(APIView):
+    """
+    POST /api/anime/{anime_id}/episode-progress/{ep}/undo/
+    Отменить отметку (кнопка Отменить в тосте)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, anime_id, episode_number):
+        try:
+            ep = UserEpisodeProgress.objects.get(
+                user=request.user, anime_id=anime_id, episode_number=episode_number
+            )
+            ep.status = 'in_progress'
+            ep.is_manually_marked = False
+            ep.watched_at = None
+            ep.save(update_fields=['status', 'is_manually_marked', 'watched_at'])
+            return Response({'episode_number': episode_number, 'status': 'in_progress', 'undone': True})
+        except UserEpisodeProgress.DoesNotExist:
+            return Response({'error': 'Запись не найдена'}, status=404)

@@ -148,7 +148,7 @@
         >
           <img
             v-if="anime.poster_url"
-            :src="anime.poster_url || undefined"
+            :src="getMediaUrl(anime.poster_url) || undefined"
             :alt="anime.title_ru || anime.title_en"
             class="anime-poster"
           />
@@ -182,6 +182,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { LoadingState, ErrorState, EmptyState } from '@/components/Info'
+import { getMediaUrl } from '@/api/client'
 import type { Anime } from '@/types'
 
 interface Props {

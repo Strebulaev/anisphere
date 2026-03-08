@@ -128,7 +128,7 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
     kodik_link = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
     kodik_id = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
     quality = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
-    screenshots = serializers.JSONField(read_only=True, allow_null=True)
+    screenshots = serializers.SerializerMethodField()
     seasons = serializers.JSONField(read_only=True, allow_null=True)
     last_season = serializers.IntegerField(read_only=True, allow_null=True)
     last_episode = serializers.IntegerField(read_only=True, allow_null=True)
@@ -183,6 +183,21 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
         # Если у аниме есть переводы из Kodik, возвращаем их
         translations_data = getattr(obj, 'translations', []) or []
         return translations_data
+
+    def get_screenshots(self, obj):
+        """Получение скриншотов в формате {url: string}"""
+        screenshots = getattr(obj, 'screenshots', []) or []
+        if not screenshots:
+            return []
+        
+        # Если скриншоты - массив строк, преобразуем в массив объектов
+        if isinstance(screenshots, list) and screenshots:
+            first = screenshots[0]
+            if isinstance(first, str):
+                return [{'url': url} for url in screenshots]
+        
+        # Если уже массив объектов, возвращаем как есть
+        return screenshots
 
     class Meta:
         model = Anime

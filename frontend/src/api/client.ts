@@ -15,7 +15,7 @@ if (!baseURL) {
 // Убираем возможные дублирования /api
 baseURL = baseURL.replace(/\/api\/api$/, '/api').replace(/\/\/$/, '/')
 
-console.log('✅ API Base URL:', baseURL)
+// console.log('✅ API Base URL:', baseURL)
 
 const apiClient: AxiosInstance = axios.create({
   baseURL,
@@ -42,17 +42,8 @@ export const getMediaUrl = (path: string | null | undefined): string | undefined
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
-  console.log('🔑 Request interceptor:', {
-    url: config.url,
-    method: config.method,
-    hasToken: !!token,
-    tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
-  })
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
-    console.log('✅ Authorization header set:', {
-      header: config.headers.Authorization?.substring(0, 30) + '...'
-    })
   } else {
     console.log('⚠️ No token found, request will be unauthenticated')
   }
@@ -78,7 +69,7 @@ apiClient.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token')
 
       if (refreshToken) {
-        console.log('🔄 Attempting token refresh...')
+        // console.log('🔄 Attempting token refresh...')
         try {
           const response = await axios.post(
             `${baseURL}/users/token/refresh/`,
@@ -87,7 +78,7 @@ apiClient.interceptors.response.use(
           const { access } = response.data
           localStorage.setItem('access_token', access)
           originalRequest.headers.Authorization = `Bearer ${access}`
-          console.log('✅ Token refreshed successfully')
+          // console.log('✅ Token refreshed successfully')
 
           return apiClient(originalRequest)
         } catch (refreshError) {

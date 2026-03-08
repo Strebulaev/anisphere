@@ -4,10 +4,11 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 
-from .models import DubGroup, Dub, VoiceActor
+from .models import DubGroup, Dub, VoiceActor, Person
 from .serializers import (
     DubGroupSerializer, DubSerializer,
-    VoiceActorSerializer, AnimeDubSerializer, CreateDubSerializer, UpdateDubSerializer
+    VoiceActorSerializer, AnimeDubSerializer, CreateDubSerializer, UpdateDubSerializer,
+    PersonSerializer, PersonDetailSerializer
 )
 from anime.models import Anime
 
@@ -178,3 +179,44 @@ def anime_dub_groups(request, anime_id):
         result.append(group_data)
 
     return Response(result)
+
+
+class PersonViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet для персон (сейю, режиссёры и т.д.)"""
+    
+    queryset = Person.objects.all().order_by('name')
+    serializer_class = PersonSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ['name', 'name_jp']
+    filterset_fields = ['roles']
+    
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return PersonDetailSerializer
+        return PersonSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Фильтрация по роли
+        role = self.request.query_params.get('role')
+        if role:
+            queryset = queryset.filter(roles__contains=[role])
+        
+        return queryset
+    
+    @action(detail=True, methods=['get'])
+    def anime(self, request, pk=None):
+        """Получить аниме с участием персоны"""
+        person = self.get_object()
+        anime_list = person.related_anime.all()
+        
+        # Пагинация
+        from anime.serializers import AnimeSerializer
+        page = self.paginate_queryset(anime_list)
+        if page is not None:
+            serializer = AnimeSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = AnimeSerializer(anime_list, many=True)
+        return Response(serializer.data)

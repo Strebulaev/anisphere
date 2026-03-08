@@ -1,6 +1,67 @@
 from django.db import models
 from django.utils.text import slugify
 from users.models import User
+from anime.models import Anime
+
+
+class Person(models.Model):
+    """Персона (сейю, режиссёр, автор и т.д.)"""
+    
+    ROLE_CHOICES = [
+        ('voice_actor', 'Сейю'),
+        ('director', 'Режиссёр'),
+        ('author', 'Автор оригинала'),
+        ('composer', 'Композитор'),
+        ('character', 'Персонаж'),
+    ]
+    
+    # Основная информация
+    name = models.CharField(max_length=200, verbose_name='Имя')
+    name_jp = models.CharField(max_length=200, blank=True, verbose_name='Имя (японское)')
+    slug = models.SlugField(max_length=200, unique=True)
+    description = models.TextField(blank=True, verbose_name='Биография')
+    
+    # Фото
+    photo_url = models.URLField(blank=True, verbose_name='URL фото')
+    photo_file = models.ImageField(upload_to='people/', null=True, blank=True, verbose_name='Фото')
+    
+    # Дата рождения
+    birth_date = models.DateField(null=True, blank=True, verbose_name='Дата рождения')
+    
+    # Роль (может быть несколько ролей)
+    roles = models.JSONField(default=list, verbose_name='Роли')
+    
+    # Статистика
+    works_count = models.IntegerField(default=0, verbose_name='Количество работ')
+    
+    # Связанное аниме (для персонажей)
+    related_anime = models.ManyToManyField(Anime, related_name='related_people', blank=True)
+    
+    # Время
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Персона'
+        verbose_name_plural = 'Персоны'
+        indexes = [
+            models.Index(fields=['slug']),
+            models.Index(fields=['name']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return self.name
+
+    def update_works_count(self):
+        """Обновление количества работ"""
+        self.works_count = self.anime_roles.count()
+        self.save()
 
 class DubGroup(models.Model):
     """Группа озвучки (студия)"""
@@ -56,7 +117,7 @@ class DubGroup(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
-    
+        
     def __str__(self):
         return self.name
     

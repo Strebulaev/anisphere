@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import DubGroup, Dub, VoiceActor, DubRole, DubLink
+from .models import DubGroup, Dub, VoiceActor, DubRole, DubLink, Person
 
 class DubGroupSerializer(serializers.ModelSerializer):
     """Сериализатор группы озвучки"""
@@ -256,3 +256,38 @@ class CreateDubSerializer(serializers.ModelSerializer):
             dub_data['created_by'] = user
         dub = Dub.objects.create(**dub_data)
         return dub
+
+
+class PersonSerializer(serializers.ModelSerializer):
+    """Сериализатор персоны"""
+    
+    roles_display = serializers.SerializerMethodField()
+    anime_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Person
+        fields = [
+            'id', 'name', 'name_jp', 'slug', 'description',
+            'photo_url', 'birth_date', 'roles', 'roles_display',
+            'works_count', 'anime_count', 'created_at'
+        ]
+    
+    def get_roles_display(self, obj):
+        return [dict(Person.ROLE_CHOICES).get(r, r) for r in obj.roles]
+    
+    def get_anime_count(self, obj):
+        return obj.works_count
+
+
+class PersonDetailSerializer(PersonSerializer):
+    """Детальный сериализатор персоны"""
+    
+    related_anime = serializers.SerializerMethodField()
+    
+    class Meta(PersonSerializer.Meta):
+        fields = PersonSerializer.Meta.fields + ['related_anime']
+    
+    def get_related_anime(self, obj):
+        from anime.serializers import AnimeSerializer
+        anime_list = obj.related_anime.all()[:10]
+        return AnimeSerializer(anime_list, many=True).data

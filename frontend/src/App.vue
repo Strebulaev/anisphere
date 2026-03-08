@@ -13,6 +13,9 @@
     
     <!-- Нижняя панель навигации (мобильная) -->
     <BottomNavigation />
+
+    <!-- Тост-уведомления (глобально) -->
+    <ToastContainer />
   </div>
 </template>
 
@@ -21,19 +24,27 @@ import { onMounted, computed } from 'vue'
 import NavBar from '@/components/Navigation/NavBar.vue'
 import SidebarNavigation from '@/components/Navigation/SidebarNavigation.vue'
 import BottomNavigation from '@/components/Navigation/BottomNavigation.vue'
+import ToastContainer from '@/components/Notifications/ToastContainer.vue'
 import { useSidebar } from '@/composables/useSidebar'
 import { useAuthStore } from '@/stores/auth'
 import { initGlobalWebSocket } from '@/composables/useGlobalWebSocket'
+import { useNotificationStore } from '@/stores/notifications'
+import { useReminderNotifier } from '@/composables/useReminderNotifier'
 
 const { isCollapsed } = useSidebar()
 const authStore = useAuthStore()
+const notifStore = useNotificationStore()
+
+// Запускаем нотифайер напоминаний (только если авторизован)
+if (authStore.isAuthenticated) {
+  useReminderNotifier()
+}
 
 onMounted(() => {
-  console.log('anisphere App mounted')
-  
-  // Инициализировать WebSocket после авторизации
   if (authStore.isAuthenticated) {
     initGlobalWebSocket()
+    notifStore.fetchNotifications()
+    notifStore.fetchReminders()
   }
 })
 </script>

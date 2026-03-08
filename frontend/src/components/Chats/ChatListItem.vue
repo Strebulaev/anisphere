@@ -9,7 +9,7 @@
       <!-- Avatar with status indicator -->
       <div class="relative mr-3">
         <img
-          :src="chat.avatar || '/default-avatar.png'"
+          :src="displayAvatar"
           :alt="chat.name"
           class="w-12 h-12 rounded-full object-cover"
         >
@@ -81,12 +81,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { StarIcon } from '@heroicons/vue/24/outline'
+import { getMediaUrl } from '@/api/client'
 
 interface Chat {
   id: number
   type: 'private' | 'group'
   name: string
   avatar?: string | null
+  avatar_url?: string | null
+  // Поля для группы обсуждения аниме
+  anime_id?: number | null
+  anime_title?: string | null
+  anime_poster?: string | null
   lastMessage?: {
     text: string
     timestamp: string
@@ -113,7 +119,30 @@ defineEmits<{
   contextmenu: [event: MouseEvent]
 }>()
 
-// Computed
+// Computed - используем постер аниме для групп обсуждений
+const displayAvatar = computed(() => {
+  // Если это группа обсуждения (есть anime_id или anime_title) - пробуем использовать постер аниме
+  if (props.chat.anime_id || props.chat.anime_title) {
+    // Пробуем anime_poster (проверяем на null, undefined и пустую строку)
+    const animePoster = props.chat.anime_poster
+    if (animePoster && typeof animePoster === 'string' && animePoster.trim() !== '') {
+      return getMediaUrl(animePoster)
+    }
+    // Также пробуем avatar_url который мог быть установлен как anime_poster
+    const avatarUrl = props.chat.avatar_url
+    if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
+      return getMediaUrl(avatarUrl)
+    }
+  }
+  
+  // Иначе используем обычную аватарку
+  const avatar = props.chat.avatar || props.chat.avatar_url
+  if (avatar && typeof avatar === 'string' && avatar.trim() !== '') {
+    return getMediaUrl(avatar)
+  }
+  return '/default-avatar.png'
+})
+
 const statusColor = computed(() => {
   switch (props.chat.status) {
     case 'online':

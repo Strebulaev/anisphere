@@ -265,6 +265,7 @@ const isActiveRoute = (path: string) => {
   cursor: pointer;
   transition: all var(--duration-base) var(--ease-out);
   flex-shrink: 0;
+  margin-left: -28px;  /* ← добавить эту строку */
 }
 
 .collapse-btn:hover {

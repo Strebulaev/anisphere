@@ -1,528 +1,505 @@
 <template>
-  <div class="notifications-dropdown" ref="dropdown">
-    <!-- Кнопка уведомлений -->
-    <button @click="toggleDropdown" class="notifications-btn">
-      <BellIcon class="w-6 h-6" />
-      <span v-if="unreadCount > 0" class="badge">{{ unreadCount }}</span>
+  <div class="notif-wrap" ref="wrapRef">
+
+    <!-- Кнопка колокольчик -->
+    <button class="bell-btn" @click="toggle">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span v-if="store.unreadCount > 0" class="bell-badge">
+        {{ store.unreadCount > 99 ? '99+' : store.unreadCount }}
+      </span>
     </button>
 
-    <!-- Выпадающее меню -->
-    <div v-if="isOpen" class="dropdown-menu">
-      <div class="dropdown-header">
-        <h3>Уведомления</h3>
-        <button @click="markAllAsRead" class="mark-all-btn">
-          Всё прочитано
-        </button>
-      </div>
+    <!-- Дропдаун -->
+    <Transition name="dropdown">
+      <div v-if="open" class="dropdown">
 
-      <!-- Табы -->
-      <div class="tabs">
-        <button
-          @click="activeTab = 'all'"
-          :class="['tab-btn', { active: activeTab === 'all' }]"
-        >
-          Все
-        </button>
-        <button
-          @click="activeTab = 'unread'"
-          :class="['tab-btn', { active: activeTab === 'unread' }]"
-        >
-          Непрочитанные
-          <span v-if="unreadCount > 0" class="badge">{{ unreadCount }}</span>
-        </button>
-      </div>
-
-      <!-- Список уведомлений -->
-      <div class="notifications-list">
-        <div v-if="loading" class="loading">
-          <LoadingSpinner />
-        </div>
-
-        <div v-else-if="filteredNotifications.length === 0" class="empty">
-          <p>{{ activeTab === 'unread' ? 'Нет непрочитанных' : 'Нет уведомлений' }}</p>
-        </div>
-
-        <div v-else class="notifications-scroll">
-          <div
-            v-for="notification in filteredNotifications"
-            :key="notification.id"
-            :class="['notification-item', { unread: !notification.is_read }]"
-            @click="handleNotificationClick(notification)"
-          >
-            <div class="notification-icon" :style="{ background: getNotificationColor(notification.notification_type) }">
-              {{ getNotificationIcon(notification.notification_type) }}
-            </div>
-            <div class="notification-content">
-              <p class="notification-title">{{ notification.title }}</p>
-              <p class="notification-text">{{ notification.content }}</p>
-              <span class="notification-time">{{ formatTime(notification.created_at) }}</span>
-            </div>
-            <button @click.stop="deleteNotification(notification.id)" class="btn-delete">
-              <XMarkIcon class="w-4 h-4" />
+        <!-- Хедер -->
+        <div class="dh">
+          <span class="dh-title">Уведомления</span>
+          <div class="dh-actions">
+            <button class="dh-btn" @click="store.markAllRead()" title="Все прочитано">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Прочитать все
             </button>
           </div>
         </div>
 
-        <div v-if="hasMore" class="load-more">
-          <button @click="loadMore" :disabled="loadingMore" class="load-more-btn">
-            {{ loadingMore ? 'Загрузка...' : 'Загрузить ещё' }}
+        <!-- Табы -->
+        <div class="tabs">
+          <button
+            v-for="t in tabs" :key="t.key"
+            :class="['tab', { active: activeTab === t.key }]"
+            @click="activeTab = t.key"
+          >
+            {{ t.label }}
+            <span v-if="t.key === 'unread' && store.unreadCount > 0" class="tab-badge">
+              {{ store.unreadCount }}
+            </span>
           </button>
         </div>
-      </div>
 
-      <div class="dropdown-footer">
-        <router-link to="/notifications" @click="closeDropdown" class="view-all-link">
-          Все уведомления
+        <!-- Список -->
+        <div class="list">
+          <div v-if="store.loading" class="list-empty">
+            <div class="spinner" />
+          </div>
+
+          <template v-else-if="shownItems.length > 0">
+            <!-- Напоминания (только на вкладке "все") -->
+            <template v-if="activeTab === 'all' && store.upcomingReminders.length > 0">
+              <div class="section-label">⏰ Напоминания</div>
+              <div
+                v-for="r in store.upcomingReminders"
+                :key="`rem-${r.id}`"
+                class="notif-item reminder-item"
+                @click="goToAnime(r)"
+              >
+                <div class="notif-icon" style="background: rgba(245,158,11,0.2); color: #f59e0b;">⏰</div>
+                <div class="notif-body">
+                  <p class="notif-title">Напоминание о просмотре</p>
+                  <p class="notif-text">
+                    {{ r.anime_detail?.title_ru || 'Аниме' }}
+                    <span v-if="r.comment"> — {{ r.comment }}</span>
+                  </p>
+                  <span class="notif-time">{{ formatTime(r.reminder_time) }}</span>
+                </div>
+                <button class="notif-del" @click.stop="store.deactivateReminder(r.id)" title="Отклонить">✕</button>
+              </div>
+              <div class="section-label">🔔 Новые</div>
+            </template>
+
+            <!-- Обычные уведомления -->
+            <div
+              v-for="n in filteredNotifications"
+              :key="n.id"
+              :class="['notif-item', { unread: !n.is_read }]"
+              @click="handleClick(n)"
+            >
+              <div class="notif-icon" :style="iconStyle(n.type)">{{ getIcon(n.type) }}</div>
+              <div class="notif-body">
+                <p class="notif-title">{{ n.title }}</p>
+                <p class="notif-text">{{ n.content }}</p>
+                <span class="notif-time">{{ formatTime(n.created_at) }}</span>
+              </div>
+              <button class="notif-del" @click.stop="store.deleteNotification(n.id)" title="Удалить">✕</button>
+            </div>
+          </template>
+
+          <div v-else class="list-empty">
+            <span>{{ activeTab === 'unread' ? 'Нет непрочитанных' : 'Нет уведомлений' }}</span>
+          </div>
+        </div>
+
+        <!-- Футер -->
+        <router-link to="/notifications" class="dfoot" @click="open = false">
+          Все уведомления →
         </router-link>
+
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { BellIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import api from '@/api'
+import { useNotificationStore } from '@/stores/notifications'
+import type { Notification, Reminder } from '@/stores/notifications'
 
+const store  = useNotificationStore()
 const router = useRouter()
 
-const isOpen = ref(false)
-const loading = ref(false)
-const loadingMore = ref(false)
-const notifications = ref([])
-const activeTab = ref('all')
-const page = ref(1)
-const hasMore = ref(true)
-const dropdown = ref(null)
+const open      = ref(false)
+const wrapRef   = ref<HTMLElement | null>(null)
+const activeTab = ref<'all' | 'unread'>('all')
 
-const unreadCount = computed(() => {
-  return notifications.value.filter(n => !n.is_read).length
-})
+const tabs: { key: 'all' | 'unread'; label: string }[] = [
+  { key: 'all',    label: 'Все' },
+  { key: 'unread', label: 'Непрочитанные' },
+]
 
-const filteredNotifications = computed(() => {
-  if (activeTab.value === 'unread') {
-    return notifications.value.filter(n => !n.is_read)
-  }
-  return notifications.value
-})
+// Объединяем уведомления и напоминания для счётчика "показываемых"
+const filteredNotifications = computed(() =>
+  activeTab.value === 'unread'
+    ? store.notifications.filter(n => !n.is_read)
+    : store.notifications
+)
 
-const toggleDropdown = () => {
-  isOpen.value = !isOpen.value
-  if (isOpen.value && notifications.value.length === 0) {
-    loadNotifications()
-  }
-}
+const shownItems = computed(() => [
+  ...store.upcomingReminders,
+  ...filteredNotifications.value,
+])
 
-const closeDropdown = () => {
-  isOpen.value = false
-}
-
-const loadNotifications = async () => {
-  loading.value = true
-  try {
-    const response = await api.get('/notifications/', {
-      params: { page: page.value, page_size: 10 }
-    })
-    notifications.value = response.data.results || response.data
-    hasMore.value = response.data.next !== null
-  } catch (error) {
-    console.error('Ошибка загрузки уведомлений:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadMore = async () => {
-  if (loadingMore.value || !hasMore.value) return
-
-  loadingMore.value = true
-  page.value++
-
-  try {
-    const response = await api.get('/notifications/', {
-      params: { page: page.value, page_size: 10 }
-    })
-    notifications.value.push(...(response.data.results || response.data))
-    hasMore.value = response.data.next !== null
-  } catch (error) {
-    console.error('Ошибка загрузки уведомлений:', error)
-  } finally {
-    loadingMore.value = false
-  }
-}
-
-const markAsRead = async (notification) => {
-  if (notification.is_read) return
-
-  try {
-    await api.patch(`/notifications/${notification.id}/`, { is_read: true })
-    notification.is_read = true
-  } catch (error) {
-    console.error('Ошибка отметки прочитанным:', error)
-  }
-}
-
-const markAllAsRead = async () => {
-  try {
-    await api.post('/notifications/mark-all-read/')
-    notifications.value.forEach(n => n.is_read = true)
-  } catch (error) {
-    console.error('Ошибка отметки всех прочитанными:', error)
-  }
-}
-
-const deleteNotification = async (id) => {
-  try {
-    await api.delete(`/notifications/${id}/`)
-    notifications.value = notifications.value.filter(n => n.id !== id)
-  } catch (error) {
-    console.error('Ошибка удаления уведомления:', error)
-  }
-}
-
-const handleNotificationClick = async (notification) => {
-  await markAsRead(notification)
-
-  // Переход по ссылке если указана
-  if (notification.link) {
-    router.push(notification.link)
-  } else if (notification.content_type && notification.object_id) {
-    // Переход к объекту
-    const typeRoutes = {
-      post: `/posts/${notification.object_id}`,
-      comment: `/posts/${notification.post_id}`,
-      follow: `/profile/${notification.actor_id}`,
-      like: `/posts/${notification.object_id}`,
+const toggle = () => {
+  open.value = !open.value
+  if (open.value) {
+    // Загружаем уведомления, если пусто
+    if (store.notifications.length === 0) {
+      store.fetchNotifications()
     }
-    const route = typeRoutes[notification.content_type]
-    if (route) router.push(route)
-  }
-
-  closeDropdown()
-}
-
-const getNotificationIcon = (type) => {
-  const icons = {
-    like: '❤️',
-    dislike: '👎',
-    comment: '💬',
-    mention: '@',
-    follow: '👥',
-    repost: '🔁',
-    message: '✉️',
-    group_message: '👥',
-    achievement: '🏆',
-    contest: '🏅',
-    system: '⚙️',
-  }
-  return icons[type] || '🔔'
-}
-
-const getNotificationColor = (type) => {
-  const colors = {
-    like: '#f44336',
-    dislike: '#9e9e9e',
-    comment: '#2196f3',
-    mention: '#ff9800',
-    follow: '#4caf50',
-    repost: '#9c27b0',
-    message: '#00bcd4',
-    group_message: '#795548',
-    achievement: '#ffc107',
-    contest: '#e91e63',
-    system: '#607d8b',
-  }
-  return colors[type] || '#667eea'
-}
-
-const formatTime = (date) => {
-  const now = new Date()
-  const notifDate = new Date(date)
-  const diff = Math.floor((now - notifDate) / 1000)
-
-  if (diff < 60) return 'только что'
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин. назад`
-  if (diff < 86400) return `${Math.floor(diff / 3600)} ч. назад`
-  if (diff < 604800) return `${Math.floor(diff / 86400)} дн. назад`
-  return notifDate.toLocaleDateString('ru-RU')
-}
-
-// Закрываем при клике вне компонента
-const handleClickOutside = (e) => {
-  if (dropdown.value && !dropdown.value.contains(e.target)) {
-    closeDropdown()
+    // Загружаем напоминания, если пусто
+    if (store.reminders.length === 0) {
+      store.fetchReminders()
+    }
   }
 }
+
+const handleClick = async (n: Notification) => {
+  if (!n.is_read) await store.markRead(n.id)
+  open.value = false
+}
+
+const goToAnime = (r: Reminder) => {
+  if (r.anime_detail?.id) router.push(`/anime/${r.anime_detail.id}`)
+  open.value = false
+}
+
+// ── Форматирование времени (без "Invalid Date") ──────────
+const formatTime = (raw: string | null | undefined): string => {
+  if (!raw) return ''
+  // Нормализуем строку: добавляем Z если нет timezone
+  const normalized = raw.includes('Z') || raw.includes('+') || raw.includes('-', 10)
+    ? raw
+    : raw + 'Z'
+  const date = new Date(normalized)
+  if (isNaN(date.getTime())) return raw
+
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (diff < 60)       return 'только что'
+  if (diff < 3600)     return `${Math.floor(diff / 60)} мин. назад`
+  if (diff < 86400)    return `${Math.floor(diff / 3600)} ч. назад`
+  if (diff < 604800)   return `${Math.floor(diff / 86400)} дн. назад`
+  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
+
+// ── Иконки и цвета ───────────────────────────────────────
+const ICONS: Record<string, string> = {
+  like: '❤️', dislike: '👎', comment: '💬', mention: '@',
+  follow: '👥', repost: '🔁', message: '✉️', group_message: '👥',
+  achievement: '🏆', contest: '🏅', system: '⚙️', group_invite: '📨',
+}
+const COLORS: Record<string, string> = {
+  like: 'rgba(244,67,54,0.2)', dislike: 'rgba(158,158,158,0.2)',
+  comment: 'rgba(33,150,243,0.2)', mention: 'rgba(255,152,0,0.2)',
+  follow: 'rgba(76,175,80,0.2)', repost: 'rgba(156,39,176,0.2)',
+  message: 'rgba(0,188,212,0.2)', achievement: 'rgba(255,193,7,0.2)',
+  system: 'rgba(96,125,139,0.2)',
+}
+const TEXT_COLORS: Record<string, string> = {
+  like: '#f44336', dislike: '#9e9e9e', comment: '#2196f3', mention: '#ff9800',
+  follow: '#4caf50', repost: '#9c27b0', message: '#00bcd4',
+  achievement: '#ffc107', system: '#607d8b',
+}
+
+const getIcon  = (type: string) => ICONS[type] || '🔔'
+const iconStyle = (type: string) => ({
+  background: COLORS[type] || 'rgba(102,126,234,0.2)',
+  color: TEXT_COLORS[type] || '#667eea',
+})
+
+// ── Клик вне компонента ──────────────────────────────────
+const onOutsideClick = (e: MouseEvent) => {
+  if (wrapRef.value && !wrapRef.value.contains(e.target as Node)) {
+    open.value = false
+  }
+}
+
+// ── Polling напоминаний каждые 60 сек ────────────────────
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
+  document.addEventListener('click', onOutsideClick)
+  store.fetchNotifications()
+  store.fetchReminders()
+  pollTimer = setInterval(() => {
+    store.fetchNotifications()
+    store.fetchReminders()
+  }, 60_000)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', onOutsideClick)
+  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 
 <style scoped>
-.notifications-dropdown {
-  position: relative;
-}
+.notif-wrap { position: relative; }
 
-.notifications-btn {
+/* Кнопка */
+.bell-btn {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 50%;
+  border-radius: 10px;
   cursor: pointer;
-  color: #666;
-  transition: all 0.3s;
+  color: var(--color-text-secondary, #9ca3af);
+  transition: all .2s;
+}
+.bell-btn:hover {
+  background: rgba(255,255,255,0.07);
+  color: #fff;
 }
 
-.notifications-btn:hover {
-  background: #f5f5f5;
-  color: #667eea;
-}
-
-.badge {
+.bell-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  background: #f44336;
-  color: white;
-  font-size: 11px;
-  font-weight: bold;
+  top: 3px; right: 3px;
+  min-width: 17px; height: 17px;
+  padding: 0 4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
   border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
 }
 
-.dropdown-menu {
+/* Дропдаун */
+.dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   right: 0;
   width: 380px;
-  max-height: 500px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  margin-top: 8px;
+  max-height: 540px;
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   overflow: hidden;
-  z-index: 1000;
-}
-
-.dropdown-header {
+  z-index: 9000;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+}
+
+/* Хедер */
+.dh {
+  display: flex;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  justify-content: space-between;
+  padding: 1rem 1.125rem 0.75rem;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
-
-.dropdown-header h3 {
-  margin: 0;
-  font-size: 16px;
+.dh-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
 }
-
-.mark-all-btn {
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  color: #667eea;
-  font-size: 13px;
+.dh-actions { display: flex; gap: .5rem; }
+.dh-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: .3rem .7rem;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #9ca3af;
+  font-size: .75rem;
   cursor: pointer;
-  transition: color 0.3s;
+  transition: all .15s;
 }
+.dh-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-.mark-all-btn:hover {
-  color: #5568d3;
-}
-
+/* Табы */
 .tabs {
   display: flex;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
-
-.tab-btn {
+.tab {
   flex: 1;
-  padding: 12px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.tab-btn:hover {
-  background: #f9f9f9;
-}
-
-.tab-btn.active {
-  color: #667eea;
-  border-bottom: 2px solid #667eea;
-}
-
-.notifications-list {
-  max-height: 350px;
-  overflow-y: auto;
-}
-
-.loading,
-.empty {
-  padding: 40px 20px;
-  text-align: center;
-  color: #999;
-}
-
-.notifications-scroll {
-  max-height: 350px;
-  overflow-y: auto;
-}
-
-.notification-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.3s;
-  position: relative;
-}
-
-.notification-item:hover {
-  background: #f9f9f9;
-}
-
-.notification-item.unread {
-  background: #f0f7ff;
-}
-
-.notification-item.unread::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: #667eea;
-}
-
-.notification-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  color: white;
+  gap: .4rem;
+  padding: .6rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: all .15s;
+  border-bottom: 2px solid transparent;
+}
+.tab:hover { color: #d1d5db; }
+.tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+
+.tab-badge {
+  padding: 1px 6px;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 8px;
+  font-size: .7rem;
+  font-weight: 700;
 }
 
-.notification-content {
+/* Список */
+.list {
   flex: 1;
-  min-width: 0;
+  overflow-y: auto;
+  min-height: 80px;
+  max-height: 400px;
+}
+.list::-webkit-scrollbar { width: 3px; }
+.list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.list-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-size: .875rem;
 }
 
-.notification-title {
-  margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: 500;
+.spinner {
+  width: 24px; height: 24px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Метки секций */
+.section-label {
+  padding: .4rem 1rem;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #4b5563;
+  font-weight: 600;
+  background: rgba(255,255,255,0.02);
 }
 
-.notification-text {
-  margin: 0 0 4px;
-  font-size: 13px;
-  color: #666;
+/* Строка уведомления */
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: .75rem 1rem;
+  cursor: pointer;
+  position: relative;
+  transition: background .15s;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: rgba(255,255,255,0.04); }
+
+.notif-item.unread {
+  background: rgba(59,130,246,0.06);
+}
+.notif-item.unread::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: #3b82f6;
+  border-radius: 0 2px 2px 0;
+}
+
+.reminder-item { background: rgba(245,158,11,0.04); }
+.reminder-item:hover { background: rgba(245,158,11,0.08); }
+
+/* Иконка */
+.notif-icon {
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+/* Тело */
+.notif-body { flex: 1; min-width: 0; }
+
+.notif-title {
+  margin: 0 0 2px;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-text {
+  margin: 0 0 3px;
+  font-size: .8rem;
+  color: #6b7280;
   line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
   line-clamp: 2;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  box-orient: vertical;
   overflow: hidden;
 }
 
-.notification-time {
-  font-size: 11px;
-  color: #999;
+.notif-time {
+  font-size: .72rem;
+  color: #4b5563;
 }
 
-.btn-delete {
-  width: 24px;
-  height: 24px;
+/* Кнопка удалить */
+.notif-del {
+  width: 22px; height: 22px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  font-size: .75rem;
+  cursor: pointer;
+  border-radius: 5px;
+  opacity: 0;
+  transition: all .15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  color: #999;
-  opacity: 0;
-  transition: all 0.3s;
 }
+.notif-item:hover .notif-del { opacity: 1; }
+.notif-del:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
 
-.notification-item:hover .btn-delete {
-  opacity: 1;
-}
-
-.btn-delete:hover {
-  background: #f5f5f5;
-  color: #f44336;
-}
-
-.load-more {
-  padding: 12px;
+/* Футер */
+.dfoot {
+  display: block;
   text-align: center;
-  border-top: 1px solid #f0f0f0;
-}
-
-.load-more-btn {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #666;
-  transition: all 0.3s;
-}
-
-.load-more-btn:hover:not(:disabled) {
-  background: #f5f5f5;
-  border-color: #d0d0d0;
-}
-
-.load-more-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.dropdown-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #f0f0f0;
-  text-align: center;
-}
-
-.view-all-link {
-  color: #667eea;
-  text-decoration: none;
-  font-size: 13px;
+  padding: .7rem;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  color: #3b82f6;
+  font-size: .82rem;
   font-weight: 500;
-  transition: color 0.3s;
+  text-decoration: none;
+  transition: background .15s;
+}
+.dfoot:hover { background: rgba(59,130,246,0.08); }
+
+/* Анимация */
+.dropdown-enter-active, .dropdown-leave-active {
+  transition: opacity .2s ease, transform .2s ease;
+}
+.dropdown-enter-from, .dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(.97);
 }
 
-.view-all-link:hover {
-  color: #5568d3;
+@media (max-width: 480px) {
+  .dropdown {
+    width: calc(100vw - 1rem);
+    right: -1rem;
+  }
 }
 </style>

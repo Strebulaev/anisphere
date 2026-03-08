@@ -7,11 +7,13 @@ from rest_framework.response import Response
 from .views_feed import FeedViewSet
 from .views import (
     CommentListCreateView, CommentDetailView, GroupViewSet, PostCommentViewSet,
-    PostViewSet, MessageListCreateView, CombinedChatsView,
-    GroupChatViewSet, ChatRoleViewSet, PrivateChatViewSet, MessageViewSet,
-    get_chat_detail, CreateGroupChatView,
-    PrivateChatSettingsView, GroupChatSettingsView, ChatSettingsListView,
+    PostViewSet, CombinedChatsView,
+    GroupChatViewSet, ChatRoleViewSet, PrivateChatViewSet,
+    get_chat_detail,
+    PrivateChatSettingsView, GroupChatSettingsView,
     FollowViewSet, get_post_likers,
+    get_anime_discussion_group, create_anime_discussion_group, join_anime_discussion_group,
+    get_unread_count, get_unread_chats, mark_chat_read, mark_private_chat_read, mark_group_chat_read,
 )
 from .views_all_actions import (
     BookmarkViewSet,
@@ -42,7 +44,6 @@ from .views_all_actions import (
     AttachmentViewSet, upload_attachment,
     pin_message, unpin_message, forward_message, get_pinned_messages,
     EmailLogViewSet,
-    get_unread_count, get_unread_chats, mark_chat_read, mark_private_chat_read, mark_group_chat_read,
     search_messages, reindex_messages,
     ChatFolderViewSet, get_folder_chats,
     RepostViewSet,
@@ -73,7 +74,6 @@ router.register(r'reports', ReportViewSet, basename='report')
 router.register(r'group-chats', GroupChatViewSet)
 router.register(r'group-chats/(?P<chat_pk>\d+)/roles', ChatRoleViewSet, basename='chat-roles')
 router.register(r'private-chats', PrivateChatViewSet)
-router.register(r'messages', MessageViewSet)
 router.register(r'follows', FollowViewSet, basename='follow')
 router.register(r'reposts', RepostViewSet, basename='repost')
 router.register(r'achievements', AchievementViewSet, basename='achievement')
@@ -106,10 +106,8 @@ urlpatterns = [
     path('chats/', CombinedChatsView.as_view(), name='combined-chats'),
     path('chats/<int:pk>/', get_chat_detail, name='chat-detail'),
     path('chats/<int:pk>/settings/', get_chat_detail, name='chat-settings'),
-    path('group-chats/create/', CreateGroupChatView.as_view(), name='create-group-chat'),
     path('private-chats/<int:chat_id>/settings/', PrivateChatSettingsView.as_view(), name='private-chat-settings'),
     path('group-chats/<int:chat_id>/settings/', GroupChatSettingsView.as_view(), name='group-chat-settings'),
-    path('chat-settings/', ChatSettingsListView.as_view(), name='chat-settings-list'),
 
     # Comments
     path('comments/', CommentListCreateView.as_view(), name='comment-list-create'),
@@ -229,4 +227,9 @@ urlpatterns = [
     # Extended Feed
     path('feed/extended/', get_extended_feed, name='feed-extended'),
     path('feed/', get_extended_feed, name='feed'),
+
+    # Anime Discussion Groups
+    path('anime/<int:anime_id>/discussion-group/', get_anime_discussion_group, name='anime-discussion-group'),
+    path('anime/<int:anime_id>/discussion-group/create/', create_anime_discussion_group, name='anime-discussion-group-create'),
+    path('anime/<int:anime_id>/discussion-group/join/', join_anime_discussion_group, name='anime-discussion-group-join'),
 ] + router.urls

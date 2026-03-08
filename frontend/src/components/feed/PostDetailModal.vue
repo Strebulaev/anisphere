@@ -69,7 +69,7 @@
         <!-- Anime Card -->
         <AnimeCard
           v-if="post.anime"
-          :poster-url="post.anime.poster_url"
+          :poster-url="post.anime.poster"
           :title-ru="post.anime.title_ru"
           :title-en="post.anime.title_en"
           :rating="post.anime_rating"

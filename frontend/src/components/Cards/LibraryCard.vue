@@ -8,6 +8,8 @@
         :src="posterUrl"
         :alt="title"
         class="poster-img"
+        loading="lazy"
+        decoding="async"
         @error="posterFailed = true"
       />
       <div v-else class="poster-ph">

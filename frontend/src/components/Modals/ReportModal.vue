@@ -1,9 +1,9 @@
-<template>
-  <transition name="modal">
+﻿<template>
+  <Teleport to="body">`n  <Transition name="gen-anim">
     <div v-if="show" class="modal-overlay" @click.self="handleClose">
       <div class="modal-content report-modal">
         <div class="modal-header">
-          <h2 class="modal-title">Пожаловаться</h2>
+          <h2 class="modal-title">РџРѕР¶Р°Р»РѕРІР°С‚СЊСЃСЏ</h2>
           <button @click="handleClose" class="modal-close" type="button">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"/>
@@ -21,14 +21,14 @@
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
             </div>
-            <h3 class="report-title">Пожаловаться на {{ targetName }}</h3>
+            <h3 class="report-title">РџРѕР¶Р°Р»РѕРІР°С‚СЊСЃСЏ РЅР° {{ targetName }}</h3>
             <p class="report-description">
-              Если вы считаете, что этот контент нарушает правила или содержит ошибку, пожалуйста, сообщите нам.
+              Р•СЃР»Рё РІС‹ СЃС‡РёС‚Р°РµС‚Рµ, С‡С‚Рѕ СЌС‚РѕС‚ РєРѕРЅС‚РµРЅС‚ РЅР°СЂСѓС€Р°РµС‚ РїСЂР°РІРёР»Р° РёР»Рё СЃРѕРґРµСЂР¶РёС‚ РѕС€РёР±РєСѓ, РїРѕР¶Р°Р»СѓР№СЃС‚Р°, СЃРѕРѕР±С‰РёС‚Рµ РЅР°Рј.
             </p>
           </div>
 
           <div class="form-group">
-            <label class="form-label required">Причина жалобы</label>
+            <label class="form-label required">РџСЂРёС‡РёРЅР° Р¶Р°Р»РѕР±С‹</label>
             <div class="reasons-list">
               <label
                 v-for="reason in reportReasons"
@@ -48,10 +48,10 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Дополнительная информация</label>
+            <label class="form-label">Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ</label>
             <textarea
               v-model="formData.message"
-              placeholder="Опишите проблему подробнее..."
+              placeholder="РћРїРёС€РёС‚Рµ РїСЂРѕР±Р»РµРјСѓ РїРѕРґСЂРѕР±РЅРµРµ..."
               class="form-textarea"
               rows="4"
               maxlength="1000"
@@ -62,7 +62,7 @@
 
         <div class="modal-footer">
           <button @click="handleClose" class="btn btn-secondary" type="button">
-            Отмена
+            РћС‚РјРµРЅР°
           </button>
           <button
             @click="handleSubmit"
@@ -79,12 +79,12 @@
               <circle cx="12" cy="12" r="10"/>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
-            {{ isSubmitting ? 'Отправка...' : 'Отправить жалобу' }}
+            {{ isSubmitting ? 'РћС‚РїСЂР°РІРєР°...' : 'РћС‚РїСЂР°РІРёС‚СЊ Р¶Р°Р»РѕР±Сѓ' }}
           </button>
         </div>
       </div>
     </div>
-  </transition>
+  </Transition>`n  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -100,7 +100,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   targetId: undefined,
   targetType: 'anime',
-  targetName: 'контент'
+  targetName: 'РєРѕРЅС‚РµРЅС‚'
 })
 
 const emit = defineEmits<{
@@ -123,12 +123,12 @@ const formData = ref({
 const isSubmitting = ref(false)
 
 const reportReasons = [
-  { value: 'inappropriate', label: 'Неприемлемый контент', icon: '🚫' },
-  { value: 'spam', label: 'Спам', icon: '📧' },
-  { value: 'copyright', label: 'Нарушение авторских прав', icon: '©️' },
-  { value: 'incorrect', label: 'Неверная информация', icon: '❌' },
-  { value: 'quality', label: 'Низкое качество', icon: '📉' },
-  { value: 'other', label: 'Другое', icon: '📝' }
+  { value: 'inappropriate', label: 'РќРµРїСЂРёРµРјР»РµРјС‹Р№ РєРѕРЅС‚РµРЅС‚', icon: 'рџљ«' },
+  { value: 'spam', label: 'РЎРїР°Рј', icon: 'рџ“§' },
+  { value: 'copyright', label: 'РќР°СЂСѓС€РµРЅРёРµ Р°РІС‚РѕСЂСЃРєРёС… РїСЂР°РІ', icon: 'В©пёЏ' },
+  { value: 'incorrect', label: 'РќРµРІРµСЂРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ', icon: 'вќЊ' },
+  { value: 'quality', label: 'РќРёР·РєРѕРµ РєР°С‡РµСЃС‚РІРѕ', icon: 'рџ“‰' },
+  { value: 'other', label: 'Р”СЂСѓРіРѕРµ', icon: 'рџ“ќ' }
 ]
 
 const canSubmit = computed(() => {
@@ -180,7 +180,7 @@ watch(() => props.show, (newShow) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 1rem;
 }
 
@@ -478,3 +478,4 @@ watch(() => props.show, (newShow) => {
   }
 }
 </style>
+

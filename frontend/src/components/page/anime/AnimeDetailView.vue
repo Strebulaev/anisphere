@@ -49,8 +49,8 @@
           <!-- Постер -->
           <div class="anime-poster-large">
             <img 
-              v-if="anime.poster_url" 
-              :src="anime.poster_url" 
+              v-if="anime.poster" 
+              :src="getPosterUrl(anime.poster)" 
               :alt="anime.title_ru || anime.title_en"
               class="poster-image"
             />
@@ -221,7 +221,7 @@
     
             <!-- Действия -->
             <div class="action-buttons">
-              <button class="btn btn-outline" @click="showPlaylistModal = true">
+              <button class="btn btn-outline" @click="openPlaylistModal">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 20h9"/>
                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
@@ -237,19 +237,27 @@
               <AddToFavoriteButton
                 :anime-id="anime.id"
                 :anime-title="anime.title_ru"
-                :anime-poster="anime.poster_url || undefined"
+                :anime-poster="anime.poster || undefined"
               />
             </div>
           </div>
         </div>
 
-        <!-- Модальное окно выбора плейлиста -->
         <PlaylistSelectModal
           :show="showPlaylistModal"
           :anime="anime as any"
+          :playlists="userPlaylists"
+          :is-loading="loadingPlaylists"
           @close="showPlaylistModal = false"
           @save="onAddedToPlaylist"
           @create-playlist="showPlaylistModal = false"
+        />
+
+        <ImageLightbox
+          :show="showLightbox"
+          :images="lightboxImages"
+          :initial-index="lightboxInitialIndex"
+          @close="closeLightbox"
         />
 
         <!-- Описание -->
@@ -284,14 +292,14 @@
               v-for="(screenshot, index) in anime.screenshots"
               :key="index"
               class="screenshot-wrapper"
-              @click="openLightbox(screenshot.url)"
             >
               <img
-                :src="screenshot.url"
+                :src="getMediaUrl(screenshot.url) || screenshot.url"
                 :alt="`Скриншот ${index + 1}`"
                 class="screenshot-image"
+                @click.stop="openLightbox(index)"
               >
-              <div class="screenshot-overlay">
+              <div class="screenshot-overlay" @click.stop="openLightbox(index)">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="11" cy="11" r="8"/>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -323,7 +331,7 @@
               <div class="fe-poster">
                 <img
                   v-if="entry.poster_image_url || entry.poster_url"
-                  :src="entry.poster_image_url || entry.poster_url"
+                  :src="getMediaUrl(entry.poster_image_url) || getMediaUrl(entry.poster_url)"
                   :alt="entry.title_ru"
                   class="fe-poster-img"
                 />
@@ -388,12 +396,13 @@
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
-  import apiClient from '@/api/client'
+  import apiClient, { getMediaUrl } from '@/api/client'
   import AddDubModal from '@/components/modal/anime/AddDubModal.vue'
   import DubsList from '@/components/Dubs/DubsList.vue'
   import NavBar from '@/components/Navigation/NavBar.vue'
-  import { PlaylistSelectModal } from '@/components/Modals'
+  import { PlaylistSelectModal, ImageLightbox } from '@/components/Modals'
   import { AddToFavoriteButton } from '@/components/Buttons'
+  import playlistsApi from '@/api/playlists'
   
   interface Dub {
     id: number
@@ -444,7 +453,8 @@
     score: number | null
     rank: number | null
     popularity: number | null
-    poster_url: string | null
+    poster: string | null  // Локальный файл (приоритетный)
+    poster_url: string | null  // URL Shikimori (не использовать)
     poster_file?: string | null
     created_at?: string
     trailer_url: string | null
@@ -502,10 +512,15 @@
   const dubGroups = ref<DubGroup[]>([])
   const showAddDubModal = ref(false)
   const showPlaylistModal = ref(false)
+  const showLightbox = ref(false)
+  const lightboxImages = ref<string[]>([])
+  const lightboxInitialIndex = ref(0)
   const editingDub = ref<Dub | null>(null)
   const currentUser = ref<{id: number, username: string} | null>(null)
   const loading = ref(true)
   const loadingDubs = ref(false)
+  const loadingPlaylists = ref(false)
+  const userPlaylists = ref<any[]>([])
   const error = ref<string | null>(null)
   const dubsError = ref<string | null>(null)
 
@@ -629,17 +644,61 @@
     editingDub.value = null
   }
 
-  const openLightbox = (url: string) => {
-    window.open(url, '_blank')
+  const openLightbox = (index: number) => {
+    console.log('openLightboxSimple called with index:', index);
+    
+    if (!anime.value?.screenshots) return
+    
+    // Получаем все URL скриншотов
+    const urls = anime.value.screenshots.map(s => getMediaUrl(s.url) || s.url)
+    
+    lightboxImages.value = urls
+    lightboxInitialIndex.value = index
+    showLightbox.value = true
   }
   
+  const closeLightbox = () => {
+    showLightbox.value = false
+  }
+
   const startWatching = () => {
     if (!anime.value) return
     router.push(`/anime/${anime.value.id}/watch`)
   }
 
-  const onAddedToPlaylist = () => {
-    showPlaylistModal.value = false
+  const openPlaylistModal = async () => {
+    showPlaylistModal.value = true
+    await fetchUserPlaylists()
+  }
+
+  const fetchUserPlaylists = async () => {
+    loadingPlaylists.value = true
+    try {
+      const response = await playlistsApi.getMyPlaylists()
+      userPlaylists.value = response.data
+    } catch (e) {
+      console.error('Ошибка загрузки плейлистов:', e)
+    } finally {
+      loadingPlaylists.value = false
+    }
+  }
+
+  const onAddedToPlaylist = async (data: { animeId: number; playlistIds: number[]; note?: string }) => {
+    try {
+      // Добавляем аниме в каждый выбранный плейлист
+      for (const playlistId of data.playlistIds) {
+        await playlistsApi.addToPlaylist({
+          anime_id: data.animeId,
+          playlist_id: playlistId,
+          notes: data.note || ''
+        })
+      }
+      showPlaylistModal.value = false
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || 'Ошибка при добавлении в плейлист'
+      console.error('Ошибка добавления в плейлист:', e)
+      alert(msg)
+    }
   }
 
   const fetchFranchise = async (franchiseId: number) => {
@@ -663,6 +722,12 @@
       tv: 'TV', movie: 'Фильм', ova: 'OVA', ona: 'ONA', special: 'Спешл', music: 'Клип'
     }
     return map[kind] || kind.toUpperCase()
+  }
+
+  // Функция для получения полного URL постера
+  const getPosterUrl = (url: string | null | undefined): string | undefined => {
+    if (!url) return undefined
+    return getMediaUrl(url)
   }
 
   onMounted(async () => {
@@ -1524,6 +1589,7 @@
   color: var(--color-text-primary);
   overflow: hidden;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.3;

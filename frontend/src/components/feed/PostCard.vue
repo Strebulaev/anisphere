@@ -108,7 +108,7 @@
       <!-- Anime Card -->
       <AnimeCard
         v-if="post.anime"
-        :poster-url="post.anime.poster_url"
+        :poster-url="post.anime.poster"
         :title-ru="post.anime.title_ru"
         :title-en="post.anime.title_en"
         :rating="post.anime_rating"
@@ -123,7 +123,7 @@
             :key="idx"
             class="preview-item"
           >
-            <img :src="anime.poster_url" :alt="anime.title_ru">
+            <img :src="getMediaUrl(anime.poster)" :alt="anime.title_ru">
           </div>
         </div>
         <div class="playlist-info">
@@ -256,6 +256,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FeedPost, MediaFile } from '@/api/feed'
+import { getMediaUrl } from '@/api/client'
 import AnimeCard from './AnimeCard.vue'
 
 // shape used internally for template rendering (includes 'type' field)

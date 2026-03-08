@@ -770,6 +770,10 @@ class GroupChatSerializer(serializers.ModelSerializer):
     last_message = serializers.SerializerMethodField()
     participants_usernames = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
+    # Поля для аниме (для групп обсуждений)
+    anime_id = serializers.SerializerMethodField()
+    anime_title = serializers.SerializerMethodField()
+    anime_poster = serializers.SerializerMethodField()
 
     class Meta:
         model = GroupChat
@@ -782,6 +786,46 @@ class GroupChatSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
+        return None
+
+    def get_anime_id(self, obj):
+        """Получить ID аниме, связанного с чатом"""
+        if obj.anime:
+            return obj.anime.id
+        return None
+
+    def get_anime_title(self, obj):
+        """Получить название аниме, связанного с чатом"""
+        if obj.anime:
+            return obj.anime.title_ru or obj.anime.title_en
+        return None
+
+    def get_anime_poster(self, obj):
+        """Получить постер аниме (локальный файл, внешний URL или постер франшизы)"""
+        if obj.anime:
+            request = self.context.get('request')
+            
+            # Сначала пробуем локальный файл
+            if obj.anime.poster:
+                poster_url = obj.anime.poster.url
+                if request and poster_url and not poster_url.startswith('http'):
+                    poster_url = request.build_absolute_uri(poster_url)
+                return poster_url
+            
+            # Fallback на внешний URL
+            if obj.anime.poster_url:
+                return obj.anime.poster_url
+            
+            # Fallback на постер франшизы
+            if obj.anime.franchise:
+                franchise = obj.anime.franchise
+                if franchise.poster:
+                    poster_url = franchise.poster.url
+                    if request and poster_url and not poster_url.startswith('http'):
+                        poster_url = request.build_absolute_uri(poster_url)
+                    return poster_url
+                if franchise.poster_url:
+                    return franchise.poster_url
         return None
 
     def get_participants_usernames(self, obj):

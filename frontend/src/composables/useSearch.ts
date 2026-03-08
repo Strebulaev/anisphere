@@ -170,7 +170,7 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 
               case 'users':
                 const usersResponse = await api.get('/users/search/', {
-                  params: { q: query, limit: category.limit || 3 }
+                  params: { search: query, limit: category.limit || 3 }
                 })
                 data = usersResponse.data.results || []
                 break

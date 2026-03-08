@@ -158,6 +158,13 @@ def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
         ''
     )
     
+    # Скриншоты - из материала или из корня
+    screenshots = (
+        material_data.get('screenshots') or
+        kodik_anime.get('screenshots') or
+        []
+    )
+    
     # Рейтинг
     score = (
         material_data.get('shikimori_rating') or
@@ -195,6 +202,7 @@ def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
             'movie_count': 0,
             'ova_count': 0,
             'total_items': seasons_count,
+            'screenshots': screenshots,
         }
     )
     

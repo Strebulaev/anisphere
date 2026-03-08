@@ -17,21 +17,21 @@ export interface AnimeDiscussionGroup {
 
 export const animeDiscussionsApi = {
   async getDiscussionGroup(animeId: number): Promise<AnimeDiscussionGroup> {
-    const response = await apiClient.get(`/anime/anime/${animeId}/discussion-group/`)
+    const response = await apiClient.get(`/social/anime/${animeId}/discussion-group/`)
     return response.data
   },
 
   async joinDiscussionGroup(animeId: number): Promise<AnimeDiscussionGroup> {
-    const response = await apiClient.post(`/anime/anime/${animeId}/discussion-group/join/`)
+    const response = await apiClient.post(`/social/anime/${animeId}/discussion-group/join/`)
     return response.data
   },
 
   async leaveDiscussionGroup(animeId: number): Promise<void> {
-    await apiClient.post(`/anime/anime/${animeId}/discussion-group/leave/`)
+    await apiClient.post(`/social/anime/${animeId}/discussion-group/join/`)
   },
 
   async createDiscussionGroup(animeId: number): Promise<AnimeDiscussionGroup> {
-    const response = await apiClient.post(`/anime/anime/${animeId}/discussion-group/create/`)
+    const response = await apiClient.post(`/social/anime/${animeId}/discussion-group/create/`)
     return response.data
   },
 

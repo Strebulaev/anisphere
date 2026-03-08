@@ -1,6 +1,7 @@
 <template>
-  <transition name="modal">
-    <div v-if="show" class="modal-overlay" @click.self="handleClose">
+  <Teleport to="body">
+  <Transition name="alm-anim">
+    <div v-if="show" class="modal-overlay" @click.self="handleClose" @keydown.esc="handleClose">
       <div class="modal-content add-library-modal">
         <div class="modal-header">
           <h2 class="modal-title">Добавить в коллекцию</h2>
@@ -131,7 +132,8 @@
         </div>
       </div>
     </div>
-  </transition>
+  </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -260,16 +262,14 @@ onMounted(() => {
 <style scoped>
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 1rem;
 }
 
@@ -609,20 +609,18 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-.modal-enter-active,
-.modal-leave-active {
-  transition: all 0.3s;
-}
+.alm-anim-enter-active { transition: opacity 0.22s ease; }
+.alm-anim-leave-active { transition: opacity 0.18s ease; }
+.alm-anim-enter-from, .alm-anim-leave-to { opacity: 0; }
 
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
+.alm-anim-enter-active .modal-content {
+  transition: transform 0.25s cubic-bezier(0.34,1.4,0.64,1), opacity 0.22s ease;
 }
-
-.modal-enter-from .modal-content,
-.modal-leave-to .modal-content {
-  transform: scale(0.95) translateY(20px);
+.alm-anim-leave-active .modal-content {
+  transition: transform 0.18s ease, opacity 0.18s ease;
 }
+.alm-anim-enter-from .modal-content { transform: scale(0.90) translateY(20px); opacity: 0; }
+.alm-anim-leave-to .modal-content   { transform: scale(0.95) translateY(8px);  opacity: 0; }
 
 @media (max-width: 480px) {
   .status-options {

@@ -285,16 +285,17 @@ const debouncedSearch = () => {
   isSearching.value = true
   searchTimer = setTimeout(async () => {
     try {
-      const res = await apiClient.get('/anime/anime/', {
-        params: { search: searchQuery.value, page_size: 10 }
+      // Используем правильный API эндпоинт для поиска
+      const res = await apiClient.get('/anime/search/', {
+        params: { q: searchQuery.value, limit: 10 }
       })
-      searchResults.value = res.data.results || res.data
+      searchResults.value = res.data.results || []
     } catch {
       searchResults.value = []
     } finally {
       isSearching.value = false
     }
-  }, 400)
+  }, 300)
 }
 
 const clearSearch = () => {

@@ -1,6 +1,7 @@
 <template>
-  <transition name="modal">
-    <div v-if="show" class="modal-overlay" @click.self="handleClose">
+  <Teleport to="body">
+  <Transition name="rm-anim">
+    <div v-if="show" class="modal-overlay" @click.self="handleClose" @keydown.esc="handleClose">
       <div class="modal-content reminder-modal">
         <div class="modal-header">
           <h2 class="modal-title">Напомнить о просмотре</h2>
@@ -14,17 +15,18 @@
 
         <div class="modal-body">
           <div class="anime-preview">
-            <img
-              v-if="anime.poster_url"
-              :src="getMediaUrl(anime.poster_url) || undefined"
-              :alt="anime.title_ru || anime.title_en"
-              class="anime-poster"
-            />
+            <div v-if="animePosterUrl" style="width: 80px; height: 112px; flex-shrink: 0; border-radius: 8px; overflow: hidden;">
+              <img
+                :src="animePosterUrl"
+                :alt="anime.title_ru || anime.title_en"
+                style="width: 100%; height: 100%; object-fit: cover;"
+                loading="lazy"
+                @error="handlePosterError"
+                @load=""
+              />
+            </div>
             <div v-else class="anime-poster-placeholder">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="2" width="20" height="20" rx="2"/>
-                <path d="M12 2v20M2 12h20"/>
-              </svg>
+              <span>Нет постера</span>
             </div>
             <div class="anime-info">
               <h3 class="anime-title">{{ anime.title_ru || anime.title_en }}</h3>
@@ -101,7 +103,8 @@
         </div>
       </div>
     </div>
-  </transition>
+  </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -132,6 +135,28 @@ const selectedPreset = ref<string | null>(null)
 const customDateTime = ref('')
 const repeatWeekly = ref(false)
 const comment = ref('')
+
+// Computed для получения URL постера аниме
+const animePosterUrl = computed(() => {
+  const a = props.anime
+  
+  // Пробуем разные поля для постера (приоритет: poster -> poster_file -> poster_image_url -> poster_url)
+  const posterFields = [
+    a.poster,
+    a.poster_file,
+    a.poster_image_url,
+    a.poster_url
+  ]
+  
+  for (const poster of posterFields) {
+    if (poster && typeof poster === 'string' && poster.trim() !== '') {
+      const url = getMediaUrl(poster)
+      // getMediaUrl может вернуть undefined, преобразуем в null для v-if
+      if (url) return url
+    }
+  }
+  return null
+})
 
 const timePresets = [
   { value: '1h', label: 'Через 1 час' },
@@ -208,6 +233,11 @@ const handleClose = () => {
   emit('close')
 }
 
+const handlePosterError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  console.error('🎬 Poster load error:', img.src)
+}
+
 const resetForm = () => {
   selectedPreset.value = null
   customDateTime.value = ''
@@ -225,27 +255,28 @@ watch(() => props.show, (newShow) => {
 <style scoped>
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 1rem;
 }
 
 .modal-content {
-  background-color: var(--color-background-surface);
+  background-color: var(--surface-2, var(--color-background-surface));
   border-radius: 1rem;
   max-width: 480px;
   width: 100%;
-  max-height: 90vh;
+  max-height: 85vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-modal);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  transform: scale(1);
+  opacity: 1;
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
 }
 
 .reminder-modal {
@@ -257,7 +288,7 @@ watch(() => props.show, (newShow) => {
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--border-subtle, var(--color-divider));
 }
 
 .modal-title {
@@ -527,19 +558,24 @@ watch(() => props.show, (newShow) => {
   color: var(--color-accent);
 }
 
-.modal-enter-active,
-.modal-leave-active {
-  transition: all 0.3s var(--transition-smooth);
-}
+.rm-anim-enter-active { transition: opacity 0.22s ease; }
+.rm-anim-leave-active { transition: opacity 0.18s ease; }
+.rm-anim-enter-from,
+.rm-anim-leave-to { opacity: 0; }
 
-.modal-enter-from,
-.modal-leave-to {
+.rm-anim-enter-active .modal-content {
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.22s ease;
+}
+.rm-anim-leave-active .modal-content {
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.rm-anim-enter-from .modal-content {
+  transform: scale(0.90) translateY(20px);
   opacity: 0;
 }
-
-.modal-enter-from .modal-content,
-.modal-leave-to .modal-content {
-  transform: scale(0.95) translateY(20px);
+.rm-anim-leave-to .modal-content {
+  transform: scale(0.95) translateY(8px);
+  opacity: 0;
 }
 
 @media (max-width: 768px) {

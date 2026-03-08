@@ -120,7 +120,7 @@
           <div class="dub-logo">
             <img
               v-if="dub.logo"
-              :src="dub.logo"
+              :src="getLogoUrl(dub.logo)"
               :alt="dub.studio"
               class="logo-image"
             />
@@ -256,6 +256,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { getMediaUrl } from '@/api/client'
 
 const props = defineProps({
   dubs: {
@@ -390,6 +391,11 @@ const getInitials = (studioName) => {
     .join('')
     .toUpperCase()
     .substring(0, 2)
+}
+
+const getLogoUrl = (logo) => {
+  if (!logo) return undefined
+  return getMediaUrl(logo)
 }
 
 const toggleFilters = () => {

@@ -1,9 +1,9 @@
-<template>
-  <transition name="modal">
+﻿<template>
+  <Teleport to="body">`n  <Transition name="gen-anim">
     <div v-if="show" class="modal-overlay" @click.self="handleClose">
       <div class="modal-content playlist-create-modal">
         <div class="modal-header">
-          <h2 class="modal-title">Создать новый плейлист</h2>
+          <h2 class="modal-title">РЎРѕР·РґР°С‚СЊ РЅРѕРІС‹Р№ РїР»РµР№Р»РёСЃС‚</h2>
           <button @click="handleClose" class="modal-close" type="button">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"/>
@@ -15,21 +15,21 @@
         <div class="modal-body">
           <div class="form-section">
             <div class="form-group">
-              <label class="form-label required">Название</label>
+              <label class="form-label required">РќР°Р·РІР°РЅРёРµ</label>
               <input
                 v-model="formData.title"
                 type="text"
-                placeholder="Введите название плейлиста"
+                placeholder="Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ РїР»РµР№Р»РёСЃС‚Р°"
                 class="form-input"
                 maxlength="100"
               />
             </div>
 
             <div class="form-group">
-              <label class="form-label">Описание</label>
+              <label class="form-label">РћРїРёСЃР°РЅРёРµ</label>
               <textarea
                 v-model="formData.description"
-                placeholder="Описание плейлиста (необязательно)"
+                placeholder="РћРїРёСЃР°РЅРёРµ РїР»РµР№Р»РёСЃС‚Р° (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)"
                 class="form-textarea"
                 rows="3"
                 maxlength="500"
@@ -37,7 +37,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Приватность</label>
+              <label class="form-label">РџСЂРёРІР°С‚РЅРѕСЃС‚СЊ</label>
               <div class="privacy-options">
                 <label
                   v-for="option in privacyOptions"
@@ -58,7 +58,7 @@
           </div>
 
           <div class="anime-section">
-            <label class="form-label required">Добавить аниме</label>
+            <label class="form-label required">Р”РѕР±Р°РІРёС‚СЊ Р°РЅРёРјРµ</label>
             <div class="search-wrapper">
               <div class="search-input-container">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
@@ -69,7 +69,7 @@
                   v-model="searchQuery"
                   @input="handleSearch"
                   type="text"
-                  placeholder="Поиск аниме по названию..."
+                  placeholder="РџРѕРёСЃРє Р°РЅРёРјРµ РїРѕ РЅР°Р·РІР°РЅРёСЋ..."
                   class="search-input"
                 />
                 <button
@@ -88,7 +88,7 @@
 
             <div v-if="isSearching" class="search-loading">
               <div class="loading-spinner"></div>
-              <span>Поиск...</span>
+              <span>РџРѕРёСЃРє...</span>
             </div>
 
             <div v-else-if="searchResults.length > 0" class="search-results">
@@ -113,7 +113,7 @@
                 <div class="anime-info">
                   <span class="anime-title">{{ anime.title_ru || anime.title_en }}</span>
                   <span v-if="anime.year || anime.episodes" class="anime-meta">
-                    {{ anime.year }}{{ anime.year && anime.episodes ? ' • ' : '' }}{{ anime.episodes }} эп.
+                    {{ anime.year }}{{ anime.year && anime.episodes ? ' вЂў ' : '' }}{{ anime.episodes }} СЌРї.
                   </span>
                 </div>
                 <button type="button" class="btn-add">
@@ -127,7 +127,7 @@
 
             <div v-if="selectedAnime.length > 0" class="selected-anime">
               <div class="selected-header">
-                <span class="selected-count">Выбрано: {{ selectedAnime.length }} аниме</span>
+                <span class="selected-count">Р’С‹Р±СЂР°РЅРѕ: {{ selectedAnime.length }} Р°РЅРёРјРµ</span>
               </div>
               <div class="anime-list">
                 <div
@@ -159,14 +159,14 @@
             </div>
 
             <div v-if="selectedAnime.length === 0 && !isSearching && searchResults.length === 0" class="hint">
-              Добавьте хотя бы одно аниме для создания плейлиста
+              Р”РѕР±Р°РІСЊС‚Рµ С…РѕС‚СЏ Р±С‹ РѕРґРЅРѕ Р°РЅРёРјРµ РґР»СЏ СЃРѕР·РґР°РЅРёСЏ РїР»РµР№Р»РёСЃС‚Р°
             </div>
           </div>
         </div>
 
         <div class="modal-footer">
           <button @click="handleClose" class="btn btn-secondary" type="button">
-            Отмена
+            РћС‚РјРµРЅР°
           </button>
           <button
             @click="handleCreate"
@@ -181,12 +181,12 @@
               <circle cx="12" cy="12" r="10"/>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
-            {{ isCreating ? 'Создание...' : 'Создать' }}
+            {{ isCreating ? 'РЎРѕР·РґР°РЅРёРµ...' : 'РЎРѕР·РґР°С‚СЊ' }}
           </button>
         </div>
       </div>
     </div>
-  </transition>
+  </Transition>`n  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -227,9 +227,9 @@ const isCreating = ref(false)
 const searchTimeout = ref<number | null>(null)
 
 const privacyOptions = [
-  { value: 'public', label: 'Публичный', icon: '🌍' },
-  { value: 'private', label: 'Приватный', icon: '🔒' },
-  { value: 'link', label: 'По ссылке', icon: '🔗' }
+  { value: 'public', label: 'РџСѓР±Р»РёС‡РЅС‹Р№', icon: 'рџЊЌ' },
+  { value: 'private', label: 'РџСЂРёРІР°С‚РЅС‹Р№', icon: 'рџ”’' },
+  { value: 'link', label: 'РџРѕ СЃСЃС‹Р»РєРµ', icon: 'рџ”—' }
 ]
 
 const canCreate = computed(() => {
@@ -253,7 +253,7 @@ const handleSearch = () => {
       const response = await api.get('/anime/anime/', { params: { search: searchQuery.value, page_size: 10 } })
       searchResults.value = response.data.results || response.data
     } catch (err) {
-      console.error('Ошибка поиска аниме:', err)
+      console.error('РћС€РёР±РєР° РїРѕРёСЃРєР° Р°РЅРёРјРµ:', err)
       searchResults.value = []
     } finally {
       isSearching.value = false
@@ -327,7 +327,7 @@ watch(() => props.show, (newShow) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 1rem;
 }
 
@@ -830,3 +830,4 @@ watch(() => props.show, (newShow) => {
   }
 }
 </style>
+

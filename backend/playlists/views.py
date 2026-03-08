@@ -516,6 +516,20 @@ class FavoriteAnimeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def create(self, request, *args, **kwargs):
+        """Добавление аниме в избранное с защитой от дублирования"""
+        anime_id = request.data.get('anime')
+        if not anime_id:
+            return Response({'error': 'Не указан anime'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Проверяем существующее избранное
+        existing = FavoriteAnime.objects.filter(user=request.user, anime_id=anime_id).first()
+        if existing:
+            serializer = self.get_serializer(existing)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return super().create(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         """Удаление аниме из избранного"""
         anime_id = request.data.get('anime_id')
@@ -545,6 +559,29 @@ class FavoriteAnimeViewSet(viewsets.ModelViewSet):
         ).exists()
 
         return Response({'is_favorite': is_favorite})
+
+    @action(detail=False, methods=['delete'], url_path='remove')
+    def remove_favorite(self, request):
+        """Удалить аниме из избранного"""
+        anime_id = request.data.get('anime_id')
+
+        if not anime_id:
+            return Response(
+                {'error': 'Не указан anime_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        deleted, _ = FavoriteAnime.objects.filter(
+            user=request.user, anime_id=anime_id
+        ).delete()
+
+        if deleted:
+            return Response({'message': 'Аниме удалено из избранного'}, status=status.HTTP_204_NO_CONTENT)
+        
+        return Response(
+            {'error': 'Аниме не найдено в избранном'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 
 class FavoritePlaylistViewSet(viewsets.ModelViewSet):

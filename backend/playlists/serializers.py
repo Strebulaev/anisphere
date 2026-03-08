@@ -1,17 +1,16 @@
 from rest_framework import serializers
 from django.conf import settings
 from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist
+from anime.models import Anime
 
 
 def get_full_url(url):
     """Преобразует относительный URL в полный"""
     if not url:
         return None
-    if url.startswith('https://') or url.startswith('https://'):
+    if url.startswith('https://') or url.startswith('http://'):
         return url
-    # Если URL относительный, добавляем базовый URL
     base_url = getattr(settings, 'SITE_URL', 'https://anisphere.ru')
-    # Убираем дублирование /media/
     if url.startswith('/media/media/'):
         url = url.replace('/media/media/', '/media/')
     return f"{base_url}{url if url.startswith('/') else '/' + url}"
@@ -44,7 +43,6 @@ class PlaylistItemSerializer(serializers.ModelSerializer):
         """Возвращает URL локального постера или внешний URL"""
         if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
             poster_url = obj.anime.poster.url
-            # Убираем дублирование /media/
             if poster_url.startswith('/media/media/'):
                 poster_url = poster_url.replace('/media/media/', '/media/')
             return get_full_url(poster_url)
@@ -60,15 +58,12 @@ class PlaylistSerializer(serializers.ModelSerializer):
     items = PlaylistItemSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
     
-    # Обложка
     cover_image = serializers.ImageField(read_only=True)
     cover_urls = serializers.SerializerMethodField()
     
-    # Избранное
     is_favorited = serializers.SerializerMethodField()
     favorites_count = serializers.SerializerMethodField()
     
-    # Жанры из аниме в плейлисте
     genres = serializers.SerializerMethodField()
 
     class Meta:
@@ -82,21 +77,17 @@ class PlaylistSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
     def get_user_avatar(self, obj):
-        """Возвращает URL аватара пользователя"""
         if hasattr(obj.user, 'avatar') and obj.user.avatar:
             avatar_url = obj.user.avatar.url
-            # Убираем дублирование /media/
             if avatar_url.startswith('/media/media/'):
                 avatar_url = avatar_url.replace('/media/media/', '/media/')
             return get_full_url(avatar_url)
         return None
 
     def get_items_count(self, obj):
-        """Количество аниме в плейлисте"""
         return obj.items.count()
 
     def get_is_favorited(self, obj):
-        """Добавлен ли плейлист в избранное текущим пользователем"""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return FavoritePlaylist.objects.filter(
@@ -105,22 +96,18 @@ class PlaylistSerializer(serializers.ModelSerializer):
         return False
 
     def get_favorites_count(self, obj):
-        """Количество пользователей, добавивших плейлист в избранное"""
         return obj.favorited_by.count()
 
     def get_genres(self, obj):
-        """Уникальные жанры из аниме в плейлисте"""
         genres = set()
         for item in obj.items.all():
             for genre in item.anime.genres:
                 genres.add(genre)
-        return list(genres)[:10]  # Ограничиваем 10 жанрами
+        return list(genres)[:10]
 
     def get_cover_urls(self, obj):
-        """URL постеров первых 3 аниме для составной обложки"""
         urls = obj.get_cover_urls()
         if urls:
-            # Убираем дублирование /media/ в каждом URL
             cleaned_urls = []
             for url in urls:
                 if url.startswith('/media/media/'):
@@ -131,7 +118,6 @@ class PlaylistSerializer(serializers.ModelSerializer):
 
 
 class PlaylistCreateSerializer(serializers.ModelSerializer):
-    """Сериализатор для создания плейлиста"""
     cover_urls = serializers.SerializerMethodField()
 
     class Meta:
@@ -145,7 +131,6 @@ class PlaylistCreateSerializer(serializers.ModelSerializer):
         return playlist
 
     def get_cover_urls(self, obj):
-        """URL постеров первых 3 аниме для составной обложки"""
         urls = obj.get_cover_urls()
         if urls:
             cleaned_urls = []
@@ -158,7 +143,6 @@ class PlaylistCreateSerializer(serializers.ModelSerializer):
 
 
 class PlaylistUpdateSerializer(serializers.ModelSerializer):
-    """Сериализатор для обновления плейлиста"""
     cover_urls = serializers.SerializerMethodField()
 
     class Meta:
@@ -167,7 +151,6 @@ class PlaylistUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'updated_at']
 
     def get_cover_urls(self, obj):
-        """URL постеров первых 3 аниме для составной обложки"""
         urls = obj.get_cover_urls()
         if urls:
             cleaned_urls = []
@@ -180,43 +163,41 @@ class PlaylistUpdateSerializer(serializers.ModelSerializer):
 
 
 class PlaylistItemCreateSerializer(serializers.ModelSerializer):
-    """Сериализатор для добавления аниме в плейлист"""
     class Meta:
         model = PlaylistItem
         fields = ['anime', 'notes']
 
 
 class PlaylistItemUpdateSerializer(serializers.ModelSerializer):
-    """Сериализатор для обновления элемента плейлиста"""
     class Meta:
         model = PlaylistItem
         fields = ['position', 'notes']
 
 
 class ReorderItemsSerializer(serializers.Serializer):
-    """Сериализатор для изменения порядка элементов"""
     items = serializers.ListField(
         child=serializers.DictField(),
         allow_empty=False
     )
 
     def validate_items(self, value):
-        """Проверяет, что все элементы принадлежат одному плейлисту"""
         if not value:
             raise serializers.ValidationError("Список элементов не может быть пустым")
-        
-        # Проверяем, что каждый элемент имеет id и position
         for item in value:
             if 'id' not in item:
                 raise serializers.ValidationError("Каждый элемент должен иметь id")
             if 'position' not in item:
                 raise serializers.ValidationError("Каждый элемент должен иметь position")
-        
         return value
 
 
 class FavoriteAnimeSerializer(serializers.ModelSerializer):
     """Сериализатор избранного аниме"""
+    # Поле для записи (принимает ID аниме)
+    anime = serializers.PrimaryKeyRelatedField(
+        queryset=Anime.objects.all()
+    )
+
     anime_id = serializers.IntegerField(source='anime.id', read_only=True)
     anime_title = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
@@ -227,23 +208,20 @@ class FavoriteAnimeSerializer(serializers.ModelSerializer):
     class Meta:
         model = FavoriteAnime
         fields = [
-            'id', 'anime_id', 'anime_title', 'anime_title_en',
+            'id', 'anime', 'anime_id', 'anime_title', 'anime_title_en',
             'anime_poster', 'anime_poster_url', 'anime_data', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
     def get_anime_poster(self, obj):
-        """Возвращает URL локального постера или внешний URL"""
         if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
             poster_url = obj.anime.poster.url
-            # Убираем дублирование /media/
             if poster_url.startswith('/media/media/'):
                 poster_url = poster_url.replace('/media/media/', '/media/')
             return get_full_url(poster_url)
         return obj.anime.poster_url
 
     def get_anime_data(self, obj):
-        """Полные данные об аниме"""
         poster_url = None
         if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
             poster_url = obj.anime.poster.url
@@ -270,7 +248,6 @@ class FavoriteAnimeSerializer(serializers.ModelSerializer):
 
 
 class FavoritePlaylistSerializer(serializers.ModelSerializer):
-    """Сериализатор избранного плейлиста"""
     playlist_data = serializers.SerializerMethodField()
 
     class Meta:
@@ -279,7 +256,6 @@ class FavoritePlaylistSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
     def get_playlist_data(self, obj):
-        """Полные данные о плейлисте"""
         cover_image_url = None
         if obj.playlist.cover_image:
             cover_image_url = obj.playlist.cover_image.url
@@ -318,7 +294,6 @@ class AddToPlaylistSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, data):
-        """Проверяет, что указан либо существующий плейлист, либо название нового"""
         playlist_id = data.get('playlist_id')
         new_playlist_title = data.get('new_playlist_title')
 

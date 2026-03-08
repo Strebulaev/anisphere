@@ -11,6 +11,9 @@
         :src="getPosterUrl()"
         :alt="anime.title_ru || anime.title_en || ''"
         class="poster-image"
+        loading="lazy"
+        decoding="async"
+        fetchpriority="high"
         @error="handleImageError"
       />
       <div v-else class="poster-placeholder">
@@ -173,24 +176,36 @@
       ></div>
     </div>
 
-    <!-- Модальное окно добавления в плейлист -->
+    <!-- Модальное окно добавления в плейлист (Teleport внутри компонента) -->
     <PlaylistSelectModal
       :show="showPlaylistModal"
       :anime="anime as any"
+      :playlists="playlists"
+      :is-loading="playlistsLoading"
       @close="showPlaylistModal = false"
       @save="onAddedToPlaylist"
       @create-playlist="showPlaylistModal = false"
+    />
+
+    <!-- Модальное окно напоминания (Teleport внутри компонента) -->
+    <ReminderModal
+      :show="showReminderModal"
+      :anime="anime as any"
+      @close="showReminderModal = false"
+      @save="handleReminderSave"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { PlaylistSelectModal } from '@/components/Modals'
+import { PlaylistSelectModal, ReminderModal } from '@/components/Modals'
 import playlistsApi from '@/api/playlists'
 import { animeDiscussionsApi } from '@/api/animeDiscussions'
 import { getMediaUrl } from '@/api/client'
+import { useToast } from '@/composables/useToast'
+import remindersApi from '@/api/reminders'
 
 interface Genre {
   id: number
@@ -245,10 +260,33 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const toast = useToast()
 
 const isFavorite = ref(false)
 const showPlaylistModal = ref(false)
 const showReminderModal = ref(false)
+const playlists = ref<any[]>([])
+const playlistsLoading = ref(false)
+
+const loadPlaylists = async () => {
+  playlistsLoading.value = true
+  try {
+    const response = await playlistsApi.getMyPlaylists()
+    playlists.value = response.data || []
+  } catch (error) {
+    console.error('Error loading playlists:', error)
+    playlists.value = []
+  } finally {
+    playlistsLoading.value = false
+  }
+}
+
+// Загружаем плейлисты при открытии модального окна
+watch(showPlaylistModal, (newVal) => {
+  if (newVal) {
+    loadPlaylists()
+  }
+})
 
 const formattedScore = computed(() => {
   if (props.anime.score) {
@@ -284,13 +322,16 @@ const toggleFavorite = async () => {
     if (isFavorite.value) {
       await playlistsApi.removeFromFavorites(props.anime.id)
       isFavorite.value = false
+      toast.success('Удалено из избранного')
     } else {
       await playlistsApi.addToFavorites(props.anime.id)
       isFavorite.value = true
+      toast.success('Добавлено в избранное')
     }
     emit('favorite-toggle', isFavorite.value)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Ошибка изменения избранного:', error)
+    toast.error(error.response?.data?.detail || 'Не удалось обновить избранное')
   }
 }
 
@@ -300,6 +341,7 @@ const handleClick = () => {
 
 const onAddedToPlaylist = () => {
   showPlaylistModal.value = false
+  toast.success('Аниме добавлено в плейлист!')
 }
 
 const onPlaylistError = (message: string) => {
@@ -329,7 +371,25 @@ const getTypeLabel = (type?: string) => {
 
 const handleReminder = () => {
   emit('set-reminder', props.anime.id)
-  showReminderModal.value = false
+  showReminderModal.value = true
+}
+
+const handleReminderSave = async (data: any) => {
+  try {
+    // Форматируем время напоминания
+    const reminderTime = new Date(data.reminderTime)
+    await remindersApi.createReminder({
+      anime_id: props.anime.id,
+      reminder_time: reminderTime.toISOString(),
+      repeat_weekly: data.repeatWeekly || false,
+      comment: data.comment || ''
+    })
+    toast.success('Напоминание установлено!')
+    showReminderModal.value = false
+  } catch (error: any) {
+    console.error('Ошибка сохранения напоминания:', error)
+    toast.error(error.response?.data?.error || 'Не удалось установить напоминание')
+  }
 }
 
 const handleDiscuss = async () => {
@@ -356,7 +416,7 @@ const handleDiscuss = async () => {
     router.push(`/chats/${discussionGroup.id}`)
   } catch (error: any) {
     console.error('Error handling discuss:', error)
-    alert('Не удалось открыть обсуждение: ' + (error.response?.data?.detail || error.message))
+    toast.error(error.response?.data?.detail || 'Не удалось открыть обсуждение')
   }
 }
 
@@ -371,16 +431,31 @@ const getStatusClass = (status: string) => {
 }
 
 const getPosterUrl = (): string | undefined => {
+  // Пробуем разные поля для постера
   const posterImage = props.anime.poster_image_url
   const posterUrl = props.anime.poster_url
+  const posterFile = props.anime.poster_file
+  const poster = props.anime.poster
   
+  // poster (локальный файл из БД) - приоритетный
+  if (poster) {
+    const url = getMediaUrl(poster)
+    if (url) return url
+  }
+  // poster_file
+  if (posterFile) {
+    const url = getMediaUrl(posterFile)
+    if (url) return url
+  }
+  // poster_image_url
   if (posterImage) {
     const url = getMediaUrl(posterImage)
-    return url || undefined
+    if (url) return url
   }
+  // poster_url (URL Shikimori)
   if (posterUrl) {
     const url = getMediaUrl(posterUrl)
-    return url || undefined
+    if (url) return url
   }
   return undefined
 }
@@ -455,7 +530,7 @@ checkFavorite()
 .poster-placeholder {
   position: absolute;
   inset: 0;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--surface-4);

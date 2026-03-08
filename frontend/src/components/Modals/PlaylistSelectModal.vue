@@ -1,6 +1,7 @@
 <template>
-  <transition name="modal">
-    <div v-if="show" class="modal-overlay" @click.self="handleClose">
+  <Teleport to="body">
+  <Transition name="psm-anim">
+    <div v-if="show" class="modal-overlay" @click.self="handleClose" @keydown.esc="handleClose">
       <div class="modal-content playlist-select-modal">
         <div class="modal-header">
           <h2 class="modal-title">Добавить в плейлист</h2>
@@ -14,12 +15,14 @@
 
         <div class="modal-body">
           <div class="anime-preview">
-            <img
-              v-if="anime.poster_url"
-              :src="getMediaUrl(anime.poster_url) || undefined"
-              :alt="anime.title_ru || anime.title_en"
-              class="anime-poster"
-            />
+            <div v-if="animePosterUrl" style="width: 80px; height: 112px; flex-shrink: 0; border-radius: 8px; overflow: hidden;">
+              <img
+                :src="animePosterUrl"
+                :alt="anime.title_ru || anime.title_en"
+                style="width: 100%; height: 100%; object-fit: cover;"
+                loading="lazy"
+              />
+            </div>
             <div v-else class="anime-poster-placeholder">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="2" width="20" height="20" rx="2"/>
@@ -85,16 +88,35 @@
                 />
                 <div class="playlist-cover">
                   <div class="playlist-mini-posters">
-                    <div
-                      v-for="(item, index) in playlist.items?.slice(0, 4)"
-                      :key="index"
-                      class="mini-poster"
-                    >
-                      <img
-                        v-if="item.anime?.poster_url"
-                        :src="getMediaUrl(item.anime.poster_url) || undefined"
-                        :alt="item.anime.title_ru || item.anime.title_en"
-                      />
+                    <template v-if="playlist.cover_urls && playlist.cover_urls.length">
+                      <div
+                        v-for="(url, index) in playlist.cover_urls.slice(0, 4)"
+                        :key="index"
+                        class="mini-poster"
+                      >
+                        <img :src="url" alt="" loading="lazy" />
+                      </div>
+                    </template>
+                    <template v-else-if="playlist.items?.length">
+                      <div
+                        v-for="(item, index) in playlist.items.slice(0, 4)"
+                        :key="index"
+                        class="mini-poster"
+                      >
+                        <img
+                          v-if="item.anime_poster || item.anime_poster_url"
+                          :src="getMediaUrl(item.anime_poster) || getMediaUrl(item.anime_poster_url) || undefined"
+                          alt=""
+                          loading="lazy"
+                        />
+                      </div>
+                    </template>
+                    <div v-else class="mini-poster-empty">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 18V5l12-2v13"/>
+                        <circle cx="6" cy="18" r="3"/>
+                        <circle cx="18" cy="16" r="3"/>
+                      </svg>
                     </div>
                   </div>
                 </div>
@@ -150,13 +172,35 @@
         </div>
       </div>
     </div>
-  </transition>
+  </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { Anime, Playlist } from '@/types'
 import { getMediaUrl } from '@/api/client'
+
+// Computed для получения URL постера аниме
+const animePosterUrl = computed(() => {
+  const a = props.anime
+  
+  // Пробуем разные поля для постера (приоритет: poster -> poster_file -> poster_image_url -> poster_url)
+  const posterFields = [
+    a.poster,
+    a.poster_file,
+    a.poster_image_url,
+    a.poster_url
+  ]
+  
+  for (const poster of posterFields) {
+    if (poster && typeof poster === 'string' && poster.trim() !== '') {
+      const url = getMediaUrl(poster)
+      if (url) return url
+    }
+  }
+  return null
+})
 
 interface Props {
   show: boolean
@@ -232,29 +276,30 @@ onMounted(() => {
 <style scoped>
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 1rem;
 }
 
 .modal-content {
-  background-color: var(--color-background-surface);
+  background-color: var(--surface-2, var(--color-background-surface));
   border-radius: 1rem;
   max-width: 500px;
   width: 100%;
-  max-height: 90vh;
+  max-height: 85vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-modal);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  transform: scale(1);
+  opacity: 1;
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
 }
 
 .modal-header {
@@ -262,7 +307,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--border-subtle, var(--color-divider));
 }
 
 .modal-title {
@@ -502,6 +547,18 @@ onMounted(() => {
   object-fit: cover;
 }
 
+.mini-poster-empty {
+  grid-column: span 2;
+  grid-row: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  background-color: var(--color-background-active);
+  width: 100%;
+  height: 100%;
+}
+
 .playlist-info {
   flex: 1;
   min-width: 0;
@@ -615,19 +672,25 @@ onMounted(() => {
   color: var(--color-accent);
 }
 
-.modal-enter-active,
-.modal-leave-active {
-  transition: all 0.3s var(--transition-smooth);
-}
+/* Анимация на overlay (fade) и на modal-content (scale+slide) */
+.psm-anim-enter-active { transition: opacity 0.22s ease; }
+.psm-anim-leave-active { transition: opacity 0.18s ease; }
+.psm-anim-enter-from,
+.psm-anim-leave-to { opacity: 0; }
 
-.modal-enter-from,
-.modal-leave-to {
+.psm-anim-enter-active .modal-content {
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.22s ease;
+}
+.psm-anim-leave-active .modal-content {
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.psm-anim-enter-from .modal-content {
+  transform: scale(0.90) translateY(20px);
   opacity: 0;
 }
-
-.modal-enter-from .modal-content,
-.modal-leave-to .modal-content {
-  transform: scale(0.95) translateY(20px);
+.psm-anim-leave-to .modal-content {
+  transform: scale(0.95) translateY(8px);
+  opacity: 0;
 }
 
 @media (max-width: 768px) {

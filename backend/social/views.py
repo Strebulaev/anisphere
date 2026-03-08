@@ -2243,7 +2243,7 @@ class GroupChatViewSet(ModelViewSet):
     def get_queryset(self):
         return GroupChat.objects.filter(
             members__user=self.request.user
-        ).prefetch_related('members', 'members__user').order_by('-last_message_at', '-created_at')
+        ).select_related('anime', 'created_by').prefetch_related('members', 'members__user').order_by('-last_message_at', '-created_at')
 
     def perform_create(self, serializer):
         serializer.save()
@@ -2522,10 +2522,10 @@ class GroupChatSettingsView(APIView):
         except GroupChat.DoesNotExist:
             return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Проверяем доступ (только админы могут менять настройки)
-        member = chat.members.filter(user=request.user, is_admin=True).first()
+        # Проверяем доступ
+        member = chat.members.filter(user=request.user).first()
         if not member:
-            return Response({'error': 'Нет доступа к настройкам чата'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = GroupChatSettingsSerializer(chat, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
@@ -2534,204 +2534,126 @@ class GroupChatSettingsView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ChatSettingsListView(APIView):
-    """Список настроек чатов пользователя"""
-    permission_classes = [IsAuthenticated]
+# ==================== ANIME DISCUSSION GROUPS ====================
 
-    def get(self, request):
-        """Получить все настройки чатов пользователя"""
-        user = request.user
-
-        # Получаем все приватные чаты пользователя
-        private_chats = PrivateChat.objects.filter(
-            models.Q(user1=user) | models.Q(user2=user)
-        )
-
-        private_settings = []
-        for chat in private_chats:
-            settings, created = PrivateChatUserSettings.objects.get_or_create(
-                chat=chat,
-                user=user
-            )
-            # Determine the other user
-            other = chat.user2 if chat.user1 == user else chat.user1
-            private_settings.append({
-                'chat_id': chat.id,
-                'chat_type': 'private',
-                'other_user': {
-                    'id': other.id,
-                    'username': other.username,
-                    'display_name': other.display_name,
-                    'avatar_url': other.avatar.url if other.avatar else None
-                },
-                'settings': PrivateChatUserSettingsSerializer(settings, context={'request': request}).data
-            })
-
-        # Получаем все групповые чаты пользователя
-        group_chats = GroupChat.objects.filter(members__user=user)
-
-        group_settings = []
-        for chat in group_chats:
-            member = chat.members.filter(user=user).first()
-            group_settings.append({
-                'chat_id': chat.id,
-                'chat_type': 'group',
-                'chat_name': chat.name,
-                'chat_avatar_url': chat.avatar.url if chat.avatar else None,
-                'is_admin': member.is_admin if member else False,
-                'can_send_messages': member.can_send_messages if member else False,
-                'can_send_media': chat.can_send_media,
-                'can_invite_users': chat.can_invite_users,
-            })
-
-        return Response({
-            'private_chats': private_settings,
-            'group_chats': group_settings
-        })
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_anime_discussion_group(request, anime_id):
+    """Получить группу обсуждения для аниме"""
+    from anime.models import Anime
+    
+    try:
+        anime = Anime.objects.get(id=anime_id)
+    except Anime.DoesNotExist:
+        return Response({'error': 'Аниме не найдено'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Ищем существующую группу обсуждения
+    chat = GroupChat.objects.filter(anime=anime).first()
+    
+    if not chat:
+        return Response({'error': 'Группа обсуждения не найдена'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Проверяем, является ли пользователь участником
+    member = chat.members.filter(user=request.user).first()
+    user_joined = member is not None
+    
+    # Сериализуем данные
+    serializer = GroupChatSerializer(chat, context={'request': request})
+    data = serializer.data
+    data['user_joined'] = user_joined
+    
+    return Response(data)
 
 
-class MessageViewSet(ModelViewSet):
-    queryset = Message.objects.filter(is_deleted=False)
-    serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_anime_discussion_group(request, anime_id):
+    """Создать группу обсуждения для аниме"""
+    from anime.models import Anime
+    
+    try:
+        anime = Anime.objects.get(id=anime_id)
+    except Anime.DoesNotExist:
+        return Response({'error': 'Аниме не найдено'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Проверяем, не существует ли уже группа
+    existing_chat = GroupChat.objects.filter(anime=anime).first()
+    if existing_chat:
+        serializer = GroupChatSerializer(existing_chat, context={'request': request})
+        return Response(serializer.data)
+    
+    # Создаем новую группу обсуждения
+    chat = GroupChat.objects.create(
+        name=f"Обсуждение: {anime.title_ru or anime.title_en}",
+        description=f"Группа обсуждения аниме {anime.title_ru or anime.title_en}",
+        anime=anime,
+        created_by=request.user,
+        is_public=True,
+        history_visible=True,
+        can_send_media=True,
+        can_send_stickers=True,
+        can_send_polls=True,
+        can_add_web_page_previews=True,
+        can_change_info=True,
+        can_pin_messages=True,
+        can_invite_users=True
+    )
+    
+    # Добавляем создателя как владельца
+    ChatMember.objects.create(
+        chat=chat,
+        user=request.user,
+        is_admin=True,
+        can_send_messages=True,
+        can_send_media=True,
+        can_add_reactions=True,
+        can_send_polls=True,
+        can_invite_users=True,
+        can_change_info=True,
+        can_pin_messages=True
+    )
+    
+    serializer = GroupChatSerializer(chat, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def get_queryset(self):
-        # Фильтруем по чатам, к которым у пользователя есть доступ
-        user = self.request.user
-        group_chats = GroupChat.objects.filter(members__user=user).values_list('id', flat=True)
-        private_chats = PrivateChat.objects.filter(
-            models.Q(user1=user) | models.Q(user2=user)
-        ).values_list('id', flat=True)
 
-        return Message.objects.filter(
-            models.Q(chat_id__in=list(group_chats)) |
-            models.Q(private_chat_id__in=list(private_chats))
-        ).select_related('sender', 'chat', 'private_chat')
-
-    def perform_destroy(self, instance):
-        instance.is_deleted = True
-        instance.save()
-
-
-class CreateGroupChatView(APIView):
-    """Создание группового чата с поддержкой FormData"""
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        import json
-        from core.redis_events import event_publisher
-
-        # Получаем данные из FormData
-        name = request.data.get('name')
-        description = request.data.get('description', '')
-        avatar = request.data.get('avatar')
-
-        print(f"DEBUG: Создание чата - name={name}, avatar={avatar}")
-        print(f"DEBUG: avatar type = {type(avatar)}")
-        if avatar:
-            print(f"DEBUG: avatar.name = {avatar.name}, avatar.size = {avatar.size}")
-
-        # Парсим participants из строки если нужно
-        participants_raw = request.data.get('participants')
-        if isinstance(participants_raw, str):
-            try:
-                participants = json.loads(participants_raw)
-            except json.JSONDecodeError:
-                participants = []
-        elif isinstance(participants_raw, list):
-            participants = participants_raw
-        else:
-            participants = []
-
-        # Валидация
-        if not name:
-            return Response({'error': 'Название чата обязательно'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Создаем чат
-        chat = GroupChat.objects.create(
-            name=name,
-            description=description,
-            created_by=request.user
-        )
-
-        print(f"DEBUG: Чат создан, id={chat.id}")
-
-        # Сохраняем аватарку если есть
-        if avatar:
-            print(f"DEBUG: Сохраняем аватарку: {avatar}")
-            print(f"DEBUG: avatar type = {type(avatar)}")
-            print(f"DEBUG: avatar.name = {avatar.name}")
-            try:
-                chat.avatar.save(avatar.name, avatar, save=True)
-                print(f"DEBUG: Аватарка сохранена, путь: {chat.avatar}")
-                print(f"DEBUG: Аватарка URL: {chat.avatar.url}")
-            except Exception as e:
-                print(f"DEBUG: Ошибка сохранения аватарки: {e}")
-                import traceback
-                traceback.print_exc()
-        else:
-            print("DEBUG: Аватарка не выбрана, генерируем дефолтную")
-            # Генерируем дефолтную аватарку
-            try:
-                from social.serializers import GroupChatCreateSerializer
-                serializer = GroupChatCreateSerializer()
-                serializer._generate_default_avatar(chat)
-                print(f"DEBUG: Дефолтная аватарка сгенерирована, путь: {chat.avatar}")
-            except Exception as e:
-                print(f"DEBUG: Ошибка генерации аватарки: {e}")
-
-        # Добавляем создателя как админа
-        ChatMember.objects.create(
-            user=request.user,
-            chat=chat,
-            is_admin=True
-        )
-
-        # Добавляем участников
-        participant_ids = [request.user.id]
-        for user_id in participants:
-            try:
-                user = User.objects.get(id=user_id)
-                member, created = ChatMember.objects.get_or_create(
-                    user=user,
-                    chat=chat,
-                    defaults={
-                        'can_send_messages': True,
-                        'can_send_media': chat.can_send_media,
-                        'is_admin': False,
-                        'is_muted': False
-                    }
-                )
-                participant_ids.append(user_id)
-                print(f"DEBUG: Добавлен участник {user_id} в группу {chat.id}")
-            except User.DoesNotExist:
-                print(f"DEBUG: Пользователь {user_id} не найден")
-                continue
-
-        # Публикуем событие о создании группы для всех участников
-        try:
-            event_publisher.publish_event('group_chat_created', {
-                'chat_id': chat.id,
-                'chat_type': 'group',
-                'created_by': {
-                    'id': request.user.id,
-                    'username': request.user.username,
-                    'display_name': request.user.display_name or request.user.username,
-                    'avatar': request.user.avatar.url if request.user.avatar else None
-                },
-                'chat_name': chat.name,
-                'participants': participant_ids,
-                'created_at': chat.created_at.isoformat()
-            })
-        except Exception as e:
-            print(f"DEBUG: Error publishing group chat created event: {e}")
-
-        # Логируем
-        ChatAdminLog.objects.create(
-            chat=chat,
-            user=request.user,
-            action='chat_created',
-            details={'chat_name': chat.name, 'participants_count': len(participants) + 1}
-        )
-
-        return Response(GroupChatSerializer(chat).data, status=status.HTTP_201_CREATED)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def join_anime_discussion_group(request, anime_id):
+    """Присоединиться к группе обсуждения аниме"""
+    from anime.models import Anime
+    
+    try:
+        anime = Anime.objects.get(id=anime_id)
+    except Anime.DoesNotExist:
+        return Response({'error': 'Аниме не найдено'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Ищем группу
+    chat = GroupChat.objects.filter(anime=anime).first()
+    if not chat:
+        return Response({'error': 'Группа обсуждения не найдена'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Проверяем, не состоит ли уже пользователь
+    existing_member = chat.members.filter(user=request.user).first()
+    if existing_member:
+        serializer = GroupChatSerializer(chat, context={'request': request})
+        data = serializer.data
+        data['user_joined'] = True
+        return Response(data)
+    
+    # Добавляем пользователя
+    ChatMember.objects.create(
+        chat=chat,
+        user=request.user,
+        can_send_messages=True,
+        can_send_media=True,
+        can_add_reactions=True,
+        can_send_polls=True,
+        can_invite_users=True
+    )
+    
+    serializer = GroupChatSerializer(chat, context={'request': request})
+    data = serializer.data
+    data['user_joined'] = True
+    
+    return Response(data)

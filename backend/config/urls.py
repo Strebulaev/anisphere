@@ -15,11 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
-from django.http import JsonResponse
+from django.urls import path, include, re_path
+from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from django.conf.urls.static import static
 import time
+import requests
+from urllib.parse import urlparse, quote
 
 def api_status(request):
     """Статус всех моделей в системе"""
@@ -59,6 +61,72 @@ def api_status(request):
             'notifications': '/api/notifications/',
         }
     })
+
+
+def proxy_image(request, encoded_url):
+    """
+    Проксирует изображения с внешних сайтов через images.weserv.nl
+    для обхода блокировок.
+    """
+    import logging
+    import base64
+    import traceback as tb
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        print(f'[PROXY] Starting proxy for: {encoded_url[:30]}...')
+        
+        # Декодируем URL (поддержка URL-safe base64)
+        url_safe = encoded_url.replace('-', '+').replace('_', '/')
+        padding = 4 - len(url_safe) % 4
+        if padding != 4:
+            url_safe += '=' * padding
+        
+        original_url = base64.b64decode(url_safe).decode('utf-8')
+        print(f'[PROXY] Decoded URL: {original_url}')
+        
+        # Валидация URL
+        parsed = urlparse(original_url)
+        if not parsed.scheme or not parsed.netloc:
+            return HttpResponse('Invalid URL', status=400)
+        
+        # Используем images.weserv.nl как прокси - он не заблокирован
+        # encodeurl для безопасной передачи URL
+        from urllib.parse import quote
+        encoded_original = quote(original_url, safe='')
+        proxy_url = f'https://images.weserv.nl/?url={encoded_original}&w=500&q=80&output=webp'
+        
+        print(f'[PROXY] Using weserv: {proxy_url[:80]}...')
+        
+        # Заголовки для изображения
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'image/webp,image/*,*/*;q=0.8',
+        }
+        
+        # Загружаем через weserv.nl
+        response = requests.get(proxy_url, headers=headers, timeout=20, stream=True)
+        print(f'[PROXY] Response status: {response.status_code}')
+        
+        if response.status_code != 200:
+            # Если weserv не работает, пробуем напрямую
+            logger.warning(f'[PROXY] weserv failed, trying direct: {response.status_code}')
+            response = requests.get(original_url, headers=headers, timeout=15, stream=True)
+            if response.status_code != 200:
+                return HttpResponse(f'Image not found: {response.status_code}', status=response.status_code)
+        
+        content_type = response.headers.get('Content-Type', 'image/jpeg')
+        http_response = HttpResponse(response.content, content_type=content_type)
+        http_response['Cache-Control'] = 'public, max-age=2592000'
+        
+        print(f'[PROXY] Success!')
+        return http_response
+        
+    except Exception as e:
+        error_trace = tb.format_exc()
+        logger.error(f'[PROXY] Error: {str(e)}')
+        return HttpResponse(f'Proxy error: {str(e)}', status=500)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
