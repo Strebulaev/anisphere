@@ -75,10 +75,10 @@ watch(() => props.animeId, () => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1rem;
-  border: 1px solid var(--color-divider);
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
   border-radius: 0.5rem;
-  background: var(--color-background-surface);
-  color: var(--color-text-tertiary);
+  background: rgba(239, 68, 68, 0.06);
+  color: rgba(239, 68, 68, 0.65);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;

@@ -1,0 +1,191 @@
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Studio',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(max_length=200, unique=True, verbose_name='Название')),
+                ('name_jp', models.CharField(blank=True, max_length=200, verbose_name='Название (японское)')),
+                ('slug', models.SlugField(max_length=200, unique=True)),
+                ('description', models.TextField(blank=True, verbose_name='Описание')),
+                ('logo_url', models.URLField(blank=True, verbose_name='URL логотипа')),
+                ('logo', models.ImageField(blank=True, null=True, upload_to='studios/logos/', verbose_name='Логотип')),
+                ('banner_url', models.URLField(blank=True, verbose_name='URL баннера')),
+                ('banner', models.ImageField(blank=True, null=True, upload_to='studios/banners/', verbose_name='Баннер')),
+                ('country', models.CharField(default='Япония', max_length=100, verbose_name='Страна')),
+                ('founded_year', models.PositiveIntegerField(blank=True, null=True, verbose_name='Год основания')),
+                ('website', models.URLField(blank=True, verbose_name='Официальный сайт')),
+                ('twitter', models.URLField(blank=True, verbose_name='Twitter/X')),
+                ('youtube', models.URLField(blank=True, verbose_name='YouTube')),
+                ('facebook', models.URLField(blank=True, verbose_name='Facebook')),
+                ('employees_count', models.CharField(blank=True, max_length=50, verbose_name='Количество сотрудников')),
+                ('total_anime', models.PositiveIntegerField(default=0, verbose_name='Всего аниме')),
+                ('tv_count', models.PositiveIntegerField(default=0, verbose_name='ТВ сериалов')),
+                ('movie_count', models.PositiveIntegerField(default=0, verbose_name='Фильмов')),
+                ('ova_count', models.PositiveIntegerField(default=0, verbose_name='OVA/ONA')),
+                ('average_rating', models.FloatField(default=0.0, verbose_name='Средний рейтинг')),
+                ('subscribers_count', models.PositiveIntegerField(default=0, verbose_name='Подписчиков')),
+                ('notable_works', models.JSONField(blank=True, default=list, verbose_name='Известные работы')),
+                ('genre_stats', models.JSONField(blank=True, default=dict, verbose_name='Статистика жанров')),
+                ('is_active', models.BooleanField(default=True, verbose_name='Активна')),
+                ('is_verified', models.BooleanField(default=False, verbose_name='Верифицирована')),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+            ],
+            options={
+                'verbose_name': 'Студия',
+                'verbose_name_plural': 'Студии',
+                'ordering': ['-average_rating', 'name'],
+            },
+        ),
+        migrations.CreateModel(
+            name='StudioAnime',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('kodik_id', models.CharField(default='', max_length=50, verbose_name='Kodik ID')),
+                ('anime_db_id', models.IntegerField(blank=True, null=True, verbose_name='ID аниме в БД')),
+                ('anime_title', models.CharField(max_length=255, verbose_name='Название аниме')),
+                ('anime_title_en', models.CharField(blank=True, max_length=255, verbose_name='Английское название')),
+                ('anime_kind', models.CharField(default='tv', max_length=20, verbose_name='Тип аниме')),
+                ('anime_year', models.PositiveIntegerField(blank=True, null=True, verbose_name='Год аниме')),
+                ('anime_score', models.FloatField(blank=True, null=True, verbose_name='Рейтинг аниме')),
+                ('anime_poster', models.URLField(blank=True, max_length=500, verbose_name='Постер аниме')),
+                ('anime_status', models.CharField(blank=True, max_length=50, verbose_name='Статус аниме')),
+                ('shikimori_id', models.CharField(blank=True, max_length=50, verbose_name='Shikimori ID')),
+                ('episodes_total', models.PositiveIntegerField(blank=True, null=True, verbose_name='Эпизодов всего')),
+                ('description', models.TextField(blank=True, verbose_name='Описание')),
+                ('genres', models.JSONField(blank=True, default=list, verbose_name='Жанры')),
+                ('studio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='studio_anime', to='studios.studio')),
+            ],
+            options={
+                'verbose_name': 'Аниме студии',
+                'verbose_name_plural': 'Аниме студий',
+                'ordering': ['-anime_year', '-anime_score'],
+                'unique_together': {('studio', 'kodik_id')},
+            },
+        ),
+        migrations.CreateModel(
+            name='StudioSubscription',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('studio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subscriptions', to='studios.studio')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='studio_subscriptions', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'verbose_name': 'Подписка на студию',
+                'verbose_name_plural': 'Подписки на студии',
+                'unique_together': {('user', 'studio')},
+            },
+        ),
+        migrations.CreateModel(
+            name='StudioRating',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('animation_quality', models.IntegerField(default=5, verbose_name='Качество анимации')),
+                ('directing', models.IntegerField(default=5, verbose_name='Режиссура')),
+                ('soundtrack', models.IntegerField(default=5, verbose_name='Саундтрек')),
+                ('adaptation', models.IntegerField(default=5, verbose_name='Адаптация')),
+                ('overall_rating', models.FloatField(verbose_name='Общая оценка')),
+                ('comment', models.TextField(blank=True, verbose_name='Комментарий')),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('studio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='ratings', to='studios.studio')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='studio_ratings', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'verbose_name': 'Оценка студии',
+                'verbose_name_plural': 'Оценки студий',
+                'unique_together': {('user', 'studio')},
+            },
+        ),
+        migrations.CreateModel(
+            name='StudioNews',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('title', models.CharField(max_length=300, verbose_name='Заголовок')),
+                ('content', models.TextField(verbose_name='Содержание')),
+                ('likes_count', models.PositiveIntegerField(default=0)),
+                ('comments_count', models.PositiveIntegerField(default=0)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('author', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='studio_news', to=settings.AUTH_USER_MODEL)),
+                ('studio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='news', to='studios.studio')),
+            ],
+            options={
+                'verbose_name': 'Новость студии',
+                'verbose_name_plural': 'Новости студий',
+                'ordering': ['-created_at'],
+            },
+        ),
+        migrations.CreateModel(
+            name='StudioAward',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('year', models.PositiveIntegerField(verbose_name='Год')),
+                ('award_name', models.CharField(max_length=200, verbose_name='Название премии')),
+                ('category', models.CharField(max_length=200, verbose_name='Категория/Номинация')),
+                ('is_winner', models.BooleanField(default=True, verbose_name='Победитель')),
+                ('studio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='awards', to='studios.studio')),
+            ],
+            options={
+                'verbose_name': 'Награда студии',
+                'verbose_name_plural': 'Награды студий',
+                'ordering': ['-year'],
+            },
+        ),
+        migrations.CreateModel(
+            name='StudioDiscussion',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('title', models.CharField(max_length=300, verbose_name='Заголовок темы')),
+                ('content', models.TextField(verbose_name='Содержание')),
+                ('likes_count', models.PositiveIntegerField(default=0)),
+                ('dislikes_count', models.PositiveIntegerField(default=0)),
+                ('replies_count', models.PositiveIntegerField(default=0)),
+                ('is_pinned', models.BooleanField(default=False)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('last_reply_at', models.DateTimeField(blank=True, null=True)),
+                ('author', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='studio_discussions', to=settings.AUTH_USER_MODEL)),
+                ('studio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='discussions', to='studios.studio')),
+            ],
+            options={
+                'verbose_name': 'Обсуждение студии',
+                'verbose_name_plural': 'Обсуждения студий',
+                'ordering': ['-is_pinned', '-created_at'],
+            },
+        ),
+        migrations.CreateModel(
+            name='StudioStaff',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(max_length=200, verbose_name='Имя')),
+                ('name_jp', models.CharField(blank=True, max_length=200, verbose_name='Имя (японское)')),
+                ('role', models.CharField(choices=[('director', 'Режиссёр'), ('animator', 'Аниматор'), ('composer', 'Композитор'), ('voice_actor', 'Актёр озвучки'), ('founder', 'Основатель'), ('ceo', 'CEO'), ('other', 'Другое')], max_length=30, verbose_name='Роль')),
+                ('role_detail', models.CharField(blank=True, max_length=200, verbose_name='Детали роли')),
+                ('photo_url', models.URLField(blank=True, verbose_name='URL фото')),
+                ('works_count', models.PositiveIntegerField(default=0, verbose_name='Количество работ')),
+                ('notable_works', models.JSONField(blank=True, default=list, verbose_name='Известные работы')),
+                ('is_key_person', models.BooleanField(default=False, verbose_name='Ключевая персона')),
+                ('awards', models.JSONField(blank=True, default=list, verbose_name='Награды')),
+                ('studio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='staff', to='studios.studio')),
+            ],
+            options={
+                'verbose_name': 'Сотрудник студии',
+                'verbose_name_plural': 'Сотрудники студий',
+                'ordering': ['-is_key_person', 'role', 'name'],
+            },
+        ),
+    ]

@@ -138,4 +138,5 @@ urlpatterns = [
     path('api/social/', include('social.urls')), # Social API
     path('api/reactor/', include('reactor.urls')), # Reactor API
     path('api/notifications/', include('notifications.urls')), # Notifications API
+    path('api/studios/', include('studios.urls')),  # Studios API
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

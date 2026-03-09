@@ -85,7 +85,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import NavBar from '@/components/Navigation/NavBar.vue'
 import CatalogView from './CatalogView.vue'
 import OngoingsView from './OngoingsView.vue'
@@ -98,6 +98,7 @@ import apiClient from '@/api/client'
 import type { Anime } from '@/types'
 
 const router = useRouter()
+const route = useRoute()
 
 const {
   currentSection,
@@ -163,6 +164,15 @@ const handleCatalogFilterChange = (filters: FilterState) => {
   currentCatalogFilters.value = filters
   fetchCatalog(1, filters)
 }
+
+// Применение начального фильтра по жанру из URL
+onMounted(() => {
+  const genreName = route.query.genre_name as string
+  if (genreName) {
+    currentCatalogFilters.value = { genres: [genreName] }
+    fetchCatalog(1, currentCatalogFilters.value)
+  }
+})
 const shuffleCatalog = () => {
   if (catalogAnime.value.length) {
     catalogAnime.value = [...catalogAnime.value].sort(() => Math.random() - 0.5)

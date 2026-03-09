@@ -143,7 +143,7 @@ const handlePageChange = (newPage: number) => {
 </script>
 
 <style scoped>
-.catalog {}
+/* .catalog {} */
 
 .catalog-info {
   font-size: var(--text-sm);

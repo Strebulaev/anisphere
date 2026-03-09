@@ -148,7 +148,6 @@ def _split_param(value):
 
 class AnimeViewSet(viewsets.ModelViewSet):
     """ViewSet для работы с аниме"""
-
     queryset = Anime.objects.all()
     serializer_class = AnimeSerializer
     permission_classes = [permissions.AllowAny]

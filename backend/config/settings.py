@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     'social',
     'reactor',
     'notifications',
+    'studios',
 ]
 
 MIDDLEWARE = [

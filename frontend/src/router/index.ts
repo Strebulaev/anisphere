@@ -31,6 +31,8 @@ import OnlineUsers from '@/components/page/other/OnlineUsers.vue'
 import AchievementsView from '@/components/page/other/AchievementsView.vue'
 import PeopleView from '@/views/PeopleView.vue'
 import PeopleDetailView from '@/views/PeopleDetailView.vue'
+import StudiosView from '@/views/studios/StudiosView.vue'
+import StudioDetailView from '@/views/studios/StudioDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -230,6 +232,17 @@ const router = createRouter({
       path: '/people/:id',
       name: 'people-detail',
       component: PeopleDetailView,
+      props: true
+    },
+    {
+      path: '/studios',
+      name: 'studios',
+      component: StudiosView
+    },
+    {
+      path: '/studios/:slug',
+      name: 'studio-detail',
+      component: StudioDetailView,
       props: true
     }
   ]

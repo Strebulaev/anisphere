@@ -1,14 +1,5 @@
 <template>
   <div class="anime-detail">
-    <!-- Modal for adding/editing dubs -->
-    <AddDubModal
-      :show="showAddDubModal"
-      :anime-id="anime?.id || 0"
-      :editing-dub="editingDub"
-      @close="showAddDubModal = false"
-      @dub-added="onDubAdded"
-    />
-    
     <div class="container detail-content">
       <div v-if="loading" class="loading-state">
         <div class="spinner-container">
@@ -130,7 +121,9 @@
                 <span
                   v-for="genre in anime.genres"
                   :key="genre.id"
-                  class="genre-tag-large"
+                  class="genre-tag-large clickable"
+                  @click="navigateToGenre(genre)"
+                  :title="`Смотреть аниме в жанре ${genre.name}`"
                 >
                   {{ genre.name }}
                 </span>
@@ -143,20 +136,19 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M3 21h18"/>
                   <path d="M5 21V7l8-4 8 4v14"/>
-                  <path d="M13 11V7"/>
-                  <path d="M13 15v-2"/>
-                  <path d="M13 19v-2"/>
                 </svg>
                 Студия:
               </span>
               <div class="studios-list">
-                <span
+                <router-link
                   v-for="studio in anime.studios"
                   :key="studio.id"
-                  class="studio-tag"
+                  :to="`/studios/${studio.slug}`"
+                  class="studio-tag studio-tag-link"
+                  :title="`Перейти на страницу студии ${studio.name}`"
                 >
-                  {{ studio.name }}
-                </span>
+                  🏢 {{ studio.name }}
+                </router-link>
               </div>
             </div>
 
@@ -188,20 +180,6 @@
                 </a>
               </div>
             </div>
-
-            <!-- Трейлер -->
-            <div class="detail-row" v-if="trailerEmbedUrl">
-              <span class="detail-label">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="23 7 16 12 23 17 23 7"/>
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-                </svg>
-                Трейлер:
-              </span>
-              <a :href="anime.trailer_url || undefined" target="_blank" class="trailer-link">
-                📺 Смотреть трейлер
-              </a>
-            </div>
     
             <!-- Кнопка просмотра -->
             <div class="detail-row" v-if="canWatch">
@@ -228,11 +206,15 @@
                 </svg>
                 В плейлист
               </button>
-              <button class="btn btn-outline discuss-btn">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+              <button class="btn btn-outline discuss-btn" @click="handleDiscuss" :disabled="discussLoading">
+                <svg v-if="discussLoading" class="spin-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
                 </svg>
-                Обсудить
+                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                {{ discussLoading ? 'Загрузка...' : 'Обсудить' }}
               </button>
               <AddToFavoriteButton
                 :anime-id="anime.id"
@@ -250,8 +232,33 @@
           :is-loading="loadingPlaylists"
           @close="showPlaylistModal = false"
           @save="onAddedToPlaylist"
-          @create-playlist="showPlaylistModal = false"
+          @create-playlist="handleCreatePlaylist"
         />
+
+        <!-- Модалка создания плейлиста -->
+        <Teleport to="body">
+          <Transition name="psm-anim">
+            <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:10001;padding:1rem;">
+              <div style="background:var(--surface-2);border-radius:1rem;max-width:420px;width:100%;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:1rem;">
+                <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:var(--text-primary);">Новый плейлист</h3>
+                <input
+                  v-model="newPlaylistTitle"
+                  placeholder="Название плейлиста"
+                  @keydown.enter="saveNewPlaylist"
+                  style="height:38px;padding:0 12px;background:var(--surface-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);color:var(--text-primary);font-size:var(--text-sm);outline:none;width:100%;box-sizing:border-box;"
+                />
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--text-sm);color:var(--text-secondary);">
+                  <input type="checkbox" v-model="newPlaylistPublic" />
+                  Публичный
+                </label>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                  <button @click="showCreateModal = false" style="height:36px;padding:0 16px;background:var(--surface-4);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);">Отмена</button>
+                  <button @click="saveNewPlaylist" :disabled="!newPlaylistTitle.trim() || creatingPlaylist" style="height:36px;padding:0 16px;background:var(--accent);color:white;border:none;border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);font-weight:600;" :style="{ opacity: !newPlaylistTitle.trim() || creatingPlaylist ? '0.5' : '1' }">{{ creatingPlaylist ? 'Создание...' : 'Создать' }}</button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
 
         <ImageLightbox
           :show="showLightbox"
@@ -350,44 +357,83 @@
           </div>
         </div>
 
-        <!-- Разделы -->
-        <div class="anime-sections">
-          <!-- Где смотреть -->
-          <div class="section">
-            <h3>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="5 3 19 12 5 21 5 3"/>
+        <!-- ══════════════════════════════════════════════
+             СЕКЦИЯ ОЗВУЧЕК
+        ══════════════════════════════════════════════ -->
+        <div class="dubs-section">
+          <div class="dubs-header">
+            <h3 class="dubs-title">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
               </svg>
-              Где смотреть?
+              Озвучки
+              <span v-if="!loadingDubs && filteredTranslations.length > 0" class="dubs-count">{{ filteredTranslations.length }}</span>
             </h3>
-            <p class="section-placeholder" v-if="!anime.playlists || anime.playlists.length === 0">
-              Плейлисты с этим аниме появятся здесь
-            </p>
-            <div v-else class="playlists-list">
-              <div 
-                v-for="playlist in anime.playlists" 
-                :key="playlist.id"
-                class="playlist-card"
+
+            <!-- Фильтры по типу -->
+            <div class="dubs-filters">
+              <button
+                v-for="f in dubFilters"
+                :key="f.value"
+                class="dubs-filter-btn"
+                :class="{ active: dubFilter === f.value }"
+                @click="dubFilter = f.value"
               >
-                <span class="playlist-title">{{ playlist.title }}</span>
-                <span class="playlist-author">@{{ playlist.user?.username }}</span>
+                {{ f.label }}
+                <span v-if="f.value !== 'all'" class="filter-count">{{ getDubCount(f.value) }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Загрузка -->
+          <div v-if="loadingDubs" class="dubs-loading">
+            <div class="dub-skeleton" v-for="i in 4" :key="i"></div>
+          </div>
+
+          <!-- Список озвучек -->
+          <div v-else-if="filteredTranslations.length > 0" class="dubs-list">
+            <div
+              v-for="t in filteredTranslations"
+              :key="t.id"
+              class="dub-item"
+              @click="startWatchingWithTranslation(t)"
+            >
+              <div class="dub-avatar">
+                <img v-if="getTranslationAvatar(t)" :src="getTranslationAvatar(t)" :alt="t.name" />
+                <span v-else>{{ getInitials(t.name) }}</span>
+              </div>
+              <div class="dub-info">
+                <span class="dub-name">{{ t.name }}</span>
+                <div class="dub-meta">
+                  <span class="dub-tag" :class="`tag-${t.type}`">{{ getTypeLabel(t.type) }}</span>
+                  <span v-if="t.quality" class="dub-tag tag-quality">{{ t.quality }}</span>
+                  <span v-if="t.episodes_done" class="dub-tag tag-ep">{{ t.episodes_done }} эп.</span>
+                </div>
+              </div>
+              <div class="dub-action">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
               </div>
             </div>
           </div>
-          
-          <!-- Озвучки -->
-          <div class="section dubs-section">
-            <DubsList
-              :dubs="formattedDubs"
-              :loading="loadingDubs"
-              :can-add-dub="true"
-              :anime-id="anime?.id"
-              @add-dub="addDub"
-              @select-dub="selectDub"
-              @play-dub="playDub"
-            />
+
+          <!-- Пусто -->
+          <div v-else-if="!loadingDubs" class="dubs-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            <p>{{ dubFilter === 'all' ? 'Озвучки не найдены' : 'По этому фильтру ничего нет' }}</p>
+            <button v-if="dubFilter !== 'all'" class="dubs-reset-btn" @click="dubFilter = 'all'">Сбросить фильтр</button>
           </div>
         </div>
+
       </div>
     </div>
   </div>
@@ -397,45 +443,20 @@
   import { ref, computed, onMounted } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import apiClient, { getMediaUrl } from '@/api/client'
-  import AddDubModal from '@/components/modal/anime/AddDubModal.vue'
-  import DubsList from '@/components/Dubs/DubsList.vue'
-  import NavBar from '@/components/Navigation/NavBar.vue'
   import { PlaylistSelectModal, ImageLightbox } from '@/components/Modals'
   import { AddToFavoriteButton } from '@/components/Buttons'
   import playlistsApi from '@/api/playlists'
-  
-  interface Dub {
-    id: number
-    group: {
-      id: number
-      name: string
-      slug: string
-      logo_url: string | null
-    } | null
-    dub_type: string
-    dub_type_display?: string
-    quality: string
-    episodes_done: number
-    total_episodes: number | null
-    is_complete: boolean
-    average_rating: number | null
-    ratings_count: number
-    external_url: string | null
-    created_by?: {
-      id: number
-      username: string
-    } | null
-  }
-  
-  interface Playlist {
-    id: number
-    title: string
-    user?: {
-      username: string
-    }
-  }
+  import { getTranslationAvatarUrl } from '@/utils/translationAvatars'
+  import { animeDiscussionsApi } from '@/api/animeDiscussions'
+  import { useToast } from '@/composables/useToast'
   
   interface Genre {
+    id: number
+    name: string
+    slug: string
+  }
+
+  interface Studio {
     id: number
     name: string
     slug: string
@@ -453,40 +474,16 @@
     score: number | null
     rank: number | null
     popularity: number | null
-    poster: string | null  // Локальный файл (приоритетный)
-    poster_url: string | null  // URL Shikimori (не использовать)
-    poster_file?: string | null
-    created_at?: string
+    poster: string | null
+    poster_url: string | null
     trailer_url: string | null
     screenshots: {url: string}[] | null
     genres: Genre[]
     studios?: Studio[]
-    playlists?: Playlist[]
     shikimori_id?: number
     mal_id?: number
-    data_source?: string
   }
 
-  interface Studio {
-    id: number
-    name: string
-    slug: string
-  }
-
-  interface DubGroup {
-    id: number
-    name: string
-    slug: string
-    description: string
-    logo_url: string | null
-    works_count: number
-    followers_count: number
-    status: string
-    is_verified: boolean
-    has_dub: boolean
-    dub_info: Dub
-  }
-  
   interface FranchiseEntry {
     id: number
     title_ru: string
@@ -504,86 +501,90 @@
     entries: FranchiseEntry[]
   }
 
+  interface Translation {
+    id: number | string
+    name: string
+    type: string
+    quality: string
+    episodes_done: number
+    kodik_link?: string
+    is_custom?: boolean
+  }
+
   const route = useRoute()
   const router = useRouter()
+
   const anime = ref<Anime | null>(null)
   const franchise = ref<FranchiseDetail | null>(null)
-  const dubs = ref<Dub[]>([])
-  const dubGroups = ref<DubGroup[]>([])
-  const showAddDubModal = ref(false)
+  const translations = ref<Translation[]>([])
+
   const showPlaylistModal = ref(false)
+  const showCreateModal = ref(false)
+  const newPlaylistTitle = ref('')
+  const newPlaylistPublic = ref(false)
+  const creatingPlaylist = ref(false)
+  const discussLoading = ref(false)
   const showLightbox = ref(false)
   const lightboxImages = ref<string[]>([])
   const lightboxInitialIndex = ref(0)
-  const editingDub = ref<Dub | null>(null)
-  const currentUser = ref<{id: number, username: string} | null>(null)
   const loading = ref(true)
   const loadingDubs = ref(false)
   const loadingPlaylists = ref(false)
   const userPlaylists = ref<any[]>([])
   const error = ref<string | null>(null)
-  const dubsError = ref<string | null>(null)
+
+  // Фильтрация озвучек
+  type DubFilterType = 'all' | 'voice' | 'subtitles' | 'raw'
+  const dubFilter = ref<DubFilterType>('all')
+  const dubFilters: { value: DubFilterType; label: string }[] = [
+    { value: 'all',       label: 'Все' },
+    { value: 'voice',     label: 'Озвучка' },
+    { value: 'subtitles', label: 'Субтитры' },
+    { value: 'raw',       label: 'Оригинал' },
+  ]
+
+  const filteredTranslations = computed(() => {
+    if (dubFilter.value === 'all') return translations.value
+    return translations.value.filter(t => t.type === dubFilter.value)
+  })
+
+  const getDubCount = (type: string) => {
+    return translations.value.filter(t => t.type === type).length
+  }
 
   const canWatch = computed(() => {
     if (!anime.value) return false
     return !!(anime.value.shikimori_id || anime.value.episodes)
   })
 
-  const formattedDubs = computed(() => {
-    return dubs.value.map(dub => ({
-      id: dub.id,
-      studio: dub.group?.name || 'Неизвестная студия',
-      logo: dub.group?.logo_url || null,
-      type: dub.dub_type,
-      voiceActors: [],
-      verified: false,
-      is_official: dub.dub_type === 'official',
-      latestEpisode: dub.episodes_done?.toString() || null,
-      qualityRating: dub.average_rating || 0,
-      external_url: dub.external_url,
-      episodes_done: dub.episodes_done,
-      total_episodes: dub.total_episodes,
-      is_complete: dub.is_complete
-    }))
-  })
+  const getTypeLabel = (type: string) => ({
+    voice: 'Озвучка',
+    subtitles: 'Субтитры',
+    raw: 'Оригинал',
+  }[type] || type)
 
-  const trailerEmbedUrl = computed(() => {
-    if (!anime.value?.trailer_url) return null
-    const url = anime.value.trailer_url
-    if (url.includes('youtube.com/watch?v=')) {
-      const videoId = url.split('v=')[1]?.split('&')[0]
-      if (videoId) return `https://www.youtube.com/embed/${videoId}`
-    } else if (url.includes('youtu.be/')) {
-      const videoId = url.split('youtu.be/')[1]?.split('?')[0]
-      if (videoId) return `https://www.youtube.com/embed/${videoId}`
-    }
-    return url
-  })
-  
-  const getStatusText = (status: string) => {
-    const map: Record<string, string> = {
-      'ongoing': 'Онгоинг',
-      'finished': 'Завершён',
-      'announced': 'Анонсирован',
-      'released': 'Вышедший'
-    }
-    return map[status] || status
+  const getTranslationAvatar = (t: Translation): string | undefined => {
+    return getTranslationAvatarUrl(t.name)
   }
-  
-  const getStatusClass = (status: string) => {
-    const map: Record<string, string> = {
-      'ongoing': 'status-ongoing',
-      'finished': 'status-finished',
-      'announced': 'status-announced',
-      'released': 'status-released'
-    }
-    return map[status] || ''
-  }
-  
+
   const getInitials = (name: string | undefined | null) => {
     if (!name) return '?'
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
   }
+
+  const getStatusText = (status: string) => ({
+    'ongoing': 'Онгоинг',
+    'finished': 'Завершён',
+    'announced': 'Анонсирован',
+    'released': 'Вышедший'
+  }[status] || status)
+  
+  const getStatusClass = (status: string) => ({
+    'ongoing': 'status-ongoing',
+    'finished': 'status-finished',
+    'announced': 'status-announced',
+    'released': 'status-released'
+  }[status] || '')
   
   const fetchAnime = async () => {
     try {
@@ -592,78 +593,87 @@
       anime.value = response.data
       loading.value = false
     } catch (err: any) {
-      console.error('Ошибка загрузки аниме:', err)
       error.value = err.response?.data?.detail || 'Не удалось загрузить аниме'
       loading.value = false
     }
   }
     
   const fetchDubs = async () => {
+    if (!anime.value?.id) return
+    loadingDubs.value = true
     try {
-      const animeId = anime.value?.id
-      if (!animeId) return
-      const response = await apiClient.get(`/dubs/anime/${animeId}/dubs/`)
-      dubs.value = response.data
-    } catch (err: any) {
+      // Kodik-переводы
+      const response = await apiClient.get(`/anime/${anime.value.id}/kodik_translations/`)
+      const kodikTranslations = (response.data.translations || []).map((t: any) => ({ ...t, is_custom: false }))
+
+      // Пользовательские дабы
+      let customDubs: any[] = []
+      try {
+        const customRes = await apiClient.get(`/anime/${anime.value.id}/custom_dubs/`)
+        customDubs = (customRes.data.dubs || []).map((d: any) => ({
+          ...d,
+          is_custom: true,
+          type: 'voice',
+        }))
+      } catch { /* нет пользовательских */ }
+
+      translations.value = [...kodikTranslations, ...customDubs]
+    } catch (err) {
       console.error('Ошибка загрузки озвучек:', err)
-    }
-
-    const animeId = anime.value?.id
-    if (!animeId) return
-    const response = await apiClient.get(`/dubs/anime/${animeId}/groups/`)
-    dubGroups.value = response.data
-  }
-  
-  const addDub = () => {
-    showAddDubModal.value = true
-  }
-
-  const canEditDub = (dub: Dub) => {
-    return currentUser.value && dub.created_by && dub.created_by.id === currentUser.value.id
-  }
-
-  const editDub = (dub: Dub) => {
-    editingDub.value = dub
-    showAddDubModal.value = true
-  }
-
-  const selectDub = (dub: Dub) => {
-    console.log('Selected dub:', dub)
-  }
-
-  const playDub = (dub: Dub) => {
-    if (dub.external_url) {
-      window.open(dub.external_url, '_blank')
-    } else {
-      console.log('No external URL for dub:', dub)
+      translations.value = []
+    } finally {
+      loadingDubs.value = false
     }
   }
 
-  const onDubAdded = () => {
-    fetchDubs()
-    editingDub.value = null
+  const navigateToGenre = (genre: Genre) => {
+    router.push({ path: '/anime', query: { section: 'catalog', genre_name: genre.name } })
+  }
+
+  const handleDiscuss = async () => {
+    if (!anime.value || discussLoading.value) return
+    discussLoading.value = true
+    try {
+      let discussionGroup
+      try {
+        discussionGroup = await animeDiscussionsApi.getDiscussionGroup(anime.value.id)
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          discussionGroup = await animeDiscussionsApi.createDiscussionGroup(anime.value.id)
+        } else {
+          throw error
+        }
+      }
+      if (!discussionGroup.user_joined) {
+        discussionGroup = await animeDiscussionsApi.joinDiscussionGroup(anime.value.id)
+      }
+      router.push(`/chats/${discussionGroup.id}`)
+    } catch (error: any) {
+      console.error('Error handling discuss:', error)
+    } finally {
+      discussLoading.value = false
+    }
+  }
+
+  const startWatching = () => {
+    if (!anime.value) return
+    router.push(`/anime/${anime.value.id}/watch`)
+  }
+
+  const startWatchingWithTranslation = (t: Translation) => {
+    if (!anime.value) return
+    router.push(`/anime/${anime.value.id}/watch`)
   }
 
   const openLightbox = (index: number) => {
-    console.log('openLightboxSimple called with index:', index);
-    
     if (!anime.value?.screenshots) return
-    
-    // Получаем все URL скриншотов
-    const urls = anime.value.screenshots.map(s => getMediaUrl(s.url) || s.url)
-    
-    lightboxImages.value = urls
+    lightboxImages.value = anime.value.screenshots.map(s => getMediaUrl(s.url) || s.url)
     lightboxInitialIndex.value = index
     showLightbox.value = true
   }
   
   const closeLightbox = () => {
     showLightbox.value = false
-  }
-
-  const startWatching = () => {
-    if (!anime.value) return
-    router.push(`/anime/${anime.value.id}/watch`)
   }
 
   const openPlaylistModal = async () => {
@@ -685,7 +695,6 @@
 
   const onAddedToPlaylist = async (data: { animeId: number; playlistIds: number[]; note?: string }) => {
     try {
-      // Добавляем аниме в каждый выбранный плейлист
       for (const playlistId of data.playlistIds) {
         await playlistsApi.addToPlaylist({
           anime_id: data.animeId,
@@ -695,9 +704,33 @@
       }
       showPlaylistModal.value = false
     } catch (e: any) {
-      const msg = e?.response?.data?.error || 'Ошибка при добавлении в плейлист'
-      console.error('Ошибка добавления в плейлист:', e)
-      alert(msg)
+      alert(e?.response?.data?.error || 'Ошибка при добавлении в плейлист')
+    }
+  }
+
+  const handleCreatePlaylist = () => {
+    showPlaylistModal.value = false
+    newPlaylistTitle.value = ''
+    newPlaylistPublic.value = false
+    showCreateModal.value = true
+  }
+
+  const saveNewPlaylist = async () => {
+    if (!newPlaylistTitle.value.trim() || creatingPlaylist.value) return
+    creatingPlaylist.value = true
+    try {
+      await playlistsApi.createPlaylist({
+        title: newPlaylistTitle.value.trim(),
+        is_public: newPlaylistPublic.value
+      })
+      showCreateModal.value = false
+      // Обновляем список и возвращаемся к модалке выбора
+      await fetchUserPlaylists()
+      showPlaylistModal.value = true
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || 'Не удалось создать плейлист')
+    } finally {
+      creatingPlaylist.value = false
     }
   }
 
@@ -717,14 +750,10 @@
     }
   }
 
-  const kindLabel = (kind: string) => {
-    const map: Record<string, string> = {
-      tv: 'TV', movie: 'Фильм', ova: 'OVA', ona: 'ONA', special: 'Спешл', music: 'Клип'
-    }
-    return map[kind] || kind.toUpperCase()
-  }
+  const kindLabel = (kind: string) => ({
+    tv: 'TV', movie: 'Фильм', ova: 'OVA', ona: 'ONA', special: 'Спешл', music: 'Клип'
+  }[kind] || kind.toUpperCase())
 
-  // Функция для получения полного URL постера
   const getPosterUrl = (url: string | null | undefined): string | undefined => {
     if (!url) return undefined
     return getMediaUrl(url)
@@ -757,7 +786,6 @@
   text-align: center;
   padding: 4rem 2rem;
   background: var(--color-background-surface);
-  backdrop-filter: blur(20px);
   border-radius: 1.5rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
@@ -791,9 +819,7 @@
   animation: spin 1.5s linear infinite reverse;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .loading-state p {
   font-size: 1.125rem;
@@ -806,22 +832,11 @@
   text-align: center;
   padding: 4rem 2rem;
   background: var(--color-background-surface);
-  backdrop-filter: blur(20px);
   border-radius: 1.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
-.error-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
-
-.error-message {
-  font-size: 1.125rem;
-  color: #dc2626;
-  margin-bottom: 1.5rem;
-  font-weight: 500;
-}
+.error-icon { font-size: 4rem; margin-bottom: 1rem; }
+.error-message { font-size: 1.125rem; color: #dc2626; margin-bottom: 1.5rem; font-weight: 500; }
 
 .back-btn {
   display: inline-flex;
@@ -835,19 +850,12 @@
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
   text-decoration: none;
-}
-
-.back-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(58, 134, 255, 0.4);
 }
 
 /* Detail Card */
 .anime-detail-card {
   background: var(--color-background-surface);
-  backdrop-filter: blur(20px);
   border-radius: 1.5rem;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
@@ -871,7 +879,7 @@
   font-weight: 600;
   font-size: 0.9rem;
   text-decoration: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
   margin-bottom: 1.5rem;
 }
 
@@ -902,7 +910,6 @@
   padding: 2rem;
 }
 
-/* Poster */
 .anime-poster-large {
   position: relative;
   border-radius: 1rem;
@@ -918,18 +925,6 @@
   object-fit: cover;
 }
 
-.poster-placeholder-large {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 6rem;
-  color: white;
-  opacity: 0.8;
-}
-
-/* Details */
 .anime-details {
   display: flex;
   flex-direction: column;
@@ -954,24 +949,12 @@
   padding: 0.75rem 1.25rem;
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
   border-radius: 0.75rem;
-  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
 }
 
-.rating-stars {
-  font-size: 1.5rem;
-}
+.rating-stars { font-size: 1.5rem; }
+.rating-value { font-size: 1.5rem; font-weight: 800; color: #78350f; }
 
-.rating-value {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #78350f;
-}
-
-.stats-badges {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
+.stats-badges { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 .stat-badge {
   display: inline-flex;
@@ -983,15 +966,8 @@
   font-weight: 600;
 }
 
-.rank-badge {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: #78350f;
-}
-
-.popularity-badge {
-  background: var(--color-primary);
-  color: white;
-}
+.rank-badge { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #78350f; }
+.popularity-badge { background: var(--color-primary); color: white; }
 
 /* Detail Rows */
 .detail-row {
@@ -1002,9 +978,7 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.detail-row:last-child {
-  border-bottom: none;
-}
+.detail-row:last-child { border-bottom: none; }
 
 .detail-label {
   display: inline-flex;
@@ -1018,13 +992,8 @@
   letter-spacing: 0.05em;
 }
 
-.detail-value {
-  font-size: 1rem;
-  color: var(--color-text-primary);
-  font-weight: 500;
-}
+.detail-value { font-size: 1rem; color: var(--color-text-primary); font-weight: 500; }
 
-/* Status Badge */
 .status-badge {
   padding: 0.375rem 1rem;
   border-radius: 0.75rem;
@@ -1032,32 +1001,13 @@
   font-weight: 600;
 }
 
-.status-ongoing {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-}
-
-.status-finished {
-  background: rgba(156, 163, 175, 0.2);
-  color: #9ca3af;
-}
-
-.status-announced {
-  background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-}
-
-.status-released {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
-}
+.status-ongoing  { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.status-finished { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+.status-announced { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+.status-released { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
 
 /* Genres */
-.genres-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
+.genres-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 .genre-tag-large {
   padding: 0.5rem 1rem;
@@ -1066,20 +1016,27 @@
   border-radius: 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
 }
 
-.genre-tag-large:hover {
+.genre-tag-large.clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.genre-tag-large.clickable:hover {
+  background: rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.genre-tag-large.clickable:active {
+  transform: translateY(0);
 }
 
 /* Studios */
-.studios-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
+.studios-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 .studio-tag {
   padding: 0.5rem 1rem;
@@ -1088,20 +1045,26 @@
   border-radius: 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
-  transition: all 0.3s ease;
 }
 
-.studio-tag:hover {
+.studio-tag-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.studio-tag-link:hover {
+  background: rgba(139, 92, 246, 0.4);
+  color: #c4b5fd;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
 }
 
 /* External Links */
-.external-links {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
+.external-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 .external-link {
   display: inline-flex;
@@ -1111,48 +1074,11 @@
   font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.external-link.shikimori {
-  background: #10b981;
-  color: white;
-}
-
-.external-link.shikimori:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-}
-
-.external-link.mal {
-  background: var(--color-primary);
-  color: white;
-}
-
-.external-link.mal:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(58, 134, 255, 0.4);
-}
-
-/* Trailer Link */
-.trailer-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background: #ef4444;
-  color: white;
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
   transition: all 0.2s;
 }
 
-.trailer-link:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-}
+.external-link.shikimori { background: #10b981; color: white; }
+.external-link.mal { background: var(--color-primary); color: white; }
 
 /* Watch Button */
 .watch-button {
@@ -1167,8 +1093,7 @@
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+  transition: all 0.2s;
 }
 
 .watch-button:hover {
@@ -1194,7 +1119,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
   background: var(--color-background-surface);
   color: var(--color-text-primary);
 }
@@ -1203,8 +1128,16 @@
   border-color: var(--color-primary);
   color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(58, 134, 255, 0.2);
 }
+
+.discuss-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+@keyframes spin-anim { to { transform: rotate(360deg); } }
+.spin-icon { animation: spin-anim 1s linear infinite; }
 
 /* Description Section */
 .anime-description-section {
@@ -1256,20 +1189,12 @@
   overflow: hidden;
   aspect-ratio: 16/9;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  transition: all 0.2s;
 }
 
-.screenshot-wrapper:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-}
+.screenshot-wrapper:hover { transform: translateY(-4px); }
 
-.screenshot-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.screenshot-image { width: 100%; height: 100%; object-fit: cover; }
 
 .screenshot-overlay {
   position: absolute;
@@ -1279,183 +1204,15 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.5);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s;
   color: white;
 }
 
-.screenshot-wrapper:hover .screenshot-overlay {
-  opacity: 1;
-}
+.screenshot-wrapper:hover .screenshot-overlay { opacity: 1; }
 
-/* Sections */
-.anime-sections {
-  padding: 2rem;
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.section {
-  background: var(--color-background);
-  border-radius: 1rem;
-  padding: 1.5rem;
-}
-
-.section h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 1rem;
-}
-
-.section-placeholder {
-  color: var(--color-text-muted);
-  font-style: italic;
-  text-align: center;
-  padding: 2rem;
-}
-
-/* Playlists List */
-.playlists-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.playlist-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: var(--color-background-surface);
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-}
-
-.playlist-card:hover {
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.playlist-title {
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.playlist-author {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .anime-main-info {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-  
-  .anime-poster-large {
-    max-width: 350px;
-    margin: 0 auto;
-  }
-  
-  .anime-details {
-    align-items: stretch;
-  }
-}
-
-@media (max-width: 768px) {
-  .anime-detail {
-    padding: 1rem 0.5rem 3rem;
-  }
-  
-  .detail-header {
-    padding: 1.5rem;
-  }
-  
-  .anime-title {
-    font-size: 1.5rem;
-  }
-  
-  .anime-title-en {
-    font-size: 1rem;
-  }
-  
-  .anime-main-info {
-    padding: 1.5rem;
-  }
-  
-  .anime-poster-large {
-    max-width: 100%;
-  }
-  
-  .detail-label {
-    min-width: 120px;
-    font-size: 0.85rem;
-  }
-  
-  .rating-section {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .rating-badge {
-    justify-content: center;
-  }
-  
-  .stats-badges {
-    justify-content: center;
-  }
-  
-  .action-buttons {
-    width: 100%;
-  }
-  
-  .btn {
-    flex: 1;
-    justify-content: center;
-  }
-  
-  .watch-button {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .anime-description-section,
-  .anime-screenshots-section,
-  .anime-sections {
-    padding: 1.5rem;
-  }
-  
-  .screenshots-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-}
-
-@media (max-width: 480px) {
-  .anime-title {
-    font-size: 1.25rem;
-  }
-  
-  .detail-row {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .detail-label {
-    min-width: auto;
-  }
-
-  .screenshots-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ── Франшиза ───────────────────────────────────────────── */
+/* ══════════════════════════════════════════════
+   ФРАНШИЗА
+══════════════════════════════════════════════ */
 .franchise-section {
   padding: 2rem;
   border-top: 1px solid var(--color-border);
@@ -1483,10 +1240,7 @@
   border-radius: 0.75rem;
   transition: all 0.2s;
 }
-.franchise-link-all:hover {
-  background: var(--color-primary);
-  color: white;
-}
+.franchise-link-all:hover { background: var(--color-primary); color: white; }
 
 .franchise-entries {
   display: flex;
@@ -1499,23 +1253,15 @@
 .franchise-entry {
   flex: 0 0 130px;
   cursor: pointer;
-  transition: transform 0.25s;
+  transition: transform 0.2s;
   border-radius: 0.75rem;
   overflow: hidden;
   background: var(--color-background);
   border: 2px solid transparent;
 }
 
-.franchise-entry:hover:not(.is-current) {
-  transform: translateY(-4px);
-  border-color: var(--color-primary);
-}
-
-.franchise-entry.is-current {
-  cursor: default;
-  border-color: rgba(99,102,241,0.6);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
-}
+.franchise-entry:hover:not(.is-current) { transform: translateY(-4px); border-color: var(--color-primary); }
+.franchise-entry.is-current { cursor: default; border-color: rgba(99,102,241,0.6); }
 
 .fe-poster {
   position: relative;
@@ -1527,35 +1273,25 @@
 }
 
 .fe-poster-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
   object-fit: cover;
   transition: transform 0.3s;
 }
 .franchise-entry:hover .fe-poster-img { transform: scale(1.05); }
 
 .fe-poster-empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  color: var(--color-text-muted);
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; color: var(--color-text-muted);
 }
 
 .fe-kind {
-  position: absolute;
-  top: 0.375rem;
-  left: 0.375rem;
+  position: absolute; top: 0.375rem; left: 0.375rem;
   padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 10px; font-weight: 700;
   border-radius: 4px;
-  background: rgba(0,0,0,0.75);
-  color: var(--color-text-secondary);
+  background: rgba(0,0,0,0.75); color: var(--color-text-secondary);
   text-transform: uppercase;
 }
 .fe-kind.fek-tv     { background: var(--color-primary); color: white; }
@@ -1564,29 +1300,17 @@
 .fe-kind.fek-special { background: #a855f7; color: white; }
 
 .fe-current-badge {
-  position: absolute;
-  bottom: 0.375rem;
-  right: 0.375rem;
+  position: absolute; bottom: 0.375rem; right: 0.375rem;
   padding: 2px 7px;
-  background: rgba(99,102,241,0.9);
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 4px;
-  text-transform: uppercase;
+  background: rgba(99,102,241,0.9); color: white;
+  font-size: 10px; font-weight: 700;
+  border-radius: 4px; text-transform: uppercase;
 }
 
-.fe-info {
-  padding: 0.5rem 0.5rem 0.625rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
+.fe-info { padding: 0.5rem 0.5rem 0.625rem; display: flex; flex-direction: column; gap: 0.25rem; }
 
 .fe-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  font-size: 0.75rem; font-weight: 600; color: var(--color-text-primary);
   overflow: hidden;
   display: -webkit-box;
   line-clamp: 2;
@@ -1595,19 +1319,272 @@
   line-height: 1.3;
 }
 
-.fe-meta {
+.fe-meta { display: flex; align-items: center; gap: 0.375rem; font-size: 0.7rem; color: var(--color-text-muted); }
+.fe-score { color: #fbbf24; font-weight: 600; }
+
+/* ══════════════════════════════════════════════
+   СЕКЦИЯ ОЗВУЧЕК
+══════════════════════════════════════════════ */
+.dubs-section {
+  padding: 2rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.dubs-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.dubs-title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.dubs-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* Фильтры */
+.dubs-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dubs-filter-btn {
+  display: inline-flex;
+  align-items: center;
   gap: 0.375rem;
+  padding: 0.4rem 0.875rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 2rem;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dubs-filter-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.dubs-filter-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 10px;
   font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.dubs-filter-btn:not(.active) .filter-count {
+  background: var(--color-border);
   color: var(--color-text-muted);
 }
 
-.fe-score { color: #fbbf24; font-weight: 600; }
+/* Список озвучек */
+.dubs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.dub-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  background: var(--color-background);
+  border: 1.5px solid var(--color-border);
+  border-radius: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dub-item:hover {
+  border-color: var(--color-primary);
+  background: rgba(58, 134, 255, 0.05);
+  transform: translateX(4px);
+}
+
+.dub-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-primary), #1d4ed8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: white;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.dub-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dub-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dub-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dub-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.dub-tag {
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.dub-tag.tag-voice     { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.dub-tag.tag-subtitles { background: rgba(34, 197, 94, 0.15);  color: #22c55e; }
+.dub-tag.tag-raw       { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.dub-tag.tag-quality   { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.dub-tag.tag-ep        { background: rgba(99, 102, 241, 0.12); color: #818cf8; }
+
+.dub-action {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(58, 134, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.dub-item:hover .dub-action {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* Скелетон загрузки */
+.dubs-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.dub-skeleton {
+  height: 64px;
+  border-radius: 0.875rem;
+  background: var(--color-background);
+  border: 1.5px solid var(--color-border);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Пустой список */
+.dubs-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dubs-empty svg { opacity: 0.4; }
+.dubs-empty p { font-size: 0.95rem; margin: 0; }
+
+.dubs-reset-btn {
+  padding: 0.5rem 1.25rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dubs-reset-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .anime-main-info { grid-template-columns: 1fr; }
+  .anime-poster-large { max-width: 350px; margin: 0 auto; }
+}
 
 @media (max-width: 768px) {
-  .franchise-section { padding: 1.5rem; }
-  .franchise-section-title { font-size: 1.25rem; }
-  .franchise-entry { flex: 0 0 110px; }
+  .anime-detail { padding: 1rem 0.5rem 3rem; }
+  .detail-header, .anime-main-info, .anime-description-section,
+  .anime-screenshots-section, .franchise-section, .dubs-section { padding: 1.5rem; }
+  .anime-title { font-size: 1.5rem; }
+  .screenshots-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .dubs-header { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 480px) {
+  .anime-title { font-size: 1.25rem; }
+  .detail-row { flex-direction: column; gap: 0.5rem; }
+  .detail-label { min-width: auto; }
+  .screenshots-grid { grid-template-columns: 1fr; }
+  .action-buttons .btn { flex: 1; justify-content: center; }
 }
 </style>

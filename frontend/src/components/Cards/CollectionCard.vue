@@ -182,7 +182,34 @@
       :is-loading="playlistsLoading"
       @close="showPlaylistModal = false"
       @save="showPlaylistModal = false"
+      @create-playlist="handleCreatePlaylist"
     />
+
+    <!-- Модалка создания плейлиста -->
+    <Teleport to="body">
+      <Transition name="psm-anim">
+        <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:10001;padding:1rem;">
+          <div style="background:var(--surface-2);border-radius:1rem;max-width:420px;width:100%;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:1rem;">
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:var(--text-primary);">Новый плейлист</h3>
+            <input
+              v-model="newPlaylistTitle"
+              placeholder="Название плейлиста"
+              @keydown.enter="saveNewPlaylist"
+              style="height:38px;padding:0 12px;background:var(--surface-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);color:var(--text-primary);font-size:var(--text-sm);outline:none;width:100%;box-sizing:border-box;"
+            />
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--text-sm);color:var(--text-secondary);">
+              <input type="checkbox" v-model="newPlaylistPublic" />
+              Публичный
+            </label>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button @click="showCreateModal = false" style="height:36px;padding:0 16px;background:var(--surface-4);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);">Отмена</button>
+              <button @click="saveNewPlaylist" :disabled="!newPlaylistTitle.trim() || creatingPlaylist" style="height:36px;padding:0 16px;background:var(--accent);color:white;border:none;border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);font-weight:600;" :style="{ opacity: !newPlaylistTitle.trim() || creatingPlaylist ? '0.5' : '1' }">{{ creatingPlaylist ? 'Создание...' : 'Создать' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <ReminderModal
       :show="showReminderModal"
       :anime="animeForModal"
@@ -218,6 +245,10 @@ const menuStyle  = ref({})
 const posterError = ref(false)
 const showPlaylistModal = ref(false)
 const showReminderModal = ref(false)
+const showCreateModal = ref(false)
+const newPlaylistTitle = ref('')
+const newPlaylistPublic = ref(false)
+const creatingPlaylist = ref(false)
 const playlists = ref<any[]>([])
 const playlistsLoading = ref(false)
 
@@ -270,6 +301,34 @@ const handleReminderSave = async (data: any) => {
     showReminderModal.value = false
   } catch (e: any) {
     toast.error(e.response?.data?.error || 'Не удалось установить напоминание')
+  }
+}
+
+const handleCreatePlaylist = () => {
+  showPlaylistModal.value = false
+  newPlaylistTitle.value = ''
+  newPlaylistPublic.value = false
+  showCreateModal.value = true
+}
+
+const saveNewPlaylist = async () => {
+  if (!newPlaylistTitle.value.trim() || creatingPlaylist.value) return
+  creatingPlaylist.value = true
+  try {
+    await playlistsApi.createPlaylist({
+      title: newPlaylistTitle.value.trim(),
+      is_public: newPlaylistPublic.value
+    })
+    showCreateModal.value = false
+    toast.success('Плейлист создан!')
+    // Обновляем список и возвращаемся к модалке выбора
+    const res = await playlistsApi.getMyPlaylists()
+    playlists.value = res.data || []
+    showPlaylistModal.value = true
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail || 'Не удалось создать плейлист')
+  } finally {
+    creatingPlaylist.value = false
   }
 }
 
