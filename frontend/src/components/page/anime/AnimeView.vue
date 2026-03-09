@@ -9,7 +9,7 @@
           v-for="tab in tabs"
           :key="tab.key"
           :class="['av-tab', { active: currentSection === tab.key }]"
-          @click="tab.key === 'currently_watching' ? (currentSection = 'currently_watching' as any) : switchSection(tab.key)"
+          @click="tab.key === 'currently_watching' ? switchCurrentlyWatching() : switchSection(tab.key)"
           type="button"
         >
           <span class="av-tab-icon">{{ tab.icon }}</span>
@@ -130,7 +130,14 @@ const fetchCurrentlyWatching = async () => {
   }
 }
 
-onMounted(() => fetchCurrentlyWatching())
+const switchCurrentlyWatching = () => {
+  currentSection.value = 'currently_watching' as any
+  fetchCurrentlyWatching()
+}
+
+onMounted(() => {
+  // Не загружаем автоматически — пользователь загрузит при переходе на вкладку
+})
 
 // viewersMap для онгоингов — { [anime_id]: viewers_count }
 const viewersMap = computed<Record<number, number>>(() => {

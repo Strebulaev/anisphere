@@ -922,13 +922,35 @@ class CurrentlyWatchingView(APIView):
         from django.utils import timezone
         from datetime import timedelta
         from django.db.models import Count
+        from users.models import UserLibrary
         try:
-            cutoff = timezone.now() - timedelta(minutes=30)
-            active = (WatchProgress.objects.filter(last_watched__gte=cutoff).values('anime_id').annotate(viewers=Count('user', distinct=True)).order_by('-viewers'))
+            # Берём всех, кто смотрит прямо сейчас (статус started, обновляли за последние 24ч)
+            cutoff = timezone.now() - timedelta(hours=24)
+            active = (
+                UserLibrary.objects
+                .filter(status='started', updated_at__gte=cutoff)
+                .values('anime_id')
+                .annotate(viewers=Count('user', distinct=True))
+                .order_by('-viewers')
+            )
             anime_ids = [r['anime_id'] for r in active]
             viewers_map = {r['anime_id']: r['viewers'] for r in active}
+
+            # Если «сейчас смотрят» пусто — показываем всех со статусом started (без ограничения по времени)
+            if not anime_ids:
+                fallback = (
+                    UserLibrary.objects
+                    .filter(status='started')
+                    .values('anime_id')
+                    .annotate(viewers=Count('user', distinct=True))
+                    .order_by('-viewers')[:50]
+                )
+                anime_ids = [r['anime_id'] for r in fallback]
+                viewers_map = {r['anime_id']: r['viewers'] for r in fallback}
+
             if not anime_ids:
                 return Response({'results': [], 'count': 0})
+
             animes = Anime.objects.filter(id__in=anime_ids)
             animes_dict = {a.id: a for a in animes}
             results = []

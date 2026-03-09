@@ -230,19 +230,68 @@ export const animeApi = {
   },
 
   getAnnouncements: async (): Promise<Anime[]> => {
-    const PAGE_SIZE = 200
-    const all: Anime[] = []
-    let page = 1
-    while (true) {
-      const response = await apiClient.get<AnimeListResponse>('/anime/', {
-        params: { status: 'announced', ordering: '-year', page_size: PAGE_SIZE, page }
-      })
-      const results = response.data.results || []
-      all.push(...results)
-      if (page >= (response.data.total_pages ?? 1) || !results.length) break
-      page++
+    // Сначала пробуем получить из бэкенда (status=announced)
+    try {
+      const PAGE_SIZE = 200
+      const all: Anime[] = []
+      let page = 1
+      while (true) {
+        const response = await apiClient.get<AnimeListResponse>('/anime/', {
+          params: { status: 'announced', ordering: '-year', page_size: PAGE_SIZE, page }
+        })
+        const results = response.data.results || []
+        all.push(...results)
+        if (page >= (response.data.total_pages ?? 1) || !results.length) break
+        page++
+      }
+      if (all.length > 0) return all
+    } catch (e) {
+      // бэкенд не доступен, фоллбэк на Kodik
     }
-    return all
+    // Фоллбэк: анонсы напрямую из Kodik API
+    return animeApi.getAnnouncementsFromKodik()
+  },
+
+  getAnnouncementsFromKodik: async (): Promise<Anime[]> => {
+    const KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
+    const all: any[] = []
+    let nextPage: string | null = `https://kodikapi.com/list?token=${KODIK_TOKEN}&types=anime-serial,anime&anime_status=anons&with_material_data=true&limit=100`
+    let iterations = 0
+    while (nextPage && iterations < 10) {
+      iterations++
+      try {
+        const res = await fetch(nextPage)
+        const data = await res.json()
+        const results = data.results || []
+        all.push(...results)
+        nextPage = data.next_page || null
+      } catch { break }
+    }
+    // Маппинг Kodik → формат AnimeCard
+    const seen = new Set<string>()
+    const mapped: Anime[] = []
+    for (const item of all) {
+      const shikiId = item.shikimori_id
+      const key = shikiId ? String(shikiId) : item.id
+      if (seen.has(key)) continue
+      seen.add(key)
+      const md = item.material_data || {}
+      mapped.push({
+        id: shikiId || item.id,
+        shikimori_id: shikiId ? String(shikiId) : undefined,
+        title_ru: md.title || item.title || '',
+        title_en: item.title_orig || '',
+        year: item.year || md.year,
+        status: 'announced',
+        episodes: md.episodes_total || item.episodes_count || null,
+        score: md.shikimori_rating || md.kinopoisk_rating || null,
+        poster_url: md.anime_poster_url || md.poster_url || null,
+        description: md.anime_description || md.description || '',
+        genres: md.anime_genres || md.genres || [],
+        source: 'kodik',
+      } as any)
+    }
+    return mapped
   },
 
   getRecommendations: async (limit: number = 12): Promise<Anime[]> => {
