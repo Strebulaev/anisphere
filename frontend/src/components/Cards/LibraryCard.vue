@@ -24,17 +24,48 @@
         {{ STATUS[item.status]?.icon }}
       </div>
 
-      <!-- Избранное -->
-      <button
-        class="fav-btn"
-        :class="{ on: item.is_favorite }"
-        title="Избранное"
-        @click.stop="toggleFav"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" :fill="item.is_favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-      </button>
+      <!-- Кнопки действий (сверху справа) -->
+      <div class="card-action-btns">
+        <button
+          class="card-action-btn fav-btn"
+          :class="{ active: item.is_favorite }"
+          title="Избранное"
+          @click.stop="toggleFav"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" :fill="item.is_favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+        <button
+          class="card-action-btn discuss-btn"
+          title="Обсудить"
+          @click.stop="handleDiscuss"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+        <button
+          class="card-action-btn playlist-btn"
+          title="Добавить в плейлист"
+          @click.stop="showPlaylistModal = true"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+        <button
+          class="card-action-btn reminder-btn"
+          title="Напоминание"
+          @click.stop="showReminderModal = true"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="13" r="8"/>
+            <path d="M12 9v4l2 2"/>
+            <path d="M5 5a3 3 0 0 1 3-3V3"/>
+          </svg>
+        </button>
+      </div>
 
       <!-- Прогресс снизу -->
       <div v-if="showProgress" class="prog-bar">
@@ -139,6 +170,49 @@
         </button>
       </div>
     </Teleport>
+
+    <!-- ── МОДАЛКИ ПЛЕЙЛИСТА И НАПОМИНАНИЯ ──────────────── -->
+    <PlaylistSelectModal
+      :show="showPlaylistModal"
+      :anime="animeForModal"
+      :playlists="playlists"
+      :is-loading="playlistsLoading"
+      @close="showPlaylistModal = false"
+      @save="onAddedToPlaylist"
+      @create-playlist="handleCreatePlaylist"
+    />
+
+    <!-- Модалка создания нового плейлиста -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showCreateModal" @click.self="showCreateModal = false" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:10001;padding:1rem;">
+          <div style="background:var(--surface-2);border-radius:1rem;max-width:420px;width:100%;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:1rem;">
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:var(--text-primary);">Новый плейлист</h3>
+            <input
+              v-model="newPlaylistTitle"
+              placeholder="Название плейлиста"
+              @keydown.enter="saveNewPlaylist"
+              autofocus
+              style="height:38px;padding:0 12px;background:var(--surface-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);color:var(--text-primary);font-size:var(--text-sm);outline:none;width:100%;box-sizing:border-box;"
+            />
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--text-sm);color:var(--text-secondary);">
+              <input type="checkbox" v-model="newPlaylistPublic" />
+              Публичный
+            </label>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button @click="showCreateModal = false" style="height:36px;padding:0 16px;background:var(--surface-4);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);">Отмена</button>
+              <button @click="saveNewPlaylist" :disabled="!newPlaylistTitle.trim() || creatingPlaylist" style="height:36px;padding:0 16px;background:var(--accent);color:white;border:none;border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);font-weight:600;" :style="{ opacity: !newPlaylistTitle.trim() || creatingPlaylist ? '0.5' : '1' }">{{ creatingPlaylist ? 'Создание...' : 'Создать' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+    <ReminderModal
+      :show="showReminderModal"
+      :anime="animeForModal"
+      @close="showReminderModal = false"
+      @save="handleReminderSave"
+    />
 
     <!-- ── МОДАЛКА РЕДАКТИРОВАНИЯ ─────────────────────────── -->
     <Teleport to="body">
@@ -246,10 +320,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import apiClient from '@/api/client'
 import { getMediaUrl } from '@/api/client'
+import { PlaylistSelectModal, ReminderModal } from '@/components/Modals'
+import playlistsApi from '@/api/playlists'
+import { animeDiscussionsApi } from '@/api/animeDiscussions'
+import remindersApi from '@/api/reminders'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps<{ item: any }>()
 const emit  = defineEmits<{ updated: []; deleted: [] }>()
@@ -308,12 +387,119 @@ const dateLabel = computed(() => {
 })
 
 // ── Состояние ─────────────────────────────────────────────────
-const posterFailed = ref(false)
-const menuOpen     = ref(false)
-const menuPos      = ref<Record<string, string>>({})
-const editOpen     = ref(false)
-const saving       = ref(false)
-const hoverR       = ref(0)
+const posterFailed      = ref(false)
+const menuOpen          = ref(false)
+const menuPos           = ref<Record<string, string>>({})
+const editOpen          = ref(false)
+const saving            = ref(false)
+const hoverR            = ref(0)
+const showPlaylistModal = ref(false)
+const showReminderModal = ref(false)
+const showCreateModal   = ref(false)
+const newPlaylistTitle  = ref('')
+const newPlaylistPublic = ref(false)
+const creatingPlaylist  = ref(false)
+const playlists         = ref<any[]>([])
+const playlistsLoading  = ref(false)
+
+const toast = useToast()
+
+// Объект аниме для модалок
+const animeForModal = computed(() => ({
+  id: props.item.anime,
+  title_ru: props.item.anime_title_ru,
+  title_en: props.item.anime_title_en || '',
+  poster_url: props.item.anime_poster || null,
+  poster_image_url: props.item.anime_poster || null,
+} as any))
+
+const loadPlaylists = async () => {
+  playlistsLoading.value = true
+  try {
+    const res = await playlistsApi.getMyPlaylists()
+    playlists.value = res.data || []
+  } catch {} finally {
+    playlistsLoading.value = false
+  }
+}
+
+watch(showPlaylistModal, (v) => { if (v) loadPlaylists() })
+
+const onAddedToPlaylist = async (data: any) => {
+  try {
+    const promises = data.playlistIds.map((pid: number) =>
+      playlistsApi.addItemToPlaylist(pid, {
+        anime: data.animeId,
+        notes: data.note || ''
+      })
+    )
+    await Promise.all(promises)
+    showPlaylistModal.value = false
+    toast.success('Аниме добавлено в плейлист!')
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail || 'Не удалось добавить в плейлист')
+  }
+}
+
+const handleCreatePlaylist = () => {
+  showPlaylistModal.value = false
+  newPlaylistTitle.value = ''
+  newPlaylistPublic.value = false
+  showCreateModal.value = true
+}
+
+const saveNewPlaylist = async () => {
+  if (!newPlaylistTitle.value.trim() || creatingPlaylist.value) return
+  creatingPlaylist.value = true
+  try {
+    await playlistsApi.createPlaylist({
+      title: newPlaylistTitle.value.trim(),
+      is_public: newPlaylistPublic.value
+    })
+    showCreateModal.value = false
+    toast.success('Плейлист создан!')
+    await loadPlaylists()
+    showPlaylistModal.value = true
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail || 'Не удалось создать плейлист')
+  } finally {
+    creatingPlaylist.value = false
+  }
+}
+
+const handleDiscuss = async () => {
+  try {
+    let group
+    try {
+      group = await animeDiscussionsApi.getDiscussionGroup(props.item.anime)
+    } catch (e: any) {
+      if (e.response?.status === 404) {
+        group = await animeDiscussionsApi.createDiscussionGroup(props.item.anime)
+      } else throw e
+    }
+    if (!group.user_joined) group = await animeDiscussionsApi.joinDiscussionGroup(props.item.anime)
+    router.push(`/chats/${group.id}`)
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail || 'Не удалось открыть обсуждение')
+  }
+}
+
+const handleReminderSave = async (data: any) => {
+  try {
+    await remindersApi.createReminder({
+      anime_id: props.item.anime,
+      reminder_time: new Date(data.reminderTime).toISOString(),
+      repeat_weekly: data.repeatWeekly || false,
+      repeat_interval_days: data.repeatIntervalDays,
+      end_date: data.endDate ? new Date(data.endDate).toISOString().slice(0, 10) : undefined,
+      comment: data.comment || ''
+    })
+    toast.success('Напоминание установлено!')
+    showReminderModal.value = false
+  } catch (e: any) {
+    toast.error(e.response?.data?.error || 'Не удалось установить напоминание')
+  }
+}
 
 const editForm = reactive({
   status:          props.item.status,
@@ -435,6 +621,54 @@ const saveEdit = async () => {
   color: var(--text-tertiary);
 }
 
+/* Кнопки действий (сверху справа) */
+.card-action-btns {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: row;
+  gap: 3px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+  z-index: 10;
+}
+
+.lib-card:hover .card-action-btns {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card-action-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(8, 8, 9, 0.8);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+
+.card-action-btn:hover { background-color: var(--accent); transform: scale(1.1); }
+.card-action-btn.fav-btn.active { color: var(--danger); background-color: rgba(239,68,68,0.85); }
+.card-action-btn.fav-btn.active:hover { background-color: var(--danger); }
+.card-action-btn.discuss-btn:hover { background-color: var(--accent); }
+.card-action-btn.playlist-btn:hover { background-color: var(--accent-2, var(--accent)); }
+.card-action-btn.reminder-btn:hover { background-color: var(--warning); }
+
+/* Мобильные — всегда видимые */
+@media (max-width: 767px) {
+  .card-action-btns { opacity: 1; transform: translateY(0); }
+  .card-action-btn { width: 24px; height: 24px; }
+}
+
 /* Статус-бейдж */
 .status-pill {
   position: absolute;
@@ -450,28 +684,7 @@ const saveEdit = async () => {
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
 
-/* Избранное */
-.fav-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0,0,0,0.5);
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--duration-base), color var(--duration-base);
-  backdrop-filter: blur(4px);
-}
-
-.lib-card:hover .fav-btn { opacity: 1; }
-.fav-btn.on { color: #f59e0b; opacity: 1; }
+/* (fav-btn styles moved to .card-action-btns section) */
 
 /* Прогресс */
 .prog-bar {
@@ -491,73 +704,73 @@ const saveEdit = async () => {
 
 /* Оверлей */
 .poster-overlay {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  background: rgba(0, 0, 0, 0.5) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: var(--space-2) !important;
-  opacity: 0 !important;
-  transition: opacity 0.15s ease-out !important;
-  z-index: 100 !important;
-  pointer-events: none !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+  z-index: 4;
+  pointer-events: none;
 }
 
 .lib-card:hover .poster-overlay {
-  opacity: 1 !important;
-  pointer-events: auto !important;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Квадратные синие кнопки с анимацией распыления */
 .ov-play, .ov-more {
-  width: 48px !important;
-  height: 48px !important;
-  border-radius: 12px !important;
-  border: none !important;
-  background: rgba(255,255,255,0.15) !important;
-  backdrop-filter: blur(6px) !important;
-  color: white !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-  transform: scale(0.6) !important;
-  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0) !important;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(6px);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(0.6);
+  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0);
 }
 
 .lib-card:hover .ov-play,
 .lib-card:hover .ov-more {
-  transform: scale(1) !important;
-  box-shadow: 0 0 20px 3px rgba(124, 92, 252, 0.4) !important;
+  transform: scale(1);
+  box-shadow: 0 0 20px 3px rgba(124, 92, 252, 0.4);
 }
 
 .ov-play {
-  width: 64px !important;
-  height: 64px !important;
-  background: var(--accent) !important;
-  padding-left: 4px !important;
+  width: 64px;
+  height: 64px;
+  background: var(--accent);
+  padding-left: 4px;
 }
 
 .lib-card:hover .ov-play {
-  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5) !important;
+  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5);
 }
 
 .ov-play:hover { 
-  background: var(--accent-hover) !important;
-  transform: scale(1.2) !important;
-  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6) !important;
+  background: var(--accent-hover);
+  transform: scale(1.2);
+  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6);
 }
 
 .ov-more:hover { 
-  background: rgba(255,255,255,0.28) !important;
-  transform: scale(1.15) !important;
+  background: rgba(255,255,255,0.28);
+  transform: scale(1.15);
 }
 
 .ov-play svg, .ov-more svg {

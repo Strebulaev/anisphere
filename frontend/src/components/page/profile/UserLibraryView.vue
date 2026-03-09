@@ -496,8 +496,8 @@ onMounted(() => {
 /* ═══ СЕТКА ══════════════════════════════════════════════════ */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
 }
 
 /* ═══ СКЕЛЕТОН ══════════════════════════════════════════════ */

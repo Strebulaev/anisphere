@@ -25,6 +25,8 @@ export interface ReminderCreateData {
   anime_id: number
   reminder_time: string
   repeat_weekly?: boolean
+  repeat_interval_days?: number
+  end_date?: string
   comment?: string
 }
 

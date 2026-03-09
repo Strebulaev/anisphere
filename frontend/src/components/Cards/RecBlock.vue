@@ -18,7 +18,7 @@
     </div>
 
     <!-- Скелетон -->
-    <div v-if="loading" class="rb-track">
+    <div v-if="loading" class="rb-grid">
       <div v-for="i in 8" :key="i" class="rb-skeleton">
         <div class="rb-sk-poster"></div>
         <div class="rb-sk-line"></div>
@@ -29,30 +29,24 @@
     <!-- Пусто -->
     <div v-else-if="!anime.length" class="rb-empty">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <circle cx="12" cy="12" r="10"/><path d="M8 15s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M8 15s1.5 2 4 2 4-2 4-2"/>
+        <line x1="9" y1="9" x2="9.01" y2="9"/>
+        <line x1="15" y1="9" x2="15.01" y2="9"/>
       </svg>
       Нет аниме для этого блока
     </div>
 
     <!-- Сетка карточек -->
     <div v-else class="rb-grid">
-      <AnimePosterCard
+      <AnimeCard
         v-for="a in anime"
         :key="a.id"
-        :id="a.id"
-        :title="a.title"
-        :poster="a.poster"
-        :year="a.year || null"
-        :score="parseScore(a.score)"
-        :status="a.status"
-        :show-overlay="true"
-        :show-score="!!a.score"
-        :show-status="!!a.status"
+        :anime="toCardAnime(a)"
+        :show-actions="true"
+        :show-genres="false"
         :show-progress="false"
-        :show-meta="true"
-        :overlay-config="{ play: true }"
-        @click="(id) => router.push(`/anime/${id}`)"
-        @play="(id) => router.push(`/anime/${id}`)"
+        @click="(ev: any) => router.push(`/anime/${a.id}`)"
       />
     </div>
   </div>
@@ -60,7 +54,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import AnimePosterCard from './AnimePosterCard.vue'
+import AnimeCard from './AnimeCard.vue'
 
 interface AnimeItem {
   id: number
@@ -70,6 +64,7 @@ interface AnimeItem {
   score?: string | null
   genres?: string[]
   status?: string
+  type?: string
 }
 
 defineProps<{
@@ -85,11 +80,20 @@ defineEmits<{ 'view-all': [] }>()
 
 const router = useRouter()
 
-const parseScore = (score: string | null | undefined): number | null => {
-  if (!score) return null
-  const num = parseFloat(score)
-  return isNaN(num) ? null : num
-}
+const toCardAnime = (a: AnimeItem) => ({
+  id: a.id,
+  title_ru: a.title || '',
+  title_en: '',
+  year: a.year ?? null,
+  status: a.status || '',
+  episodes: null,
+  score: a.score ? parseFloat(a.score) : null,
+  poster_url: a.poster || null,
+  poster_image_url: a.poster || null,
+  poster: null,
+  type: a.type || '',
+  genres: [],
+})
 </script>
 
 <style scoped>
@@ -168,12 +172,12 @@ const parseScore = (score: string | null | undefined): number | null => {
 /* ── Сетка ───────────────────────────────────────────────── */
 .rb-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
 }
 
 /* ── Скелетон ─────────────────────────────────────────────── */
-.rb-skel {
+.rb-skeleton {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -203,8 +207,8 @@ const parseScore = (score: string | null | undefined): number | null => {
 /* ── Адаптив ──────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .rb-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: var(--space-3);
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
   }
 }
 </style>

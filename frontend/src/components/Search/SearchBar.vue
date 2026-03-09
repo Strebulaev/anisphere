@@ -159,6 +159,7 @@ defineExpose({
 .search-bar {
   position: relative;
   width: 100%;
+  background: transparent;
 }
 
 .search-bar.header {
@@ -182,7 +183,7 @@ defineExpose({
   align-items: center;
   gap: 8px;
   height: 40px;
-  background-color: transparent;
+  background: transparent !important;
   border: 1px solid var(--color-divider-light);
   border-radius: 20px;
   padding: 0 12px 0 16px;
@@ -192,7 +193,7 @@ defineExpose({
 .search-bar.focused .search-input-wrapper {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-  background-color: transparent;
+  background: transparent !important;
 }
 
 .search-icon {
@@ -208,11 +209,12 @@ defineExpose({
 .search-input {
   flex: 1;
   background: transparent !important;
-  border: none;
+  border: none !important;
   outline: none;
   color: var(--color-text);
   font-size: 14px;
   min-width: 0;
+  box-shadow: none !important;
 }
 
 .search-input:focus {

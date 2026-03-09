@@ -121,6 +121,7 @@ import { useSidebar } from '@/composables/useSidebar'
 import { useNotificationStore } from '@/stores/notifications'
 import SearchBar from '@/components/Search/SearchBar.vue'
 import remindersApi from '@/api/reminders'
+import apiClient from '@/api/client'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -152,7 +153,6 @@ const navigateToSection = async (item: any) => {
     if (randomLoading.value) return
     randomLoading.value = true
     try {
-      const { default: apiClient } = await import('@/api/client')
       const res = await apiClient.get('/anime/random/')
       const id = res.data?.id || res.data?.[0]?.id
       if (id) router.push(`/anime/${id}`)
@@ -327,8 +327,20 @@ const getAccessToken = (): string | null => {
   }
 }
 
+// Обработчик события newNotification от useGlobalWebSocket
+const handleNewNotificationEvent = (e: Event) => {
+  const notif = (e as CustomEvent).detail
+  if (notif) {
+    notificationStore.addNotification(notif)
+  } else {
+    notificationStore.fetchRecent()
+    notificationStore.fetchCount()
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('click', handleOutsideClick)
+  window.addEventListener('newNotification', handleNewNotificationEvent)
 
   if (authStore.isAuthenticated) {
     // Загружаем недавние уведомления и счётчик
@@ -347,6 +359,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleOutsideClick)
+  window.removeEventListener('newNotification', handleNewNotificationEvent)
   if (reminderCheckInterval) clearInterval(reminderCheckInterval)
   stopTabBlink()
   notificationStore.disconnectWS()

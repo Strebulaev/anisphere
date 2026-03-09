@@ -22,17 +22,48 @@
         {{ statusIcon }}
       </div>
 
-      <!-- Избранное -->
-      <button
-        class="fav-btn"
-        :class="{ active: item.is_favorite }"
-        @click.stop="toggleFavorite"
-        :title="item.is_favorite ? 'Убрать из избранного' : 'В избранное'"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" :fill="item.is_favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-      </button>
+      <!-- Кнопки действий (сверху справа) -->
+      <div class="card-action-btns">
+        <button
+          class="card-action-btn fav-btn"
+          :class="{ active: item.is_favorite }"
+          @click.stop="toggleFavorite"
+          :title="item.is_favorite ? 'Убрать из избранного' : 'В избранное'"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" :fill="item.is_favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+        <button
+          class="card-action-btn discuss-btn"
+          @click.stop="handleDiscuss"
+          title="Обсудить"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+        <button
+          class="card-action-btn playlist-btn"
+          @click.stop="showPlaylistModal = true"
+          title="Добавить в плейлист"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+        <button
+          class="card-action-btn reminder-btn"
+          @click.stop="showReminderModal = true"
+          title="Напоминание"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="13" r="8"/>
+            <path d="M12 9v4l2 2"/>
+            <path d="M5 5a3 3 0 0 1 3-3V3"/>
+          </svg>
+        </button>
+      </div>
 
       <!-- Прогресс бар -->
       <div v-if="showProgress" class="progress-bar">
@@ -143,14 +174,34 @@
       </div>
     </Teleport>
 
+    <!-- Модалки -->
+    <PlaylistSelectModal
+      :show="showPlaylistModal"
+      :anime="animeForModal"
+      :playlists="playlists"
+      :is-loading="playlistsLoading"
+      @close="showPlaylistModal = false"
+      @save="showPlaylistModal = false"
+    />
+    <ReminderModal
+      :show="showReminderModal"
+      :anime="animeForModal"
+      @close="showReminderModal = false"
+      @save="handleReminderSave"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { libraryApi, type LibraryItem, type LibraryStatus } from '@/api/library'
 import { getMediaUrl } from '@/api/client'
+import { PlaylistSelectModal, ReminderModal } from '@/components/Modals'
+import playlistsApi from '@/api/playlists'
+import { animeDiscussionsApi } from '@/api/animeDiscussions'
+import remindersApi from '@/api/reminders'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps<{ item: LibraryItem }>()
 const emit = defineEmits<{
@@ -161,9 +212,66 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const toast  = useToast()
 const menuOpen   = ref(false)
 const menuStyle  = ref({})
 const posterError = ref(false)
+const showPlaylistModal = ref(false)
+const showReminderModal = ref(false)
+const playlists = ref<any[]>([])
+const playlistsLoading = ref(false)
+
+// Объект аниме для модалок
+const animeForModal = computed(() => ({
+  id: props.item.anime,
+  title_ru: props.item.anime_title_ru,
+  title_en: props.item.anime_title_en || '',
+  poster_url: props.item.anime_poster || null,
+  poster_image_url: props.item.anime_poster || null,
+} as any))
+
+watch(showPlaylistModal, async (v) => {
+  if (!v) return
+  playlistsLoading.value = true
+  try {
+    const res = await playlistsApi.getMyPlaylists()
+    playlists.value = res.data || []
+  } catch {} finally {
+    playlistsLoading.value = false
+  }
+})
+
+const handleDiscuss = async () => {
+  try {
+    let group
+    try {
+      group = await animeDiscussionsApi.getDiscussionGroup(props.item.anime)
+    } catch (e: any) {
+      if (e.response?.status === 404) {
+        group = await animeDiscussionsApi.createDiscussionGroup(props.item.anime)
+      } else throw e
+    }
+    if (!group.user_joined) group = await animeDiscussionsApi.joinDiscussionGroup(props.item.anime)
+    router.push(`/chats/${group.id}`)
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail || 'Не удалось открыть обсуждение')
+  }
+}
+
+const handleReminderSave = async (data: any) => {
+  try {
+    await remindersApi.createReminder({
+      anime_id: props.item.anime,
+      reminder_time: new Date(data.reminderTime).toISOString(),
+      repeat_weekly: data.repeatWeekly || false,
+      comment: data.comment || ''
+    })
+    toast.success('Напоминание установлено!')
+    showReminderModal.value = false
+  } catch (e: any) {
+    toast.error(e.response?.data?.error || 'Не удалось установить напоминание')
+  }
+}
 
 // ── Постер ────────────────────────────────────────────────────
 const posterUrl = computed(() => {
@@ -345,28 +453,53 @@ const openEdit = () => {
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 
-/* ── Избранное ───────────────────────────────────────────────  */
-.fav-btn {
+/* ── Кнопки действий (сверху справа) ──────────────────────── */
+.card-action-btns {
   position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+  z-index: 10;
+}
+
+.col-card:hover .card-action-btns {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card-action-btn {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   border: none;
-  background: rgba(0,0,0,0.55);
-  color: var(--text-tertiary);
+  background: rgba(8, 8, 9, 0.8);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--duration-base), color var(--duration-base);
-  backdrop-filter: blur(4px);
+  transition: all var(--duration-base) var(--ease-out);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
 }
 
-.col-card:hover .fav-btn { opacity: 1; }
-.fav-btn.active { color: #f59e0b; opacity: 1; }
+.card-action-btn:hover { background-color: var(--accent); transform: scale(1.1); }
+.card-action-btn.fav-btn.active { color: var(--danger); background-color: rgba(239,68,68,0.85); }
+.card-action-btn.fav-btn.active:hover { background-color: var(--danger); }
+.card-action-btn.discuss-btn:hover { background-color: var(--accent); }
+.card-action-btn.playlist-btn:hover { background-color: var(--accent-2, var(--accent)); }
+.card-action-btn.reminder-btn:hover { background-color: var(--warning); }
+
+/* Мобильные — всегда видимые */
+@media (max-width: 767px) {
+  .card-action-btns { opacity: 1; transform: translateY(0); }
+  .card-action-btn { width: 24px; height: 24px; }
+}
 
 /* ── Прогресс ────────────────────────────────────────────────  */
 .progress-bar {

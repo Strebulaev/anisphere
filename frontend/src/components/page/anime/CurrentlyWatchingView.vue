@@ -52,66 +52,46 @@
 
     <!-- Сетка -->
     <div v-else class="cw-grid">
-      <router-link
+      <AnimeCard
         v-for="a in anime"
         :key="a.id"
-        :to="`/anime/${a.id}`"
-        class="cw-card"
-      >
-        <div class="cw-poster">
-          <img v-if="poster(a)" :src="poster(a)!" :alt="title(a)" loading="lazy" />
-          <div v-else class="cw-ph">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M12 2v20M2 12h20"/>
-            </svg>
-          </div>
-
-          <!-- Оверлей -->
-          <div class="cw-overlay">
-            <div class="cw-play">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-            </div>
-          </div>
-
-          <!-- Счётчик зрителей -->
-          <div class="cw-viewers" v-if="a.viewers_count">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            {{ a.viewers_count }}
-          </div>
-
-          <!-- Рейтинг -->
-          <span v-if="score(a)" class="cw-score">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="#fbbf24" stroke="none">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-            </svg>
-            {{ score(a) }}
-          </span>
-        </div>
-
-        <div class="cw-info">
-          <p class="cw-name">{{ title(a) }}</p>
-          <p class="cw-meta">{{ a.year }}{{ episodes(a) }}</p>
-        </div>
-      </router-link>
+        :anime="toCardAnime(a)"
+        :show-actions="true"
+        :show-genres="false"
+        :show-progress="false"
+        @click="goToAnime(a.id)"
+      />
     </div>
 
   </div>
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+import AnimeCard from '@/components/Cards/AnimeCard.vue'
+
 interface Props { anime: any[]; loading: boolean; error: string | null }
 defineProps<Props>()
 defineEmits<{ refresh: [] }>()
 
-const poster    = (a: any): string | null => a.poster_image_url || a.poster_url || a.poster || null
-const title     = (a: any): string        => a.title_ru || a.title_en || a.title || 'Без названия'
-const score     = (a: any): string | null => a.score ? parseFloat(a.score).toFixed(1) : null
-const episodes  = (a: any): string        => { const ep = a.episodes || a.episodes_count; return ep ? ` · ${ep} эп.` : '' }
+const router = useRouter()
+
+const goToAnime = (anime: any) => router.push(`/anime/${anime?.id ?? anime}`)
+
+const toCardAnime = (a: any) => ({
+  id: a.id,
+  title_ru: a.title_ru || a.title || '',
+  title_en: a.title_en || '',
+  year: a.year ?? null,
+  status: a.status || '',
+  episodes: a.episodes || a.episodes_count || null,
+  score: a.score ? parseFloat(a.score) : null,
+  poster_url: a.poster_url || null,
+  poster_image_url: a.poster_image_url || null,
+  poster: a.poster || null,
+  type: a.type || a.kind || '',
+  genres: [],
+})
 </script>
 
 <style scoped>
@@ -158,8 +138,8 @@ const episodes  = (a: any): string        => { const ep = a.episodes || a.episod
 
 .cw-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
 }
 
 .cw-skel { display: flex; flex-direction: column; gap: 8px; }
@@ -189,97 +169,10 @@ const episodes  = (a: any): string        => { const ep = a.episodes || a.episod
   font-size: var(--text-sm); cursor: pointer; padding: 0; text-decoration: underline;
 }
 
-.cw-card {
-  text-decoration: none; border-radius: var(--radius-card);
-  overflow: hidden; cursor: pointer;
-  transition: transform var(--duration-slow) var(--ease-out);
-}
-.cw-card:hover { transform: translateY(-3px); }
-
-.cw-poster {
-  position: relative; aspect-ratio: 2/3;
-  background: var(--surface-4); border-radius: var(--radius-card); overflow: hidden;
-}
-.cw-poster img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
-.cw-card:hover .cw-poster img { transform: scale(1.06); }
-
-.cw-ph {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center; color: var(--text-tertiary);
-}
-
-.cw-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
-  z-index: 10;
-}
-.cw-card:hover .cw-overlay { opacity: 1; }
-
-/* Квадратная синяя кнопка с анимацией распыления */
-.cw-play {
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
-  border: none;
-  background: var(--accent);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding-left: 4px;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transform: scale(0.6);
-  box-shadow: 0 0 0 0 rgba(124, 92, 252, 0);
-}
-.cw-card:hover .cw-play {
-  transform: scale(1);
-  box-shadow: 0 0 30px 5px rgba(124, 92, 252, 0.5);
-}
-.cw-play:hover {
-  transform: scale(1.15) !important;
-  background: var(--accent-hover);
-  box-shadow: 0 0 40px 10px rgba(124, 92, 252, 0.6);
-}
-
-.cw-viewers {
-  position: absolute; top: 8px; left: 8px;
-  display: flex; align-items: center; gap: 4px;
-  height: 22px; padding: 0 8px;
-  background: rgba(0,0,0,.82); backdrop-filter: blur(8px);
-  border-radius: var(--radius-full);
-  font-size: 11px; font-weight: 700; color: #38bdf8;
-}
-
-.cw-score {
-  position: absolute; bottom: 8px; right: 8px;
-  display: flex; align-items: center; gap: 3px;
-  height: 22px; padding: 0 7px;
-  background: rgba(0,0,0,.82); backdrop-filter: blur(8px);
-  border-radius: var(--radius-full); font-size: 11px; font-weight: 700; color: #fbbf24;
-}
-
-.cw-info { padding: var(--space-2) var(--space-1) 0; display: flex; flex-direction: column; gap: 3px; }
-.cw-name {
-  font-size: var(--text-sm); font-weight: 600; color: var(--text-primary);
-  margin: 0; line-height: 1.35;
-  display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.cw-meta { font-size: var(--text-xs); color: var(--text-tertiary); margin: 0; }
-
 .spin { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 767px) {
-  .cw-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); }
+  .cw-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
 }
 </style>

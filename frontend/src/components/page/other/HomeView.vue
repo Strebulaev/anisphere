@@ -175,7 +175,6 @@
               :rating-count="item.rating_count || 0"
               :status="item.status || ''"
               :year="item.year"
-              @add-to-collection="addToCollection"
             />
           </div>
           <button v-if="!recsAtEnd" class="carousel-arrow right" @click="scrollCarousel('recs', 1)">
@@ -220,7 +219,6 @@
               :status="item.status || ''"
               :year="item.year"
               :rank="idx + 1"
-              @add-to-collection="addToCollection"
             />
           </div>
           <button v-if="!trendAtEnd" class="carousel-arrow right" @click="scrollCarousel('trend', 1)">
@@ -231,14 +229,7 @@
 
     </div><!-- /home-content -->
 
-    <!-- Модалка добавления в коллекцию -->
-    <AddToLibraryModal
-      v-if="showAddModal && selectedAnimeId !== null"
-      :show="showAddModal"
-      :anime-id="selectedAnimeId"
-      @close="showAddModal = false"
-      @added="onAddedToLibrary"
-    />
+
   </div>
 </template>
 
@@ -251,15 +242,12 @@ import type { HomeData } from '@/types'
 import ContinueWatchingCard from '@/components/Cards/ContinueWatchingCard.vue'
 import RewatchCard from '@/components/Cards/RewatchCard.vue'
 import RecommendationCard from '@/components/Cards/RecommendationCard.vue'
-import AddToLibraryModal from '@/components/Modals/AddToLibraryModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const loading  = ref(true)
 const error    = ref(false)
-const showAddModal    = ref(false)
-const selectedAnimeId = ref<number | null>(null)
 
 const homeData = ref<HomeData>({
   continue_watching: [],
@@ -279,7 +267,7 @@ const rewatchAtStart  = ref(true);  const rewatchAtEnd  = ref(false)
 const recsAtStart     = ref(true);  const recsAtEnd     = ref(false)
 const trendAtStart    = ref(true);  const trendAtEnd    = ref(false)
 
-const CARD_W = 196   // 180 + 16 gap
+const CARD_W = 236   // 220 + 16 gap
 
 type TrackKey = 'continue' | 'rewatch' | 'recs' | 'trend'
 const trackMap: Record<TrackKey, { el: () => HTMLElement | null; atStart: any; atEnd: any }> = {
@@ -324,18 +312,6 @@ const loadHomeData = async () => {
   }
 }
 
-// ── Действия ─────────────────────────────────────────────────
-const addToCollection = (id: number) => {
-  selectedAnimeId.value = id
-  showAddModal.value = true
-}
-
-const onAddedToLibrary = () => {
-  showAddModal.value = false
-  selectedAnimeId.value = null
-  loadHomeData()
-}
-
 onMounted(() => loadHomeData())
 </script>
 
@@ -344,7 +320,7 @@ onMounted(() => loadHomeData())
 .home-page {
   max-width: 1440px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-6) var(--space-8);
 }
 
 /* ═══ Шапка ═════════════════════════════════════════════════ */
@@ -512,7 +488,8 @@ onMounted(() => loadHomeData())
 
 .carousel-wrapper::before {
   left: 0;
-  background: linear-gradient(to right, var(--surface-1), transparent);
+  background: linear-gradient(to right, var(--surface-1) 0%, transparent 100%);
+  width: 20px;
 }
 
 .carousel-wrapper::after {
@@ -633,7 +610,7 @@ onMounted(() => loadHomeData())
   overflow: hidden;
 }
 
-.skeleton-card { flex: 0 0 180px; }
+.skeleton-card { flex: 0 0 220px; }
 
 .skeleton-poster {
   width: 100%;
@@ -691,6 +668,6 @@ onMounted(() => loadHomeData())
   .carousel-arrow { display: none; }
 
   .skeleton-poster { height: 190px; }
-  .skeleton-card   { flex: 0 0 140px; }
+  .skeleton-card   { flex: 0 0 155px; }
 }
 </style>

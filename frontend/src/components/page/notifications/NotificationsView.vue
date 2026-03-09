@@ -696,7 +696,6 @@ onUnmounted(() => {
 .notif-meta { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
 .notif-time { font-size: .73rem; color: #4b5563; }
 
-/* ── Бейджи ─────────────────────────────────────────────── */
 .badge {
   padding: 1px 7px;
   border-radius: 6px;

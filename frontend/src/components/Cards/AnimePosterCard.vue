@@ -317,11 +317,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
   z-index: 3;
 }
 
-/* ═══ Hover оверлей ═══════════════════════════════════════
-   КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: pointer-events: auto ВСЕГДА.
-   Скрываем через opacity, не через pointer-events.
-   Это исключает мерцание при переходе курсора на оверлей.
-   ═══════════════════════════════════════════════════════ */
 .hover-overlay {
   position: absolute;
   inset: 0;

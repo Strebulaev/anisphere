@@ -157,17 +157,8 @@ export function useGlobalWebSocket() {
       case 'notification':
         // Новое уведомление — добавляем в стор и обновляем список
         chatExtrasStore.loadNotifications()
-        // Динамический импорт notifications store без await (fire-and-forget)
-        import('@/stores/notifications').then(({ useNotificationStore }) => {
-          try {
-            const notifStore = useNotificationStore()
-            if (data.notification) {
-              notifStore.addNotification(data.notification)
-            } else {
-              notifStore.fetchNotifications()
-            }
-          } catch { /* store может быть не инициализирован */ }
-        }).catch(() => {})
+        // Диспатчим событие — NavBar/NotificationsStore подхватит сам
+        window.dispatchEvent(new CustomEvent('newNotification', { detail: data.notification || null }))
         break
 
       case 'invite_received':

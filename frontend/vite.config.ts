@@ -41,15 +41,12 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Кэширование изображений
+        navigateFallback: null,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         runtimeCaching: [
           {
-            // Кэширование изображений с внешних доменов (cdn, minio, etc)
-            urlPattern: ({ url }) => 
-              url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|woff|woff2)$/i) ||
-              url.hostname.includes('anime') ||
-              url.hostname.includes('cdn') ||
-              url.hostname.includes('minio'),
+            // Кэширование изображений по расширению
+            urlPattern: /\.(?:jpg|jpeg|png|gif|webp|svg|woff|woff2)$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images-cache',
@@ -63,8 +60,8 @@ export default defineConfig({
             }
           },
           {
-            // Кэширование API ответов для офлайн доступа
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            // Кэширование API — сначала сеть, потом кэш
+            urlPattern: /\/api\//,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -82,6 +79,18 @@ export default defineConfig({
       }
     }),
   ],
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vue-core':      ['vue', 'vue-router', 'pinia'],
+          'chat-stores':   ['@/stores/privateChat', '@/stores/groupChat', '@/stores/chatExtras'],
+          'notifications': ['@/stores/notifications'],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

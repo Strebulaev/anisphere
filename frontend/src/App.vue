@@ -16,6 +16,9 @@
 
     <!-- Тост-уведомления (глобально) -->
     <ToastContainer />
+
+    <!-- PWA: уведомление о новой версии -->
+    <PwaUpdateNotification />
   </div>
 </template>
 
@@ -25,6 +28,7 @@ import NavBar from '@/components/Navigation/NavBar.vue'
 import SidebarNavigation from '@/components/Navigation/SidebarNavigation.vue'
 import BottomNavigation from '@/components/Navigation/BottomNavigation.vue'
 import ToastContainer from '@/components/Notifications/ToastContainer.vue'
+import PwaUpdateNotification from '@/components/Notifications/PwaUpdateNotification.vue'
 import { useSidebar } from '@/composables/useSidebar'
 import { useAuthStore } from '@/stores/auth'
 import { initGlobalWebSocket } from '@/composables/useGlobalWebSocket'

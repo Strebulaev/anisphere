@@ -12,6 +12,7 @@
         v-for="anime in favorites"
         :key="anime.id"
         :anime="anime"
+        :show-actions="true"
       />
     </div>
   </div>

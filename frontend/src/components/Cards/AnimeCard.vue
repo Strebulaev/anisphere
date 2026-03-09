@@ -184,8 +184,33 @@
       :is-loading="playlistsLoading"
       @close="showPlaylistModal = false"
       @save="onAddedToPlaylist"
-      @create-playlist="showPlaylistModal = false"
+      @create-playlist="handleCreatePlaylist"
     />
+
+    <!-- Модалка создания нового плейлиста -->
+    <Teleport to="body">
+      <Transition name="psm-anim">
+        <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:10001;padding:1rem;">
+          <div style="background:var(--surface-2);border-radius:1rem;max-width:420px;width:100%;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:1rem;">
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:var(--text-primary);">Новый плейлист</h3>
+            <input
+              v-model="newPlaylistTitle"
+              placeholder="Название плейлиста"
+              @keydown.enter="saveNewPlaylist"
+              style="height:38px;padding:0 12px;background:var(--surface-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);color:var(--text-primary);font-size:var(--text-sm);outline:none;width:100%;box-sizing:border-box;"
+            />
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--text-sm);color:var(--text-secondary);">
+              <input type="checkbox" v-model="newPlaylistPublic" />
+              Публичный
+            </label>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button @click="showCreateModal = false" style="height:36px;padding:0 16px;background:var(--surface-4);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);">Отмена</button>
+              <button @click="saveNewPlaylist" :disabled="!newPlaylistTitle.trim() || creatingPlaylist" style="height:36px;padding:0 16px;background:var(--accent);color:white;border:none;border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);font-weight:600;opacity:1;" :style="{ opacity: !newPlaylistTitle.trim() || creatingPlaylist ? '0.5' : '1' }">{{ creatingPlaylist ? 'Создание...' : 'Создать' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Модальное окно напоминания (Teleport внутри компонента) -->
     <ReminderModal
@@ -206,6 +231,7 @@ import { animeDiscussionsApi } from '@/api/animeDiscussions'
 import { getMediaUrl } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import remindersApi from '@/api/reminders'
+import { useAuthStore } from '@/stores/auth'
 
 interface Genre {
   id: number
@@ -261,10 +287,15 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const toast = useToast()
+const authStore = useAuthStore()
 
 const isFavorite = ref(false)
 const showPlaylistModal = ref(false)
 const showReminderModal = ref(false)
+const showCreateModal = ref(false)
+const newPlaylistTitle = ref('')
+const newPlaylistPublic = ref(false)
+const creatingPlaylist = ref(false)
 const playlists = ref<any[]>([])
 const playlistsLoading = ref(false)
 
@@ -305,7 +336,7 @@ const totalEpisodes = computed(() => {
 })
 
 const checkFavorite = async () => {
-  if (!props.showActions || !props.anime?.id) {
+  if (!props.showActions || !props.anime?.id || !authStore.isAuthenticated) {
     return
   }
   
@@ -313,7 +344,7 @@ const checkFavorite = async () => {
     const response = await playlistsApi.checkAnimeInFavorites(props.anime.id)
     isFavorite.value = response.data.is_favorite
   } catch (error: any) {
-    console.error('Ошибка проверки избранного:', error)
+    // Тихо игнорируем — не авторизован или нет эндпоинта
   }
 }
 
@@ -339,13 +370,48 @@ const handleClick = () => {
   emit('click', props.anime)
 }
 
-const onAddedToPlaylist = () => {
-  showPlaylistModal.value = false
-  toast.success('Аниме добавлено в плейлист!')
+const onAddedToPlaylist = async (data: any) => {
+  try {
+    const promises = data.playlistIds.map((pid: number) =>
+      playlistsApi.addItemToPlaylist(pid, {
+        anime: data.animeId,
+        notes: data.note || ''
+      })
+    )
+    await Promise.all(promises)
+    showPlaylistModal.value = false
+    toast.success('Аниме добавлено в плейлист!')
+  } catch (error: any) {
+    console.error('Ошибка добавления в плейлист:', error)
+    toast.error(error.response?.data?.detail || 'Не удалось добавить в плейлист')
+  }
 }
 
-const onPlaylistError = (message: string) => {
-  console.error('Ошибка добавления в плейлист:', message)
+const handleCreatePlaylist = () => {
+  showPlaylistModal.value = false
+  newPlaylistTitle.value = ''
+  newPlaylistPublic.value = false
+  showCreateModal.value = true
+}
+
+const saveNewPlaylist = async () => {
+  if (!newPlaylistTitle.value.trim() || creatingPlaylist.value) return
+  creatingPlaylist.value = true
+  try {
+    await playlistsApi.createPlaylist({
+      title: newPlaylistTitle.value.trim(),
+      is_public: newPlaylistPublic.value
+    })
+    showCreateModal.value = false
+    toast.success('Плейлист создан!')
+    // Возвращаемся к модалке выбора с обновлённым списком
+    await loadPlaylists()
+    showPlaylistModal.value = true
+  } catch (error: any) {
+    toast.error(error.response?.data?.detail || 'Не удалось создать плейлист')
+  } finally {
+    creatingPlaylist.value = false
+  }
 }
 
 const getStatusText = (status: string) => {
@@ -376,12 +442,12 @@ const handleReminder = () => {
 
 const handleReminderSave = async (data: any) => {
   try {
-    // Форматируем время напоминания
-    const reminderTime = new Date(data.reminderTime)
     await remindersApi.createReminder({
       anime_id: props.anime.id,
-      reminder_time: reminderTime.toISOString(),
+      reminder_time: new Date(data.reminderTime).toISOString(),
       repeat_weekly: data.repeatWeekly || false,
+      repeat_interval_days: data.repeatIntervalDays,
+      end_date: data.endDate ? new Date(data.endDate).toISOString().slice(0, 10) : undefined,
       comment: data.comment || ''
     })
     toast.success('Напоминание установлено!')
@@ -491,6 +557,7 @@ checkFavorite()
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100%;
   transition:
     transform var(--duration-slow) var(--ease-out),
     box-shadow var(--duration-slow) var(--ease-out),

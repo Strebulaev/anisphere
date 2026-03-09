@@ -93,6 +93,7 @@ import RecommendationsView from './RecommendationsView.vue'
 import AnnouncementsView from './AnnouncementsView.vue'
 import CurrentlyWatchingView from './CurrentlyWatchingView.vue'
 import { useAnimeSections, type AnimeSection as SectionType } from '@/composables/useAnimeSections'
+import type { FilterState } from '@/components/Filters/AnimeFilterBar.vue'
 import apiClient from '@/api/client'
 import type { Anime } from '@/types'
 
@@ -149,9 +150,9 @@ const tabs = [
 ]
 
 // Каталог
-const currentCatalogFilters = ref<any>({})
+const currentCatalogFilters = ref<FilterState>({})
 const handlePageChange = (page: number) => fetchCatalog(page, currentCatalogFilters.value)
-const handleCatalogFilterChange = (filters: any) => {
+const handleCatalogFilterChange = (filters: FilterState) => {
   currentCatalogFilters.value = filters
   fetchCatalog(1, filters)
 }

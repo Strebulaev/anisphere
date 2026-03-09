@@ -1,5 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
+from anime.services import kodik_proxy
+
+
 from .views import (
     AnimeViewSet, GenresViewSet, FranchiseViewSet, proxy_video,
     SearchAPIView, ParserStatusAPIView, UpdatesAPIView,
@@ -40,4 +44,10 @@ urlpatterns = [
     
     # Proxy endpoint
     path('proxy/video/', proxy_video, name='proxy-video'),
+]
+
+# kodik_proxy маршруты (без 'api/' префикса — он добавляется в корневом urls.py)
+urlpatterns += [
+    path('kodik/studios/', kodik_proxy.kodik_studios, name='kodik-studios'),
+    path('kodik/proxy/', kodik_proxy.kodik_proxy, name='kodik-proxy'),
 ]

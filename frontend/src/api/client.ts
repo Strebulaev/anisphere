@@ -69,7 +69,6 @@ apiClient.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token')
 
       if (refreshToken) {
-        // console.log('🔄 Attempting token refresh...')
         try {
           const response = await axios.post(
             `${baseURL}/users/token/refresh/`,
@@ -78,22 +77,28 @@ apiClient.interceptors.response.use(
           const { access } = response.data
           localStorage.setItem('access_token', access)
           originalRequest.headers.Authorization = `Bearer ${access}`
-          // console.log('✅ Token refreshed successfully')
-
           return apiClient(originalRequest)
         } catch (refreshError) {
           console.log('❌ Token refresh failed, clearing auth')
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
           localStorage.removeItem('user_id')
-          window.location.href = '/login'
+          // Редирект только если мы на защищённой странице (не публичной)
+          const publicPaths = ['/anime', '/anime/', '/']
+          const isPublicPage = publicPaths.some(p => window.location.pathname.startsWith(p))
+          if (!isPublicPage) {
+            window.location.href = '/login'
+          }
         }
       } else {
-        console.log('❌ No refresh token, redirecting to login')
+        // Нет refresh-токена — просто чистим access (не редиректим с публичных страниц)
         localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
         localStorage.removeItem('user_id')
-        window.location.href = '/login'
+        const protectedPaths = ['/profile', '/library', '/settings', '/chat']
+        const isProtected = protectedPaths.some(p => window.location.pathname.startsWith(p))
+        if (isProtected) {
+          window.location.href = '/login'
+        }
       }
     }
 
