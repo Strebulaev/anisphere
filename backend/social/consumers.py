@@ -78,8 +78,13 @@ class GlobalEventsConsumer(AsyncWebsocketConsumer):
                 host=settings.REDIS_HOST,
                 port=settings.REDIS_PORT,
                 db=settings.REDIS_DB,
-                decode_responses=True
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
             )
+            # Test connection
+            redis_client.ping()
+            
             pubsub = redis_client.pubsub()
             pubsub.subscribe('realtime_updates')
             
@@ -93,6 +98,8 @@ class GlobalEventsConsumer(AsyncWebsocketConsumer):
                         asyncio.run(self._send_event_to_client(event))
                     except:
                         pass
+        except redis.ConnectionError:
+            print(f"Redis connection failed - real-time updates disabled")
         except Exception as e:
             print(f"Redis listener error: {e}")
     

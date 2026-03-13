@@ -95,13 +95,13 @@ const visibilityLabel = computed(() => {
   return 'Публичный'
 })
 
-// Постеры: строго до 3, вертикально
+// Постеры: 1, 2 или 3 в зависимости от количества аниме
 const coverPosters = computed(() => {
-  const max = Math.min(props.maxPreviewItems, 3)
   const result: Array<{ url: string | null; title: string }> = []
 
   if (props.playlist.items && props.playlist.items.length > 0) {
-    for (let i = 0; i < Math.min(props.playlist.items.length, max); i++) {
+    const count = Math.min(props.playlist.items.length, 3)
+    for (let i = 0; i < count; i++) {
       const item = props.playlist.items[i]
       if (!item) continue
       const url = item.anime_poster ||
@@ -111,15 +111,13 @@ const coverPosters = computed(() => {
       result.push({ url, title })
     }
   } else if (props.playlist.cover_urls && props.playlist.cover_urls.length > 0) {
-    for (let i = 0; i < Math.min(props.playlist.cover_urls.length, max); i++) {
+    const count = Math.min(props.playlist.cover_urls.length, 3)
+    for (let i = 0; i < count; i++) {
       result.push({ url: props.playlist.cover_urls[i] ?? null, title: `Аниме ${i + 1}` })
     }
   }
 
-  // Заполняем пустышками до max
-  while (result.length < max) {
-    result.push({ url: null, title: '' })
-  }
+  // Не заполняем пустышками - показываем только реальные постеры
   return result
 })
 
@@ -178,9 +176,10 @@ const handleImageError = (event: Event) => {
 
 <template>
   <div class="playlist-card" @click="handleClick">
-    <!-- Обложка: три вертикальных постера -->
+    <!-- Обложка: вертикальные постеры (1, 2 или 3) -->
     <div class="playlist-cover">
-      <div class="cover-strips" :data-count="coverPosters.length">
+      <!-- Если есть постеры -->
+      <div v-if="coverPosters.length > 0" class="cover-strips">
         <div
           v-for="(poster, index) in coverPosters"
           :key="index"
@@ -193,14 +192,20 @@ const handleImageError = (event: Event) => {
             @error="handleImageError"
           />
           <div v-else class="strip-placeholder">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <rect x="2" y="2" width="20" height="20" rx="2"/>
-              <path d="M8 12l3 3 5-5"/>
+              <circle cx="12" cy="12" r="4"/>
             </svg>
           </div>
-          <!-- Белый разделитель справа (кроме последнего) -->
-          <div v-if="index < coverPosters.length - 1" class="strip-divider" />
         </div>
+      </div>
+      <!-- Если плейлист пуст -->
+      <div v-else class="empty-cover">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        </svg>
+        <span>Пустой плейлист</span>
       </div>
 
       <!-- Overlay с кнопками -->
@@ -323,22 +328,21 @@ const handleImageError = (event: Event) => {
   border-color: var(--color-accent);
 }
 
-/* ─── Обложка ─── */
+/* ─── Обложка (компактная) ─── */
 .playlist-cover {
   position: relative;
   width: 100%;
-  padding-bottom: 66%;
+  padding-bottom: 100%; /* квадратная */
   background: var(--color-background-active);
   overflow: hidden;
 }
 
-/* Горизонтальные полосы (вертикальное расположение постеров) */
+/* Горизонтальные полосы (постеры в ряд) */
 .cover-strips {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column; /* постеры идут сверху вниз */
-  gap: 0;
+  flex-direction: row; /* горизонтальное расположение */
 }
 
 .cover-strip {
@@ -346,6 +350,11 @@ const handleImageError = (event: Event) => {
   flex: 1;
   overflow: hidden;
   background: var(--color-background-active);
+  border-right: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.cover-strip:last-child {
+  border-right: none;
 }
 
 .cover-strip img {
@@ -356,7 +365,7 @@ const handleImageError = (event: Event) => {
   transition: transform 0.3s var(--transition-smooth);
 }
 .playlist-card:hover .cover-strip img {
-  transform: scale(1.04);
+  transform: scale(1.03);
 }
 
 .strip-placeholder {
@@ -365,20 +374,23 @@ const handleImageError = (event: Event) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, var(--color-background-active) 0%, var(--color-background) 100%);
   color: var(--color-text-tertiary);
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
-/* Тонкий белый разделитель между полосами */
-.strip-divider {
+/* Пустой плейлист */
+.empty-cover {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.55);
-  z-index: 2;
-  pointer-events: none;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, var(--color-background-active) 0%, var(--color-background) 100%);
+  color: var(--color-text-tertiary);
+  font-size: 0.75rem;
 }
 
 /* ─── Overlay ─── */

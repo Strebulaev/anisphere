@@ -16,6 +16,7 @@ def get_full_url(url):
 
 
 class PlaylistItemSerializer(serializers.ModelSerializer):
+    anime = serializers.IntegerField(source='anime.id', read_only=True)
     anime_id = serializers.IntegerField(source='anime.id', read_only=True)
     anime_title = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
@@ -30,7 +31,7 @@ class PlaylistItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlaylistItem
         fields = [
-            'id', 'anime_id', 'anime_title', 'anime_title_en',
+            'id', 'anime', 'anime_id', 'anime_title', 'anime_title_en',
             'anime_poster', 'anime_poster_url', 'anime_year', 'anime_score',
             'anime_status', 'anime_kind', 'anime_genres',
             'position', 'notes', 'added_at', 'created_at'

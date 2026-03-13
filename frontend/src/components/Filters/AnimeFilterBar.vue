@@ -365,7 +365,21 @@ const studiosLoading = ref(false)
 
 const filteredGenreList = computed(() => {
   const q = genreSearch.value.trim().toLowerCase()
-  return q ? allGenres.value.filter(g => g.toLowerCase().includes(q)) : allGenres.value
+  const pool = q ? allGenres.value.filter(g => g.toLowerCase().includes(q)) : allGenres.value
+
+  // Выбранные жанры показываем в начале списка
+  if (selectedGenres.value.length === 0) return pool
+
+  const selected = new Set(selectedGenres.value)
+  const selectedItems: string[] = []
+  const otherItems: string[] = []
+
+  for (const g of pool) {
+    if (selected.has(g)) selectedItems.push(g)
+    else otherItems.push(g)
+  }
+
+  return [...selectedItems, ...otherItems]
 })
 
 const filteredStudioList = computed(() => {

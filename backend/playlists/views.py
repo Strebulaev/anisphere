@@ -341,8 +341,6 @@ class PlaylistViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def favorite(self, request, pk=None):
         playlist = self.get_object()
-        if playlist.user == request.user:
-            return Response({'error': 'Нельзя добавить свой плейлист в избранное'}, status=status.HTTP_400_BAD_REQUEST)
         favorite, created = FavoritePlaylist.objects.get_or_create(user=request.user, playlist=playlist)
         if created:
             return Response({'message': 'Добавлено в избранное'}, status=status.HTTP_201_CREATED)

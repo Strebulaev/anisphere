@@ -152,7 +152,9 @@ const stopCwPolling = () => {
 
 const switchCurrentlyWatching = () => {
   currentSection.value = 'currently_watching' as any
+  // Сохраняем в localStorage и обновляем URL
   try { localStorage.setItem('anime_active_section', 'currently_watching') } catch {}
+  router.replace({ path: route.path, query: { section: 'currently_watching' } })
   fetchCurrentlyWatching()
   startCwPolling()
 }
@@ -162,6 +164,10 @@ const origSwitchSection = switchSection
 const handleSwitchSection = (key: any) => {
   stopCwPolling()
   origSwitchSection(key)
+  // Обновляем URL для всех вкладок кроме currently_watching (она обновляет сама)
+  if (key !== 'currently_watching') {
+    router.replace({ path: route.path, query: { section: key } })
+  }
 }
 
 import { onUnmounted } from 'vue'

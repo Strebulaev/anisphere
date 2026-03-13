@@ -1771,7 +1771,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
                 'id': obj.playlist.id,
                 'title': obj.playlist.title,
                 'anime_count': obj.playlist.anime_count if hasattr(obj.playlist, 'anime_count') else 0,
-                'poster_url': obj.playlist.poster.url if obj.playlist.poster else None
+                'poster_url': obj.playlist.cover_image.url if obj.playlist.cover_image else None
             }
         return None
 

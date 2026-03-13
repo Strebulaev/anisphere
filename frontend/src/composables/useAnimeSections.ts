@@ -272,6 +272,8 @@ export function useAnimeSections() {
     const sectionParam = route.query.section as string
     if (sectionParam && ALL_SECTIONS.includes(sectionParam)) {
       currentSection.value = sectionParam as AnimeSection
+      // Сохраняем в localStorage для консистентности
+      try { localStorage.setItem(SECTION_STORAGE_KEY, sectionParam) } catch {}
     } else {
       try {
         const saved = localStorage.getItem(SECTION_STORAGE_KEY) as AnimeSection | null

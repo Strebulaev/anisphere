@@ -298,10 +298,9 @@ CACHES = {
 # Channels settings for WebSocket support
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'capacity': 1500,
-            'expiry': 10,
+            'hosts': [(REDIS_HOST, REDIS_PORT)],
         },
     },
 }

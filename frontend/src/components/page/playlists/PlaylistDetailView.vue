@@ -35,8 +35,8 @@
       <!-- Шапка -->
       <div class="playlist-hero">
         <div class="hero-cover">
-          <div class="cover-mosaic">
-            <div v-for="(item, idx) in coverItems" :key="idx" :class="['mosaic-cell', `cell-${idx}`]">
+          <div :class="['cover-mosaic', `items-${coverItems.length}`]">
+            <div v-for="(item, idx) in coverItems" :key="idx" class="mosaic-cell">
               <img
                 v-if="item?.anime_poster"
                 :src="getMediaUrl(item.anime_poster)"
@@ -49,7 +49,7 @@
                 </svg>
               </div>
             </div>
-            <div v-if="playlist.items_count > 4" class="mosaic-extra">+{{ playlist.items_count - 4 }}</div>
+            <div v-if="playlist.items_count > 3" class="mosaic-extra">+{{ playlist.items_count - 3 }}</div>
           </div>
           <div class="privacy-hero-badge" :class="`privacy-${currentVisibility}`">
             <span>{{ privacyIcon }}</span> {{ privacyLabel }}
@@ -81,7 +81,7 @@
           </div>
 
           <div class="hero-actions">
-            <button v-if="!isOwner" @click="toggleFavorite" :class="['action-hero-btn', { active: playlist.is_favorited }]">
+            <button @click="toggleFavorite" :class="['action-hero-btn', { active: playlist.is_favorited }]">
               <svg width="16" height="16" viewBox="0 0 24 24" :fill="playlist.is_favorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
@@ -811,9 +811,8 @@ const sortedItems = computed(() => {
 })
 
 const coverItems = computed(() => {
-  const items = sortedItems.value.slice(0, 4)
-  while (items.length < 4) items.push(null as any)
-  return items
+  // Показываем только реальные элементы (1-3), без пустых плейсхолдеров
+  return sortedItems.value.slice(0, 3)
 })
 
 const currentVisibility = computed((): PlaylistVisibility => {
@@ -1059,7 +1058,7 @@ const debouncedAnimeSearch = () => {
 
 const isAnimeInPlaylist = (animeId: number) => {
   if (!playlist.value?.items) return false
-  return playlist.value.items.some(i => i.anime === animeId || (i as any).anime_id === animeId)
+  return playlist.value.items.some(i => i.anime === animeId || i.anime_id === animeId)
 }
 
 const addAnimeToPlaylist = async (anime: any) => {
@@ -1187,9 +1186,27 @@ onUnmounted(() => {
 .hero-cover { width: 240px; flex-shrink: 0; position: relative; }
 .cover-mosaic {
   width: 100%; aspect-ratio: 1;
-  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  display: grid;
   gap: 3px; border-radius: var(--radius-lg); overflow: hidden;
   background: var(--color-background-active);
+}
+/* 1 элемент - на всю ширину */
+.cover-mosaic.items-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+/* 2 элемента - горизонтально */
+.cover-mosaic.items-2 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+/* 3 элемента - первый большой, два маленьких справа */
+.cover-mosaic.items-3 {
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.cover-mosaic.items-3 .mosaic-cell:first-child {
+  grid-row: span 2;
 }
 .mosaic-cell { position: relative; background: var(--color-background-active); overflow: hidden; }
 .mosaic-cell img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }

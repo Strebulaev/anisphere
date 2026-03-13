@@ -97,7 +97,20 @@ const loadBlock = async (key: BlockKey, params: Record<string, any>) => {
   blockLoading[key] = true
   try {
     const res = await apiClient.get('/anime/', { params: { page_size: 24, ordering: '-score', ...params } })
-    blockData[key] = (res.data.results || []).map(norm)
+    const results = (res.data.results || []).map(norm)
+    // Если результатов нет и есть специфичные фильтры — пробуем без них
+    if (results.length === 0 && (params.status || params.genres || params.year_to)) {
+      const fallbackParams = { ...params }
+      delete fallbackParams.status
+      delete fallbackParams.genres
+      delete fallbackParams.genre_logic
+      delete fallbackParams.year_to
+      delete fallbackParams.year_from
+      const fallbackRes = await apiClient.get('/anime/', { params: { page_size: 24, ordering: '-score', ...fallbackParams } })
+      blockData[key] = (fallbackRes.data.results || []).map(norm)
+    } else {
+      blockData[key] = results
+    }
   } catch (e) {
     console.error(`[Recs] loadBlock ${key}:`, e)
     blockData[key] = []
@@ -253,10 +266,7 @@ const fetchLibCache = async () => {
 const loadAll = async () => {
   const y = new Date().getFullYear()
 
-  // Получаем библиотеку один раз — используем для всех персональных блоков
-  const lib = await fetchLibCache()
-
-  // Статические блоки стартуют сразу параллельно
+  // Статические блоки стартуют сразу (не ждём библиотеку)
   const staticBlocks = Promise.all([
     loadBlock('top_rated',  { ordering: '-score' }),
     loadBlock('new_season', { ordering: '-year', year_from: y - 2 }),
@@ -264,15 +274,35 @@ const loadAll = async () => {
     loadBlock('movies',     { ordering: '-score', type: 'movie' }),
   ])
 
-  // Персональные блоки с кэшем — тоже параллельно
-  const personalBlocks = Promise.all([
-    loadBasedOnWatchedCached(lib),
-    loadSeasonalCached(lib),
-    loadClassicsCached(lib),
-    loadExploreNew(lib ? { items: lib.items, watchedIds: lib.watchedIds, seenGenres: lib.seenGenres } : undefined),
+  // Запускаем загрузку библиотеки параллельно со статическими блоками
+  const libPromise = fetchLibCache()
+
+  // Базовые версии персональных блоков загружаем сразу (без персонализации)
+  // Это гарантирует, что блоки не будут пустыми
+  const basePersonalBlocks = Promise.all([
+    loadBlock('based_on_watched', { ordering: '-score', score_from: 7 }),
+    loadBlock('seasonal', { status: 'ongoing', ordering: '-score' }),
+    loadBlock('classics', { ordering: '-score', year_to: 2010, score_from: 7 }),
+    loadBlock('explore_new', { ordering: '-score', score_from: 6 }),
   ])
 
-  await Promise.all([staticBlocks, personalBlocks])
+  // Ждём статические и базовые персональные
+  await Promise.all([staticBlocks, basePersonalBlocks])
+
+  // После этого пробуем обогатить персональные блоки на основе библиотеки
+  // (но только если пользователь авторизован)
+  if (authStore.isAuthenticated) {
+    const lib = await libPromise
+    if (lib && lib.topGenres.length) {
+      // Перезагружаем персональные блоки с учётом жанров
+      await Promise.all([
+        loadBasedOnWatchedCached(lib),
+        loadSeasonalCached(lib),
+        loadClassicsCached(lib),
+        loadExploreNew({ items: lib.items, watchedIds: lib.watchedIds, seenGenres: lib.seenGenres }),
+      ])
+    }
+  }
 }
 
 // Версии с кэшем для персональных блоков

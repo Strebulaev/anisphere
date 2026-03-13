@@ -91,7 +91,7 @@ class Playlist(models.Model):
         return self.favorited_by.count()
 
     def get_cover_urls(self):
-        """Возвращает URL постеров первых 3 аниме для составной обложки"""
+        """Возвращает URL постеров первых аниме для составной обложки"""
         items = self.items.select_related('anime').order_by('position', 'added_at')[:3]
         urls = []
         for item in items:
@@ -105,100 +105,121 @@ class Playlist(models.Model):
         return urls
 
     def generate_cover_image(self):
+        """Генерирует вертикальную обложку из постеров аниме"""
         items = self.items.select_related('anime').order_by('position', 'added_at')[:3]
         if not items:
             return None
-        poster_paths = []
-        poster_urls = []
+        
+        # Собираем пути и URL постеров
+        poster_data = []
         for item in items:
             if item.anime.poster and hasattr(item.anime.poster, 'path'):
-                poster_paths.append(item.anime.poster.path)
+                poster_data.append(('local', item.anime.poster.path))
             elif item.anime.poster_url:
-                poster_urls.append(item.anime.poster_url)
-        if poster_paths:
-            return self._generate_from_local_files(poster_paths)
-        elif poster_urls:
-            return self._generate_from_urls(poster_urls)
-        return None
-
-    def _generate_from_local_files(self, poster_paths):
-        from PIL import Image as PILImage
-        target_width = 300
-        target_height = 420
-        n = len(poster_paths)
-        item_height = target_height // n
-        sep = 1  # тонкий белый разделитель
-
-        try:
-            cover = PILImage.new('RGB', (target_width, target_height), color=(30, 30, 30))
-            for i, poster_path in enumerate(poster_paths):
-                try:
-                    img = PILImage.open(poster_path).convert('RGB')
-                    img = img.resize((target_width, item_height), PILImage.Resampling.LANCZOS)
-                    y_pos = i * item_height
-                    cover.paste(img, (0, y_pos))
-                    # Белый разделитель между постерами
-                    if i < n - 1:
-                        for y in range(y_pos + item_height - sep, y_pos + item_height):
-                            for x in range(target_width):
-                                cover.putpixel((x, y), (255, 255, 255))
-                except Exception as e:
-                    print(f"Error processing poster {i}: {e}")
-                    continue
-
-            filename = f"playlist_{self.id}_{int(self.updated_at.timestamp())}.jpg"
-            filepath = f'playlist_covers/{filename}'
-            full_path = default_storage.path(filepath)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            cover.save(full_path, 'JPEG', quality=85)
-            self.cover_image = filepath
-            self.save(update_fields=['cover_image'])
-            return self.cover_image.url
-        except Exception as e:
-            print(f"Error generating cover from local files: {e}")
+                poster_data.append(('url', item.anime.poster_url))
+        
+        if not poster_data:
             return None
 
-    def _generate_from_urls(self, poster_urls):
+        return self._generate_cover(poster_data)
+
+    def _generate_cover(self, poster_data):
+        """
+        Генерирует квадратную обложку с горизонтальным расположением постеров
+        poster_data: список кортежей ('local'|'url', path_or_url)
+        """
         from PIL import Image as PILImage
         import requests
         from io import BytesIO
+        
+        # Размеры обложки (квадратная)
         target_width = 300
-        target_height = 420
-        n = len(poster_urls)
-        item_height = target_height // n
-        sep = 1
-
+        target_height = 300
+        
+        n = len(poster_data)
+        # Ширина каждого изображения с учётом разделителей
+        separator_width = 2
+        total_separator = separator_width * (n - 1) if n > 1 else 0
+        item_width = (target_width - total_separator) // n
+        
         try:
-            cover = PILImage.new('RGB', (target_width, target_height), color=(30, 30, 30))
-            for i, url in enumerate(poster_urls):
+            cover = PILImage.new('RGB', (target_width, target_height), color=(25, 25, 30))
+            
+            for i, (source_type, source) in enumerate(poster_data):
                 try:
-                    response = requests.get(url, timeout=10)
-                    response.raise_for_status()
-                    img = PILImage.open(BytesIO(response.content)).convert('RGB')
-                    img = img.resize((target_width, item_height), PILImage.Resampling.LANCZOS)
-                    y_pos = i * item_height
-                    cover.paste(img, (0, y_pos))
+                    # Загружаем изображение
+                    if source_type == 'local':
+                        img = PILImage.open(source).convert('RGB')
+                    else:
+                        response = requests.get(source, timeout=10)
+                        response.raise_for_status()
+                        img = PILImage.open(BytesIO(response.content)).convert('RGB')
+                    
+                    # Обрезаем по центру и масштабируем
+                    img = self._resize_and_crop(img, item_width, target_height)
+                    
+                    # Позиция по горизонтали
+                    x_pos = i * (item_width + separator_width)
+                    
+                    # Вставляем изображение
+                    cover.paste(img, (x_pos, 0))
+                    
+                    # Добавляем разделитель (кроме последнего)
                     if i < n - 1:
-                        for y in range(y_pos + item_height - sep, y_pos + item_height):
-                            for x in range(target_width):
+                        for x in range(x_pos + item_width, x_pos + item_width + separator_width):
+                            for y in range(target_height):
                                 cover.putpixel((x, y), (255, 255, 255))
+                
                 except Exception as e:
-                    print(f"Error processing URL {i}: {e}")
+                    print(f"Error processing poster {i}: {e}")
+                    # Заполняем место плейсхолдером
+                    x_pos = i * (item_width + separator_width)
+                    placeholder = PILImage.new('RGB', (item_width, target_height), color=(40, 40, 45))
+                    cover.paste(placeholder, (x_pos, 0))
                     continue
 
+            # Сохраняем
             filename = f"playlist_{self.id}_{int(self.updated_at.timestamp())}.jpg"
             filepath = f'playlist_covers/{filename}'
             full_path = default_storage.path(filepath)
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            cover.save(full_path, 'JPEG', quality=85)
+            cover.save(full_path, 'JPEG', quality=90)
+            
             self.cover_image = filepath
             self.save(update_fields=['cover_image'])
             return self.cover_image.url
+            
         except Exception as e:
-            print(f"Error generating cover from URLs: {e}")
+            print(f"Error generating cover: {e}")
             return None
 
+    def _resize_and_crop(self, img, target_width, target_height):
+        """Масштабирует и обрезает изображение по центру до нужных размеров"""
+        # Текущие размеры
+        w, h = img.size
+        
+        # Вычисляем коэффициенты масштабирования
+        width_ratio = target_width / w
+        height_ratio = target_height / h
+        
+        # Берём больший коэффициент, чтобы изображение точно покрыло целевую область
+        ratio = max(width_ratio, height_ratio)
+        
+        # Масштабируем
+        new_w = int(w * ratio)
+        new_h = int(h * ratio)
+        img = img.resize((new_w, new_h), PILImage.Resampling.LANCZOS)
+        
+        # Обрезаем по центру
+        left = (new_w - target_width) // 2
+        top = (new_h - target_height) // 2
+        right = left + target_width
+        bottom = top + target_height
+        
+        return img.crop((left, top, right, bottom))
+
     def update_cover(self):
+        """Обновляет обложку плейлиста"""
         if self.cover_image:
             try:
                 default_storage.delete(self.cover_image.name)

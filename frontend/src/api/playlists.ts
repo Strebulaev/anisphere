@@ -45,7 +45,7 @@ export interface Genre {
 export interface PlaylistItem {
   id: number
   anime: number
-  anime_id?: number
+  anime_id: number
   anime_title: string
   anime_title_en?: string
   anime_poster: string | null

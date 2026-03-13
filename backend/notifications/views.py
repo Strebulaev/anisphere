@@ -78,18 +78,28 @@ class NotificationViewSet(ModelViewSet):
     @action(detail=False, methods=['get'], url_path='recent')
     def recent(self, request):
         """GET /api/notifications/notifications/recent/ — последние 8 для дропдауна"""
-        qs = Notification.objects.filter(
-            user=request.user,
-            is_deleted=False,
-        ).order_by('-created_at')[:8]
-        serializer = self.get_serializer(qs, many=True)
-        unread_count = Notification.objects.filter(
-            user=request.user, is_read=False, is_deleted=False
-        ).count()
-        return Response({
-            'results': serializer.data,
-            'unread_count': unread_count,
-        })
+        try:
+            qs = Notification.objects.filter(
+                user=request.user,
+                is_deleted=False,
+            ).order_by('-created_at')[:8]
+            serializer = self.get_serializer(qs, many=True)
+            unread_count = Notification.objects.filter(
+                user=request.user, is_read=False, is_deleted=False
+            ).count()
+            return Response({
+                'results': serializer.data,
+                'unread_count': unread_count,
+            })
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in notifications/recent: {e}", exc_info=True)
+            return Response({
+                'results': [],
+                'unread_count': 0,
+                'error': 'Failed to load notifications'
+            }, status=500)
 
     @action(detail=True, methods=['post'], url_path='mark_read')
     def mark_read(self, request, pk=None):
