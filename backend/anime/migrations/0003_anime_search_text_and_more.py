@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('anime', '0002_dub_dubstudio_voiceactor_dubrole_dub_studio_and_more'),
+        ('anime', '0002b_dub_dubstudio_voiceactor_dubrole_dub_studio_and_more'),
     ]
 
     operations = [

@@ -17,6 +17,7 @@ class User(AbstractUser):
 
     # Дополнительные поля профиля
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    cover_image = models.ImageField(upload_to='covers/', null=True, blank=True, verbose_name=_('Profile cover'))
     bio = models.TextField(max_length=500, blank=True)
 
     # Никнейм и отображаемое имя

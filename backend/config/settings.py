@@ -254,8 +254,9 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser'
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'config.authentication.SoftJWTAuthentication',  # Не блокирует AllowAny при истёкшем токене
-        'rest_framework.authentication.SessionAuthentication',
+        'config.authentication.SoftJWTAuthentication',  # JWT аутентификация без CSRF
+        # SessionAuthentication убран - он требует CSRF токен для POST/PUT/DELETE
+        # Если нужен admin panel с сессиями, добавьте authentication_classes локально в admin views
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',

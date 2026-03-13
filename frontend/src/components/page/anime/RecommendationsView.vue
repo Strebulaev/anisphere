@@ -206,54 +206,126 @@ const loadClassics = async () => {
 }
 
 // Откройте новое — жанры которых ещё не смотрели
-const loadExploreNew = async () => {
+const loadExploreNew = async (cachedLib?: { items: any[]; watchedIds: number[]; seenGenres: Set<string> }) => {
   blockLoading['explore_new'] = true
   try {
-    if (authStore.isAuthenticated) {
-      try {
-        const libRes = await apiClient.get('/users/library/', { params: { page_size: 200 } })
-        const items: any[] = libRes.data?.results || libRes.data?.library || []
-        const seenGenres = new Set<string>()
-        items.forEach((it: any) => {
-          toNames(it.anime?.genres || it.genres || []).forEach((g: string) => seenGenres.add(g))
-        })
-        // Берём случайную страницу чтобы не повторяться
-        const page = Math.floor(Math.random() * 5) + 1
-        const res = await apiClient.get('/anime/', {
-          params: { page_size: 48, ordering: '-score', score_from: 6.5, page }
-        })
-        const watched_ids = items.map((it: any) => it.anime?.id || it.anime).filter(Boolean)
-        const newItems = (res.data.results || [])
-          .filter((a: any) => !watched_ids.includes(a.id))
-          .filter((a: any) => {
-            // Отдаём предпочтение аниме с жанрами которых не смотрели
-            const aGenres = toNames(a.genres)
-            return aGenres.some(g => !seenGenres.has(g))
-          })
-          .slice(0, 24)
-          .map(norm)
-        blockData['explore_new'] = newItems.length ? newItems : (res.data.results || []).slice(0, 24).map(norm)
-        return
-      } catch {}
+    const page = Math.floor(Math.random() * 5) + 1
+    if (cachedLib && cachedLib.items.length) {
+      const res = await apiClient.get('/anime/', {
+        params: { page_size: 48, ordering: '-score', score_from: 6.5, page }
+      })
+      const newItems = (res.data.results || [])
+        .filter((a: any) => !cachedLib.watchedIds.includes(a.id))
+        .filter((a: any) => toNames(a.genres).some(g => !cachedLib.seenGenres.has(g)))
+        .slice(0, 24).map(norm)
+      blockData['explore_new'] = newItems.length ? newItems : (res.data.results || []).slice(0, 24).map(norm)
+      return
     }
-    await loadBlock('explore_new', { ordering: '-score', score_from: 6, page: Math.floor(Math.random() * 5) + 1 })
+    await loadBlock('explore_new', { ordering: '-score', score_from: 6, page })
+  } catch {
+    await loadBlock('explore_new', { ordering: '-score', score_from: 6 })
   } finally { blockLoading['explore_new'] = false }
+}
+
+// ── Кэш библиотеки (чтобы запросить один раз для всех блоков) ─
+const fetchLibCache = async () => {
+  if (!authStore.isAuthenticated) return null
+  try {
+    const libRes = await apiClient.get('/users/library/', { params: { page_size: 200 } })
+    const items: any[] = libRes.data?.results || libRes.data?.library || []
+    const genreMap: Record<string, number> = {}
+    const seenGenres = new Set<string>()
+    const watchedIds: number[] = []
+    items.forEach((it: any) => {
+      const id = it.anime?.id ?? it.anime
+      if (id) watchedIds.push(id)
+      toNames(it.anime?.genres || it.genres || []).forEach((g: string) => {
+        seenGenres.add(g)
+        genreMap[g] = (genreMap[g] || 0) + 1
+      })
+    })
+    const topGenres = Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 4).map(e => e[0])
+    return { items, watchedIds, seenGenres, topGenres, genreMap }
+  } catch { return null }
 }
 
 // ── Загрузка всех ─────────────────────────────────────────
 const loadAll = async () => {
   const y = new Date().getFullYear()
 
-  await Promise.all([
+  // Получаем библиотеку один раз — используем для всех персональных блоков
+  const lib = await fetchLibCache()
+
+  // Статические блоки стартуют сразу параллельно
+  const staticBlocks = Promise.all([
     loadBlock('top_rated',  { ordering: '-score' }),
     loadBlock('new_season', { ordering: '-year', year_from: y - 2 }),
     loadBlock('short',      { ordering: '-score', episodes_to: 13, score_from: 6 }),
     loadBlock('movies',     { ordering: '-score', type: 'movie' }),
-    loadBasedOnWatched(),
-    loadSeasonal(),
-    loadClassics(),
-    loadExploreNew(),
   ])
+
+  // Персональные блоки с кэшем — тоже параллельно
+  const personalBlocks = Promise.all([
+    loadBasedOnWatchedCached(lib),
+    loadSeasonalCached(lib),
+    loadClassicsCached(lib),
+    loadExploreNew(lib ? { items: lib.items, watchedIds: lib.watchedIds, seenGenres: lib.seenGenres } : undefined),
+  ])
+
+  await Promise.all([staticBlocks, personalBlocks])
+}
+
+// Версии с кэшем для персональных блоков
+const loadBasedOnWatchedCached = async (lib: Awaited<ReturnType<typeof fetchLibCache>>) => {
+  blockLoading['based_on_watched'] = true
+  try {
+    if (lib && lib.topGenres.length) {
+      const res = await apiClient.get('/anime/', {
+        params: { page_size: 48, ordering: '-score', genres: lib.topGenres.join(','), genre_logic: 'OR', score_from: 6 }
+      })
+      const results = (res.data.results || [])
+        .filter((a: any) => !lib.watchedIds.includes(a.id))
+        .slice(0, 24).map(norm)
+      blockData['based_on_watched'] = results.length ? results : (res.data.results || []).slice(0, 24).map(norm)
+    } else {
+      await loadBlock('based_on_watched', { ordering: '-score', score_from: 7 })
+    }
+  } catch {
+    await loadBlock('based_on_watched', { ordering: '-score' })
+  } finally { blockLoading['based_on_watched'] = false }
+}
+
+const loadSeasonalCached = async (lib: Awaited<ReturnType<typeof fetchLibCache>>) => {
+  blockLoading['seasonal'] = true
+  try {
+    const genreParam = lib?.topGenres.slice(0, 3).join(',') || ''
+    await loadBlock('seasonal', genreParam
+      ? { status: 'ongoing', ordering: '-score', genres: genreParam, genre_logic: 'OR' }
+      : { status: 'ongoing', ordering: '-score' }
+    )
+    // Если онгоинги с жанрами пусты — fallback без жанра
+    if (!blockData['seasonal'].length && genreParam) {
+      await loadBlock('seasonal', { status: 'ongoing', ordering: '-score' })
+    }
+    // Если всё ещё пусто — показываем просто онгоинги
+    if (!blockData['seasonal'].length) {
+      await loadBlock('seasonal', { ordering: '-score', year_from: new Date().getFullYear() - 1 })
+    }
+  } finally { blockLoading['seasonal'] = false }
+}
+
+const loadClassicsCached = async (lib: Awaited<ReturnType<typeof fetchLibCache>>) => {
+  blockLoading['classics'] = true
+  try {
+    const genreParam = lib?.topGenres.slice(0, 3).join(',') || ''
+    await loadBlock('classics', genreParam
+      ? { ordering: '-score', year_to: 2010, score_from: 7, genres: genreParam, genre_logic: 'OR' }
+      : { ordering: '-score', year_to: 2010, score_from: 7 }
+    )
+    if (!blockData['classics'].length) {
+      await loadBlock('classics', { ordering: '-score', year_to: 2010, score_from: 7 })
+    }
+  } finally { blockLoading['classics'] = false }
 }
 
 const goToViewAll = (block: Block) => { if (block.route) router.push(block.route) }

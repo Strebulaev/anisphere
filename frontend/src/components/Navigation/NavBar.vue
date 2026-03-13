@@ -33,15 +33,25 @@
         <!-- Уведомления -->
         <div class="navbar-notifications" v-if="isAuthenticated">
           <button
-            class="navbar-icon-btn"
+            :class="['navbar-icon-btn', { 'bell-ringing': notificationStore.isBellRinging }]"
             title="Уведомления"
             type="button"
             @click="toggleNotifications"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg
+              width="20" height="20" viewBox="0 0 24 24" fill="none"
+              :stroke="notificationStore.isBellRinging ? 'var(--danger, #ef4444)' : 'currentColor'"
+              stroke-width="2"
+              :class="{ 'bell-svg-ring': notificationStore.isBellRinging }"
+            >
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
+            <!-- Кружок пульсации во время звонка -->
+            <span
+              v-if="notificationStore.isBellRinging"
+              class="bell-pulse-ring"
+            />
             <span v-if="notificationStore.hasUnread" class="notification-dot">
               {{ notificationStore.unreadCount > 9 ? '9+' : notificationStore.unreadCount }}
             </span>
@@ -155,7 +165,15 @@ const navigateToSection = async (item: any) => {
     try {
       const res = await apiClient.get('/anime/random/')
       const id = res.data?.id || res.data?.[0]?.id
-      if (id) router.push(`/anime/${id}`)
+      if (id) {
+        const target = `/anime/${id}`
+        // Если уже на этой странице — перезагружаем, иначе переходим
+        if (router.currentRoute.value.path === target) {
+          window.location.reload()
+        } else {
+          router.push(target)
+        }
+      }
     } catch (e) {
       console.error('Random anime error:', e)
     } finally {
@@ -268,23 +286,28 @@ const stopTabBlink = () => {
   document.title = originalTitle
 }
 
-// Добавляет уведомление в store и запускает моргание
-const triggerReminderNotification = (animeName: string, comment?: string) => {
+// Добавляет уведомление в store, запускает сверкание колокольчика на 1 минуту
+const triggerReminderNotification = (reminderId: number, animeName: string, comment?: string) => {
+  const notifId = Date.now()
   const text = `⏰ Напоминание: ${animeName}${comment ? ` — ${comment}` : ''}`
-  
-  // Добавляем уведомление в store
+
+  // Добавляем уведомление в store (попадает в дропдаун и в список)
   notificationStore.addNotification({
-    id: Date.now(),
+    id: notifId,
     kind: 'reminder',
     type: 'reminder',
-    title: `Напоминание о просмотре`,
-    text: `Пора смотреть: ${animeName}`,
+    title: `Напоминание: ${animeName}`,
+    text: `Пора смотреть${comment ? ` — ${comment}` : ''}`,
     content: text,
     is_read: false,
     created_at: new Date().toISOString(),
+    icon: '⏰',
   } as any)
-  
-  // Моргаем вкладкой
+
+  // Запускаем сверкание колокольчика на 1 минуту
+  notificationStore.startRinging(reminderId)
+
+  // Моргаем вкладкой тоже 1 минуту
   startTabBlink(`⏰ ${animeName}`)
 }
 
@@ -305,7 +328,7 @@ const checkReminders = async () => {
         const animeName = reminder.anime_detail?.title_ru || 
                           reminder.anime_detail?.title_en || 
                           'Аниме'
-        triggerReminderNotification(animeName, reminder.comment)
+        triggerReminderNotification(reminder.id, animeName, reminder.comment)
         
         // Деактивируем напоминание если не повторяющееся
         if (!reminder.repeat_weekly) {
@@ -486,6 +509,47 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   line-height: 1;
+}
+
+/* ── Сверкание колокольчика при напоминании ───────────────── */
+.bell-ringing {
+  animation: bell-flash 0.6s ease-in-out infinite;
+}
+
+.bell-svg-ring {
+  animation: bell-shake 0.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+/* Пульсирующее кольцо */
+.bell-pulse-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--danger, #ef4444);
+  animation: bell-pulse 1s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bell-flash {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(239, 68, 68, 0.18); }
+}
+
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0deg); }
+  15%       { transform: rotate(12deg); }
+  30%       { transform: rotate(-10deg); }
+  45%       { transform: rotate(8deg); }
+  60%       { transform: rotate(-6deg); }
+  75%       { transform: rotate(4deg); }
+  90%       { transform: rotate(-2deg); }
+}
+
+@keyframes bell-pulse {
+  0%   { opacity: 0.8; transform: scale(0.85); }
+  70%  { opacity: 0; transform: scale(1.7); }
+  100% { opacity: 0; transform: scale(1.7); }
 }
 
 /* ── Уведомления дропдаун ─────────────────────────────── */

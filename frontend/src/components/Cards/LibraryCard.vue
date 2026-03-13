@@ -454,7 +454,7 @@ const saveNewPlaylist = async () => {
   try {
     await playlistsApi.createPlaylist({
       title: newPlaylistTitle.value.trim(),
-      is_public: newPlaylistPublic.value
+      visibility: newPlaylistPublic.value ? 'public' : 'private'
     })
     showCreateModal.value = false
     toast.success('Плейлист создан!')

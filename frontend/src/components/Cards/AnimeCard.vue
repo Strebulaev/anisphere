@@ -400,7 +400,7 @@ const saveNewPlaylist = async () => {
   try {
     await playlistsApi.createPlaylist({
       title: newPlaylistTitle.value.trim(),
-      is_public: newPlaylistPublic.value
+      visibility: newPlaylistPublic.value ? 'public' : 'private'
     })
     showCreateModal.value = false
     toast.success('Плейлист создан!')
@@ -727,8 +727,9 @@ checkFavorite()
 }
 
 .action-btn:hover           { background-color: var(--accent); transform: scale(1.1); }
-.favorite-btn.active        { color: var(--danger); background-color: rgba(239,68,68,0.85); }
-.favorite-btn.active:hover  { background-color: var(--danger); }
+.favorite-btn.active svg    { fill: var(--danger); stroke: var(--danger); }
+.favorite-btn.active        { color: var(--danger); }
+.favorite-btn.active:hover  { background-color: rgba(239,68,68,0.2); }
 .discuss-btn:hover          { background-color: var(--accent); }
 .playlist-btn:hover         { background-color: var(--accent-2); }
 .reminder-btn:hover         { background-color: var(--warning); }

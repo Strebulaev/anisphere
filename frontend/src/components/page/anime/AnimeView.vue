@@ -9,7 +9,7 @@
           v-for="tab in tabs"
           :key="tab.key"
           :class="['av-tab', { active: currentSection === tab.key }]"
-          @click="tab.key === 'currently_watching' ? switchCurrentlyWatching() : switchSection(tab.key)"
+          @click="tab.key === 'currently_watching' ? switchCurrentlyWatching() : handleSwitchSection(tab.key)"
           type="button"
         >
           <span class="av-tab-icon">{{ tab.icon }}</span>
@@ -131,13 +131,48 @@ const fetchCurrentlyWatching = async () => {
   }
 }
 
-const switchCurrentlyWatching = () => {
-  currentSection.value = 'currently_watching' as any
-  fetchCurrentlyWatching()
+// Авто-обновление «Сейчас смотрят» каждые 30 сек пока вкладка активна
+let cwRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+const startCwPolling = () => {
+  stopCwPolling()
+  cwRefreshTimer = setInterval(() => {
+    if ((currentSection.value as string) === 'currently_watching') {
+      fetchCurrentlyWatching()
+    }
+  }, 30_000)
 }
 
+const stopCwPolling = () => {
+  if (cwRefreshTimer !== null) {
+    clearInterval(cwRefreshTimer)
+    cwRefreshTimer = null
+  }
+}
+
+const switchCurrentlyWatching = () => {
+  currentSection.value = 'currently_watching' as any
+  try { localStorage.setItem('anime_active_section', 'currently_watching') } catch {}
+  fetchCurrentlyWatching()
+  startCwPolling()
+}
+
+// Останавливаем поллинг при переходе на другую вкладку
+const origSwitchSection = switchSection
+const handleSwitchSection = (key: any) => {
+  stopCwPolling()
+  origSwitchSection(key)
+}
+
+import { onUnmounted } from 'vue'
+onUnmounted(() => stopCwPolling())
+
 onMounted(() => {
-  // Не загружаем автоматически — пользователь загрузит при переходе на вкладку
+  // Если сохранённая вкладка — «Сейчас смотрят», загружаем данные сразу
+  if ((currentSection.value as string) === 'currently_watching') {
+    fetchCurrentlyWatching()
+    startCwPolling()
+  }
 })
 
 // viewersMap для онгоингов — { [anime_id]: viewers_count }

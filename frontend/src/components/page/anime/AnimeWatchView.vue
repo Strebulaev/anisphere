@@ -103,6 +103,113 @@
           </div>
         </Transition>
 
+        <!-- ─── Быстрые кнопки скачивания ─────────────────── -->
+        <div class="quick-dl-bar">
+          <!-- Опенинг -->
+          <button
+            class="qdl-btn"
+            :class="{ 'qdl-loading': openingState.loading, 'qdl-done': openingState.done, 'qdl-error': openingState.error }"
+            :disabled="openingState.loading"
+            @click="handleDownloadOpening"
+            title="Скачать опенинг этой серии"
+          >
+            <span v-if="openingState.loading" class="qdl-spinner"></span>
+            <svg v-else-if="openingState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="qdl-label">{{ openingState.loading ? `${openingState.progress}%` : openingState.done ? 'Готово' : 'Опенинг' }}</span>
+            <div v-if="openingState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: openingState.progress + '%' }"></div></div>
+          </button>
+
+          <!-- Эндинг -->
+          <button
+            class="qdl-btn"
+            :class="{ 'qdl-loading': endingState.loading, 'qdl-done': endingState.done, 'qdl-error': endingState.error }"
+            :disabled="endingState.loading"
+            @click="handleDownloadEnding"
+            title="Скачать эндинг этой серии"
+          >
+            <span v-if="endingState.loading" class="qdl-spinner"></span>
+            <svg v-else-if="endingState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="qdl-label">{{ endingState.loading ? `${endingState.progress}%` : endingState.done ? 'Готово' : 'Эндинг' }}</span>
+            <div v-if="endingState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: endingState.progress + '%' }"></div></div>
+          </button>
+
+          <!-- Серия целиком -->
+          <button
+            class="qdl-btn qdl-episode"
+            :class="{ 'qdl-loading': episodeDownloadState.loading, 'qdl-done': episodeDownloadState.done, 'qdl-error': episodeDownloadState.error }"
+            :disabled="episodeDownloadState.loading"
+            @click="handleDownloadEpisode"
+            title="Скачать серию целиком"
+          >
+            <span v-if="episodeDownloadState.loading" class="qdl-spinner"></span>
+            <svg v-else-if="episodeDownloadState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="qdl-label">{{ episodeDownloadState.loading ? `${episodeDownloadState.progress}%` : episodeDownloadState.done ? 'Готово' : `Серия ${currentEpisode}` }}</span>
+            <div v-if="episodeDownloadState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: episodeDownloadState.progress + '%' }"></div></div>
+          </button>
+
+          <!-- Произвольный отрезок: кнопка-иконка -->
+          <button
+            class="qdl-btn qdl-clip-icon"
+            :class="{ 'qdl-active': showClipModal }"
+            @click="() => { showClipModal = !showClipModal; if (showClipModal) setClipFromCurrent() }"
+            title="Вырезать произвольный фрагмент"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+              <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+              <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+              <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+            </svg>
+            <span class="qdl-label">Фрагмент</span>
+          </button>
+
+          <!-- Ошибки под кнопками -->
+          <p v-if="openingState.error" class="qdl-err-text">⚠ Опенинг: {{ openingState.error }}</p>
+          <p v-if="endingState.error" class="qdl-err-text">⚠ Эндинг: {{ endingState.error }}</p>
+          <p v-if="episodeDownloadState.error" class="qdl-err-text">⚠ Серия: {{ episodeDownloadState.error }}</p>
+        </div>
+
+        <!-- Форма произвольного отрезка (inline под кнопками) -->
+        <div v-if="showClipModal" class="clip-form-inline">
+          <div class="clip-times">
+            <div class="clip-time-field">
+              <label>Начало</label>
+              <input v-model="clipStartInput" class="clip-time-input" placeholder="0:00" :disabled="customState.loading" />
+            </div>
+            <div class="clip-time-arrow">→</div>
+            <div class="clip-time-field">
+              <label>Конец</label>
+              <input v-model="clipEndInput" class="clip-time-input" placeholder="1:30" :disabled="customState.loading" />
+            </div>
+          </div>
+          <div class="clip-label-row">
+            <input v-model="clipLabel" class="clip-label-input" placeholder="Название (необязательно)" :disabled="customState.loading" maxlength="40" />
+          </div>
+          <div class="clip-hint" v-if="duration > 0">
+            Текущее время: <b>{{ formatSec(currentTime) }}</b> / {{ formatSec(duration) }}
+            <button class="clip-hint-btn" @click="setClipFromCurrent" :disabled="customState.loading">← Вставить</button>
+          </div>
+          <div class="clip-actions">
+            <button
+              class="tdc-btn clip-download-btn"
+              :class="{ 'tdc-loading': customState.loading, 'tdc-done': customState.done }"
+              :disabled="customState.loading || !clipStartInput || !clipEndInput"
+              @click="handleDownloadSegment"
+            >
+              <span v-if="customState.loading" class="tdc-spinner"></span>
+              <span v-else-if="customState.done">✓</span>
+              <span v-else><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+              <span class="tdc-label">{{ customState.loading ? `Обработка... ${customState.progress}%` : customState.done ? 'Готово ✓' : 'Скачать MP4' }}</span>
+              <div v-if="customState.loading" class="tdc-progress-bar"><div class="tdc-progress-fill" :style="{ width: customState.progress + '%' }"></div></div>
+            </button>
+            <button class="clip-cancel-btn" @click="showClipModal = false" :disabled="customState.loading">✕</button>
+          </div>
+          <p v-if="customState.error" class="tdc-error-text">⚠ {{ customState.error }}</p>
+        </div>
+
         <!-- Информация под плеером -->
         <div class="anime-info-under">
           <div class="anime-header">
@@ -276,6 +383,8 @@
           <button @click="shareAnime" class="action-btn">↗ Поделиться</button>
         </div>
 
+
+
       </div>
     </div>
 
@@ -312,11 +421,143 @@ import EpisodeList from '@/components/Cards/EpisodeList.vue'
 import { getTranslationAvatarUrl } from '@/utils/translationAvatars'
 import { useEpisodeProgress } from '@/composables/useEpisodeProgress'
 import { useToast } from '@/composables/useToast'
+import { useThemeDownloader } from '@/composables/useThemeDownloader'
+import type { CustomSegmentOpts } from '@/composables/useThemeDownloader'
 import { getMediaUrl } from '@/api/client'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const toast = useToast()
+const { openingState, endingState, customState, downloadTheme, downloadSegment } = useThemeDownloader()
+
+// Состояние скачивания серии целиком
+const episodeDownloadState = ref({ loading: false, progress: 0, error: '', done: false })
+
+// Быстрая скачка опенинга
+const handleDownloadOpening = () => {
+  if (!anime.value?.id) return
+  downloadTheme({
+    animeId: anime.value.id,
+    kind: 'opening',
+    episode: currentEpisode.value,
+    season: currentSeason.value,
+    translationId: selectedTranslation.value?.id,
+    animeTitle: anime.value?.title_ru || anime.value?.title_en || '',
+  })
+}
+
+// Быстрая скачка эндинга
+const handleDownloadEnding = () => {
+  if (!anime.value?.id) return
+  downloadTheme({
+    animeId: anime.value.id,
+    kind: 'ending',
+    episode: currentEpisode.value,
+    season: currentSeason.value,
+    translationId: selectedTranslation.value?.id,
+    animeTitle: anime.value?.title_ru || anime.value?.title_en || '',
+  })
+}
+
+// Скачка серии целиком (0 — конец)
+const handleDownloadEpisode = async () => {
+  if (!anime.value?.id || episodeDownloadState.value.loading) return
+  episodeDownloadState.value = { loading: true, progress: 10, error: '', done: false }
+  try {
+    const { id } = anime.value
+    const params: Record<string, string> = {
+      episode: String(currentEpisode.value),
+      season:  String(currentSeason.value),
+      start:   '0',
+      end:     '99999',
+      label:   `Episode ${currentEpisode.value}`,
+    }
+    if (selectedTranslation.value?.id) params.translation_id = String(selectedTranslation.value.id)
+
+    const response = await apiClient.get(`/anime/${id}/clip/`, {
+      params,
+      responseType: 'blob',
+      timeout: 0, // без таймаута — серия может скачиваться долго
+      onDownloadProgress: (evt) => {
+        if (evt.total && evt.total > 0) {
+          episodeDownloadState.value.progress = 10 + Math.round((evt.loaded / evt.total) * 85)
+        } else {
+          episodeDownloadState.value.progress = Math.min(90, episodeDownloadState.value.progress + 3)
+        }
+      },
+    })
+
+    episodeDownloadState.value.progress = 97
+    const animeTitle = anime.value?.title_ru || anime.value?.title_en || 'anime'
+    const label = `Episode ${currentEpisode.value}`
+    const disposition = response.headers['content-disposition'] || ''
+    let filename = `${animeTitle} - ${label}.mp4`
+    const fnMatch = disposition.match(/filename\*=UTF-8''([^;\n]+)/) || disposition.match(/filename="?([^";\n]+)"?/)
+    if (fnMatch) filename = decodeURIComponent(fnMatch[1])
+
+    const url = URL.createObjectURL(response.data)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+
+    episodeDownloadState.value = { loading: false, progress: 100, error: '', done: true }
+    setTimeout(() => { episodeDownloadState.value.done = false }, 3000)
+  } catch (err: any) {
+    let message = err?.message || 'Ошибка'
+    if (err?.response?.data instanceof Blob) {
+      try { message = JSON.parse(await err.response.data.text()).error || message } catch { /**/ }
+    }
+    episodeDownloadState.value = { loading: false, progress: 0, error: message, done: false }
+  }
+}
+
+// ── Скачивание произвольного отрезка ─────────────────────────────
+const showClipModal   = ref(false)
+const clipStartInput  = ref('')   // строка "mm:ss" или секунды
+const clipEndInput    = ref('')
+const clipLabel       = ref('clip')
+
+const parseTimeInput = (val: string): number => {
+  const v = val.trim()
+  if (/^\d+$/.test(v)) return parseInt(v, 10)
+  const parts = v.split(':').map(Number)
+  if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0)
+  if (parts.length === 3) return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0)
+  return 0
+}
+
+const formatSec = (s: number) => {
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+const setClipFromCurrent = () => {
+  clipStartInput.value = formatSec(Math.max(0, currentTime.value - 2))
+  clipEndInput.value   = formatSec(Math.min(duration.value || 9999, currentTime.value + 88))
+}
+
+const handleDownloadSegment = () => {
+  if (!anime.value?.id) return
+  const start = parseTimeInput(clipStartInput.value)
+  const end   = parseTimeInput(clipEndInput.value)
+  if (end <= start) {
+    customState.value.error = 'Конец должен быть позже начала'
+    return
+  }
+  customState.value.error = ''
+  downloadSegment({
+    animeId: anime.value.id,
+    episode: currentEpisode.value,
+    season: currentSeason.value,
+    translationId: selectedTranslation.value?.id,
+    startSec: start,
+    stopSec: end,
+    label: clipLabel.value || 'clip',
+    animeTitle: anime.value?.title_ru || anime.value?.title_en || '',
+  })
+}
 
 // ── Episode Progress ──────────────────────────────────────────────
 let epProgress: ReturnType<typeof useEpisodeProgress> | null = null
@@ -841,6 +1082,8 @@ const onSkipEpisode = async (num: number) => {
 const retryLoad = () => loadKodikPlayer()
 
 const addToFavorites = () => { /* TODO */ }
+
+// handleDownloadTheme оставлен как заглушка (логика перенесена в handleDownloadSegment)
 
 const shareAnime = () => {
   if (navigator.share) {
@@ -1436,6 +1679,384 @@ watch(selectedTranslation, (v) => {
   transition: all .2s;
 }
 .action-btn:hover { background: rgba(255,255,255,0.1); color: #fff; transform: translateY(-1px); }
+
+/* ════════════════════════════════════════════════════════
+   СКАЧАТЬ ТЕМУ (ОПЕНИНГ/ЭНДИНГ)
+════════════════════════════════════════════════════════ */
+/* ─── Быстрые кнопки скачивания под плеером ────────────────────── */
+.quick-dl-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  margin-top: -0.5rem;
+}
+
+.qdl-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 32px;
+  padding: 0 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  color: #d1d5db;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  overflow: hidden;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.qdl-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.qdl-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.qdl-btn.qdl-loading {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+.qdl-btn.qdl-done {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+.qdl-btn.qdl-error {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+.qdl-btn.qdl-episode {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+}
+.qdl-btn.qdl-episode:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #ddd6fe;
+}
+.qdl-btn.qdl-clip-icon {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+.qdl-btn.qdl-clip-icon:hover:not(:disabled),
+.qdl-btn.qdl-clip-icon.qdl-active {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fde68a;
+}
+
+.qdl-label { flex: 1; min-width: 0; }
+
+.qdl-spinner {
+  width: 11px; height: 11px;
+  border: 2px solid rgba(147, 197, 253, 0.3);
+  border-top-color: #93c5fd;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.qdl-bar {
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 2px;
+  background: rgba(59, 130, 246, 0.15);
+}
+.qdl-fill {
+  height: 100%;
+  background: #3b82f6;
+  transition: width 0.3s;
+}
+
+.qdl-err-text {
+  width: 100%;
+  margin: 0;
+  font-size: 0.7rem;
+  color: #f87171;
+}
+
+/* Форма фрагмента inline (inline версия под баром) */
+.clip-form-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  margin-top: -2px;
+}
+
+/* ─── …старый theme-download-card (если ещё где-то есть) ─── */
+.theme-download-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 1.125rem;
+  border: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tdc-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.1rem;
+}
+
+.tdc-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #d1d5db;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+  overflow: hidden;
+  text-align: left;
+}
+
+.tdc-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.tdc-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.tdc-btn.tdc-loading {
+  border-color: rgba(59,130,246,0.4);
+  background: rgba(59,130,246,0.08);
+  color: #93c5fd;
+}
+
+.tdc-btn.tdc-done {
+  border-color: rgba(34,197,94,0.4);
+  background: rgba(34,197,94,0.08);
+  color: #86efac;
+}
+
+.tdc-btn.tdc-error {
+  border-color: rgba(239,68,68,0.35);
+  background: rgba(239,68,68,0.07);
+  color: #fca5a5;
+}
+
+.tdc-label { flex: 1; }
+
+.tdc-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.tdc-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(59,130,246,0.2);
+}
+
+.tdc-progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 0 2px 2px 0;
+  transition: width 0.4s ease;
+}
+
+.tdc-error-text {
+  font-size: 0.75rem;
+  color: #f87171;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  background: rgba(239,68,68,0.07);
+  border-radius: 6px;
+  word-break: break-word;
+}
+
+.tdc-open-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  background: rgba(59,130,246,0.1);
+  border-color: rgba(59,130,246,0.25);
+  color: #93c5fd;
+}
+.tdc-open-btn:hover:not(:disabled) {
+  background: rgba(59,130,246,0.2);
+  color: #bfdbfe;
+}
+
+/* Форма отрезка */
+.clip-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.clip-times {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.clip-time-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.clip-time-field label {
+  font-size: 0.68rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.clip-time-input {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  outline: none;
+  text-align: center;
+  transition: border-color .15s;
+}
+.clip-time-input:focus {
+  border-color: rgba(59,130,246,0.5);
+}
+.clip-time-input:disabled {
+  opacity: 0.5;
+}
+
+.clip-time-arrow {
+  color: #4b5563;
+  font-size: 1rem;
+  padding-bottom: 0.4rem;
+  flex-shrink: 0;
+}
+
+.clip-label-row {
+  width: 100%;
+}
+
+.clip-label-input {
+  width: 100%;
+  padding: 0.4rem 0.625rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 7px;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color .15s;
+  box-sizing: border-box;
+}
+.clip-label-input:focus {
+  border-color: rgba(255,255,255,0.18);
+  color: #d1d5db;
+}
+.clip-label-input:disabled { opacity: 0.5; }
+
+.clip-hint {
+  font-size: 0.72rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.clip-hint b { color: #93c5fd; }
+
+.clip-hint-btn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  background: rgba(59,130,246,0.12);
+  border: 1px solid rgba(59,130,246,0.25);
+  border-radius: 5px;
+  color: #93c5fd;
+  cursor: pointer;
+  transition: all .15s;
+}
+.clip-hint-btn:hover:not(:disabled) {
+  background: rgba(59,130,246,0.25);
+}
+.clip-hint-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.clip-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.clip-download-btn {
+  flex: 1;
+  justify-content: center;
+  padding: 0.65rem 0.875rem;
+}
+
+.clip-cancel-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: #6b7280;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all .15s;
+  align-self: center;
+}
+.clip-cancel-btn:hover:not(:disabled) {
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+  border-color: rgba(239,68,68,0.25);
+}
+.clip-cancel-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ════════════════════════════════════════════════════════
    АНИМАЦИИ

@@ -1,6 +1,8 @@
 import apiClient from './client'
 import type { AxiosResponse } from 'axios'
 
+export type PlaylistVisibility = 'public' | 'private' | 'link'
+
 export interface Playlist {
   id: number
   user_id: number
@@ -16,7 +18,13 @@ export interface Playlist {
   description: string
   cover_image?: string | null
   cover_urls?: string[]
+  // Видимость
+  visibility: PlaylistVisibility
   is_public: boolean
+  is_private: boolean
+  is_link_only: boolean
+  // Share-токен (для link_only или владельца)
+  share_token?: string | null
   is_favorite?: boolean
   favorites_count: number
   is_favorited: boolean
@@ -25,7 +33,7 @@ export interface Playlist {
   items: PlaylistItem[]
   items_count: number
   animes_count?: number
-  genres?: string[]  // Жанры как массив строк
+  genres?: string[]
 }
 
 export interface Genre {
@@ -110,6 +118,7 @@ export interface PlaylistsParams {
   genre?: number | string
   year?: number | string
   ordering?: string
+  visibility?: PlaylistVisibility
 }
 
 const playlistsApi = {
@@ -139,9 +148,29 @@ const playlistsApi = {
   createPlaylist: (data: {
     title: string
     description?: string
-    is_public: boolean
+    visibility?: PlaylistVisibility
   }): Promise<AxiosResponse<Playlist>> => {
     return apiClient.post<Playlist>('/playlists/playlists/', data)
+  },
+
+  updateVisibility: (id: number, visibility: PlaylistVisibility): Promise<AxiosResponse<Playlist>> => {
+    return apiClient.post<Playlist>(`/playlists/playlists/${id}/update-visibility/`, { visibility })
+  },
+
+  generateShareLink: (id: number, ttlDays?: number): Promise<AxiosResponse<{
+    token: string
+    expires_at: string
+    share_url: string
+  }>> => {
+    return apiClient.post(`/playlists/playlists/${id}/share-link/`, { ttl_days: ttlDays ?? 30 })
+  },
+
+  revokeShareLink: (id: number): Promise<AxiosResponse<void>> => {
+    return apiClient.delete(`/playlists/playlists/${id}/share-link/`)
+  },
+
+  getPlaylistByToken: (token: string): Promise<AxiosResponse<Playlist>> => {
+    return apiClient.get<Playlist>(`/playlists/playlists/shared/${token}/`)
   },
 
   updatePlaylist: (id: number, data: Partial<Playlist>): Promise<AxiosResponse<Playlist>> => {

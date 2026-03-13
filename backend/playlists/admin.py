@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist
+from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist, PlaylistShareLink
 
 class PlaylistItemInline(admin.TabularInline):
     model = PlaylistItem
@@ -9,8 +9,8 @@ class PlaylistItemInline(admin.TabularInline):
 
 @admin.register(Playlist)
 class PlaylistAdmin(admin.ModelAdmin):
-    list_display = ['title', 'user', 'is_public', 'items_count', 'favorites_count', 'created_at']
-    list_filter = ['is_public', 'created_at']
+    list_display = ['title', 'user', 'visibility', 'items_count', 'favorites_count', 'created_at']
+    list_filter = ['visibility', 'created_at']
     search_fields = ['title', 'description', 'user__username']
     readonly_fields = ['created_at', 'items_count', 'favorites_count', 'updated_at']
     inlines = [PlaylistItemInline]
@@ -37,6 +37,14 @@ class FavoriteAnimeAdmin(admin.ModelAdmin):
     list_filter = ['created_at']
     search_fields = ['user__username', 'anime__title_ru', 'anime__title_en']
     raw_id_fields = ['user', 'anime']
+
+@admin.register(PlaylistShareLink)
+class PlaylistShareLinkAdmin(admin.ModelAdmin):
+    list_display = ['playlist', 'token', 'is_active', 'expires_at', 'access_count', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['playlist__title', 'token']
+    readonly_fields = ['created_at', 'access_count']
+    raw_id_fields = ['playlist']
 
 @admin.register(FavoritePlaylist)
 class FavoritePlaylistAdmin(admin.ModelAdmin):

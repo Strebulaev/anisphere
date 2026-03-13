@@ -37,6 +37,7 @@
           :season="selectedSeason"
           :episode="selectedEpisode"
           :autoplay="autoplay"
+          :skipButton="skipButton"
           @ready="onPlayerReady"
           @play="onPlay"
           @pause="onPause"
@@ -221,6 +222,7 @@ const duration = ref(0)
 const watchProgress = ref<{[key: number]: number}>({})
 const autoplay = ref(false)
 const useKodikPlayer = ref(true)
+const skipButton = ref<string | null>(null)
 
 // Player state
 const isPlaying = ref<boolean>(false)
@@ -241,6 +243,13 @@ const loadVideo = async () => {
   error.value = ''
   videoUrl.value = ''
   playerLink.value = ''
+
+  // Загружаем временные метки опенинга/эндинга параллельно (не блокируем плеер)
+  if (props.anime?.id && skipButton.value === null) {
+    apiClient.get(`/anime/${props.anime.id}/themes/`)
+      .then(r => { skipButton.value = r.data.skip_button ?? null })
+      .catch(() => { /* нет меток — не критично */ })
+  }
 
   try {
     // Получаем ссылку на Kodik плеер через официальный API

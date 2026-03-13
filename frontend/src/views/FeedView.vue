@@ -32,7 +32,7 @@
       <div class="create-post-area" @click="showCreatePost = true">
         <img :src="currentUser?.avatar_url || defaultAvatar" class="user-avatar" alt="Аватар" />
         <span class="placeholder">Что у вас нового?</span>
-        <button class="btn-post">Написать</button>
+        <button class="btn-post" @click.stop="showCreatePost = true">Написать</button>
       </div>
 
       <!-- Filters -->
@@ -117,79 +117,160 @@
 
     <!-- ==================== ПОДПИСКИ ==================== -->
     <template v-else-if="activeTab === 'subscriptions'">
-      <div class="tab-toolbar">
-        <input
-          v-model="subSearch"
-          placeholder="Поиск по подпискам..."
-          class="search-input"
-          @input="loadSubscriptions(true)"
-        />
-        <select v-model="subSort" @change="sortSubscriptions" class="sort-select">
-          <option value="date">По дате</option>
-          <option value="name">По имени</option>
-        </select>
-      </div>
-
-      <div v-if="subLoading && subscriptions.length === 0" class="loading-center">
-        <div class="spinner"></div>
-      </div>
-
-      <div v-else-if="subscriptions.length === 0" class="empty-feed">
-        <span class="empty-icon">👥</span>
-        <p class="empty-title">Нет подписок</p>
-        <p class="empty-desc">Вы пока ни на кого не подписаны</p>
-      </div>
-
-      <div v-else class="cards-list">
-        <SubscriptionCard
-          v-for="user in filteredSubscriptions"
-          :key="user.id"
-          :user="user"
-          @unfollowed="onUnfollowed"
-        />
-      </div>
-
-      <div v-if="subHasMore" class="load-more-wrap">
-        <button class="btn-load-more" @click="loadSubscriptions()" :disabled="subLoading">
-          Загрузить ещё
+      <!-- Sub-tabs: Профили / Избранные посты -->
+      <div class="sub-tabs">
+        <button class="sub-tab-btn" :class="{ active: subTab === 'profiles' }" @click="subTab = 'profiles'">
+          👥 Профили
+        </button>
+        <button class="sub-tab-btn" :class="{ active: subTab === 'bookmarks' }" @click="switchSubTab('bookmarks')">
+          ⭐ Избранные посты
         </button>
       </div>
+
+      <!-- Профили -->
+      <template v-if="subTab === 'profiles'">
+        <div class="tab-toolbar">
+          <input
+            v-model="subSearch"
+            placeholder="Поиск по подпискам..."
+            class="search-input"
+            @input="loadSubscriptions(true)"
+          />
+          <select v-model="subSort" @change="loadSubscriptions(true)" class="sort-select">
+            <option value="date">По дате</option>
+            <option value="name">По имени</option>
+          </select>
+        </div>
+
+        <div v-if="subLoading && subscriptions.length === 0" class="loading-center">
+          <div class="spinner"></div>
+        </div>
+        <div v-else-if="subscriptions.length === 0" class="empty-feed">
+          <span class="empty-icon">👥</span>
+          <p class="empty-title">Нет подписок</p>
+          <p class="empty-desc">Вы пока ни на кого не подписаны</p>
+        </div>
+        <div v-else class="cards-list">
+          <SubscriptionCard
+            v-for="user in filteredSubscriptions"
+            :key="user.id"
+            :user="user"
+            @unfollowed="onUnfollowed"
+          />
+        </div>
+        <div v-if="subHasMore" class="load-more-wrap">
+          <button class="btn-load-more" @click="loadSubscriptions()" :disabled="subLoading">
+            {{ subLoading ? 'Загрузка...' : 'Загрузить ещё' }}
+          </button>
+        </div>
+      </template>
+
+      <!-- Избранные посты -->
+      <template v-else-if="subTab === 'bookmarks'">
+        <div v-if="bookmarksLoading && bookmarkedPosts.length === 0" class="loading-center">
+          <div class="spinner"></div>
+        </div>
+        <div v-else-if="bookmarkedPosts.length === 0" class="empty-feed">
+          <span class="empty-icon">⭐</span>
+          <p class="empty-title">Нет сохранённых постов</p>
+          <p class="empty-desc">Сохраняйте посты через ☆ или меню поста</p>
+        </div>
+        <div v-else class="feed-list">
+          <PostCard
+            v-for="post in bookmarkedPosts"
+            :key="post.id"
+            :post="post"
+            @like="handleLike"
+            @dislike="handleDislike"
+            @comment="openComments"
+            @repost="openRepost"
+            @bookmark="handleBookmark"
+            @share="handleShare"
+            @menu="openPostMenu"
+          />
+        </div>
+        <div v-if="bookmarksHasMore" class="load-more-wrap">
+          <button class="btn-load-more" @click="loadBookmarks()" :disabled="bookmarksLoading">
+            {{ bookmarksLoading ? 'Загрузка...' : 'Загрузить ещё' }}
+          </button>
+        </div>
+      </template>
     </template>
 
     <!-- ==================== НЕ ИНТЕРЕСНО ==================== -->
     <template v-else-if="activeTab === 'not_interested'">
-      <div class="tab-toolbar">
-        <input
-          v-model="niSearch"
-          placeholder="Поиск скрытых профилей..."
-          class="search-input"
-        />
-      </div>
-
-      <div v-if="niLoading && notInterested.length === 0" class="loading-center">
-        <div class="spinner"></div>
-      </div>
-
-      <div v-else-if="notInterested.length === 0" class="empty-feed">
-        <span class="empty-icon">🙈</span>
-        <p class="empty-title">Список пуст</p>
-        <p class="empty-desc">Вы не скрывали ни одного профиля</p>
-      </div>
-
-      <div v-else class="cards-list">
-        <NotInterestedCard
-          v-for="user in filteredNotInterested"
-          :key="user.id"
-          :user="user"
-          @removed="onNiRemoved"
-        />
-      </div>
-
-      <div v-if="niHasMore" class="load-more-wrap">
-        <button class="btn-load-more" @click="loadNotInterested()" :disabled="niLoading">
-          Загрузить ещё
+      <!-- Sub-tabs: Профили / Посты -->
+      <div class="sub-tabs">
+        <button class="sub-tab-btn" :class="{ active: niTab === 'profiles' }" @click="niTab = 'profiles'">
+          👤 Профили
+        </button>
+        <button class="sub-tab-btn" :class="{ active: niTab === 'posts' }" @click="switchNiTab('posts')">
+          📰 Посты
         </button>
       </div>
+
+      <!-- Скрытые профили -->
+      <template v-if="niTab === 'profiles'">
+        <div class="tab-toolbar">
+          <input
+            v-model="niSearch"
+            placeholder="Поиск скрытых профилей..."
+            class="search-input"
+          />
+        </div>
+        <div v-if="niLoading && notInterested.length === 0" class="loading-center">
+          <div class="spinner"></div>
+        </div>
+        <div v-else-if="notInterested.length === 0" class="empty-feed">
+          <span class="empty-icon">🙈</span>
+          <p class="empty-title">Список пуст</p>
+          <p class="empty-desc">Вы не скрывали ни одного профиля</p>
+        </div>
+        <div v-else class="cards-list">
+          <NotInterestedCard
+            v-for="user in filteredNotInterested"
+            :key="user.id"
+            :user="user"
+            @removed="onNiRemoved"
+          />
+        </div>
+        <div v-if="niHasMore" class="load-more-wrap">
+          <button class="btn-load-more" @click="loadNotInterested()" :disabled="niLoading">
+            {{ niLoading ? 'Загрузка...' : 'Загрузить ещё' }}
+          </button>
+        </div>
+      </template>
+
+      <!-- Скрытые посты -->
+      <template v-else-if="niTab === 'posts'">
+        <div v-if="hiddenPostsLoading && hiddenPosts.length === 0" class="loading-center">
+          <div class="spinner"></div>
+        </div>
+        <div v-else-if="hiddenPosts.length === 0" class="empty-feed">
+          <span class="empty-icon">📭</span>
+          <p class="empty-title">Нет скрытых постов</p>
+          <p class="empty-desc">Посты скрытые через «Не интересно» появятся здесь</p>
+        </div>
+        <div v-else class="feed-list">
+          <div v-for="post in hiddenPosts" :key="post.id" class="hidden-post-item">
+            <div class="hidden-post-info" @click="goToPost(post.id)">
+              <img :src="post.author_avatar || defaultAvatar" class="hp-avatar" alt="">
+              <div class="hp-meta">
+                <span class="hp-author">{{ post.author_display_name || post.author_username }}</span>
+                <span class="hp-text">{{ (post.text || '').slice(0, 80) }}{{ (post.text || '').length > 80 ? '...' : '' }}</span>
+              </div>
+            </div>
+            <button class="btn-unblock-post" @click="unhidePost(post.id)" title="Показывать снова">
+              👁
+            </button>
+          </div>
+        </div>
+        <div v-if="hiddenPostsHasMore" class="load-more-wrap">
+          <button class="btn-load-more" @click="loadHiddenPosts()" :disabled="hiddenPostsLoading">
+            {{ hiddenPostsLoading ? 'Загрузка...' : 'Загрузить ещё' }}
+          </button>
+        </div>
+      </template>
     </template>
 
     <!-- ==================== ЖАЛОБЫ (Модераторы) ==================== -->
@@ -221,6 +302,7 @@
     @repost="(p) => openRepost(p)"
     @forward="(p) => openForward(p)"
     @reported="activeMenuPost = null"
+    @followed="onFollowToggled"
   />
 
   <ForwardModal
@@ -233,6 +315,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useFeedStore } from '@/stores/feed'
 import { useAuthStore } from '@/stores/auth'
 import { subscriptionsApi } from '@/api/feed'
@@ -249,20 +332,16 @@ import NotInterestedCard from '@/components/feed/NotInterestedCard.vue'
 import ReportsTab from '@/components/feed/ReportsTab.vue'
 import apiClient from '@/api/client'
 
-// Type for filters
 interface LocalFeedFilters {
-  myPosts: boolean
-  following: boolean
-  fromGroups: boolean
-  withAnime: boolean
-  period: 'all' | 'month' | 'week' | 'day'
-  sort: 'new' | 'old' | 'best' | 'discussed'
+  myPosts: boolean; following: boolean; fromGroups: boolean; withAnime: boolean
+  period: 'all' | 'month' | 'week' | 'day'; sort: 'new' | 'old' | 'best' | 'discussed'
 }
 
 type FeedType = 'weighted' | 'followers' | 'hot' | 'top' | 'trending'
 
 const feedStore = useFeedStore()
 const authStore = useAuthStore()
+const router = useRouter()
 const currentUser = computed(() => authStore.user)
 
 const isModerator = computed(() => {
@@ -286,11 +365,11 @@ const mainTabs = computed(() => {
 const activeTab = ref('feed')
 
 const feedSubTabs = [
-  { type: 'weighted' as FeedType, label: 'Для вас' },
-  { type: 'followers' as FeedType, label: 'Подписки' },
-  { type: 'trending' as FeedType, label: 'Тренды' },
-  { type: 'hot' as FeedType, label: 'Горячее' },
-  { type: 'top' as FeedType, label: 'Топ' },
+  { type: 'weighted' as FeedType, label: '✨ Для вас' },
+  { type: 'followers' as FeedType, label: '👥 Подписки' },
+  { type: 'trending' as FeedType, label: '📈 Тренды' },
+  { type: 'hot' as FeedType, label: '🔥 Горячее' },
+  { type: 'top' as FeedType, label: '🏆 Топ' },
 ]
 
 // ==================== FEED ====================
@@ -303,12 +382,8 @@ const activeMenuPost = ref<FeedPost | null>(null)
 const activeForwardPost = ref<FeedPost | null>(null)
 
 const filters = ref<LocalFeedFilters>({
-  myPosts: false,
-  following: false,
-  fromGroups: false,
-  withAnime: false,
-  period: 'all',
-  sort: 'new',
+  myPosts: false, following: false, fromGroups: false, withAnime: false,
+  period: 'all', sort: 'new',
 })
 
 let intersectionObserver: IntersectionObserver | null = null
@@ -316,8 +391,7 @@ let intersectionObserver: IntersectionObserver | null = null
 function setupInfiniteScroll() {
   intersectionObserver = new IntersectionObserver(
     (entries) => {
-      const entry = entries[0]
-      if (entry?.isIntersecting && feedStore.hasMore && !feedStore.loadingMore) {
+      if (entries[0]?.isIntersecting && feedStore.hasMore && !feedStore.loadingMore) {
         feedStore.loadMore()
       }
     },
@@ -337,7 +411,14 @@ async function reloadFeed() {
 }
 
 function onFiltersApply(f: LocalFeedFilters) {
-  feedStore.loadFeed(feedStore.feedType, true)
+  feedStore.loadFeed(feedStore.feedType, true, {
+    myPosts: f.myPosts,
+    following: f.following,
+    fromGroups: f.fromGroups,
+    withAnime: f.withAnime,
+    period: f.period,
+    sort: f.sort,
+  })
 }
 
 function handleLike(post: any) { feedStore.likePost(post.id) }
@@ -345,14 +426,16 @@ function handleDislike(post: any) { feedStore.dislikePost(post.id) }
 function openComments(post: any) { activeCommentPost.value = post }
 function openRepost(post: any) { activeRepostPost.value = post }
 function openForward(post: any) { activeForwardPost.value = post }
-
 function handleBookmark(post: any) { feedStore.bookmarkPost(post.id) }
 function handleShare(post: any) {
   const url = `${window.location.origin}/post/${post.id}`
   if (navigator.clipboard) navigator.clipboard.writeText(url)
 }
-
 function openPostMenu(post: any) { activeMenuPost.value = post }
+
+function goToPost(postId: number) {
+  router.push(`/post/${postId}`)
+}
 
 function onPostCreated(post: any) {
   feedStore.addNewPost(post)
@@ -375,15 +458,20 @@ function onPostHidden(postId: any) {
 async function onHideAuthor(post: any) {
   try {
     await subscriptionsApi.addNotInterested(post.author)
-    // Remove all posts from this author
     feedStore.posts = feedStore.posts.filter(p => p.author !== post.author)
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
   activeMenuPost.value = null
 }
 
+function onFollowToggled(userId: number, following: boolean) {
+  // обновляем is_following у всех постов этого автора
+  feedStore.posts.forEach(p => {
+    if ((p as any).author === userId) (p as any).is_following = following
+  })
+}
+
 // ==================== SUBSCRIPTIONS ====================
+const subTab = ref<'profiles' | 'bookmarks'>('profiles')
 const subscriptions = ref<SubscriptionUser[]>([])
 const subLoading = ref(false)
 const subSearch = ref('')
@@ -396,8 +484,7 @@ const filteredSubscriptions = computed(() => {
   if (subSearch.value) {
     const q = subSearch.value.toLowerCase()
     list = list.filter(u =>
-      u.username.toLowerCase().includes(q) ||
-      (u.display_name || '').toLowerCase().includes(q)
+      u.username.toLowerCase().includes(q) || (u.display_name || '').toLowerCase().includes(q)
     )
   }
   if (subSort.value === 'name') {
@@ -410,30 +497,46 @@ const loadSubscriptions = async (reset = false) => {
   if (reset) { subPage.value = 1; subscriptions.value = [] }
   subLoading.value = true
   try {
-    const { data } = await subscriptionsApi.getSubscriptions(subPage.value, subSearch.value)
-    if (reset) {
-      subscriptions.value = data.results as any
-    } else {
-      subscriptions.value.push(...(data.results as any))
-    }
+    const { data } = await subscriptionsApi.getSubscriptions(subPage.value, subSearch.value, subSort.value)
+    if (reset) subscriptions.value = data.results as any
+    else subscriptions.value.push(...(data.results as any))
     subHasMore.value = !!data.next
     subPage.value++
-  } catch (e) {
-    console.error(e)
-  } finally {
-    subLoading.value = false
-  }
-}
-
-const sortSubscriptions = () => {
-  // sorts computed, no API needed
+  } catch (e) { console.error(e) }
+  finally { subLoading.value = false }
 }
 
 const onUnfollowed = (userId: number) => {
   subscriptions.value = subscriptions.value.filter(u => u.id !== userId)
 }
 
+// Bookmarks
+const bookmarkedPosts = ref<FeedPost[]>([])
+const bookmarksLoading = ref(false)
+const bookmarksPage = ref(1)
+const bookmarksHasMore = ref(false)
+
+const loadBookmarks = async (reset = false) => {
+  if (reset) { bookmarksPage.value = 1; bookmarkedPosts.value = [] }
+  bookmarksLoading.value = true
+  try {
+    const { data } = await apiClient.get('/social/bookmarks/', { params: { page: bookmarksPage.value } })
+    const posts = (data.results || data || [])
+    if (reset) bookmarkedPosts.value = posts
+    else bookmarkedPosts.value.push(...posts)
+    bookmarksHasMore.value = !!data.next
+    bookmarksPage.value++
+  } catch (e) { console.error(e) }
+  finally { bookmarksLoading.value = false }
+}
+
+const switchSubTab = (tab: 'profiles' | 'bookmarks') => {
+  subTab.value = tab
+  if (tab === 'bookmarks' && bookmarkedPosts.value.length === 0) loadBookmarks(true)
+}
+
 // ==================== NOT INTERESTED ====================
+const niTab = ref<'profiles' | 'posts'>('profiles')
 const notInterested = ref<NotInterestedUser[]>([])
 const niLoading = ref(false)
 const niSearch = ref('')
@@ -444,8 +547,7 @@ const filteredNotInterested = computed(() => {
   if (!niSearch.value) return notInterested.value
   const q = niSearch.value.toLowerCase()
   return notInterested.value.filter(u =>
-    u.username.toLowerCase().includes(q) ||
-    (u.display_name || '').toLowerCase().includes(q)
+    u.username.toLowerCase().includes(q) || (u.display_name || '').toLowerCase().includes(q)
   )
 })
 
@@ -454,32 +556,54 @@ const loadNotInterested = async (reset = false) => {
   niLoading.value = true
   try {
     const { data } = await subscriptionsApi.getNotInterested(niPage.value)
-    if (reset) {
-      notInterested.value = data.results as any
-    } else {
-      notInterested.value.push(...(data.results as any))
-    }
+    if (reset) notInterested.value = data.results as any
+    else notInterested.value.push(...(data.results as any))
     niHasMore.value = !!data.next
     niPage.value++
-  } catch (e) {
-    console.error(e)
-  } finally {
-    niLoading.value = false
-  }
+  } catch (e) { console.error(e) }
+  finally { niLoading.value = false }
 }
 
 const onNiRemoved = (userId: number) => {
   notInterested.value = notInterested.value.filter(u => u.id !== userId)
 }
 
+// Скрытые посты
+const hiddenPosts = ref<any[]>([])
+const hiddenPostsLoading = ref(false)
+const hiddenPostsPage = ref(1)
+const hiddenPostsHasMore = ref(false)
+
+const loadHiddenPosts = async (reset = false) => {
+  if (reset) { hiddenPostsPage.value = 1; hiddenPosts.value = [] }
+  hiddenPostsLoading.value = true
+  try {
+    const { data } = await apiClient.get('/social/feed/hidden/', { params: { page: hiddenPostsPage.value } })
+    const posts = data.results || data || []
+    if (reset) hiddenPosts.value = posts
+    else hiddenPosts.value.push(...posts)
+    hiddenPostsHasMore.value = !!data.next
+    hiddenPostsPage.value++
+  } catch (e) { console.error(e) }
+  finally { hiddenPostsLoading.value = false }
+}
+
+const switchNiTab = (tab: 'profiles' | 'posts') => {
+  niTab.value = tab
+  if (tab === 'posts' && hiddenPosts.value.length === 0) loadHiddenPosts(true)
+}
+
+const unhidePost = async (postId: number) => {
+  try {
+    await apiClient.post(`/social/posts/${postId}/unhide/`)
+    hiddenPosts.value = hiddenPosts.value.filter(p => p.id !== postId)
+  } catch (e) { console.error(e) }
+}
+
 // ==================== TAB LOADING ====================
 watch(activeTab, (tab) => {
-  if (tab === 'subscriptions' && subscriptions.value.length === 0) {
-    loadSubscriptions(true)
-  }
-  if (tab === 'not_interested' && notInterested.value.length === 0) {
-    loadNotInterested(true)
-  }
+  if (tab === 'subscriptions' && subscriptions.value.length === 0) loadSubscriptions(true)
+  if (tab === 'not_interested' && notInterested.value.length === 0) loadNotInterested(true)
 })
 
 onMounted(async () => {
@@ -487,143 +611,82 @@ onMounted(async () => {
   setupInfiniteScroll()
 })
 
-onUnmounted(() => {
-  intersectionObserver?.disconnect()
-})
+onUnmounted(() => { intersectionObserver?.disconnect() })
 </script>
 
 <style scoped>
 .feed-page {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  max-width: 680px; margin: 0 auto; padding: 1rem;
+  display: flex; flex-direction: column; gap: 1rem;
 }
 
 /* Main Tabs */
 .main-tabs {
-  display: flex;
-  gap: 0.25rem;
-  background: #111;
-  border-radius: 12px;
-  padding: 0.375rem;
+  display: flex; gap: 0.25rem; background: #111;
+  border-radius: 12px; padding: 0.375rem;
 }
-
 .main-tab-btn {
-  flex: 1;
-  background: none;
-  border: none;
-  color: #666;
-  padding: 0.625rem 0.75rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.2s;
-  white-space: nowrap;
+  flex: 1; background: none; border: none; color: #666;
+  padding: 0.625rem 0.75rem; border-radius: 8px; cursor: pointer;
+  font-size: 0.85rem; transition: all 0.2s; white-space: nowrap;
 }
-
-.main-tab-btn:hover {
-  background: #1a1a1a;
-  color: #aaa;
-}
-
-.main-tab-btn.active {
-  background: #667eea;
-  color: #fff;
-}
+.main-tab-btn:hover { background: #1a1a1a; color: #aaa; }
+.main-tab-btn.active { background: #667eea; color: #fff; }
 
 /* Feed Sub-tabs */
 .feed-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
-  scrollbar-width: none;
+  display: flex; gap: 0.5rem; overflow-x: auto;
+  padding-bottom: 0.25rem; scrollbar-width: none;
 }
-
 .feed-subtabs::-webkit-scrollbar { display: none; }
-
 .tab-btn {
-  background: #1a1a1a;
-  color: #888;
-  border: 1px solid #2a2a2a;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  transition: all 0.2s;
+  background: #1a1a1a; color: #888; border: 1px solid #2a2a2a;
+  padding: 0.5rem 1rem; border-radius: 20px; cursor: pointer;
+  font-size: 0.875rem; white-space: nowrap; transition: all 0.2s;
 }
-
 .tab-btn:hover { background: #222; color: #aaa; }
 .tab-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
 
+/* Sub-tabs (подписки/не интересно) */
+.sub-tabs {
+  display: flex; gap: 0.5rem;
+  border-bottom: 1px solid #1a1a1a; padding-bottom: 0.5rem;
+}
+.sub-tab-btn {
+  background: none; border: none; color: #666; padding: 0.5rem 1rem;
+  cursor: pointer; font-size: 0.9rem; border-radius: 8px; transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+.sub-tab-btn:hover { color: #aaa; background: #1a1a1a; }
+.sub-tab-btn.active { color: #fff; border-bottom-color: #667eea; }
+
 /* Create Post */
 .create-post-area {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: #111;
-  border: 1px solid #222;
-  border-radius: 12px;
-  padding: 0.875rem 1rem;
-  cursor: pointer;
-  transition: border-color 0.2s;
+  display: flex; align-items: center; gap: 0.75rem;
+  background: #111; border: 1px solid #222; border-radius: 12px;
+  padding: 0.875rem 1rem; cursor: pointer; transition: border-color 0.2s;
 }
-
 .create-post-area:hover { border-color: #667eea; }
-
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.placeholder {
-  flex: 1;
-  color: #555;
-  font-size: 0.9rem;
-}
-
+.user-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.placeholder { flex: 1; color: #555; font-size: 0.9rem; }
 .btn-post {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  cursor: pointer;
+  background: #667eea; color: white; border: none;
+  padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.875rem; cursor: pointer;
 }
 
 /* New Posts */
 .new-posts-indicator {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.5rem;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  align-self: center;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  transition: transform 0.2s;
+  background: #667eea; color: white; border: none;
+  padding: 0.6rem 1.5rem; border-radius: 20px; cursor: pointer;
+  font-size: 0.875rem; align-self: center;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); transition: transform 0.2s;
 }
-
 .new-posts-indicator:hover { transform: translateY(-1px); }
-
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-20px); }
 
 /* Feed */
-.feed-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+.feed-list { display: flex; flex-direction: column; gap: 1rem; }
 
 /* Skeletons */
 .post-skeleton { background: #111; border-radius: 12px; padding: 1rem; }
@@ -634,128 +697,73 @@ onUnmounted(() => {
 .skeleton-line { height: 14px; background: #1f1f1f; border-radius: 4px; animation: pulse 1.5s infinite; }
 .skeleton-line.short { width: 60%; }
 .skeleton-line.shorter { width: 40%; }
-
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
 /* Empty / Error */
 .empty-feed {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 3rem 1rem;
-  text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.75rem; padding: 3rem 1rem; text-align: center;
 }
-
 .empty-icon { font-size: 3rem; }
 .empty-title { color: #fff; font-size: 1.2rem; font-weight: 600; margin: 0; }
 .empty-desc { color: #666; margin: 0; }
-
-.btn-explore {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.5rem;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-top: 0.5rem;
-}
-
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 2rem;
-  text-align: center;
-  color: #888;
-}
-
+.btn-explore { background: #667eea; color: white; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; cursor: pointer; margin-top: 0.5rem; }
+.error-state { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 2rem; text-align: center; color: #888; }
 .error-icon { font-size: 2rem; }
 .btn-retry { background: #333; color: #fff; border: none; padding: 0.5rem 1.25rem; border-radius: 8px; cursor: pointer; }
-
 .load-more-trigger { padding: 1rem 0; display: flex; justify-content: center; }
 .loading-more { display: flex; justify-content: center; padding: 1rem; }
 .end-of-feed { color: #555; font-size: 0.875rem; padding: 1rem; }
 
 /* Tabs toolbar */
-.tab-toolbar {
-  display: flex;
-  gap: 0.5rem;
-}
-
+.tab-toolbar { display: flex; gap: 0.5rem; }
 .search-input {
-  flex: 1;
-  background: #111;
-  border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  padding: 0.625rem 0.875rem;
-  color: #ddd;
-  font-size: 0.875rem;
+  flex: 1; background: #111; border: 1px solid #2a2a2a;
+  border-radius: 8px; padding: 0.625rem 0.875rem;
+  color: #ddd; font-size: 0.875rem;
 }
-
-.search-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
+.search-input:focus { outline: none; border-color: #667eea; }
 .sort-select {
-  background: #111;
-  border: 1px solid #2a2a2a;
-  color: #aaa;
-  padding: 0.625rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  cursor: pointer;
+  background: #111; border: 1px solid #2a2a2a; color: #aaa;
+  padding: 0.625rem 0.75rem; border-radius: 8px; font-size: 0.875rem; cursor: pointer;
 }
 
-/* Cards List */
-.cards-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.loading-center {
-  display: flex;
-  justify-content: center;
-  padding: 3rem;
-}
-
+/* Cards */
+.cards-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.loading-center { display: flex; justify-content: center; padding: 3rem; }
 .spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid #333;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  width: 28px; height: 28px; border: 2px solid #333;
+  border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.load-more-wrap {
-  display: flex;
-  justify-content: center;
-}
-
+.load-more-wrap { display: flex; justify-content: center; }
 .btn-load-more {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #888;
-  padding: 0.75rem 2rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #888;
+  padding: 0.75rem 2rem; border-radius: 8px; cursor: pointer;
+  font-size: 0.875rem; transition: all 0.2s;
 }
+.btn-load-more:hover:not(:disabled) { background: #222; color: #aaa; }
+.btn-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-load-more:hover:not(:disabled) {
-  background: #222;
-  color: #aaa;
+/* Hidden posts */
+.hidden-post-item {
+  display: flex; align-items: center; gap: 0.75rem;
+  background: #111; border-radius: 10px; padding: 0.75rem 1rem;
+  transition: background 0.2s;
 }
-
-.btn-load-more:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.hidden-post-item:hover { background: #161616; }
+.hidden-post-info {
+  display: flex; align-items: center; gap: 0.75rem;
+  flex: 1; cursor: pointer; min-width: 0;
 }
+.hp-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0; filter: grayscale(40%); }
+.hp-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.hp-author { color: #aaa; font-size: 0.85rem; font-weight: 600; }
+.hp-text { color: #555; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-unblock-post {
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #667eea;
+  padding: 0.4rem 0.75rem; border-radius: 8px; cursor: pointer;
+  font-size: 0.875rem; flex-shrink: 0; transition: all 0.2s;
+}
+.btn-unblock-post:hover { background: #222; border-color: #667eea; }
 </style>

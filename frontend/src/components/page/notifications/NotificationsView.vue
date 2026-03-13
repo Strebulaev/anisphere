@@ -94,7 +94,10 @@
             <div
               v-for="r in store.reminders"
               :key="`rem-${r.id}`"
-              :class="['notif-row', 'reminder-row', { inactive: !r.is_active }]"
+              :class="['notif-row', 'reminder-row', {
+                inactive: !r.is_active,
+                'reminder-ringing': store.ringingReminderIds.has(r.id)
+              }]"
             >
               <div class="notif-avatar" style="background: rgba(245,158,11,0.15)">
                 <span class="avatar-icon">⏰</span>
@@ -640,6 +643,28 @@ onUnmounted(() => {
   cursor: default;
 }
 .notif-row.inactive { opacity: .45; }
+
+/* Сверкающая строка напоминания */
+.notif-row.reminder-ringing {
+  animation: reminder-row-flash 0.7s ease-in-out infinite;
+}
+.notif-row.reminder-ringing::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: #f59e0b;
+  border-radius: 0 2px 2px 0;
+  animation: reminder-bar-flash 0.7s ease-in-out infinite;
+}
+@keyframes reminder-row-flash {
+  0%, 100% { background: rgba(245,158,11,0.03); }
+  50%       { background: rgba(245,158,11,0.15); }
+}
+@keyframes reminder-bar-flash {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; }
+}
 
 /* ── Аватар ─────────────────────────────────────────────── */
 .notif-avatar {

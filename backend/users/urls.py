@@ -132,4 +132,7 @@ urlpatterns = [
     # Объединенные настройки (раскомментировано)
     path('settings/all/', views.AllSettingsView.as_view(), name='all_settings'),
     # path('settings/cache/clear/', ...),  # Удалён - теперь используется PUT для обновления настроек
+
+    # Список пользователей с фильтрацией по статусу
+    path('users/', views.UsersListView.as_view(), name='users_list'),
 ]

@@ -3,12 +3,13 @@ import { useRoute, useRouter } from 'vue-router'
 import animeApi from '@/api/anime'
 import type { Anime } from '@/types'
 
-export type AnimeSection = 'catalog' | 'ongoings' | 'recommendations' | 'announcements' | 'random'
+export type AnimeSection = 'catalog' | 'ongoings' | 'recommendations' | 'announcements' | 'random' | 'currently_watching'
 
 export function useAnimeSections() {
   const route = useRoute()
   const router = useRouter()
 
+  const SECTION_STORAGE_KEY = 'anime_active_section'
   const currentSection = ref<AnimeSection>('catalog')
   
   const originalCatalogAnime = ref<Anime[]>([])
@@ -44,7 +45,8 @@ export function useAnimeSections() {
     ongoings: false,
     recommendations: false,
     announcements: false,
-    random: false
+    random: false,
+    currently_watching: false
   })
 
   const shuffleArray = <T>(array: T[]): T[] => {
@@ -64,6 +66,7 @@ export function useAnimeSections() {
       recommendations: { get: () => recommendations.value,   set: v => { recommendations.value = v } },
       announcements:   { get: () => announcements.value,     set: v => { announcements.value = v } },
       random:          { get: () => randomAnimeList.value,   set: v => { randomAnimeList.value = v } },
+      currently_watching: { get: () => [], set: () => {} },
     }
     const entry = map[section]
     if (entry.get().length > 0) {
@@ -80,6 +83,7 @@ export function useAnimeSections() {
       recommendations: { get: () => originalRecommendations.value,   set: v => { recommendations.value = v } },
       announcements:   { get: () => originalAnnouncements.value,     set: v => { announcements.value = v } },
       random:          { get: () => originalRandomAnimeList.value,   set: v => { randomAnimeList.value = v } },
+      currently_watching: { get: () => [], set: () => {} },
     }
     origMap[section].set([...origMap[section].get()])
     isShuffled.value[section] = false
@@ -196,6 +200,8 @@ export function useAnimeSections() {
 
   const switchSection = (section: AnimeSection) => {
     currentSection.value = section
+    // Сохраняем выбранную вкладку
+    try { localStorage.setItem(SECTION_STORAGE_KEY, section) } catch {}
     router.replace({ path: route.path, query: { section } })
     switch (section) {
       case 'ongoings':        if (!ongoings.value.length)        fetchOngoings();        break
@@ -259,12 +265,26 @@ export function useAnimeSections() {
     ])
   }
 
+  const ALL_SECTIONS: string[] = ['catalog','ongoings','recommendations','announcements','random','currently_watching']
+
   onMounted(() => {
-    const sectionParam = route.query.section as AnimeSection
-    if (sectionParam && ['catalog','ongoings','recommendations','announcements','random'].includes(sectionParam)) {
-      currentSection.value = sectionParam
+    // Приоритет: URL-параметр > localStorage > по умолчанию (catalog)
+    const sectionParam = route.query.section as string
+    if (sectionParam && ALL_SECTIONS.includes(sectionParam)) {
+      currentSection.value = sectionParam as AnimeSection
+    } else {
+      try {
+        const saved = localStorage.getItem(SECTION_STORAGE_KEY) as AnimeSection | null
+        if (saved && ALL_SECTIONS.includes(saved)) {
+          currentSection.value = saved
+        }
+      } catch {}
     }
-    switchSection(currentSection.value)
+    // Вкладку 'currently_watching' загружает AnimeView.vue,
+    // здесь пропускаем вызов switchSection для неё
+    if (currentSection.value !== 'currently_watching') {
+      switchSection(currentSection.value)
+    }
   })
 
   watch(() => route.query.section, (newSection) => {

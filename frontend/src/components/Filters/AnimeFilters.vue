@@ -509,13 +509,22 @@ const selectedAgeRatings= computed((): string[] =>  localFilters.age_rating ?? [
 
 const filteredGenres = computed(() => {
   const q = genreSearch.value.trim().toLowerCase()
-  return q ? rawGenres.value.filter(g => g.toLowerCase().includes(q)) : rawGenres.value
+  const selected = selectedGenres.value
+  const pool = q ? rawGenres.value.filter(g => g.toLowerCase().includes(q)) : rawGenres.value
+  // Выбранные жанры всегда идут первыми
+  const selectedInPool = pool.filter(g => selected.includes(g))
+  const unselectedInPool = pool.filter(g => !selected.includes(g))
+  return [...selectedInPool, ...unselectedInPool]
 })
 
 const filteredStudios = computed(() => {
   const q = studioSearch.value.trim().toLowerCase()
-  const pool = rawStudios.value.slice(0, 80)
-  return q ? rawStudios.value.filter(s => s.toLowerCase().includes(q)).slice(0, 80) : pool
+  const selected = selectedStudios.value
+  const pool = q ? rawStudios.value.filter(s => s.toLowerCase().includes(q)).slice(0, 80) : rawStudios.value.slice(0, 80)
+  // Выбранные студии всегда идут первыми
+  const selectedInPool = pool.filter(s => selected.includes(s))
+  const unselectedInPool = pool.filter(s => !selected.includes(s))
+  return [...selectedInPool, ...unselectedInPool]
 })
 
 const extActiveCount = computed(() => {

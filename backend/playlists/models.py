@@ -3,20 +3,35 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count
 from django.core.files.storage import default_storage
 from django.conf import settings
+from django.utils import timezone
 from PIL import Image
 import os
+import uuid
+import secrets
+from datetime import timedelta
 
 User = get_user_model()
+
+
+VISIBILITY_PUBLIC = 'public'
+VISIBILITY_PRIVATE = 'private'
+VISIBILITY_LINK = 'link'
+
+VISIBILITY_CHOICES = [
+    (VISIBILITY_PUBLIC, 'Публичный'),
+    (VISIBILITY_PRIVATE, 'Приватный'),
+    (VISIBILITY_LINK, 'По ссылке'),
+]
 
 
 class Playlist(models.Model):
     """Модель плейлиста"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='playlists')
-    
+
     # Основная информация
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(blank=True, verbose_name='Описание')
-    
+
     # Обложка
     cover_image = models.ImageField(
         upload_to='playlist_covers/',
@@ -24,10 +39,37 @@ class Playlist(models.Model):
         blank=True,
         verbose_name='Обложка'
     )
-    
-    # Настройки приватности
-    is_public = models.BooleanField(default=True, verbose_name='Публичный')
-    
+
+    # Видимость: public / private / link
+    visibility = models.CharField(
+        max_length=10,
+        choices=VISIBILITY_CHOICES,
+        default=VISIBILITY_PUBLIC,
+        verbose_name='Видимость'
+    )
+
+    # Обратная совместимость — вычисляемое свойство
+    @property
+    def is_public(self):
+        return self.visibility == VISIBILITY_PUBLIC
+
+    @is_public.setter
+    def is_public(self, value):
+        if value:
+            self.visibility = VISIBILITY_PUBLIC
+        else:
+            # При записи False переводим в private если не link
+            if self.visibility == VISIBILITY_PUBLIC:
+                self.visibility = VISIBILITY_PRIVATE
+
+    @property
+    def is_private(self):
+        return self.visibility == VISIBILITY_PRIVATE
+
+    @property
+    def is_link_only(self):
+        return self.visibility == VISIBILITY_LINK
+
     # Метаданные
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
@@ -42,20 +84,11 @@ class Playlist(models.Model):
 
     @property
     def items_count(self):
-        """Количество аниме в плейлисте"""
         return self.items.count()
 
     @property
     def favorites_count(self):
-        """Количество пользователей, добавивших плейлист в избранное"""
         return self.favorited_by.count()
-
-    @property
-    def is_favorited_by_user(self, user):
-        """Добавлен ли плейлист в избранное пользователем"""
-        if user.is_authenticated:
-            return self.favorited_by.filter(user=user).exists()
-        return False
 
     def get_cover_urls(self):
         """Возвращает URL постеров первых 3 аниме для составной обложки"""
@@ -64,7 +97,6 @@ class Playlist(models.Model):
         for item in items:
             if item.anime.poster and hasattr(item.anime.poster, 'url'):
                 poster_url = item.anime.poster.url
-                # Убираем дублирование /media/
                 if poster_url.startswith('/media/media/'):
                     poster_url = poster_url.replace('/media/media/', '/media/')
                 urls.append(poster_url)
@@ -73,13 +105,9 @@ class Playlist(models.Model):
         return urls
 
     def generate_cover_image(self):
-        """Генерирует составную обложку из постеров первых 3 аниме"""
         items = self.items.select_related('anime').order_by('position', 'added_at')[:3]
-
         if not items:
             return None
-
-        # Получаем пути к постерам или URL
         poster_paths = []
         poster_urls = []
         for item in items:
@@ -87,164 +115,164 @@ class Playlist(models.Model):
                 poster_paths.append(item.anime.poster.path)
             elif item.anime.poster_url:
                 poster_urls.append(item.anime.poster_url)
-
-        # Если есть локальные файлы, используем их
         if poster_paths:
             return self._generate_from_local_files(poster_paths)
-        # Если есть URL, скачиваем и используем их
         elif poster_urls:
             return self._generate_from_urls(poster_urls)
-
         return None
 
     def _generate_from_local_files(self, poster_paths):
-        """Генерирует обложку из локальных файлов"""
         from PIL import Image as PILImage
-
-        # Размеры
-        target_width = 600
-        target_height = 400
-        item_width = target_width // len(poster_paths)
+        target_width = 300
+        target_height = 420
+        n = len(poster_paths)
+        item_height = target_height // n
+        sep = 1  # тонкий белый разделитель
 
         try:
-            # Создаем составное изображение
             cover = PILImage.new('RGB', (target_width, target_height), color=(30, 30, 30))
-
             for i, poster_path in enumerate(poster_paths):
                 try:
-                    # Открываем постер
-                    img = PILImage.open(poster_path)
-
-                    # Изменяем размер с сохранением пропорций
-                    img_ratio = img.width / img.height
-                    new_height = int(item_width / img_ratio)
-
-                    if new_height > target_height:
-                        new_height = target_height
-                        item_width = int(new_height * img_ratio)
-
-                    img = img.resize((item_width, new_height), PILImage.Resampling.LANCZOS)
-
-                    # Позиционирование (по центру по вертикали)
-                    y_pos = (target_height - new_height) // 2
-                    x_pos = i * (target_width // len(poster_paths))
-
-                    # Вставляем изображение
-                    cover.paste(img, (x_pos, y_pos))
-
+                    img = PILImage.open(poster_path).convert('RGB')
+                    img = img.resize((target_width, item_height), PILImage.Resampling.LANCZOS)
+                    y_pos = i * item_height
+                    cover.paste(img, (0, y_pos))
+                    # Белый разделитель между постерами
+                    if i < n - 1:
+                        for y in range(y_pos + item_height - sep, y_pos + item_height):
+                            for x in range(target_width):
+                                cover.putpixel((x, y), (255, 255, 255))
                 except Exception as e:
                     print(f"Error processing poster {i}: {e}")
                     continue
 
-            # Сохраняем обложку
             filename = f"playlist_{self.id}_{int(self.updated_at.timestamp())}.jpg"
             filepath = f'playlist_covers/{filename}'
-
-            # Создаем директорию если нужно
             full_path = default_storage.path(filepath)
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
-
             cover.save(full_path, 'JPEG', quality=85)
-
-            # Обновляем модель
             self.cover_image = filepath
             self.save(update_fields=['cover_image'])
-
             return self.cover_image.url
-
         except Exception as e:
             print(f"Error generating cover from local files: {e}")
             return None
 
     def _generate_from_urls(self, poster_urls):
-        """Генерирует обложку из URL"""
         from PIL import Image as PILImage
         import requests
         from io import BytesIO
-
-        # Размеры
-        target_width = 600
-        target_height = 400
-        item_width = target_width // len(poster_urls)
+        target_width = 300
+        target_height = 420
+        n = len(poster_urls)
+        item_height = target_height // n
+        sep = 1
 
         try:
-            # Создаем составное изображение
             cover = PILImage.new('RGB', (target_width, target_height), color=(30, 30, 30))
-
             for i, url in enumerate(poster_urls):
                 try:
-                    # Скачиваем изображение
                     response = requests.get(url, timeout=10)
                     response.raise_for_status()
-
-                    img = PILImage.open(BytesIO(response.content))
-
-                    # Изменяем размер с сохранением пропорций
-                    img_ratio = img.width / img.height
-                    new_height = int(item_width / img_ratio)
-
-                    if new_height > target_height:
-                        new_height = target_height
-                        item_width = int(new_height * img_ratio)
-
-                    img = img.resize((item_width, new_height), PILImage.Resampling.LANCZOS)
-
-                    # Позиционирование (по центру по вертикали)
-                    y_pos = (target_height - new_height) // 2
-                    x_pos = i * (target_width // len(poster_urls))
-
-                    # Вставляем изображение
-                    cover.paste(img, (x_pos, y_pos))
-
+                    img = PILImage.open(BytesIO(response.content)).convert('RGB')
+                    img = img.resize((target_width, item_height), PILImage.Resampling.LANCZOS)
+                    y_pos = i * item_height
+                    cover.paste(img, (0, y_pos))
+                    if i < n - 1:
+                        for y in range(y_pos + item_height - sep, y_pos + item_height):
+                            for x in range(target_width):
+                                cover.putpixel((x, y), (255, 255, 255))
                 except Exception as e:
                     print(f"Error processing URL {i}: {e}")
                     continue
 
-            # Сохраняем обложку
             filename = f"playlist_{self.id}_{int(self.updated_at.timestamp())}.jpg"
             filepath = f'playlist_covers/{filename}'
-
-            # Создаем директорию если нужно
             full_path = default_storage.path(filepath)
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
-
             cover.save(full_path, 'JPEG', quality=85)
-
-            # Обновляем модель
             self.cover_image = filepath
             self.save(update_fields=['cover_image'])
-
             return self.cover_image.url
-
         except Exception as e:
             print(f"Error generating cover from URLs: {e}")
             return None
 
     def update_cover(self):
-        """Обновляет обложку плейлиста"""
-        # Удаляем старую обложку если есть
         if self.cover_image:
             try:
                 default_storage.delete(self.cover_image.name)
             except:
                 pass
-
-        # Генерируем новую
         return self.generate_cover_image()
+
+    def get_active_share_link(self):
+        """Возвращает актуальную share-ссылку или None"""
+        link = self.share_links.filter(
+            is_active=True
+        ).filter(
+            models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
+        ).first()
+        return link
+
+    def get_or_create_share_link(self, ttl_days=30):
+        """Возвращает действующую ссылку или создаёт новую"""
+        link = self.get_active_share_link()
+        if link:
+            return link
+        token = secrets.token_urlsafe(32)
+        link = PlaylistShareLink.objects.create(
+            playlist=self,
+            token=token,
+            expires_at=timezone.now() + timedelta(days=ttl_days),
+        )
+        return link
+
+    def invalidate_share_links(self):
+        """Деактивирует все share-ссылки плейлиста"""
+        self.share_links.update(is_active=False)
+
+
+class PlaylistShareLink(models.Model):
+    """Одноразовая/временная share-ссылка на плейлист по токену"""
+    playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='share_links')
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Истекает')
+    is_active = models.BooleanField(default=True)
+    # Счётчик переходов по ссылке
+    access_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Share-ссылка плейлиста'
+        verbose_name_plural = 'Share-ссылки плейлистов'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.playlist.title} / {self.token[:12]}..."
+
+    @property
+    def is_valid(self):
+        if not self.is_active:
+            return False
+        if self.expires_at and self.expires_at < timezone.now():
+            return False
+        return True
+
+    def touch(self):
+        """Фиксирует переход по ссылке"""
+        self.access_count += 1
+        self.save(update_fields=['access_count'])
 
 
 class PlaylistItem(models.Model):
     """Элемент плейлиста"""
     playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='items')
     anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE)
-    
-    # Позиция для сортировки
+
     position = models.PositiveIntegerField(default=0, verbose_name='Позиция')
-    
-    # Дополнительная информация
     notes = models.TextField(blank=True, verbose_name='Заметки')
-    
-    # Метаданные
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата добавления')
     added_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата добавления')
 
@@ -258,16 +286,12 @@ class PlaylistItem(models.Model):
         return f"{self.playlist.title}: {self.anime.title_ru}"
 
     def save(self, *args, **kwargs):
-        # Автоматически назначаем позицию если не задана
         if self.position == 0:
             max_position = PlaylistItem.objects.filter(
                 playlist=self.playlist
             ).aggregate(models.Max('position'))['position__max'] or 0
             self.position = max_position + 1
-        
         super().save(*args, **kwargs)
-        
-        # Обновляем обложку плейлиста
         self.playlist.update_cover()
 
 

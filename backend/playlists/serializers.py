@@ -1,11 +1,10 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist
+from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist, PlaylistShareLink
 from anime.models import Anime
 
 
 def get_full_url(url):
-    """Преобразует относительный URL в полный"""
     if not url:
         return None
     if url.startswith('https://') or url.startswith('http://'):
@@ -17,7 +16,6 @@ def get_full_url(url):
 
 
 class PlaylistItemSerializer(serializers.ModelSerializer):
-    """Сериализатор элемента плейлиста"""
     anime_id = serializers.IntegerField(source='anime.id', read_only=True)
     anime_title = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
@@ -40,7 +38,6 @@ class PlaylistItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'added_at', 'created_at']
 
     def get_anime_poster(self, obj):
-        """Возвращает URL локального постера или внешний URL"""
         if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
             poster_url = obj.anime.poster.url
             if poster_url.startswith('/media/media/'):
@@ -50,29 +47,39 @@ class PlaylistItemSerializer(serializers.ModelSerializer):
 
 
 class PlaylistSerializer(serializers.ModelSerializer):
-    """Сериализатор плейлиста"""
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_avatar = serializers.SerializerMethodField()
-    
+
     items = PlaylistItemSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
-    
+
     cover_image = serializers.ImageField(read_only=True)
     cover_urls = serializers.SerializerMethodField()
-    
+
     is_favorited = serializers.SerializerMethodField()
     favorites_count = serializers.SerializerMethodField()
-    
+
     genres = serializers.SerializerMethodField()
+
+    # Видимость
+    visibility = serializers.CharField(read_only=True)
+    is_public = serializers.BooleanField(read_only=True)
+    is_private = serializers.BooleanField(read_only=True)
+    is_link_only = serializers.BooleanField(read_only=True)
+
+    # Токен share-ссылки (только для владельца или когда плейлист link_only)
+    share_token = serializers.SerializerMethodField()
 
     class Meta:
         model = Playlist
         fields = [
             'id', 'user_id', 'user_username', 'user_avatar',
             'title', 'description', 'cover_image', 'cover_urls',
-            'is_public', 'is_favorited', 'favorites_count',
-            'created_at', 'updated_at', 'items', 'items_count', 'genres'
+            'visibility', 'is_public', 'is_private', 'is_link_only',
+            'is_favorited', 'favorites_count',
+            'created_at', 'updated_at', 'items', 'items_count', 'genres',
+            'share_token',
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
@@ -90,9 +97,7 @@ class PlaylistSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return FavoritePlaylist.objects.filter(
-                user=request.user, playlist=obj
-            ).exists()
+            return FavoritePlaylist.objects.filter(user=request.user, playlist=obj).exists()
         return False
 
     def get_favorites_count(self, obj):
@@ -107,59 +112,89 @@ class PlaylistSerializer(serializers.ModelSerializer):
 
     def get_cover_urls(self, obj):
         urls = obj.get_cover_urls()
-        if urls:
-            cleaned_urls = []
-            for url in urls:
-                if url.startswith('/media/media/'):
-                    url = url.replace('/media/media/', '/media/')
-                cleaned_urls.append(get_full_url(url))
-            return cleaned_urls
-        return []
+        cleaned = []
+        for url in urls:
+            if url.startswith('/media/media/'):
+                url = url.replace('/media/media/', '/media/')
+            cleaned.append(get_full_url(url))
+        return cleaned
+
+    def get_share_token(self, obj):
+        """Возвращает токен share-ссылки владельцу или для link_only"""
+        request = self.context.get('request')
+        if not request:
+            return None
+        is_owner = request.user.is_authenticated and obj.user_id == request.user.id
+        if is_owner or obj.is_link_only:
+            link = obj.get_active_share_link()
+            if link:
+                return link.token
+        return None
 
 
 class PlaylistCreateSerializer(serializers.ModelSerializer):
     cover_urls = serializers.SerializerMethodField()
+    visibility = serializers.ChoiceField(
+        choices=['public', 'private', 'link'],
+        default='public',
+        required=False
+    )
 
     class Meta:
         model = Playlist
-        fields = ['id', 'title', 'description', 'is_public', 'cover_urls', 'created_at']
+        fields = ['id', 'title', 'description', 'visibility', 'cover_urls', 'created_at']
         read_only_fields = ['id', 'created_at']
 
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         playlist = super().create(validated_data)
+        # Если создаётся link — сразу генерируем share-ссылку
+        if playlist.visibility == 'link':
+            playlist.get_or_create_share_link()
         return playlist
 
     def get_cover_urls(self, obj):
         urls = obj.get_cover_urls()
-        if urls:
-            cleaned_urls = []
-            for url in urls:
-                if url.startswith('/media/media/'):
-                    url = url.replace('/media/media/', '/media/')
-                cleaned_urls.append(get_full_url(url))
-            return cleaned_urls
-        return []
+        cleaned = []
+        for url in urls:
+            if url.startswith('/media/media/'):
+                url = url.replace('/media/media/', '/media/')
+            cleaned.append(get_full_url(url))
+        return cleaned
 
 
 class PlaylistUpdateSerializer(serializers.ModelSerializer):
     cover_urls = serializers.SerializerMethodField()
+    visibility = serializers.ChoiceField(
+        choices=['public', 'private', 'link'],
+        required=False
+    )
 
     class Meta:
         model = Playlist
-        fields = ['id', 'title', 'description', 'is_public', 'cover_urls', 'updated_at']
+        fields = ['id', 'title', 'description', 'visibility', 'cover_urls', 'updated_at']
         read_only_fields = ['id', 'updated_at']
+
+    def update(self, instance, validated_data):
+        old_visibility = instance.visibility
+        instance = super().update(instance, validated_data)
+        new_visibility = instance.visibility
+        # При переключении на link — создаём ссылку
+        if new_visibility == 'link' and old_visibility != 'link':
+            instance.get_or_create_share_link()
+        # При уходе с link — деактивируем все ссылки
+        elif old_visibility == 'link' and new_visibility != 'link':
+            instance.invalidate_share_links()
+        return instance
 
     def get_cover_urls(self, obj):
         urls = obj.get_cover_urls()
-        if urls:
-            cleaned_urls = []
-            for url in urls:
-                if url.startswith('/media/media/'):
-                    url = url.replace('/media/media/', '/media/')
-                cleaned_urls.append(get_full_url(url))
-            return cleaned_urls
-        return []
+        cleaned = []
+        for url in urls:
+            if url.startswith('/media/media/'):
+                url = url.replace('/media/media/', '/media/')
+            cleaned.append(get_full_url(url))
+        return cleaned
 
 
 class PlaylistItemCreateSerializer(serializers.ModelSerializer):
@@ -175,10 +210,7 @@ class PlaylistItemUpdateSerializer(serializers.ModelSerializer):
 
 
 class ReorderItemsSerializer(serializers.Serializer):
-    items = serializers.ListField(
-        child=serializers.DictField(),
-        allow_empty=False
-    )
+    items = serializers.ListField(child=serializers.DictField(), allow_empty=False)
 
     def validate_items(self, value):
         if not value:
@@ -192,12 +224,7 @@ class ReorderItemsSerializer(serializers.Serializer):
 
 
 class FavoriteAnimeSerializer(serializers.ModelSerializer):
-    """Сериализатор избранного аниме"""
-    # Поле для записи (принимает ID аниме)
-    anime = serializers.PrimaryKeyRelatedField(
-        queryset=Anime.objects.all()
-    )
-
+    anime = serializers.PrimaryKeyRelatedField(queryset=Anime.objects.all())
     anime_id = serializers.IntegerField(source='anime.id', read_only=True)
     anime_title = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
@@ -228,7 +255,6 @@ class FavoriteAnimeSerializer(serializers.ModelSerializer):
             if poster_url.startswith('/media/media/'):
                 poster_url = poster_url.replace('/media/media/', '/media/')
             poster_url = get_full_url(poster_url)
-
         return {
             'id': obj.anime.id,
             'title_ru': obj.anime.title_ru,
@@ -274,7 +300,10 @@ class FavoritePlaylistSerializer(serializers.ModelSerializer):
             'id': obj.playlist.id,
             'title': obj.playlist.title,
             'description': obj.playlist.description,
+            'visibility': obj.playlist.visibility,
             'is_public': obj.playlist.is_public,
+            'is_private': obj.playlist.is_private,
+            'is_link_only': obj.playlist.is_link_only,
             'cover_image': cover_image_url,
             'cover_urls': cleaned_cover_urls,
             'user_id': obj.playlist.user.id,
@@ -282,29 +311,31 @@ class FavoritePlaylistSerializer(serializers.ModelSerializer):
             'items_count': obj.playlist.items.count(),
             'favorites_count': obj.playlist.favorited_by.count(),
             'created_at': obj.playlist.created_at,
+            'updated_at': obj.playlist.updated_at,
         }
 
 
 class AddToPlaylistSerializer(serializers.Serializer):
-    """Сериализатор для добавления аниме в плейлист"""
     anime_id = serializers.IntegerField()
     playlist_id = serializers.IntegerField(required=False)
     new_playlist_title = serializers.CharField(required=False, max_length=255)
     new_playlist_description = serializers.CharField(required=False, allow_blank=True)
+    new_playlist_visibility = serializers.ChoiceField(
+        choices=['public', 'private', 'link'],
+        default='public',
+        required=False
+    )
     notes = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, data):
         playlist_id = data.get('playlist_id')
         new_playlist_title = data.get('new_playlist_title')
-
         if not playlist_id and not new_playlist_title:
             raise serializers.ValidationError(
                 "Необходимо указать playlist_id или new_playlist_title"
             )
-
         if playlist_id and new_playlist_title:
             raise serializers.ValidationError(
                 "Укажите либо существующий плейлист, либо создайте новый"
             )
-
         return data

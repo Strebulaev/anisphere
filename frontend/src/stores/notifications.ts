@@ -34,6 +34,35 @@ export const useNotificationStore = defineStore('notifications', () => {
   const currentPage     = ref(1)
   const settings        = ref<NotificationSettings | null>(null)
 
+  // Сверкающие напоминания: id напоминаний которые сейчас сверкают (первая минута)
+  const ringingReminderIds = ref<Set<number>>(new Set())
+  // Сверкает ли колокольчик сейчас
+  const isBellRinging = computed(() => ringingReminderIds.value.size > 0)
+
+  // Таймеры сверкания (id напоминания -> timer handle)
+  const _ringTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+  function startRinging(reminderId: number) {
+    // Добавляем в Set и принудительно триггерим реактивность
+    const next = new Set(ringingReminderIds.value)
+    next.add(reminderId)
+    ringingReminderIds.value = next
+
+    // Через 1 минуту прекращаем сверкание
+    const t = setTimeout(() => {
+      stopRinging(reminderId)
+    }, 60_000)
+    _ringTimers.set(reminderId, t)
+  }
+
+  function stopRinging(reminderId: number) {
+    const t = _ringTimers.get(reminderId)
+    if (t) { clearTimeout(t); _ringTimers.delete(reminderId) }
+    const next = new Set(ringingReminderIds.value)
+    next.delete(reminderId)
+    ringingReminderIds.value = next
+  }
+
   // WS
   let ws: WebSocket | null = null
   let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -313,6 +342,10 @@ export const useNotificationStore = defineStore('notifications', () => {
     settings,
     upcomingReminders,
     allActiveReminders,
+    isBellRinging,
+    ringingReminderIds,
+    startRinging,
+    stopRinging,
 
     fetchNotifications,
     fetchRecent,

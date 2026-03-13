@@ -25,12 +25,14 @@ interface Props {
   autoplay?: boolean
   season?: number
   episode?: number
+  skipButton?: string | null  // параметр skip_button для Kodik: "[opening]12-90,[ending]1380-1470"
 }
 
 const props = withDefaults(defineProps<Props>(), {
   autoplay: false,
   season: undefined,
-  episode: undefined
+  episode: undefined,
+  skipButton: null,
 })
 
 const emit = defineEmits<{
@@ -62,6 +64,7 @@ const playerUrl = computed(() => {
   if (props.autoplay) params.push('autoplay=1')
   if (props.season  !== undefined && props.season  !== null) params.push(`season=${props.season}`)
   if (props.episode !== undefined && props.episode !== null) params.push(`episode=${props.episode}`)
+  if (props.skipButton) params.push(`skip_button=${encodeURIComponent(props.skipButton)}`)
 
   // Дополнительные параметры для лучшего UX
   params.push('only_shorts=false')

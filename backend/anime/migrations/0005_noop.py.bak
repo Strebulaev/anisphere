@@ -1,0 +1,14 @@
+from django.db import migrations
+
+
+class Migration(migrations.Migration):
+    """
+    Пустая миграция — финальная точка после серверных миграций.
+    Таблица anime_userepisodeprogress уже создана в 0004_userepisodeprogress.
+    """
+
+    dependencies = [
+        ('anime', '0004_userepisodeprogress'),
+    ]
+
+    operations = []

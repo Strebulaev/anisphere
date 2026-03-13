@@ -14,7 +14,7 @@
           class="suggestions-section"
         >
           <div class="suggestions-section-title">
-            <component :is="getCategoryIcon(category.id)" width="14" height="14" />
+            <component :is="getCategoryIcon(category.id)" width="10" height="10" />
             {{ category.name }}
           </div>
 
@@ -269,10 +269,10 @@ const GroupSuggestionItem = {
   right: 0;
   background-color: var(--color-background-secondary);
   border: 1px solid var(--color-divider);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: var(--shadow-card-hover);
-  max-height: 60vh;
-  min-width: 420px;
+  max-height: 55vh;
+  min-width: 340px;
   overflow-y: auto;
   z-index: 1000;
   margin-top: 4px;
@@ -282,14 +282,15 @@ const GroupSuggestionItem = {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 32px;
+  gap: 8px;
+  padding: 16px;
   color: var(--color-text-tertiary);
+  font-size: 12px;
 }
 
 .loading-spinner {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--color-divider);
   border-top-color: var(--color-accent);
   border-radius: 50%;
@@ -301,32 +302,34 @@ const GroupSuggestionItem = {
 }
 
 .suggestions-section {
-  padding: 8px 0;
+  padding: 4px 0;
 }
 
 .suggestions-section:not(:last-child) {
   border-bottom: 1px solid var(--color-divider-light);
 }
 
+/* Заголовок секции — маленький, компактный */
 .suggestions-section-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: 11px;
+  gap: 4px;
+  padding: 4px 12px 3px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
 }
 
 .suggestion-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: 8px;
+  padding: 5px 12px;
   cursor: pointer;
-  transition: background-color 0.15s var(--transition-smooth);
+  transition: background-color 0.12s;
 }
 
 .suggestion-item:hover,
@@ -337,40 +340,42 @@ const GroupSuggestionItem = {
 .suggestion-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
 }
 
+/* Постер аниме */
 .suggestion-poster {
-  width: 40px;
-  height: 56px;
+  width: 26px;
+  height: 36px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 
 .suggestion-poster-placeholder {
-  width: 40px;
-  height: 56px;
+  width: 26px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--color-background-active);
-  border-radius: 4px;
+  border-radius: 3px;
   color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
 
+/* Аватарка пользователя */
 .suggestion-avatar {
-  width: 40px;
-  height: 40px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
 }
 
 .suggestion-avatar.group-avatar {
-  border-radius: 8px;
+  border-radius: 5px;
 }
 
 .suggestion-avatar img {
@@ -386,16 +391,16 @@ const GroupSuggestionItem = {
   align-items: center;
   justify-content: center;
   background-color: var(--color-accent);
-  color: var(--color-text);
+  color: white;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 11px;
 }
 
 .suggestion-playlist-cover {
-  width: 40px;
-  height: 40px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
   background-color: var(--color-background-active);
 }
@@ -404,7 +409,7 @@ const GroupSuggestionItem = {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: 2px;
+  gap: 1px;
   width: 100%;
   height: 100%;
 }
@@ -427,21 +432,21 @@ const GroupSuggestionItem = {
 }
 
 .suggestion-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text);
-  margin: 0 0 2px 0;
+  margin: 0 0 1px 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .suggestion-meta {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--color-text-tertiary);
   margin: 0;
   display: flex;
-  gap: 8px;
+  gap: 5px;
   align-items: center;
 }
 
@@ -455,15 +460,15 @@ const GroupSuggestionItem = {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 48px 32px;
+  gap: 8px;
+  padding: 24px 16px;
   color: var(--color-text-tertiary);
   text-align: center;
 }
 
 .suggestions-empty p {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .suggestions-enter-active,

@@ -335,7 +335,7 @@ const createPlaylist = async () => {
     const playlistRes = await playlistsApi.createPlaylist({
       title: form.value.title.trim(),
       description: form.value.description.trim() || undefined,
-      is_public: form.value.visibility === 'public'
+      visibility: form.value.visibility
     })
 
     const playlistId = playlistRes.data.id

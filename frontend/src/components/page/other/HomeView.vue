@@ -73,12 +73,6 @@
             <h2 class="section-title">Продолжить просмотр</h2>
             <span class="section-count">{{ homeData.continue_watching.length }}</span>
           </div>
-          <button class="view-all-btn" @click="router.push('/library?status=started')">
-            Все
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-          </button>
         </div>
         <div class="carousel-wrapper">
           <button v-if="!continueAtStart" class="carousel-arrow left" @click="scrollCarousel('continue', -1)">
@@ -110,12 +104,6 @@
             <h2 class="section-title">Пересмотреть</h2>
             <span class="section-count">{{ homeData.rewatch.length }}</span>
           </div>
-          <button class="view-all-btn" @click="router.push('/library?status=completed')">
-            Все
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-          </button>
         </div>
         <div class="carousel-wrapper">
           <button v-if="!rewatchAtStart" class="carousel-arrow left" @click="scrollCarousel('rewatch', -1)">

@@ -31,8 +31,10 @@ import OnlineUsers from '@/components/page/other/OnlineUsers.vue'
 import AchievementsView from '@/components/page/other/AchievementsView.vue'
 import PeopleView from '@/views/PeopleView.vue'
 import PeopleDetailView from '@/views/PeopleDetailView.vue'
+import UsersView from '@/views/UsersView.vue'
 import StudiosView from '@/views/studios/StudiosView.vue'
 import StudioDetailView from '@/views/studios/StudioDetailView.vue'
+import SharedPlaylistView from '@/components/page/playlists/SharedPlaylistView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -200,6 +202,13 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      // Share-ссылка — доступна без авторизации
+      path: '/playlist/shared/:token',
+      name: 'playlist-shared',
+      component: SharedPlaylistView,
+      props: true
+    },
+    {
       path: '/notifications',
       name: 'notifications',
       component: NotificationsView,
@@ -227,6 +236,11 @@ const router = createRouter({
       path: '/people',
       name: 'people',
       component: PeopleView
+    },
+    {
+      path: '/users',
+      name: 'users',
+      component: UsersView
     },
     {
       path: '/people/:id',

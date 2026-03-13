@@ -721,7 +721,7 @@
     try {
       await playlistsApi.createPlaylist({
         title: newPlaylistTitle.value.trim(),
-        is_public: newPlaylistPublic.value
+        visibility: newPlaylistPublic.value ? 'public' : 'private'
       })
       showCreateModal.value = false
       // Обновляем список и возвращаемся к модалке выбора

@@ -13,9 +13,8 @@
         <div class="author-info">
           <span class="name">{{ userDisplayName }}</span>
           <div class="visibility-selector">
-            <button @click="toggleVisibilityMenu" class="visibility-btn">
-              {{ visibilityOptions[visibility]?.icon }} {{ visibilityOptions[visibility]?.label }}
-              ▼
+            <button @click="showVisibilityMenu = !showVisibilityMenu" class="visibility-btn">
+              {{ visibilityOptions[visibility]?.icon }} {{ visibilityOptions[visibility]?.label }} ▼
             </button>
             <div v-if="showVisibilityMenu" class="visibility-menu">
               <button
@@ -33,16 +32,6 @@
 
       <!-- Content -->
       <div class="content-area">
-        <!-- Title -->
-        <input
-          v-if="showTitle"
-          v-model="title"
-          type="text"
-          class="title-input"
-          placeholder="Заголовок (опционально)"
-          maxlength="200"
-        >
-
         <!-- Text -->
         <textarea
           ref="textArea"
@@ -56,201 +45,161 @@
           {{ text.length }}/5000
         </div>
 
-        <!-- Attached Content (playlist / shorts остаются как есть) -->
-        <div v-if="attachedContent" class="attached-content">
-          <div v-if="attachedContent.type === 'anime'" class="attached-anime-wrap">
-            <!-- аниме теперь через MediaAttachmentPicker, но оставляем совместимость -->
-            <AnimeCard
-              :poster-url="attachedPosterUrl"
-              :title-ru="attachedTitleRu"
-            >
-              <div class="rating-input">
-                <label>Оценка:</label>
-                <input
-                  type="number"
-                  v-model.number="animeRating"
-                  min="1"
-                  max="10"
-                  placeholder="1-10"
-                  class="rating-field"
-                >
-              </div>
-            </AnimeCard>
-            <button class="remove-anime-btn" @click="attachedContent = null">✕</button>
-          </div>
-
-          <div v-else-if="attachedContent.type === 'playlist'" class="attached-playlist">
-            <span>📁 Плейлист: {{ attachedContent.title }}</span>
-            <button class="remove-btn" @click="attachedContent = null">✕</button>
-          </div>
-
-          <div v-else-if="attachedContent.type === 'shorts'" class="attached-shorts">
-            <div class="shorts-preview">
-              <video :src="attachedContent.video_url" muted></video>
-              <span class="duration">{{ formatDuration(attachedContent.duration || 0) }}</span>
-            </div>
-            <div class="attached-info">
-              <span class="shorts-title">{{ attachedContent.title }}</span>
-              <span class="shorts-author">@{{ attachedContent.author_username }}</span>
-              <span class="shorts-link">Смотреть в Reactor</span>
-            </div>
-            <button class="remove-btn" @click="attachedContent = null">✕</button>
+        <!-- Media Preview (фото/видео) — мультивыбор -->
+        <div v-if="mediaFiles.length > 0" class="media-preview">
+          <div v-for="(m, idx) in mediaFiles" :key="idx" class="preview-item">
+            <img v-if="m.type === 'image'" :src="m.url" alt="">
+            <video v-else :src="m.url" muted></video>
+            <button class="remove-media-btn" @click="removeMedia(idx)">✕</button>
           </div>
         </div>
 
-        <!-- Аниме через пикер (с оценкой) -->
-        <div v-if="attachedAnime && !attachedContent" class="attached-anime-outer">
-          <!-- уже отображается внутри MediaAttachmentPicker -->
-          <div class="rating-input" style="margin-top:0.5rem">
-            <label>Оценка:</label>
-            <input
-              type="number"
-              v-model.number="animeRating"
-              min="1"
-              max="10"
-              placeholder="1-10"
-              class="rating-field"
-            >
+        <!-- Attached anime — мультивыбор -->
+        <div v-if="attachedAnimes.length > 0" class="attached-list">
+          <div v-for="(a, idx) in attachedAnimes" :key="a.id" class="attached-block">
+            <span class="attached-icon">🎬</span>
+            <span class="attached-label">{{ a.title_ru }}</span>
+            <div class="rating-input">
+              <label>Оценка:</label>
+              <input type="number" v-model.number="animeRatings[idx]" min="1" max="10" placeholder="1-10" class="rating-field">
+            </div>
+            <button class="remove-btn" @click="removeAnime(idx)">✕</button>
           </div>
         </div>
 
-        <!-- Spoiler Warning -->
-        <div v-if="showSpoilerToggle" class="spoiler-toggle">
-          <label>
-            <input type="checkbox" v-model="isSpoiler">
-            Спойлер
+        <!-- Attached playlists — мультивыбор -->
+        <div v-if="attachedPlaylists.length > 0" class="attached-list">
+          <div v-for="(p, idx) in attachedPlaylists" :key="p.id" class="attached-block">
+            <span class="attached-icon">📁</span>
+            <span class="attached-label">{{ p.title || p.name }}</span>
+            <button class="remove-btn" @click="removePlaylist(idx)">✕</button>
+          </div>
+        </div>
+
+        <!-- Attached shorts — мультивыбор -->
+        <div v-if="attachedShortsList.length > 0" class="attached-list">
+          <div v-for="(s, idx) in attachedShortsList" :key="s.id" class="attached-block">
+            <span class="attached-icon">⚡</span>
+            <span class="attached-label">{{ s.title || 'Shorts #' + s.id }}</span>
+            <button class="remove-btn" @click="removeShorts(idx)">✕</button>
+          </div>
+        </div>
+
+        <!-- Spoiler / Comments toggles -->
+        <div class="toggles-row">
+          <label class="toggle-label">
+            <input type="checkbox" v-model="isSpoiler"> Спойлер
           </label>
-          <select v-if="isSpoiler" v-model="spoilerFor">
-            <option value="">Выберите аниме</option>
-          </select>
-        </div>
-
-        <!-- Comments Toggle -->
-        <div class="comments-toggle">
-          <label>
-            <input type="checkbox" v-model="allowComments">
-            Разрешить комментарии
+          <label class="toggle-label">
+            <input type="checkbox" v-model="allowComments"> Разрешить комментарии
           </label>
         </div>
       </div>
 
-      <!-- Attachment Buttons -->
+      <!-- Attachment Buttons — скрепочка + ⚡📁🎬 -->
       <div class="attachment-buttons">
-        <!-- фото / видео / аниме через модуль -->
-        <MediaAttachmentPicker
-          ref="attachmentPicker"
-          :allow-photo="true"
-          :allow-video="true"
-          :allow-anime="true"
-          @update:media-files="mediaPreview = $event"
-          @update:attached-anime="onAnimeSelected"
-          @error="onAttachmentError"
-        />
-        <button @click="openPlaylistSelector" title="Плейлист">
-          📁
+        <!-- 📎 Фото/Видео (мультивыбор) -->
+        <button @click="triggerMediaPick" title="Фото / Видео" class="attach-btn" :class="{ active: mediaFiles.length > 0 }">
+          📎
+          <span v-if="mediaFiles.length > 0" class="attach-count">{{ mediaFiles.length }}</span>
         </button>
-        <button @click="openShortsSelector" title="Shorts">
-          ⚡
-        </button>
-        <button @click="showTitle = !showTitle" title="Заголовок">
-          📝
+        <input ref="mediaInput" type="file" accept="image/*,video/*" multiple class="hidden-input" @change="onMediaSelected">
+
+        <!-- 🎬📁⚡ Прикрепить контент (одна кнопка → модальное окно с выбором) -->
+        <button @click="openAttachModal" title="Аниме / Плейлист / Shorts" class="attach-btn" :class="{ active: hasAttachments }">
+          🎬
+          <span v-if="attachCount > 0" class="attach-count">{{ attachCount }}</span>
         </button>
       </div>
-
-      <!-- file-инпуты теперь внутри MediaAttachmentPicker -->
 
       <!-- Submit -->
       <div class="submit-row">
-        <button
-          @click="submitPost"
-          :disabled="!canSubmit"
-          class="submit-btn"
-        >
-          Опубликовать
+        <button @click="submitPost" :disabled="!canSubmit || submitting" class="submit-btn">
+          {{ submitting ? 'Публикация...' : 'Опубликовать' }}
         </button>
       </div>
     </div>
 
-    <!-- Anime Selector Modal -->
-    <div v-if="showAnimeSelector" class="selector-modal" @click="showAnimeSelector = false">
-      <div class="selector-content anime-selector" @click.stop>
-        <h3>Выберите аниме</h3>
-            <div class="search-box">
-          <SearchBar
-            placeholder="Поиск аниме..."
-            :categories="[{ id: 'anime', name: 'Аниме', icon: 'anime', enabled: true } ]"
-              :preventNavigationOnSelect="true"
-            :hideSuggestions="true"
-          />
-        </div>
-        <div class="results-list">
-          <div
-            v-for="anime in animeResults"
-            :key="anime.id"
-            class="result-item"
-            @click="legacySelectAnime(anime)"
-          >
-            <img :src="getMediaUrl(anime.poster_url || anime.poster_image_url)" alt="">
-            <span>{{ anime.title_ru }}</span>
-          </div>
-        </div>
-        <button class="close-selector" @click="showAnimeSelector = false">Отмена</button>
-      </div>
-    </div>
-
-    <!-- Playlist Selector Modal -->
-    <div v-if="showPlaylistSelector" class="selector-modal" @click="showPlaylistSelector = false">
+    <!-- ── Attach Content Modal ── -->
+    <div v-if="showAttachModal" class="selector-modal" @click.self="showAttachModal = false">
       <div class="selector-content" @click.stop>
-        <h3>Выберите плейлист</h3>
-        <div class="results-list">
-          <div
-            v-for="playlist in playlists"
-            :key="playlist.id"
-            class="result-item"
-            @click="selectPlaylist(playlist)"
-          >
-            <span>📁</span>
-            <span>{{ playlist.title }}</span>
-          </div>
+        <div class="selector-header">
+          <span class="selector-title">Прикрепить</span>
+          <button class="selector-close" @click="showAttachModal = false">✕</button>
         </div>
-        <button class="close-selector" @click="showPlaylistSelector = false">Отмена</button>
-      </div>
-    </div>
 
-    <!-- Shorts Selector Modal -->
-    <div v-if="showShortsSelector" class="selector-modal" @click="showShortsSelector = false">
-      <div class="selector-content" @click.stop>
-        <h3>Выберите Shorts</h3>
-        <div class="search-box">
-          <input
-            v-model="shortsSearch"
-            type="text"
-            placeholder="Поиск Shorts..."
-            @input="searchShorts"
-          >
+        <div class="attach-tabs">
+          <button :class="{ active: attachTab === 'anime' }" @click="attachTab = 'anime'">🎬 Аниме</button>
+          <button :class="{ active: attachTab === 'playlist' }" @click="switchToPlaylist">📁 Плейлист</button>
+          <button :class="{ active: attachTab === 'shorts' }" @click="attachTab = 'shorts'; loadShorts()">⚡ Shorts</button>
         </div>
-        <div v-if="shortsLoading" class="loading">Загрузка...</div>
-        <div class="results-list">
-          <div
-            v-for="shorts in shortsResults"
-            :key="shorts.id"
-            class="result-item shorts-item"
-            @click="selectShorts(shorts)"
-          >
-            <div class="shorts-thumb">
-              <video :src="shorts.video_url" muted></video>
-              <span class="duration-badge">{{ formatDuration(shorts.duration) }}</span>
+
+        <!-- АНИМЕ -->
+        <div v-if="attachTab === 'anime'" class="tab-content">
+          <input v-model="animeSearch" @input="searchAnime" placeholder="Поиск аниме..." class="selector-search">
+          <div v-if="animeLoading" class="selector-loading">Загрузка...</div>
+          <div class="results-list">
+            <div
+              v-for="a in animeResults"
+              :key="a.id"
+              class="result-item"
+              :class="{ selected: attachedAnimes.some(x => x.id === a.id) }"
+              @click="toggleAnime(a)"
+            >
+              <img :src="getMediaUrl(a.poster_url || a.poster_image_url)" alt="">
+              <span class="result-item-title">{{ a.title_ru }}</span>
+              <span class="check-icon">{{ attachedAnimes.some(x => x.id === a.id) ? '✓' : '' }}</span>
             </div>
-            <div class="shorts-info">
-              <span class="shorts-title">{{ shorts.title }}</span>
-              <span class="shorts-author">@{{ shorts.user?.username }}</span>
+            <div v-if="!animeLoading && animeResults.length === 0" class="no-results">Введите название для поиска</div>
+          </div>
+        </div>
+
+        <!-- ПЛЕЙЛИСТ -->
+        <div v-if="attachTab === 'playlist'" class="tab-content">
+          <div v-if="playlistLoading" class="selector-loading">Загрузка...</div>
+          <div v-else-if="playlists.length === 0" class="no-results">Плейлистов нет. Создайте плейлист в разделе «Плейлисты».</div>
+          <div v-else class="results-list">
+            <div
+              v-for="p in playlists"
+              :key="p.id"
+              class="result-item"
+              :class="{ selected: attachedPlaylists.some(x => x.id === p.id) }"
+              @click="togglePlaylist(p)"
+            >
+              <span class="result-icon">📁</span>
+              <div class="result-info">
+                <span class="result-title">{{ p.title || p.name }}</span>
+                <span class="result-sub">{{ p.anime_count || p.items_count || 0 }} аниме</span>
+              </div>
+              <span class="check-icon">{{ attachedPlaylists.some(x => x.id === p.id) ? '✓' : '' }}</span>
             </div>
           </div>
-          <div v-if="shortsResults.length === 0 && !shortsLoading" class="no-results">
-            Shorts не найдены
+        </div>
+
+        <!-- SHORTS -->
+        <div v-if="attachTab === 'shorts'" class="tab-content">
+          <input v-model="shortsSearch" @input="searchShorts" placeholder="Поиск Shorts..." class="selector-search">
+          <div v-if="shortsLoading" class="selector-loading">Загрузка...</div>
+          <div class="results-list">
+            <div
+              v-for="s in shortsResults"
+              :key="s.id"
+              class="result-item"
+              :class="{ selected: attachedShortsList.some(x => x.id === s.id) }"
+              @click="toggleShorts(s)"
+            >
+              <span class="result-icon">⚡</span>
+              <div class="result-info">
+                <span class="result-title">{{ s.title || 'Shorts #' + s.id }}</span>
+                <span class="result-sub">@{{ s.user?.username }}</span>
+              </div>
+              <span class="check-icon">{{ attachedShortsList.some(x => x.id === s.id) ? '✓' : '' }}</span>
+            </div>
+            <div v-if="!shortsLoading && shortsResults.length === 0" class="no-results">Не найдено</div>
           </div>
         </div>
-        <button class="close-selector" @click="showShortsSelector = false">Отмена</button>
+
+        <button class="close-selector" @click="showAttachModal = false">Готово</button>
       </div>
     </div>
   </div>
@@ -259,948 +208,424 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import apiClient, { getMediaUrl } from '@/api/client'
-import SearchBar from '@/components/Search/SearchBar.vue'
+import playlistsApi from '@/api/playlists'
 import { normalizePost } from '@/utils/normalizers'
-import AnimeCard from './AnimeCard.vue'
-import MediaAttachmentPicker from '@/components/common/MediaAttachmentPicker.vue'
-import type { AnimeAttachment } from '@/components/common/MediaAttachmentPicker.vue'
 
-interface User {
-  id: number
-  username: string
-  display_name: string
-  avatar: string
-}
+const props = defineProps<{ initialType?: string | null }>()
+const emit = defineEmits<{ close: []; created: [post: any] }>()
 
-interface AttachedContent {
-  type: 'anime' | 'playlist' | 'shorts'
-  id: number
-  title_ru?: string
-  poster_url?: string
-  poster?: string     // legacy field, may contain direct URL string
-  title?: string
-  video_url?: string
-  duration?: number
-  author_username?: string
-}
+// ─── User ────────────────────────────────────────────
+const currentUser = ref<any>(null)
+const defaultAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23333'/%3E%3C/svg%3E`
+const userAvatar = computed(() => currentUser.value?.avatar || defaultAvatar)
+const userDisplayName = computed(() => currentUser.value?.display_name || currentUser.value?.username || '')
 
-interface MediaPreview {
-  type: 'image' | 'video'
-  url: string
-  file?: File
-}
-
-const props = defineProps<{
-  initialType?: string | null
-}>()
-
-const emit = defineEmits<{
-  close: []
-  created: [post: any]
-}>()
-
-const defaultAvatar = '/img/default-avatar.svg'
-
-// State
-const currentUser = ref<User | null>(null)
-const title = ref('')
+// ─── Post fields ──────────────────────────────────────
 const text = ref('')
 const visibility = ref('public')
 const allowComments = ref(true)
 const isSpoiler = ref(false)
-const spoilerFor = ref('')
-const showTitle = ref(false)
 const showVisibilityMenu = ref(false)
-const showSpoilerToggle = ref(false)
+const submitting = ref(false)
+const textArea = ref<HTMLTextAreaElement | null>(null)
 
-// Media
-const attachmentPicker = ref<InstanceType<typeof MediaAttachmentPicker> | null>(null)
-const mediaPreview = ref<any[]>([])
-const attachedContent = ref<AttachedContent | null>(null)
-const attachedAnime = ref<AnimeAttachment | null>(null)
-const animeRating = ref<number | null>(null)
+const visibilityOptions: Record<string, { icon: string; label: string }> = {
+  public:    { icon: '🌍', label: 'Публично' },
+  followers: { icon: '👥', label: 'Только подписчики' },
+  friends:   { icon: '👫', label: 'Только друзья' },
+  private:   { icon: '🔒', label: 'Только я' },
+}
 
-// Selectors
-const showAnimeSelector = ref(false)
-const showPlaylistSelector = ref(false)
-const showShortsSelector = ref(false)
+const setVisibility = (key: string) => { visibility.value = key; showVisibilityMenu.value = false }
+
+// ─── Media (фото/видео) — мультивыбор ────────────────
+interface MediaItem { type: 'image' | 'video'; url: string; file: File }
+const mediaFiles = ref<MediaItem[]>([])
+const mediaInput = ref<HTMLInputElement | null>(null)
+
+const triggerMediaPick = () => mediaInput.value?.click()
+
+const onMediaSelected = (e: Event) => {
+  const input = e.target as HTMLInputElement
+  if (!input.files) return
+  for (const file of Array.from(input.files)) {
+    const type = file.type.startsWith('image') ? 'image' : 'video'
+    const url = URL.createObjectURL(file)
+    mediaFiles.value.push({ type, url, file })
+  }
+  input.value = ''
+}
+
+const removeMedia = (idx: number) => {
+  const media = mediaFiles.value[idx]
+  if (media) URL.revokeObjectURL(media.url)
+  mediaFiles.value.splice(idx, 1)
+}
+
+// ─── Attached content — мультивыбор ─────────────────
+const attachedAnimes = ref<any[]>([])
+const animeRatings = ref<(number | null)[]>([])
+const attachedPlaylists = ref<any[]>([])
+const attachedShortsList = ref<any[]>([])
+
+const hasAttachments = computed(() =>
+  attachedAnimes.value.length > 0 || attachedPlaylists.value.length > 0 || attachedShortsList.value.length > 0
+)
+const attachCount = computed(() =>
+  attachedAnimes.value.length + attachedPlaylists.value.length + attachedShortsList.value.length
+)
+
+const removeAnime = (idx: number) => { attachedAnimes.value.splice(idx, 1); animeRatings.value.splice(idx, 1) }
+const removePlaylist = (idx: number) => { attachedPlaylists.value.splice(idx, 1) }
+const removeShorts = (idx: number) => { attachedShortsList.value.splice(idx, 1) }
+
+const toggleAnime = (a: any) => {
+  const idx = attachedAnimes.value.findIndex(x => x.id === a.id)
+  if (idx >= 0) { attachedAnimes.value.splice(idx, 1); animeRatings.value.splice(idx, 1) }
+  else { attachedAnimes.value.push(a); animeRatings.value.push(null) }
+}
+const togglePlaylist = (p: any) => {
+  const idx = attachedPlaylists.value.findIndex(x => x.id === p.id)
+  if (idx >= 0) attachedPlaylists.value.splice(idx, 1)
+  else attachedPlaylists.value.push(p)
+}
+const toggleShorts = (s: any) => {
+  const idx = attachedShortsList.value.findIndex(x => x.id === s.id)
+  if (idx >= 0) attachedShortsList.value.splice(idx, 1)
+  else attachedShortsList.value.push(s)
+}
+
+// ─── Attach modal ─────────────────────────────────────
+const showAttachModal = ref(false)
+const attachTab = ref<'anime' | 'playlist' | 'shorts'>('anime')
+
+// Anime search
+const animeSearch = ref('')
 const animeResults = ref<any[]>([])
+const animeLoading = ref(false)
+let animeTimeout: ReturnType<typeof setTimeout> | null = null
+
+const searchAnime = () => {
+  if (animeTimeout) clearTimeout(animeTimeout)
+  animeTimeout = setTimeout(async () => {
+    if (!animeSearch.value.trim()) { animeResults.value = []; return }
+    animeLoading.value = true
+    try {
+      const { data } = await apiClient.get('/anime/', { params: { search: animeSearch.value, page_size: 20 } })
+      animeResults.value = data.results || data || []
+    } catch { animeResults.value = [] }
+    finally { animeLoading.value = false }
+  }, 300)
+}
+
+// Playlists — используем правильный API
 const playlists = ref<any[]>([])
+const playlistLoading = ref(false)
+let playlistsLoaded = false
+
+const loadPlaylists = async () => {
+  if (playlistsLoaded && playlists.value.length > 0) return
+  playlistLoading.value = true
+  try {
+    const { data } = await playlistsApi.getMyPlaylists()
+    playlists.value = Array.isArray(data) ? data : (data as any).results || []
+    playlistsLoaded = true
+  } catch (e) {
+    console.error('loadPlaylists error', e)
+    // Fallback
+    try {
+      const { data } = await apiClient.get('/playlists/playlists/my/')
+      playlists.value = Array.isArray(data) ? data : data.results || []
+      playlistsLoaded = true
+    } catch (e2) {
+      console.error('loadPlaylists fallback error', e2)
+      playlists.value = []
+    }
+  }
+  playlistLoading.value = false
+}
+
+const switchToPlaylist = () => {
+  attachTab.value = 'playlist'
+  loadPlaylists()
+}
+
+// Shorts
 const shortsSearch = ref('')
 const shortsResults = ref<any[]>([])
 const shortsLoading = ref(false)
+let shortsTimeout: ReturnType<typeof setTimeout> | null = null
 
-// Textarea
-const textArea = ref<HTMLTextAreaElement | null>(null)
-
-// Visibility options
-const visibilityOptions: Record<string, { icon: string; label: string }> = {
-  public: { icon: '🌍', label: 'Публично' },
-  followers: { icon: '👥', label: 'Только подписчики' },
-  friends: { icon: '👫', label: 'Только друзья' },
-  private: { icon: '🔒', label: 'Только я' }
+const loadShorts = async () => {
+  shortsLoading.value = true
+  try {
+    const { data } = await apiClient.get('/reactor/my-posts/')
+    shortsResults.value = data.results || []
+  } catch { shortsResults.value = [] }
+  finally { shortsLoading.value = false }
 }
 
-// Computed
-const userAvatar = computed((): string => {
-  const avatar = currentUser.value?.avatar
-  return avatar ? avatar : defaultAvatar
-}) as any as string
+const searchShorts = () => {
+  if (shortsTimeout) clearTimeout(shortsTimeout)
+  shortsTimeout = setTimeout(async () => {
+    shortsLoading.value = true
+    try {
+      const q = shortsSearch.value.trim()
+      const url = q ? `/reactor/posts/?q=${q}` : '/reactor/my-posts/'
+      const { data } = await apiClient.get(url)
+      shortsResults.value = data.results || []
+    } catch { shortsResults.value = [] }
+    finally { shortsLoading.value = false }
+  }, 300)
+}
 
-const userDisplayName = computed((): string => {
-  const name = currentUser.value?.display_name ?? currentUser.value?.username
-  return name ? name : ''
-}) as any as string
+const openAttachModal = () => {
+  showAttachModal.value = true
+  attachTab.value = 'anime'
+}
 
-const attachedPosterUrl = computed((): string => {
-  if (attachedContent.value?.type !== 'anime') return ''
-  const url = attachedContent.value?.poster_url || (attachedContent.value as any)?.poster || ''
-  return getMediaUrl(url) || '/placeholder-anime.jpg'
-}) as any as string
-
-const attachedTitleRu = computed((): string => {
-  if (attachedContent.value?.type !== 'anime') return ''
-  return attachedContent.value?.title_ru || ''
-}) as any as string
-
+// ─── Submit ───────────────────────────────────────────
 const canSubmit = computed(() => {
-  const hasText = text.value.trim().length > 0
-  const hasMedia = mediaPreview.value.length > 0
-  const hasAttachment = attachedContent.value !== null || attachedAnime.value !== null
-  const withinLimit = text.value.length <= 5000
-
-  return (hasText || hasMedia || hasAttachment) && withinLimit
+  const hasContent = text.value.trim().length > 0
+    || mediaFiles.value.length > 0
+    || attachedAnimes.value.length > 0
+    || attachedPlaylists.value.length > 0
+    || attachedShortsList.value.length > 0
+  return hasContent && text.value.length <= 5000
 })
 
-// Обработчик ошибок из пикера
-const onAttachmentError = (msg: string) => {
-  alert(msg)
-}
-
-// Обработчик выбора аниме из пикера
-const onAnimeSelected = (anime: AnimeAttachment | null) => {
-  attachedAnime.value = anime
-  showSpoilerToggle.value = !!anime
-}
-
-// Оставляем совместимость для legacy модалки выбора аниме
-const legacySelectAnime = (anime: any) => {
-  attachedAnime.value = {
-    id: anime.id,
-    title_ru: anime.title_ru,
-    title_en: anime.title_en,
-    poster_url: anime.poster_url,
-    poster_image_url: anime.poster_image_url,
-  }
-  showAnimeSelector.value = false
-  showSpoilerToggle.value = true
-}
-
-// Methods
-const autoResize = () => {
-  if (textArea.value) {
-    textArea.value.style.height = 'auto'
-    textArea.value.style.height = textArea.value.scrollHeight + 'px'
-  }
-}
-
-const toggleVisibilityMenu = () => {
-  showVisibilityMenu.value = !showVisibilityMenu.value
-}
-
-const setVisibility = (key: string) => {
-  visibility.value = key
-  showVisibilityMenu.value = false
-}
-
-// triggerFileInput / handleFileSelect / removeMedia / openAnimeSelector
-// теперь инкапсулированы в MediaAttachmentPicker
-
-// handleAnimeSearch / selectAnime теперь инкапсулированы в MediaAttachmentPicker
-
-const openPlaylistSelector = async () => {
-  showPlaylistSelector.value = true
-  try {
-    const response = await apiClient.get('/playlists/playlists/my/')
-    playlists.value = response.data.results || []
-  } catch (error) {
-    console.error('Error loading playlists:', error)
-  }
-}
-
-const selectPlaylist = (playlist: any) => {
-  attachedContent.value = {
-    type: 'playlist',
-    id: playlist.id,
-    title: playlist.title
-  }
-  showPlaylistSelector.value = false
-}
-
-const openShortsSelector = () => {
-  showShortsSelector.value = true
-  loadMyShorts()
-}
-
-const loadMyShorts = async () => {
-  shortsLoading.value = true
-  try {
-    const response = await apiClient.get('/reactor/my-posts/')
-    shortsResults.value = response.data.results || []
-  } catch (error) {
-    console.error('Error loading shorts:', error)
-    shortsResults.value = []
-  } finally {
-    shortsLoading.value = false
-  }
-}
-
-const searchShorts = async () => {
-  if (shortsSearch.value.length < 2) {
-    loadMyShorts()
-    return
-  }
-
-  shortsLoading.value = true
-  try {
-    const response = await apiClient.get(`/reactor/posts/?q=${shortsSearch.value}`)
-    shortsResults.value = response.data.results || []
-  } catch (error) {
-    console.error('Error searching shorts:', error)
-  } finally {
-    shortsLoading.value = false
-  }
-}
-
-const selectShorts = (shorts: any) => {
-  attachedContent.value = {
-    type: 'shorts',
-    id: shorts.id,
-    title: shorts.title,
-    video_url: shorts.video_url,
-    duration: shorts.duration,
-    author_username: shorts.user?.username
-  }
-  showShortsSelector.value = false
-}
-
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}
-
 const submitPost = async () => {
-  if (!canSubmit.value) return
-
+  if (!canSubmit.value || submitting.value) return
+  submitting.value = true
   try {
-    // Create form data
-    const formData = new FormData()
-    formData.append('title', title.value)
-    formData.append('text', text.value)
-    formData.append('visibility', visibility.value)
-    formData.append('allow_comments', allowComments.value.toString())
-    formData.append('is_spoiler', isSpoiler.value.toString())
+    const fd = new FormData()
+    fd.append('text', text.value)
+    fd.append('visibility', visibility.value)
+    fd.append('allow_comments', String(allowComments.value))
+    fd.append('is_spoiler', String(isSpoiler.value))
 
-    // Аниме может быть прикреплено либо через legacy attachedContent (совместимость),
-    // либо через новый attachedAnime из пикера
-    if (attachedAnime.value) {
-      formData.append('anime', attachedAnime.value.id.toString())
-      if (animeRating.value) {
-        formData.append('anime_rating', animeRating.value.toString())
-      }
-    } else if (attachedContent.value?.type === 'anime') {
-      formData.append('anime', attachedContent.value.id.toString())
-      if (animeRating.value) {
-        formData.append('anime_rating', animeRating.value.toString())
-      }
-    } else if (attachedContent.value?.type === 'playlist') {
-      formData.append('playlist', attachedContent.value.id.toString())
-    } else if (attachedContent.value?.type === 'shorts') {
-      formData.append('reactor_post', attachedContent.value.id.toString())
+    // Аниме (первый — основной)
+    if (attachedAnimes.value.length > 0) {
+      fd.append('anime', String(attachedAnimes.value[0].id))
+      if (animeRatings.value[0]) fd.append('anime_rating', String(animeRatings.value[0]))
+      // Дополнительные
+      attachedAnimes.value.slice(1).forEach((a, i) => {
+        fd.append(`extra_anime_${i}`, String(a.id))
+      })
+    }
+    if (attachedPlaylists.value.length > 0) {
+      fd.append('playlist', String(attachedPlaylists.value[0].id))
+      attachedPlaylists.value.slice(1).forEach((p, i) => {
+        fd.append(`extra_playlist_${i}`, String(p.id))
+      })
+    }
+    if (attachedShortsList.value.length > 0) {
+      fd.append('reactor_post', String(attachedShortsList.value[0].id))
     }
 
-    // Add media files (структура { type, url, file } из MediaAttachmentPicker)
-    mediaPreview.value.forEach((media: any, index: number) => {
-      if (media.file) {
-        formData.append(`media_${index}`, media.file)
-      }
-    })
+    mediaFiles.value.forEach((m, i) => { fd.append(`media_${i}`, m.file) })
 
-    const response = await apiClient.post('/social/posts/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+    const { data } = await apiClient.post('/social/posts/', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
-
-    // Сбрасываем пикер и локальное состояние
-    attachmentPicker.value?.reset()
-    attachedAnime.value = null
-    animeRating.value = null
-    const normalized = normalizePost(response.data)
-    emit('created', normalized)
-  } catch (error) {
-    console.error('Error creating post:', error)
-    alert('Ошибка при создании поста')
+    emit('created', normalizePost(data))
+  } catch (e) {
+    console.error('Error creating post:', e)
+    alert('Ошибка при публикации поста')
+  } finally {
+    submitting.value = false
   }
 }
 
-const fetchCurrentUser = async () => {
-  try {
-    const response = await apiClient.get('/users/me/')
-    currentUser.value = response.data
-  } catch (error) {
-    console.error('Error fetching user:', error)
-  }
+// ─── Misc ─────────────────────────────────────────────
+const autoResize = () => {
+  if (!textArea.value) return
+  textArea.value.style.height = 'auto'
+  textArea.value.style.height = textArea.value.scrollHeight + 'px'
 }
 
-onMounted(() => {
-  fetchCurrentUser()
-  nextTick(() => {
-    if (textArea.value) {
-      textArea.value.focus()
-    }
-  })
+onMounted(async () => {
+  try {
+    const { data } = await apiClient.get('/users/me/')
+    currentUser.value = data
+  } catch {}
+  await nextTick()
+  textArea.value?.focus()
+  if (props.initialType === 'playlist') { openAttachModal(); attachTab.value = 'playlist'; loadPlaylists() }
+  else if (props.initialType === 'anime') { openAttachModal(); attachTab.value = 'anime' }
 })
 </script>
 
 <style scoped>
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 1rem;
 }
 
 .create-post-modal {
-  background: #111;
-  border-radius: 16px;
-  border: 1px solid #1f1f1f;
-  width: 100%;
-  max-width: 760px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  background: #111; border-radius: 16px; border: 1px solid #1f1f1f;
+  width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #1f1f1f;
-}
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #1f1f1f; }
+.modal-header h2 { color: #fff; font-size: 1.1rem; margin: 0; }
+.close-btn { background: none; border: none; color: #666; font-size: 1.2rem; cursor: pointer; }
+.close-btn:hover { color: #fff; }
 
-.modal-header h2 {
-  color: #fff;
-  font-size: 1.25rem;
-  margin: 0;
-}
+.author-row { display: flex; align-items: center; gap: 0.875rem; padding: 0.875rem 1.5rem; border-bottom: 1px solid #1a1a1a; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.author-info { display: flex; flex-direction: column; gap: 0.2rem; }
+.name { color: #fff; font-weight: 600; font-size: 0.9rem; }
 
-.close-btn {
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 1.25rem;
-  cursor: pointer;
-  padding: 0.25rem;
-}
-
-.close-btn:hover {
-  color: #fff;
-}
-
-.author-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #1f1f1f;
-}
-
-.avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.author-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.name {
-  color: #fff;
-  font-weight: 600;
-}
-
-.visibility-selector {
-  position: relative;
-}
-
+.visibility-selector { position: relative; }
 .visibility-btn {
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding: 0.25rem 0;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #aaa;
+  font-size: 0.8rem; padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer;
 }
-
+.visibility-btn:hover { border-color: #667eea; color: #fff; }
 .visibility-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background: #1a1a1a;
-  border-radius: 8px;
-  padding: 0.5rem;
-  z-index: 10;
+  position: absolute; top: calc(100% + 4px); left: 0;
+  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  z-index: 20; min-width: 180px; padding: 0.25rem;
 }
-
 .visibility-menu button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  background: none;
-  border: none;
-  color: #888;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  border-radius: 4px;
-  white-space: nowrap;
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; color: #aaa; padding: 0.5rem 0.75rem;
+  cursor: pointer; border-radius: 6px; font-size: 0.85rem;
 }
+.visibility-menu button:hover, .visibility-menu button.active { background: #252525; color: #fff; }
 
-.visibility-menu button:hover,
-.visibility-menu button.active {
-  background: #252525;
-  color: #fff;
-}
-
-.content-area {
-  padding: 1rem 1.5rem;
-}
-
-.title-input {
-  width: 100%;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid #333;
-  color: #fff;
-  font-size: 1.1rem;
-  font-weight: 600;
-  padding: 0.5rem 0;
-  margin-bottom: 0.75rem;
-}
-
-.title-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
+.content-area { padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .text-input {
-  width: 100%;
-  min-height: 120px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  color: #ddd;
-  font-size: 1rem;
-  line-height: 1.6;
-  resize: none;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
+  width: 100%; min-height: 100px; background: transparent; border: none;
+  border-bottom: 1px solid #222; color: #ddd; font-size: 1rem;
+  line-height: 1.6; resize: none; box-sizing: border-box;
+}
+.text-input:focus { outline: none; border-bottom-color: #444; }
+.text-input::placeholder { color: #444; }
+
+.char-count { text-align: right; color: #555; font-size: 0.75rem; }
+.char-count.warning { color: #f59e0b; }
+.char-count.error { color: #ef4444; }
+
+.media-preview { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.preview-item { position: relative; width: 80px; height: 80px; border-radius: 8px; overflow: hidden; }
+.preview-item img, .preview-item video { width: 100%; height: 100%; object-fit: cover; }
+.remove-media-btn {
+  position: absolute; top: 3px; right: 3px;
+  background: rgba(0,0,0,0.75); color: #fff; border: none;
+  width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  font-size: 0.65rem; display: flex; align-items: center; justify-content: center;
 }
 
-.text-input:focus {
-  outline: none;
-  border-bottom-color: #333;
+.attached-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.attached-block {
+  display: flex; align-items: center; gap: 0.6rem;
+  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  padding: 0.5rem 0.75rem;
 }
+.attached-icon { font-size: 1.1rem; }
+.attached-label { flex: 1; color: #ddd; font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rating-input { display: flex; align-items: center; gap: 0.4rem; color: #888; font-size: 0.8rem; flex-shrink: 0; }
+.rating-field { width: 52px; background: #111; border: 1px solid #333; color: #fff; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.8rem; }
+.remove-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 0.9rem; padding: 0 0.25rem; }
+.remove-btn:hover { color: #ef4444; }
 
-.text-input::placeholder {
-  color: #444;
-}
-
-.char-count {
-  text-align: right;
-  color: #555;
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
-}
-
-.char-count.warning {
-  color: #f59e0b;
-}
-
-.char-count.error {
-  color: #ef4444;
-}
-
-.media-preview {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.preview-item {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.preview-item img,
-.preview-item video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.remove-btn {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.25rem;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.attached-content {
-  margin-top: 1rem;
-  border-radius: 8px;
-}
-
-.attached-anime-wrap {
-  position: relative;
-}
-
-.remove-anime-btn {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  z-index: 1;
-}
-
-.attached-anime {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: #1a1a1a;
-  border-radius: 8px;
-  border: 1px solid #333;
-}
-
-.anime-poster {
-  width: 80px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 6px;
-  flex-shrink: 0;
-  display: block;
-}
-
-.anime-poster-placeholder {
-  width: 70px;
-  height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #2a2a2a;
-  border-radius: 6px;
-  font-size: 2rem;
-  flex-shrink: 0;
-}
-
-.attached-anime-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  color: #fff;
-}
-
-.anime-title {
-  font-weight: 600;
-  font-size: 0.95rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rating-input {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-}
-
-.rating-field {
-  width: 60px;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  color: #fff;
-  padding: 0.35rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-
-.rating-field:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.btn-add-playlist {
-  background: transparent;
-  border: 1px solid #333;
-  color: #fff;
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s;
-}
-
-.btn-add-playlist:hover {
-  background: #252525;
-  border-color: #667eea;
-}
-
-.attached-playlist {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #fff;
-}
-
-.attached-shorts {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.shorts-preview {
-  position: relative;
-  width: 80px;
-  height: 120px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #000;
-}
-
-.shorts-preview video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.shorts-preview .duration {
-  position: absolute;
-  bottom: 0.25rem;
-  right: 0.25rem;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  font-size: 0.7rem;
-  padding: 0.125rem 0.25rem;
-  border-radius: 4px;
-}
-
-.shorts-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.shorts-title {
-  color: #fff;
-  font-weight: 600;
-}
-
-.shorts-author {
-  color: #888;
-  font-size: 0.85rem;
-}
-
-.shorts-link {
-  color: #667eea;
-  font-size: 0.8rem;
-}
-
-.spoiler-toggle,
-.comments-toggle {
-  margin-top: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.spoiler-toggle label,
-.comments-toggle label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #888;
-  cursor: pointer;
-}
-
-.spoiler-toggle input[type="checkbox"] {
-  accent-color: #667eea;
-}
-
-.comments-toggle input[type="checkbox"] {
-  accent-color: #667eea;
-}
+.toggles-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.toggle-label { display: flex; align-items: center; gap: 0.4rem; color: #888; font-size: 0.85rem; cursor: pointer; }
+.toggle-label input[type="checkbox"] { accent-color: #667eea; }
 
 .attachment-buttons {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 1.5rem;
-  border-top: 1px solid #1f1f1f;
-  border-bottom: 1px solid #1f1f1f;
+  display: flex; align-items: center; gap: 0.25rem;
+  padding: 0.5rem 1.5rem; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a;
 }
-
-.attachment-buttons button {
-  background: none;
-  border: none;
-  font-size: 1.3rem;
-  padding: 0.5rem 0.65rem;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background 0.2s, transform 0.1s;
-  opacity: 0.7;
-}
-
-.attachment-buttons button:hover {
-  background: #1a1a1a;
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-.submit-row {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #1f1f1f;
-}
-
-.submit-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 0.75rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
-}
-
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.submit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Selector Modal */
-.selector-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1001;
-}
-
-.selector-content {
-  background: #111;
-  border-radius: 12px;
-  padding: 1.5rem;
-  width: 95vw;
-  max-width: 95vw;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.selector-content h3 {
-  color: #fff;
-  margin-bottom: 1rem;
-}
-
-.selector-content h3 {
-  color: #fff;
-  margin-bottom: 1rem;
-}
-
-.search-box {
-  width: 100%;
-  margin-bottom: 1rem;
-}
-
-.search-box input {
-  width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  color: #fff;
-  padding: 0.75rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-}
-
-.search-box input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.results-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-height: 60vh;
-  overflow-y: auto;
-  width: 100%;
-}
-
-.result-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: #1a1a1a;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-  width: 100%;
-}
-
-.result-item:hover {
-  background: #252525;
-}
-
-.result-item img {
-  width: 60px;
-  height: 90px;
-  object-fit: cover;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.result-item span {
-  color: #ddd;
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.shorts-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.shorts-thumb {
+.attach-btn {
   position: relative;
-  width: 60px;
-  height: 80px;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #000;
-  flex-shrink: 0;
+  background: none; border: none; font-size: 1.35rem;
+  padding: 0.45rem 0.65rem; cursor: pointer; border-radius: 8px;
+  transition: background 0.2s, transform 0.1s; opacity: 0.75;
 }
+.attach-btn:hover, .attach-btn.active { background: #1a1a1a; opacity: 1; }
+.attach-btn.active { background: rgba(102,126,234,0.15); }
+.attach-count {
+  position: absolute; top: 2px; right: 2px;
+  background: #667eea; color: #fff; font-size: 0.6rem;
+  width: 14px; height: 14px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-weight: 700;
+}
+.hidden-input { display: none; }
 
-.shorts-thumb video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.submit-row { padding: 0.875rem 1.5rem; }
+.submit-btn {
+  width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff; border: none; padding: 0.75rem; border-radius: 8px;
+  font-weight: 600; cursor: pointer; font-size: 0.95rem;
+  transition: opacity 0.2s, transform 0.2s;
 }
+.submit-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.duration-badge {
-  position: absolute;
-  bottom: 0.25rem;
-  right: 0.25rem;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  font-size: 0.65rem;
-  padding: 0.125rem 0.25rem;
-  border-radius: 2px;
+/* ── Selector Modal ── */
+.selector-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center; z-index: 1001; padding: 1rem;
 }
+.selector-content {
+  background: #111; border-radius: 14px; border: 1px solid #222;
+  width: 100%; max-width: 480px; max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.selector-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1rem 0; margin-bottom: 0.25rem;
+}
+.selector-title { color: #fff; font-weight: 600; font-size: 1rem; }
+.selector-close {
+  background: none; border: none; color: #666; font-size: 1rem; cursor: pointer;
+}
+.selector-close:hover { color: #fff; }
 
-.shorts-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
+.attach-tabs { display: flex; border-bottom: 1px solid #1a1a1a; }
+.attach-tabs button {
+  flex: 1; background: none; border: none; color: #777;
+  padding: 0.75rem; font-size: 0.875rem; cursor: pointer; transition: all 0.2s;
 }
+.attach-tabs button:hover { color: #aaa; }
+.attach-tabs button.active { color: #fff; border-bottom: 2px solid #667eea; }
 
-.shorts-info .shorts-title {
-  color: #ddd;
-  font-size: 0.9rem;
-}
+.tab-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 
-.shorts-info .shorts-author {
-  color: #666;
-  font-size: 0.8rem;
+.selector-search {
+  margin: 0.75rem; background: #1a1a1a;
+  border: 1px solid #2a2a2a; color: #fff; padding: 0.6rem 0.875rem;
+  border-radius: 8px; font-size: 0.875rem; box-sizing: border-box;
 }
+.selector-search:focus { outline: none; border-color: #667eea; }
 
-.loading {
-  text-align: center;
-  color: #666;
-  padding: 1rem;
+.results-list { flex: 1; overflow-y: auto; padding: 0 0.75rem 0.75rem; max-height: 45vh; }
+.result-item {
+  display: flex; align-items: center; gap: 0.875rem;
+  padding: 0.625rem 0.5rem; border-radius: 8px; cursor: pointer; transition: background 0.2s;
 }
+.result-item:hover { background: #1a1a1a; }
+.result-item.selected { background: rgba(102,126,234,0.12); border: 1px solid rgba(102,126,234,0.3); }
+.result-item img { width: 44px; height: 64px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+.result-item-title { color: #ddd; font-size: 0.9rem; flex: 1; }
+.result-icon { font-size: 1.4rem; flex-shrink: 0; }
+.result-info { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; }
+.result-title { color: #ddd; font-size: 0.9rem; font-weight: 500; }
+.result-sub { color: #666; font-size: 0.78rem; }
+.check-icon { color: #667eea; font-size: 1rem; font-weight: 700; min-width: 16px; text-align: center; }
 
-.no-results {
-  text-align: center;
-  color: #666;
-  padding: 1rem;
-}
+.selector-loading { color: #666; font-size: 0.875rem; text-align: center; padding: 1.5rem; }
+.no-results { color: #555; font-size: 0.875rem; text-align: center; padding: 1.5rem; }
 
 .close-selector {
-  width: 100%;
-  background: #1a1a1a;
-  color: #888;
-  border: none;
-  padding: 0.75rem;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-top: 1rem;
+  margin: 0.75rem; background: #667eea; border: none; color: #fff;
+  padding: 0.625rem; border-radius: 8px; cursor: pointer; font-size: 0.875rem;
+  font-weight: 600;
 }
+.close-selector:hover { background: #5a6fd6; }
 </style>

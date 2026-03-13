@@ -266,10 +266,6 @@ class AnimeViewSet(viewsets.ModelViewSet):
                 pass
 
         # ── Сезон (season + season_year) ─────────────────────────
-        # Сезон хранится в description или специального поля нет — фильтруем по месяцу года через год
-        # Поскольку модель не имеет поля season/month, используем эвристику по году (season_year)
-        # и можем проверить поле genres__icontains для тега, если данные есть.
-        # Пока делаем season_year как дополнительный year фильтр.
         season_year = request.query_params.get('season_year')
         if season_year:
             try:
@@ -279,7 +275,6 @@ class AnimeViewSet(viewsets.ModelViewSet):
 
         # ── Сортировка ───────────────────────────────────────────
         ordering = request.query_params.get('ordering', '-score')
-        # Валидируем допустимые поля сортировки во избежание SQL-инъекций
         VALID_ORDER_FIELDS = {
             'score', '-score',
             'year', '-year',
@@ -917,35 +912,25 @@ class RandomAnimeView(APIView):
 class CurrentlyWatchingView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    # «Сейчас смотрит» = last_watched обновлялся не позже 2 часов назад.
+    # UserEpisodeProgress.last_watched (auto_now=True) пишется каждые ~30с из AnimeWatchView.
+    ACTIVE_WINDOW_HOURS = 2
+
     def get(self, request):
         from django.utils import timezone
         from datetime import timedelta
         from django.db.models import Count
-        from users.models import UserLibrary
         try:
-            # Берём всех, кто смотрит прямо сейчас (статус started, обновляли за последние 24ч)
-            cutoff = timezone.now() - timedelta(hours=24)
+            cutoff = timezone.now() - timedelta(hours=self.ACTIVE_WINDOW_HOURS)
             active = (
-                UserLibrary.objects
-                .filter(status='started', updated_at__gte=cutoff)
+                UserEpisodeProgress.objects
+                .filter(last_watched__gte=cutoff)
                 .values('anime_id')
                 .annotate(viewers=Count('user', distinct=True))
                 .order_by('-viewers')
             )
-            anime_ids = [r['anime_id'] for r in active]
+            anime_ids   = [r['anime_id'] for r in active]
             viewers_map = {r['anime_id']: r['viewers'] for r in active}
-
-            # Если «сейчас смотрят» пусто — показываем всех со статусом started (без ограничения по времени)
-            if not anime_ids:
-                fallback = (
-                    UserLibrary.objects
-                    .filter(status='started')
-                    .values('anime_id')
-                    .annotate(viewers=Count('user', distinct=True))
-                    .order_by('-viewers')[:50]
-                )
-                anime_ids = [r['anime_id'] for r in fallback]
-                viewers_map = {r['anime_id']: r['viewers'] for r in fallback}
 
             if not anime_ids:
                 return Response({'results': [], 'count': 0})
@@ -972,50 +957,228 @@ class HomeAPIView(APIView):
     def get(self, request):
         user = request.user if request.user.is_authenticated else None
         continue_watching = self._get_continue_watching(user) if user else []
-        rewatch = self._get_rewatch(user) if user else []
-        recommendations = self._get_recommendations(user)
-        trending = self._get_trending()
-        return Response({'continue_watching': continue_watching, 'rewatch': rewatch, 'recommendations': recommendations, 'trending': trending})
+        rewatch           = self._get_rewatch(user) if user else []
+        recommendations   = self._get_recommendations(user)
+        trending          = self._get_trending(user)
+        return Response({
+            'continue_watching': continue_watching,
+            'rewatch':           rewatch,
+            'recommendations':   recommendations,
+            'trending':          trending,
+        })
 
     def _get_continue_watching(self, user):
         from users.models import UserLibrary
-        library_items = UserLibrary.objects.filter(user=user, status='started').select_related('anime').order_by('-updated_at')[:15]
+        library_items = UserLibrary.objects.filter(
+            user=user, status='started'
+        ).select_related('anime').order_by('-updated_at')[:15]
         result = []
         for item in library_items:
             anime = item.anime
-            total_episodes = anime.episodes or 1
+            total_episodes   = anime.episodes or 1
             progress_percent = min(100, int((item.current_episode / total_episodes) * 100)) if total_episodes else 0
-            poster_url = anime.poster.url if anime.poster else anime.poster_url
-            result.append({'anime_id': anime.id, 'title': anime.title_ru or anime.title_en or '', 'title_en': anime.title_en or '', 'poster': poster_url, 'current_episode': item.current_episode, 'total_episodes': anime.episodes, 'progress_percent': progress_percent, 'last_watched': item.updated_at.isoformat() if item.updated_at else None})
+            poster_url       = anime.poster.url if anime.poster else anime.poster_url
+            result.append({
+                'anime_id':        anime.id,
+                'title':           anime.title_ru or anime.title_en or '',
+                'title_en':        anime.title_en or '',
+                'poster':          poster_url,
+                'current_episode': item.current_episode,
+                'total_episodes':  anime.episodes,
+                'progress_percent': progress_percent,
+                'last_watched':    item.updated_at.isoformat() if item.updated_at else None,
+            })
         return result
 
     def _get_rewatch(self, user):
         from users.models import UserLibrary
-        library_items = UserLibrary.objects.filter(user=user, status='completed').select_related('anime').order_by('-updated_at')[:10]
+        library_items = UserLibrary.objects.filter(
+            user=user, status='completed'
+        ).select_related('anime').order_by('-updated_at')[:10]
         result = []
         for item in library_items:
-            anime = item.anime
+            anime      = item.anime
             poster_url = anime.poster.url if anime.poster else anime.poster_url
-            result.append({'anime_id': anime.id, 'title': anime.title_ru or anime.title_en or '', 'title_en': anime.title_en or '', 'poster': poster_url, 'completed_date': item.updated_at.isoformat() if item.updated_at else None, 'user_rating': item.rating})
+            result.append({
+                'anime_id':       anime.id,
+                'title':          anime.title_ru or anime.title_en or '',
+                'title_en':       anime.title_en or '',
+                'poster':         poster_url,
+                'completed_date': item.updated_at.isoformat() if item.updated_at else None,
+                'user_rating':    item.rating,
+            })
         return result
 
     def _get_recommendations(self, user):
+        """
+        Персонализированные рекомендации:
+          - Основа: жанры аниме которое пользователь уже смотрел (статус started/completed)
+          - Бонус: жанры студий, на которые подписан (если есть подписки)
+          - Исключаем аниме которое пользователь уже смотрит или планирует
+          - Для неавторизованных: лучшее по рейтингу
+        """
         from anime.models import Anime
-        animes = Anime.objects.filter(score__gte=7.0, status='finished').order_by('-score')[:20]
+        from collections import Counter
+
+        if not user or not user.is_authenticated:
+            # Без авторизации — просто топ 20 по рейтингу
+            animes = Anime.objects.filter(score__gte=7.0).order_by('-score')[:20]
+            return [self._anime_to_dict(a) for a in animes]
+
+        from users.models import UserLibrary
+        from studios.models import StudioSubscription
+
+        # 1. Аниме которое пользователь уже смотрел или смотрит (или планирует)
+        watched_ids = set(
+            UserLibrary.objects.filter(
+                user=user,
+                status__in=('started', 'completed', 'on_hold', 'planned')
+            ).values_list('anime_id', flat=True)
+        )
+
+        # 2. Жанры из просмотренного (started + completed)
+        watched_anime = Anime.objects.filter(
+            id__in=UserLibrary.objects.filter(
+                user=user, status__in=('started', 'completed')
+            ).values_list('anime_id', flat=True)
+        )
+        genre_counter = Counter()
+        for anime in watched_anime:
+            for g in (anime.genres or []):
+                genre_counter[g] += 1
+
+        # 3. Жанры подписанных студий (если есть подписки)
+        subscribed_studios = list(
+            StudioSubscription.objects.filter(user=user)
+            .select_related('studio')
+            .values_list('studio__name', flat=True)
+        )
+        if subscribed_studios:
+            for studio_obj in StudioSubscription.objects.filter(user=user).select_related('studio'):
+                for g, cnt in (studio_obj.studio.genre_stats or {}).items():
+                    genre_counter[g] += max(1, cnt // 10)  # лёгкий вес
+
+        # 4. Строим фильтр по жанрам
+        top_genres = [g for g, _ in genre_counter.most_common(10)]
+
+        if top_genres:
+            genre_q = Q()
+            for g in top_genres:
+                genre_q |= Q(genres__icontains=g)
+            qs = Anime.objects.filter(genre_q, score__gte=6.5)
+        else:
+            qs = Anime.objects.filter(score__gte=7.5)
+
+        # 5. Бонус: аниме подписанных студий (JSON поле studios)
+        studio_bonus_ids = set()
+        if subscribed_studios:
+            sq = Q()
+            for s in subscribed_studios:
+                sq |= Q(studios__icontains=s)
+            studio_bonus_ids = set(
+                Anime.objects.filter(sq).values_list('id', flat=True)
+            )
+
+        # 6. Исключаем уже в библиотеке
+        candidates = list(
+            qs.exclude(id__in=watched_ids)
+            .order_by('-score')
+            [:60]
+        )
+
+        # 7. Сортируем: студийные вверх
+        def sort_key(anime):
+            base    = anime.score or 0
+            bonus   = 2.0 if anime.id in studio_bonus_ids else 0
+            # Жанровый матч
+            overlap = sum(1 for g in (anime.genres or []) if g in genre_counter)
+            return base + bonus + overlap * 0.3
+
+        candidates.sort(key=sort_key, reverse=True)
+        return [self._anime_to_dict(a) for a in candidates[:20]]
+
+    def _get_trending(self, user=None):
+        """
+        Популярное на этой неделе:
+          - Определяем по количеству записей UserEpisodeProgress за последние 7 дней
+          - Исключаем аниме которое текущий пользователь уже смотрит или смотрел
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.db.models import Count
+        from users.models import UserLibrary
+
+        week_ago = timezone.now() - timedelta(days=7)
+
+        # Смотрели / смотрят пользователь
+        excluded_ids: set = set()
+        if user and user.is_authenticated:
+            excluded_ids = set(
+                UserLibrary.objects.filter(
+                    user=user,
+                    status__in=('started', 'completed', 'on_hold', 'dropped')
+                ).values_list('anime_id', flat=True)
+            )
+
+        # Топ аниме по активности UserEpisodeProgress
+        trending_qs = (
+            UserEpisodeProgress.objects
+            .filter(last_watched__gte=week_ago)
+            .values('anime_id')
+            .annotate(views=Count('user', distinct=True))
+            .order_by('-views')
+            [:60]
+        )
+        trending_ids = [row['anime_id'] for row in trending_qs]
+
+        # Загружаем аниме в порядке идентификаторов
+        anime_map = {
+            a.id: a
+            for a in Anime.objects.filter(id__in=trending_ids)
+        }
+
         result = []
-        for anime in animes:
-            poster_url = anime.poster.url if anime.poster else anime.poster_url
-            result.append({'anime_id': anime.id, 'title': anime.title_ru or anime.title_en or '', 'title_en': anime.title_en or '', 'poster': poster_url, 'genres': anime.genres or [], 'rating': anime.score, 'rating_count': getattr(anime, 'favorites', 0) or 0, 'year': anime.year, 'status': anime.status})
+        for row in trending_qs:
+            aid = row['anime_id']
+            if aid in excluded_ids:
+                continue
+            anime = anime_map.get(aid)
+            if not anime:
+                continue
+            d = self._anime_to_dict(anime)
+            d['views_this_week'] = row['views']
+            result.append(d)
+            if len(result) >= 20:
+                break
+
+        # Фоллбэк: если активность недельная недостаточна — дополняем топом по рейтингу
+        if len(result) < 10:
+            existing = {r['anime_id'] for r in result}
+            fallback = (
+                Anime.objects.filter(score__isnull=False)
+                .exclude(id__in=excluded_ids | existing)
+                .order_by('-score')
+                [:20 - len(result)]
+            )
+            for anime in fallback:
+                result.append(self._anime_to_dict(anime))
+
         return result
 
-    def _get_trending(self):
-        from anime.models import Anime
-        animes = Anime.objects.filter(score__isnull=False).order_by('-score')[:20]
-        result = []
-        for anime in animes:
-            poster_url = anime.poster.url if anime.poster else anime.poster_url
-            result.append({'anime_id': anime.id, 'title': anime.title_ru or anime.title_en or '', 'title_en': anime.title_en or '', 'poster': poster_url, 'genres': anime.genres or [], 'rating': anime.score, 'year': anime.year, 'status': anime.status})
-        return result
+    @staticmethod
+    def _anime_to_dict(anime):
+        poster_url = anime.poster.url if anime.poster else anime.poster_url
+        return {
+            'anime_id':     anime.id,
+            'title':        anime.title_ru or anime.title_en or '',
+            'title_en':     anime.title_en or '',
+            'poster':       poster_url,
+            'genres':       anime.genres or [],
+            'rating':       anime.score,
+            'rating_count': 0,
+            'year':         anime.year,
+            'status':       anime.status,
+        }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1030,11 +1193,31 @@ class EpisodeProgressView(APIView):
             anime = Anime.objects.get(pk=anime_id)
         except Anime.DoesNotExist:
             return Response({'error': 'Аниме не найдено'}, status=404)
-        rows = UserEpisodeProgress.objects.filter(user=request.user, anime=anime)
-        data = [{'episode_number': r.episode_number, 'status': r.status, 'last_position': r.last_position, 'duration': r.duration, 'progress_percent': r.progress_percent, 'is_manually_marked': r.is_manually_marked, 'watched_at': r.watched_at.isoformat() if r.watched_at else None} for r in rows]
-        watched_count = sum(1 for r in rows if r.status in ('watched', 'skipped'))
-        total = anime.episodes or 0
-        return Response({'anime_id': anime_id, 'total': total, 'watched_count': watched_count, 'percent': round(watched_count / total * 100) if total else 0, 'episodes': data})
+        try:
+            rows = list(UserEpisodeProgress.objects.filter(user=request.user, anime=anime))
+            data = []
+            for r in rows:
+                try:
+                    pct = r.progress_percent
+                except Exception:
+                    pct = round(r.last_position / r.duration * 100) if (r.duration and r.duration > 0) else 0
+                data.append({
+                    'episode_number': r.episode_number,
+                    'status': r.status,
+                    'last_position': r.last_position,
+                    'duration': r.duration,
+                    'progress_percent': pct,
+                    'is_manually_marked': r.is_manually_marked,
+                    'watched_at': r.watched_at.isoformat() if r.watched_at else None,
+                })
+            watched_count = sum(1 for r in rows if r.status in ('watched', 'skipped'))
+            total = anime.episodes or 0
+            return Response({'anime_id': anime_id, 'total': total, 'watched_count': watched_count, 'percent': round(watched_count / total * 100) if total else 0, 'episodes': data})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            # Возвращаем пустой прогресс вместо 500
+            return Response({'anime_id': anime_id, 'total': anime.episodes or 0, 'watched_count': 0, 'percent': 0, 'episodes': [], 'warning': str(e)})
 
     def post(self, request, anime_id):
         episode_number = request.data.get('episode_number')
@@ -1135,6 +1318,570 @@ class EpisodeProgressView(APIView):
             lib.save(update_fields=['status', 'current_episode', 'updated_at'])
         except Exception as e:
             logging.getLogger(__name__).warning('_sync_library error: %s', e)
+
+
+class AnimeThemesView(APIView):
+    """
+    GET /anime/<id>/themes/?episode=1&season=1&translation_id=610
+
+    Получает тайминги опенинга/эндинга через официальный Kodik API:
+      1. kodikapi.com/search с with_episodes=True → URL страницы плеера серии
+      2. kodik.biz/api/video-links?skip_segments=true → поле segments.skip[]
+         skip-сегменты: первый = опенинг (начало серии), последний = эндинг (конец серии)
+
+    Возвращает:
+      { opening: {start, stop, kind} | null, ending: {start, stop, kind} | null }
+    """
+    permission_classes  = [permissions.AllowAny]
+    KODIK_API_TOKEN     = '74ecb013335271e4344ebc994956dd75'
+    KODIK_PRIVATE_KEY   = '692e74fa70fed3493e922cfcb6b0eab7'
+    KODIK_PUBLIC_KEY    = '74ecb013335271e4344ebc994956dd75'
+
+    def _get_episode_url(self, anime, episode, season, translation_id):
+        """Возвращает URL вида //kodik.info/seria/... для конкретной серии."""
+        params = {
+            'token':             self.KODIK_API_TOKEN,
+            'with_material_data': False,
+            'with_episodes':     True,
+            'limit':             100,
+        }
+        if anime.shikimori_id:
+            params['shikimori_id'] = anime.shikimori_id
+        elif anime.kodik_id:
+            params['id'] = anime.kodik_id
+        else:
+            return None
+        if translation_id:
+            params['translation_id'] = translation_id
+
+        r = requests.get('https://kodikapi.com/search', params=params, timeout=10)
+        r.raise_for_status()
+        season_key = str(season)
+        ep_key     = str(episode)
+        for res in r.json().get('results', []):
+            if translation_id:
+                tid = (res.get('translation') or {}).get('id')
+                if str(tid) != str(translation_id):
+                    continue
+            s_data  = ((res.get('seasons') or {}).get(season_key)) or {}
+            ep_data = s_data.get('episodes') or {}
+            ep_url  = ep_data.get(ep_key) or ep_data.get(int(ep_key) if ep_key.isdigit() else ep_key)
+            if ep_url:
+                return ep_url.strip()
+        return None
+
+    def _get_segments(self, episode_url, user_ip='1.1.1.1'):
+        """
+        Запрашивает kodik.biz/api/video-links?skip_segments=true.
+        Возвращает (opening|None, ending|None).
+
+        skip[] — список сегментов для пропуска (опенинг, эндинг, заставка).
+        Определяем роль по позиции в серии:
+          • сегмент заканчивается до середины серии → опенинг
+          • сегмент начинается после середины серии → эндинг
+        """
+        import hmac, hashlib
+        from datetime import datetime, timezone, timedelta
+
+        link = episode_url.strip()
+        if link.startswith('https:'):
+            link = link[6:]
+        elif link.startswith('http:'):
+            link = link[5:]
+
+        deadline = (datetime.now(timezone.utc) + timedelta(hours=6)).strftime('%Y%m%d%H')
+        sign_str  = f'{link}:{user_ip}:{deadline}'
+        signature = hmac.new(
+            self.KODIK_PRIVATE_KEY.encode(),
+            sign_str.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+
+        params = {
+            'link':          link,
+            'p':             self.KODIK_PUBLIC_KEY,
+            'ip':            user_ip,
+            'd':             deadline,
+            's':             signature,
+            'skip_segments': 'true',
+        }
+        r = requests.get('https://kodik.biz/api/video-links', params=params, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+
+        segments = data.get('segments') or {}
+        skip_list = segments.get('skip') or []
+
+        if not skip_list:
+            return None, None
+
+        # Оцениваем общую длину серии по крайнему концу всех сегментов
+        # (или берём максимальный end из skip+ad)
+        all_segs = (segments.get('ad') or []) + skip_list
+        max_end  = max((s.get('end', 0) for s in all_segs), default=0)
+        # Если данных мало — ориентируемся на 1200 с (20 мин) как типичная серия
+        total_est = max(max_end * 1.1, 1200)
+        midpoint  = total_est / 2
+
+        opening = None
+        ending  = None
+        for seg in skip_list:
+            start = seg.get('start', 0)
+            end   = seg.get('end', 0)
+            if end <= midpoint and opening is None:
+                opening = {'start': start, 'stop': end, 'kind': 'opening'}
+            elif start >= midpoint and ending is None:
+                ending = {'start': start, 'stop': end, 'kind': 'ending'}
+
+        return opening, ending
+
+    def get(self, request, pk):
+        try:
+            anime = Anime.objects.get(pk=pk)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        episode        = int(request.query_params.get('episode', 1))
+        season         = int(request.query_params.get('season', 1))
+        translation_id = request.query_params.get('translation_id')
+        user_ip        = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() \
+                         or request.META.get('REMOTE_ADDR', '1.1.1.1')
+
+        try:
+            episode_url = self._get_episode_url(anime, episode, season, translation_id)
+            if not episode_url:
+                return Response({
+                    'opening': None, 'ending': None,
+                    'error': 'Серия не найдена в Kodik'
+                }, status=404)
+
+            opening, ending = self._get_segments(episode_url, user_ip=user_ip)
+
+            return Response({
+                'opening': opening,
+                'ending':  ending,
+                'source':  'kodik_video_links',
+            })
+
+        except requests.RequestException as e:
+            return Response({'opening': None, 'ending': None,
+                             'error': f'Ошибка запроса к Kodik: {e}'}, status=503)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'opening': None, 'ending': None,
+                             'error': str(e)}, status=500)
+
+
+class KodikVideoUrlView(APIView):
+    """
+    GET /anime/<id>/kodik_video_url/?episode=1&season=1&translation_id=610
+
+    Возвращает прямой URL конкретной серии из Kodik для скачивания.
+
+    Алгоритм:
+      1. Kodik API search с with_episodes=True
+         → seasons.{season}.episodes.{episode} → прямая ссылка на плеер серии
+      2. Fallback: загружаем HTML страницы плеера и ищем .m3u8 в JS
+    """
+    permission_classes = [permissions.AllowAny]
+    KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
+
+    def get(self, request, pk):
+        try:
+            anime = Anime.objects.get(pk=pk)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        episode        = int(request.query_params.get('episode', 1))
+        season         = int(request.query_params.get('season', 1))
+        translation_id = request.query_params.get('translation_id')
+
+        try:
+            # 1. Kodik API: ищем прямую ссылку на серию через with_episodes=True
+            if anime.shikimori_id or anime.kodik_id:
+                params = {
+                    'token': self.KODIK_API_TOKEN,
+                    'with_material_data': False,
+                    'with_episodes': True,
+                    'limit': 100,
+                }
+                if anime.shikimori_id:
+                    params['shikimori_id'] = anime.shikimori_id
+                else:
+                    params['id'] = anime.kodik_id
+                if translation_id:
+                    params['translation_id'] = translation_id
+
+                r = requests.get('https://kodikapi.com/search', params=params, timeout=10)
+                r.raise_for_status()
+                results = r.json().get('results', [])
+
+                for res in results:
+                    seasons_data = res.get('seasons', {}) or {}
+                    s_data = seasons_data.get(str(season)) or seasons_data.get(season) or {}
+                    ep_data = s_data.get('episodes', {}) if s_data else {}
+                    ep_url = ep_data.get(str(episode)) or ep_data.get(episode)
+                    if ep_url:
+                        if ep_url.startswith('//'):
+                            ep_url = 'https:' + ep_url
+                        elif not ep_url.startswith('http'):
+                            ep_url = 'https://' + ep_url
+                        return Response({
+                            'm3u8_url': ep_url,
+                            'episode':  episode,
+                            'season':   season,
+                            'source':   'kodik_api',
+                        })
+
+            # 2. Fallback: парсим страницу плеера
+            kodik_link = anime.kodik_link
+            if not kodik_link:
+                return Response({'error': 'Нет kodik_link и не удалось найти через API'}, status=404)
+
+            if kodik_link.startswith('//'):
+                kodik_link = 'https:' + kodik_link
+            elif not kodik_link.startswith('http'):
+                kodik_link = 'https://' + kodik_link
+
+            from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+            parsed = urlparse(kodik_link)
+            qs = parse_qs(parsed.query)
+            qs['season']  = [str(season)]
+            qs['episode'] = [str(episode)]
+            if translation_id:
+                qs['only_translations'] = [str(translation_id)]
+            player_url = urlunparse(parsed._replace(query=urlencode({k: v[0] for k, v in qs.items()})))
+
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://anisphere.ru/',
+            }
+            page_resp = requests.get(player_url, headers=headers, timeout=15)
+            page_resp.raise_for_status()
+            page_html = page_resp.text
+
+            m3u8_url = None
+            for pat in [
+                r'"src":\s*"(//[^"]+\.m3u8[^"]*)"',
+                r"'src':\s*'(//[^']+\.m3u8[^']*)'",
+                r'"([^"]*\.m3u8)"',
+                r"'([^']*\.m3u8)'",
+            ]:
+                m = re.search(pat, page_html)
+                if m:
+                    m3u8_url = m.group(1)
+                    break
+
+            if not m3u8_url:
+                return Response({'error': 'Не удалось извлечь m3u8 из страницы плеера',
+                                 'player_url': player_url}, status=404)
+
+            if m3u8_url.startswith('//'):
+                m3u8_url = 'https:' + m3u8_url
+
+            return Response({
+                'm3u8_url':   m3u8_url,
+                'player_url': player_url,
+                'episode':    episode,
+                'season':     season,
+                'source':     'kodik_player_html',
+            })
+
+        except requests.RequestException as e:
+            return Response({'error': f'Ошибка запроса: {e}'}, status=503)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+
+
+class KodikClipDownloadView(APIView):
+    """
+    GET /anime/<pk>/clip/?episode=1&season=1&translation_id=610&start=60&end=150&label=clip
+
+    Нарезает MP4-фрагмент серии через ffmpeg на сервере.
+
+    Алгоритм получения m3u8:
+      1. Kodik API (kodikapi.com/search) → URL страницы плеера серии (//kodik.info/seria/...)
+      2. kodik.biz/api/video-links с HMAC-подписью → JSON с прямыми ссылками на m3u8
+      3. ffmpeg нарезает фрагмент из m3u8 и отдаёт готовый MP4
+    """
+    permission_classes = [permissions.AllowAny]
+
+    KODIK_API_TOKEN   = '74ecb013335271e4344ebc994956dd75'   # публичный
+    KODIK_PRIVATE_KEY = '692e74fa70fed3493e922cfcb6b0eab7'   # приватный (для HMAC)
+    KODIK_PUBLIC_KEY  = '74ecb013335271e4344ebc994956dd75'   # p= в video-links
+
+    # ------------------------------------------------------------------ #
+    #  Шаг 1: URL страницы плеера конкретной серии                        #
+    # ------------------------------------------------------------------ #
+    def _get_episode_player_url(self, anime, episode, season, translation_id):
+        """
+        Возвращает URL вида //kodik.info/seria/461359/hash/720p
+        для конкретной серии через kodikapi.com/search с with_episodes=True.
+        """
+        season_key = str(season)
+        ep_key     = str(episode)
+
+        try:
+            params = {
+                'token': self.KODIK_API_TOKEN,
+                'with_material_data': False,
+                'with_episodes': True,
+                'limit': 100,
+            }
+            if anime.shikimori_id:
+                params['shikimori_id'] = anime.shikimori_id
+            elif anime.kodik_id:
+                params['id'] = anime.kodik_id
+            else:
+                return None
+
+            if translation_id:
+                params['translation_id'] = translation_id
+
+            resp = requests.get('https://kodikapi.com/search', params=params, timeout=10)
+            resp.raise_for_status()
+
+            for res in resp.json().get('results', []):
+                # Если translation_id указан — берём только нужный
+                if translation_id:
+                    tid = (res.get('translation') or {}).get('id')
+                    if str(tid) != str(translation_id):
+                        continue
+
+                s_data  = ((res.get('seasons') or {}).get(season_key)) or {}
+                ep_data = s_data.get('episodes') or {}
+                ep_url  = ep_data.get(ep_key) or ep_data.get(int(ep_key) if ep_key.isdigit() else ep_key)
+
+                if ep_url:
+                    # Kodik возвращает //kodik.info/seria/... — оставляем как есть,
+                    # потому что video-links API принимает именно //... формат
+                    return ep_url.strip()
+
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning('_get_episode_player_url error: %s', e)
+
+        return None
+
+    # ------------------------------------------------------------------ #
+    #  Шаг 2: прямой m3u8 через kodik.biz/api/video-links                 #
+    # ------------------------------------------------------------------ #
+    def _get_m3u8_via_api(self, episode_url, user_ip='1.1.1.1'):
+        """
+        Запрашивает kodik.biz/api/video-links и возвращает прямой m3u8 URL.
+
+        Подпись: HMAC-SHA256(private_key, "{link}:{ip}:{deadline}")
+        Deadline: текущее UTC + 6 часов, формат YYYYMMDDHH
+        """
+        import hmac, hashlib
+        from datetime import datetime, timezone, timedelta
+
+        # Нормализуем ссылку: убираем https: если есть, оставляем //...
+        link = episode_url.strip()
+        if link.startswith('https:'):
+            link = link[6:]
+        elif link.startswith('http:'):
+            link = link[5:]
+        # Теперь link вида //kodik.info/seria/...
+
+        # Deadline: UTC now + 6 часов, формат YYYYMMDDHH
+        deadline_dt = datetime.now(timezone.utc) + timedelta(hours=6)
+        deadline = deadline_dt.strftime('%Y%m%d%H')
+
+        # HMAC-SHA256 подпись
+        sign_string = f'{link}:{user_ip}:{deadline}'
+        signature = hmac.new(
+            self.KODIK_PRIVATE_KEY.encode('utf-8'),
+            sign_string.encode('utf-8'),
+            hashlib.sha256,
+        ).hexdigest()
+
+        params = {
+            'link': link,
+            'p':    self.KODIK_PUBLIC_KEY,
+            'ip':   user_ip,
+            'd':    deadline,
+            's':    signature,
+        }
+
+        try:
+            resp = requests.get('https://kodik.biz/api/video-links', params=params, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+
+            # Формат ответа Kodik: {"links": {"720": {"Src": "https://...", "Type": "..."}, ...}}
+            # Внимание: ключи с заглавной буквы (Src, Type), значение — dict, не list
+            links = data.get('links') or {}
+            for quality in ['720', '1080', '480', '360', '240']:
+                ql = links.get(quality)
+                if not ql:
+                    continue
+                # Может быть dict {"Src": "..."} или list [{"src": "..."}]
+                items = ql if isinstance(ql, list) else [ql]
+                for item in items:
+                    # Пробуем оба варианта регистра
+                    src = (item.get('Src') or item.get('src')
+                           or item.get('File') or item.get('file') or '')
+                    if src:
+                        if src.startswith('//'):
+                            src = 'https:' + src
+                        return src
+
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning('_get_m3u8_via_api error: %s', e)
+
+        return None
+
+    # ------------------------------------------------------------------ #
+    #  Основной handler                                                    #
+    # ------------------------------------------------------------------ #
+    def get(self, request, pk):
+        import subprocess, tempfile, os, shutil, re, urllib.parse, threading
+        from django.http import FileResponse
+
+        try:
+            anime = Anime.objects.get(pk=pk)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        # Параметры запроса
+        try:
+            start          = float(request.query_params.get('start', 0))
+            end            = float(request.query_params.get('end', 0))
+            episode        = int(request.query_params.get('episode', 1))
+            season         = int(request.query_params.get('season', 1))
+            translation_id = request.query_params.get('translation_id')
+            label          = request.query_params.get('label', 'clip')[:40]
+        except (ValueError, TypeError):
+            return Response({'error': 'Некорректные параметры'}, status=400)
+
+        # end=99999 — специальное значение «скачать целиком»
+        full_episode = (end >= 99990)
+        duration = end - start
+        if not full_episode and duration <= 0:
+            return Response({'error': 'Конец должен быть позже начала'}, status=400)
+
+        # Шаг 1: URL плеера серии
+        episode_url = self._get_episode_player_url(anime, episode, season, translation_id)
+        if not episode_url:
+            return Response({'error': 'Не удалось найти серию в Kodik'}, status=503)
+
+        # Шаг 2: прямой m3u8
+        user_ip = (
+            request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+            or request.META.get('REMOTE_ADDR', '1.1.1.1')
+        )
+        m3u8_url = self._get_m3u8_via_api(episode_url, user_ip=user_ip)
+        if not m3u8_url:
+            return Response({'error': 'Не удалось получить ссылку на видео от Kodik'}, status=503)
+
+        # Шаг 3: нарезка через ffmpeg
+        ffmpeg_bin = shutil.which('ffmpeg') or '/usr/bin/ffmpeg'
+        if not ffmpeg_bin or not os.path.isfile(ffmpeg_bin):
+            return Response({'error': 'ffmpeg не установлен. Выполните: apt-get install -y ffmpeg'}, status=503)
+
+        safe_title = re.sub(r'[^\w\s\-]', '', anime.title_ru or anime.title_en or f'anime_{pk}').strip()[:50]
+        safe_label = re.sub(r'[^\w\s\-]', '', label).strip()
+        filename   = f'{safe_title} - Ep{episode} - {safe_label}.mp4'
+
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+            tmp_path = tmp.name
+
+        # Таймаут: целая серия может идти долго; даём 90 минут на целиком, 15 мин на фрагмент
+        ffmpeg_timeout = 5400 if full_episode else 900
+
+        try:
+            # Общие флаги для HLS/m3u8
+            hls_flags = [
+                '-headers', 'Referer: https://kodik.info/\r\nOrigin: https://kodik.info\r\n',
+                '-reconnect', '1',
+                '-reconnect_streamed', '1',
+                '-reconnect_delay_max', '10',
+            ]
+
+            if full_episode:
+                # Скачиваем всю серию — без -ss и -t
+                cmd = [
+                    ffmpeg_bin, '-y',
+                    *hls_flags,
+                    '-i', m3u8_url,
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-movflags', '+faststart',
+                    tmp_path,
+                ]
+            else:
+                # Нарезаем фрагмент: -ss после -i (точный seek для HLS)
+                cmd = [
+                    ffmpeg_bin, '-y',
+                    *hls_flags,
+                    '-i', m3u8_url,
+                    '-ss', str(start),
+                    '-t', str(duration),
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-movflags', '+faststart',
+                    tmp_path,
+                ]
+
+            result = subprocess.run(cmd, capture_output=True, timeout=ffmpeg_timeout)
+
+            if result.returncode != 0:
+                err = result.stderr.decode('utf-8', errors='replace')[-800:]
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+                return Response({'error': f'ffmpeg ошибка: {err}'}, status=500)
+
+            # Проверяем что файл не пустой
+            if os.path.getsize(tmp_path) < 1000:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+                return Response({'error': 'ffmpeg создал пустой файл — возможно ссылка уже истекла'}, status=500)
+
+            # Отдаём файл
+            encoded_name = urllib.parse.quote(filename)
+            response = FileResponse(
+                open(tmp_path, 'rb'),
+                content_type='video/mp4',
+                as_attachment=True,
+                filename=filename,
+            )
+            response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_name}"
+            response['X-Accel-Buffering']   = 'no'
+
+            def _cleanup():
+                import time as _t
+                _t.sleep(60)
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+            threading.Thread(target=_cleanup, daemon=True).start()
+            return response
+
+        except subprocess.TimeoutExpired:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+            return Response({'error': 'Таймаут: обработка заняла слишком долго'}, status=504)
+        except Exception as e:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
 
 
 class EpisodeProgressUndoView(APIView):

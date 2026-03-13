@@ -11,6 +11,7 @@ from .views import (
     CustomDubListView, CustomDubDetailView, HomeAPIView,
     RandomAnimeView, CurrentlyWatchingView,
     EpisodeProgressView, EpisodeProgressUndoView,
+    AnimeThemesView, KodikVideoUrlView, KodikClipDownloadView,
 )
 
 router = DefaultRouter()
@@ -44,6 +45,13 @@ urlpatterns = [
     
     # Proxy endpoint
     path('proxy/video/', proxy_video, name='proxy-video'),
+
+    # Theme times (opening/ending) from Shikimori
+    path('<int:pk>/themes/', AnimeThemesView.as_view(), name='anime-themes'),
+
+    # Direct Kodik video URL (m3u8) for downloading
+    path('<int:pk>/kodik_video_url/', KodikVideoUrlView.as_view(), name='kodik-video-url'),
+    path('<int:pk>/clip/', KodikClipDownloadView.as_view(), name='kodik-clip-download'),
 ]
 
 # kodik_proxy маршруты (без 'api/' префикса — он добавляется в корневом urls.py)

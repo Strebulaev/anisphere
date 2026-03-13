@@ -1,6 +1,15 @@
 <template>
   <div class="modal-overlay" @click="$emit('close')">
     <div class="post-menu" @click.stop>
+      <!-- Подписаться/Отписаться (всегда видна, если не свой пост) -->
+      <template v-if="!isOwnPost">
+        <button @click="handleFollowToggle" class="menu-item" :disabled="followLoading">
+          <span class="icon">{{ isFollowing ? '🔕' : '🔔' }}</span>
+          <span>{{ followLoading ? '...' : (isFollowing ? 'Отписаться' : 'Подписаться') }}</span>
+        </button>
+        <div class="menu-divider"></div>
+      </template>
+
       <!-- Author actions -->
       <template v-if="post.can_edit || post.can_delete">
         <button v-if="post.can_edit" @click="emit('edit', post); emit('close')" class="menu-item">
@@ -20,12 +29,12 @@
       </template>
 
       <!-- Common actions -->
-      <button @click="handleBookmark" class="menu-item">
+      <button @click="handleBookmark" class="menu-item" :disabled="bookmarkLoading">
         <span class="icon">{{ post.is_bookmarked ? '⭐' : '☆' }}</span>
-        <span>{{ post.is_bookmarked ? 'Убрать из закладок' : 'Сохранить в закладки' }}</span>
+        <span>{{ post.is_bookmarked ? 'Убрать из закладок' : 'В закладки' }}</span>
       </button>
 
-      <button @click="handleHide" class="menu-item">
+      <button v-if="!isOwnPost" @click="handleHide" class="menu-item">
         <span class="icon">🙈</span>
         <span>Не интересно</span>
       </button>
@@ -35,19 +44,19 @@
         <span>Переслать</span>
       </button>
 
-      <button @click="emit('repost', post); emit('close')" class="menu-item">
+      <button @click="handleRepost" class="menu-item">
         <span class="icon">🔁</span>
         <span>Репост</span>
       </button>
 
       <div class="menu-divider"></div>
 
-      <button @click="handleReport" class="menu-item warn">
+      <button v-if="!isOwnPost" @click="handleReport" class="menu-item warn">
         <span class="icon">🚩</span>
         <span>Пожаловаться</span>
       </button>
 
-      <div class="menu-divider"></div>
+      <div v-if="!isOwnPost" class="menu-divider"></div>
 
       <button @click="copyLink" class="menu-item">
         <span class="icon">🔗</span>
@@ -58,6 +67,9 @@
         <span>Копировать текст</span>
       </button>
     </div>
+
+    <!-- Уведомление о копировании -->
+    <div v-if="copyNotice" class="copy-notice">{{ copyNotice }}</div>
 
     <!-- Delete Confirm Dialog -->
     <div v-if="showDeleteConfirm" class="confirm-dialog" @click.stop>
@@ -82,7 +94,7 @@
       <button class="btn-cancel" @click="showHideDialog = false">Отмена</button>
     </div>
 
-    <!-- Report Dialog (inline) -->
+    <!-- Report Dialog -->
     <div v-if="showReport" class="confirm-dialog report-dialog" @click.stop>
       <p class="confirm-text">Причина жалобы:</p>
       <div class="reason-list">
@@ -113,8 +125,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/api/client'
+import { followsApi } from '@/api/feed'
+import { useAuthStore } from '@/stores/auth'
 
 interface Post {
   id: number
@@ -124,6 +138,8 @@ interface Post {
   is_pinned: boolean
   is_bookmarked: boolean
   author_username?: string
+  author?: number
+  is_following?: boolean
 }
 
 const props = defineProps<{ post: Post }>()
@@ -139,14 +155,27 @@ const emit = defineEmits<{
   repost: [post: Post]
   forward: [post: Post]
   reported: []
+  followed: [userId: number, following: boolean]
 }>()
 
+const authStore = useAuthStore()
 const showDeleteConfirm = ref(false)
 const showHideDialog = ref(false)
 const showReport = ref(false)
 const selectedReason = ref('')
 const reportComment = ref('')
 const reporting = ref(false)
+const bookmarkLoading = ref(false)
+const followLoading = ref(false)
+const copyNotice = ref('')
+const isFollowing = ref(props.post.is_following || false)
+
+const isOwnPost = computed(() => {
+  const me = (authStore.user as any)
+  if (!me) return false
+  return (props.post as any).can_edit || (props.post as any).can_delete
+    || (props.post.author === me.id) || (props.post.author_username === me.username)
+})
 
 const reportReasons = [
   { id: 'spam', icon: '📢', label: 'Спам' },
@@ -157,41 +186,48 @@ const reportReasons = [
   { id: 'other', icon: '❓', label: 'Другое' },
 ]
 
-const confirmDelete = () => {
-  showDeleteConfirm.value = true
+const confirmDelete = () => { showDeleteConfirm.value = true }
+const doDelete = () => { emit('delete', props.post); emit('close') }
+
+const handleBookmark = async () => {
+  if (bookmarkLoading.value) return
+  bookmarkLoading.value = true
+  try {
+    if (props.post.is_bookmarked) {
+      await apiClient.post(`/social/posts/${props.post.id}/bookmark/remove/`)
+    } else {
+      await apiClient.post(`/social/posts/${props.post.id}/bookmark/`)
+    }
+    emit('bookmark', props.post)
+  } catch (e) { console.error(e) }
+  finally { bookmarkLoading.value = false; emit('close') }
 }
 
-const doDelete = () => {
-  emit('delete', props.post)
-  emit('close')
+const handleFollowToggle = async () => {
+  if (followLoading.value) return
+  followLoading.value = true
+  try {
+    // Найти userId автора поста
+    const authorId = (props.post as any).author
+    if (authorId) {
+      const { data } = await followsApi.toggleFollow(authorId)
+      isFollowing.value = data.following
+      emit('followed', authorId, data.following)
+    }
+  } catch (e) { console.error(e) }
+  finally { followLoading.value = false }
 }
 
-const handleBookmark = () => {
-  emit('bookmark', props.post)
-  emit('close')
-}
-
-const handleHide = () => {
-  showHideDialog.value = true
-}
-
+const handleHide = () => { showHideDialog.value = true }
 const doHide = (mode: 'post' | 'author') => {
-  if (mode === 'author') {
-    emit('hideAuthor', props.post)
-  } else {
-    emit('hide', props.post)
-  }
+  if (mode === 'author') emit('hideAuthor', props.post)
+  else emit('hide', props.post)
   emit('close')
 }
 
-const handleForward = () => {
-  emit('forward', props.post)
-  emit('close')
-}
-
-const handleReport = () => {
-  showReport.value = true
-}
+const handleForward = () => { emit('forward', props.post); emit('close') }
+const handleRepost = () => { emit('repost', props.post); emit('close') }
+const handleReport = () => { showReport.value = true }
 
 const submitReport = async () => {
   if (!selectedReason.value) return
@@ -203,218 +239,116 @@ const submitReport = async () => {
     })
     emit('reported')
     emit('close')
-  } catch (e) {
-    console.error(e)
-  } finally {
-    reporting.value = false
-  }
+  } catch (e) { console.error(e) }
+  finally { reporting.value = false }
 }
 
 const copyLink = async () => {
-  await navigator.clipboard.writeText(`${window.location.origin}/post/${props.post.id}`)
-  emit('close')
+  const url = `${window.location.origin}/post/${props.post.id}`
+  try {
+    await navigator.clipboard.writeText(url)
+    showCopyNotice('Ссылка скопирована!')
+  } catch {
+    // Fallback
+    const el = document.createElement('textarea')
+    el.value = url; document.body.appendChild(el); el.select()
+    document.execCommand('copy'); document.body.removeChild(el)
+    showCopyNotice('Ссылка скопирована!')
+  }
+  setTimeout(() => emit('close'), 1200)
 }
 
 const copyText = async () => {
-  await navigator.clipboard.writeText(props.post.text)
-  emit('close')
+  try {
+    await navigator.clipboard.writeText(props.post.text)
+    showCopyNotice('Текст скопирован!')
+  } catch {}
+  setTimeout(() => emit('close'), 1200)
 }
+
+const showCopyNotice = (msg: string) => {
+  copyNotice.value = msg
+  setTimeout(() => { copyNotice.value = '' }, 2000)
+}
+
+onMounted(() => {
+  isFollowing.value = props.post.is_following || false
+})
 </script>
 
 <style scoped>
 .modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 1000; padding: 1rem;
 }
 
-@media (min-width: 640px) {
-  .modal-overlay {
-    align-items: center;
-  }
-}
+@media (min-width: 640px) { .modal-overlay { align-items: center; } }
 
 .post-menu {
-  background: #111;
-  border-radius: 16px;
-  padding: 0.5rem;
-  width: 100%;
-  max-width: 320px;
-  border: 1px solid #1f1f1f;
+  background: #111; border-radius: 16px; padding: 0.5rem;
+  width: 100%; max-width: 320px; border: 1px solid #1f1f1f;
 }
 
 .menu-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  background: none;
-  border: none;
-  color: #ddd;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  transition: background 0.2s;
-  text-align: left;
+  display: flex; align-items: center; gap: 0.75rem;
+  width: 100%; background: none; border: none; color: #ddd;
+  padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px;
+  font-size: 0.9rem; transition: background 0.2s; text-align: left;
 }
-
-.menu-item:hover {
-  background: #1a1a1a;
-}
-
+.menu-item:hover:not(:disabled) { background: #1a1a1a; }
+.menu-item:disabled { opacity: 0.5; cursor: not-allowed; }
 .menu-item.danger { color: #ef4444; }
-.menu-item.danger:hover { background: #2a1515; }
+.menu-item.danger:hover:not(:disabled) { background: #2a1515; }
 .menu-item.warn { color: #f59e0b; }
-.menu-item.warn:hover { background: #2a2010; }
+.menu-item.warn:hover:not(:disabled) { background: #2a2010; }
 
-.menu-item .icon {
-  font-size: 1.1rem;
-  flex-shrink: 0;
+.menu-item .icon { font-size: 1.1rem; flex-shrink: 0; }
+.hint { margin-left: auto; color: #555; font-size: 0.75rem; }
+.menu-divider { height: 1px; background: #1f1f1f; margin: 0.4rem 0; }
+
+/* Copy notice */
+.copy-notice {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: #222; color: #fff; padding: 0.5rem 1.25rem; border-radius: 20px;
+  font-size: 0.85rem; z-index: 1100; pointer-events: none;
+  border: 1px solid #333;
 }
 
-.hint {
-  margin-left: auto;
-  color: #555;
-  font-size: 0.75rem;
-}
-
-.menu-divider {
-  height: 1px;
-  background: #1f1f1f;
-  margin: 0.4rem 0;
-}
-
-/* Confirm/Dialog overlays */
+/* Confirm/Dialog */
 .confirm-dialog {
-  position: absolute;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 2rem);
-  max-width: 320px;
-  background: #161616;
-  border: 1px solid #2a2a2a;
-  border-radius: 16px;
-  padding: 1.25rem;
-  z-index: 10;
+  position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  width: calc(100% - 2rem); max-width: 320px;
+  background: #161616; border: 1px solid #2a2a2a; border-radius: 16px;
+  padding: 1.25rem; z-index: 10;
 }
+.confirm-text { color: #ddd; font-size: 0.9rem; margin: 0 0 1rem; text-align: center; }
+.confirm-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+.btn-cancel { background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+.btn-confirm-delete { background: #ef4444; border: none; color: white; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+.btn-confirm-delete:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.confirm-text {
-  color: #ddd;
-  font-size: 0.9rem;
-  margin: 0 0 1rem;
-  text-align: center;
-}
-
-.confirm-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-.btn-cancel {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #888;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.btn-confirm-delete {
-  background: #ef4444;
-  border: none;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.btn-confirm-delete:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Hide options */
-.hide-options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
+.hide-options { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
 .hide-option {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #ddd;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: background 0.2s;
-  width: 100%;
-  text-align: left;
+  display: flex; align-items: center; gap: 0.75rem;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #ddd;
+  padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer;
+  font-size: 0.875rem; transition: background 0.2s; width: 100%; text-align: left;
 }
+.hide-option:hover { background: #222; }
 
-.hide-option:hover {
-  background: #222;
-}
-
-/* Report */
-.report-dialog {
-  padding: 1rem;
-}
-
-.reason-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  margin-bottom: 0.75rem;
-}
-
+.report-dialog { padding: 1rem; }
+.reason-list { display: flex; flex-direction: column; gap: 0.375rem; margin-bottom: 0.75rem; }
 .reason-btn {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #aaa;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  text-align: left;
-  transition: all 0.2s;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #aaa;
+  padding: 0.5rem 0.75rem; border-radius: 8px; cursor: pointer;
+  font-size: 0.8rem; text-align: left; transition: all 0.2s;
 }
-
-.reason-btn.selected {
-  border-color: #667eea;
-  background: #1a1f35;
-  color: #8b9ef5;
-}
-
-.reason-btn:hover:not(.selected) {
-  background: #222;
-}
-
+.reason-btn.selected { border-color: #667eea; background: #1a1f35; color: #8b9ef5; }
+.reason-btn:hover:not(.selected) { background: #222; }
 .report-textarea {
-  width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  color: #aaa;
-  font-size: 0.8rem;
-  resize: none;
-  margin-bottom: 0.75rem;
-  box-sizing: border-box;
+  width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  padding: 0.5rem 0.75rem; color: #aaa; font-size: 0.8rem;
+  resize: none; margin-bottom: 0.75rem; box-sizing: border-box;
 }
 </style>

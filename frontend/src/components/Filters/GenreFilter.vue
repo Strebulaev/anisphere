@@ -68,11 +68,14 @@ const emit = defineEmits<{
 const searchQuery = ref('')
 
 const filteredGenres = computed(() => {
-  if (!searchQuery.value) return props.genres
-  const query = searchQuery.value.toLowerCase()
-  return props.genres.filter(genre =>
-    genre.label.toLowerCase().includes(query)
-  )
+  const selected = selectedGenres.value
+  const pool = !searchQuery.value
+    ? props.genres
+    : props.genres.filter(genre => genre.label.toLowerCase().includes(searchQuery.value.toLowerCase()))
+  // Выбранные жанры всегда идут первыми
+  const selectedInPool = pool.filter(g => selected.includes(String(g.value)))
+  const unselectedInPool = pool.filter(g => !selected.includes(String(g.value)))
+  return [...selectedInPool, ...unselectedInPool]
 })
 
 const selectedGenres = computed({

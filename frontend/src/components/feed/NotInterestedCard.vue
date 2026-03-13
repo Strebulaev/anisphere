@@ -10,14 +10,8 @@
     </div>
 
     <div class="card-actions">
-      <button class="btn-profile" @click="goToProfile" title="Профиль">👤</button>
-      <button
-        class="btn-unblock"
-        :class="{ loading: isRemoving }"
-        @click="handleRemove"
-        :disabled="isRemoving"
-      >
-        <span v-if="!isRemoving">Показывать снова</span>
+      <button class="btn-unblock" :class="{ loading: isRemoving }" @click.stop="handleRemove" :disabled="isRemoving">
+        <span v-if="!isRemoving">👁 Разблокировать</span>
         <span v-else>...</span>
       </button>
     </div>
@@ -38,10 +32,8 @@ const isRemoving = ref(false)
 
 const defaultAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23333'/%3E%3Ccircle cx='20' cy='15' r='6' fill='%23666'/%3E%3Cpath d='M8 36c0-6.627 5.373-12 12-12s12 5.373 12 12' fill='%23666'/%3E%3C/svg%3E`
 
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+const formatDate = (dateStr: string) =>
+  new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
 
 const goToProfile = () => router.push(`/profile/${props.user.username}`)
 
@@ -60,105 +52,25 @@ const handleRemove = async () => {
 
 <style scoped>
 .ni-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #111;
-  border-radius: 12px;
-  padding: 0.875rem 1rem;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #111; border-radius: 12px; padding: 0.875rem 1rem;
   transition: background 0.2s;
 }
+.ni-card:hover { background: #161616; }
 
-.ni-card:hover {
-  background: #161616;
-}
+.user-info { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; flex: 1; min-width: 0; }
+.avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; filter: grayscale(30%); }
+.user-details { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.display-name { color: #bbb; font-weight: 600; font-size: 0.95rem; }
+.username { color: #555; font-size: 0.8rem; }
+.hidden-since { color: #444; font-size: 0.75rem; }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  cursor: pointer;
-  flex: 1;
-  min-width: 0;
-}
-
-.avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-  filter: grayscale(30%);
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.display-name {
-  color: #bbb;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.username {
-  color: #555;
-  font-size: 0.8rem;
-}
-
-.hidden-since {
-  color: #444;
-  font-size: 0.75rem;
-}
-
-.card-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-
-.btn-profile {
-  background: #1a1a1a;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.btn-profile:hover {
-  background: #252525;
-}
-
+.card-actions { flex-shrink: 0; }
 .btn-unblock {
-  background: #1a2a1a;
-  border: 1px solid #2a4a2a;
-  color: #4ade80;
-  padding: 0.5rem 0.875rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  white-space: nowrap;
+  background: #1a2a1a; border: 1px solid #2a4a2a; color: #4ade80;
+  padding: 0.5rem 0.875rem; border-radius: 8px; cursor: pointer;
+  font-size: 0.8rem; font-weight: 500; transition: all 0.2s; white-space: nowrap;
 }
-
-.btn-unblock:hover:not(:disabled) {
-  background: #1f3a1f;
-  border-color: #4ade80;
-}
-
-.btn-unblock.loading {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+.btn-unblock:hover:not(:disabled) { background: #1f3a1f; border-color: #4ade80; }
+.btn-unblock.loading { opacity: 0.6; cursor: not-allowed; }
 </style>

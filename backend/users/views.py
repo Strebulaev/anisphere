@@ -1,10 +1,10 @@
-from django.shortcuts import render
+﻿from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import update_last_login
 from django.utils import timezone
 from datetime import timedelta
 from django.http import HttpResponse
-from rest_framework import status, generics
+from rest_framework import status, generics, viewsets
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -33,8 +33,10 @@ from .serializers import (
     PhoneVerificationSerializer, EmailVerificationSerializer,
     GoogleAuthSerializer, PasswordResetSerializer,
     ProfileUpdateSerializer, UserSessionSerializer, UserSettingsSerializer,
-    NicknameCheckSerializer, TwoFactorSetupSerializer, ChangePasswordSerializer
+    NicknameCheckSerializer, TwoFactorSetupSerializer, ChangePasswordSerializer,
+    UserLibrarySerializer
 )
+from .models import UserLibrary
 from core.redis_events import event_publisher
 
 
@@ -2311,960 +2313,153 @@ class AccountDeletionView(APIView):
         return Response(stats)
 
     def post(self, request):
-        """Запланировать удаление аккаунта"""
-        from django.core.cache import cache
-        from datetime import timedelta
-        from django.core.mail import send_mail
+        """Получить статистику аккаунта перед удалением"""
+        from social.models import Message, Comment, PrivateChat
+        from anime.models import Anime
 
-        data = request.data
-        password = data.get('password')
-        two_factor_code = data.get('two_factor_code')
-        reasons = data.get('reasons', [])
-        alternative = data.get('alternative', '')
-        other_reason = data.get('other_reason', '')
+        user = request.user
 
-        # Проверка пароля или 2FA кода
-        if password:
-            if not request.user.check_password(password):
-                return Response({'error': 'Неверный пароль'}, status=400)
-        elif two_factor_code:
-            # Проверка 2FA кода
-            if hasattr(request.user, 'two_factor'):
-                two_factor = request.user.two_factor
-                if not two_factor.verify_code(two_factor_code):
-                    return Response({'error': 'Неверный код 2FA'}, status=400)
-            else:
-                return Response({'error': '2FA не настроена'}, status=400)
-        else:
-            return Response({'error': 'Требуется пароль или код 2FA'}, status=400)
-
-        # Проверка подтверждения
-        if not data.get('final_confirmation'):
-            return Response({'error': 'Требуется подтверждение удаления'}, status=400)
-
-        # Запланировываем удаление через 7 дней
-        deletion_date = timezone.now() + timedelta(days=7)
-        deletion_key = f'account_deletion:{request.user.id}'
-
-        deletion_data = {
-            'scheduled_date': deletion_date.isoformat(),
-            'reasons': reasons,
-            'alternative': alternative,
-            'other_reason': other_reason,
-            'confirmed_at': timezone.now().isoformat(),
-            'ip_address': self.get_client_ip(request)
+        # Подсчет статистики
+        stats = {
+            'playlists_count': user.playlists_count,
+            'comments_count': user.comments_count,
+            'posts_count': user.posts_count,
+            'likes_received': user.likes_received,
+            'messages_count': Message.objects.filter(sender=user).count(),
+            'chats_count': PrivateChat.objects.filter(user1=user).count() + PrivateChat.objects.filter(user2=user).count(),
+            'library_count': user.library.count() if hasattr(user, 'library') else 0,
+            'has_2fa': user.two_factor_enabled if hasattr(user, 'two_factor_enabled') else False,
+            'masked_email': user.email[:3] + '***' + user.email.split('@')[1] if user.email else '',
+            'deletion_scheduled': False,
+            'deletion_date': None
         }
 
-        # Сохраняем в кэш на 7 дней
-        cache.set(deletion_key, deletion_data, timeout=7 * 24 * 60 * 60)
-
-        # Записываем в лог безопасности
-        SecurityLog.objects.create(
-            user=request.user,
-            action='account_deletion_scheduled',
-            ip_address=self.get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', ''),
-            additional_data=deletion_data
-        )
-
-        # Отправляем email подтверждение
-        self.send_deletion_confirmation_email(request.user, deletion_date)
-
-        return Response({
-            'success': True,
-            'message': 'Удаление аккаунта запланировано. Вам отправлено письмо с подтверждением.',
-            'deletion_date': deletion_date.isoformat()
-        })
-
-    def delete(self, request):
-        """Отменить запланированное удаление аккаунта"""
+        # Проверяем, запланировано ли удаление
         from django.core.cache import cache
-
-        deletion_key = f'account_deletion:{request.user.id}'
+        deletion_key = f'account_deletion:{user.id}'
         deletion_data = cache.get(deletion_key)
 
-        if not deletion_data:
-            return Response({'error': 'Удаление аккаунта не запланировано'}, status=400)
+        if deletion_data:
+            stats['deletion_scheduled'] = True
+            stats['deletion_date'] = deletion_data.get('scheduled_date')
 
-        # Удаляем из кэша
-        cache.delete(deletion_key)
+        return Response(stats)
 
-        # Записываем в лог безопасности
-        SecurityLog.objects.create(
-            user=request.user,
-            action='account_deletion_cancelled',
-            ip_address=self.get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
 
-        # Отправляем email уведомление
-        self.send_deletion_cancelled_email(request.user)
+class UsersListView(generics.ListAPIView):
+    """Список пользователей с фильтрацией по статусу онлайн"""
+    serializer_class = UserSerializer
+    permission_classes = (AllowAny,)
 
-        return Response({
-            'success': True,
-            'message': 'Удаление аккаунта отменено'
-        })
+    def get_queryset(self):
+        from django.db.models import Q
+        
+        queryset = User.objects.all()
 
-    def send_deletion_confirmation_email(self, user, deletion_date):
-        """Отправить письмо с подтверждением удаления"""
-        from django.conf import settings
+        # Фильтр по статусу онлайн
+        status = self.request.query_params.get('status')
+        if status == 'online':
+            queryset = queryset.filter(is_online=True)
+        elif status == 'offline':
+            queryset = queryset.filter(is_online=False)
 
-        subject = 'Запрос на удаление аккаунта - AnimeCore'
-        message = f'''
-Здравствуйте, {user.display_name or user.username}!
-
-Ваш запрос на удаление аккаунта AnimeCore был принят.
-
-Аккаунт будет удален: {deletion_date.strftime('%d.%m.%Y в %H:%M')}
-
-Если вы хотите отменить удаление, просто войдите в свой аккаунт в течение 7 дней.
-
-Если вы не отправляли этот запрос, пожалуйста, немедленно свяжитесь с поддержкой.
-        '''
-
-        html_message = f'''
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">AnimeCore</h1>
-                <p style="color: #e8e8e8; margin: 10px 0 0 0;">Удаление аккаунта</p>
-            </div>
-
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <p style="color: #333; line-height: 1.6;">Здравствуйте, <strong>{user.display_name or user.username}</strong>!</p>
-
-                <p style="color: #666; line-height: 1.6;">Ваш запрос на удаление аккаунта AnimeCore был принят.</p>
-
-                <div style="background: #fff3cd; padding: 20px; border-left: 4px solid #ffc107; margin: 20px 0;">
-                    <p style="margin: 0; color: #856404; font-weight: 600;">
-                        📅 Дата удаления: {deletion_date.strftime('%d.%m.%Y в %H:%M')}
-                    </p>
-                </div>
-
-                <p style="color: #666; line-height: 1.6;">Если вы хотите отменить удаление, просто войдите в свой аккаунт в течение 7 дней.</p>
-
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                    <p style="margin: 0; color: #666; font-size: 14px;">
-                        <strong>Если вы не отправляли этот запрос</strong>, пожалуйста, немедленно свяжитесь с поддержкой.
-                    </p>
-                </div>
-            </div>
-
-            <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-                <p>© 2026 AnimeCore. Все права защищены.</p>
-            </div>
-        </body>
-        </html>
-        '''
-
-        try:
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                html_message=html_message,
-                fail_silently=True
+        # Поиск по username, nickname или display_name
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(username__icontains=search) |
+                Q(nickname__icontains=search) |
+                Q(display_name__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search)
             )
-        except Exception as e:
-            print(f"Ошибка отправки email об удалении аккаунта: {e}")
 
-    def send_deletion_cancelled_email(self, user):
-        """Отправить письмо об отмене удаления"""
-        from django.conf import settings
-
-        subject = 'Удаление аккаунта отменено - AnimeCore'
-        message = f'''
-Здравствуйте, {user.display_name or user.username}!
-
-Удаление вашего аккаунта AnimeCore было отменено.
-
-Ваш аккаунт остается активным, и вы можете продолжать пользоваться сервисом.
-
-Если вы не отменяли удаление, пожалуйста, проверьте настройки безопасности вашего аккаунта.
-        '''
-
-        html_message = f'''
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">AnimeCore</h1>
-                <p style="color: #e8e8e8; margin: 10px 0 0 0;">Удаление отменено</p>
-            </div>
-
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <p style="color: #333; line-height: 1.6;">Здравствуйте, <strong>{user.display_name or user.username}</strong>!</p>
-
-                <p style="color: #666; line-height: 1.6;">Удаление вашего аккаунта AnimeCore было отменено.</p>
-
-                <div style="background: #d4edda; padding: 20px; border-left: 4px solid #28a745; margin: 20px 0;">
-                    <p style="margin: 0; color: #155724; font-weight: 600;">
-                        ✅ Ваш аккаунт остается активным
-                    </p>
-                </div>
-
-                <p style="color: #666; line-height: 1.6;">Вы можете продолжать пользоваться всеми функциями сервиса.</p>
-
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                    <p style="margin: 0; color: #666; font-size: 14px;">
-                        <strong>Если вы не отменяли удаление</strong>, пожалуйста, проверьте настройки безопасности вашего аккаунта и смените пароль.
-                    </p>
-                </div>
-            </div>
-
-            <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-                <p>© 2026 AnimeCore. Все права защищены.</p>
-            </div>
-        </body>
-        </html>
-        '''
-
-        try:
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                html_message=html_message,
-                fail_silently=True
-            )
-        except Exception as e:
-            print(f"Ошибка отправки email об отмене удаления: {e}")
-
-    def get_client_ip(self, request):
-        """Получить IP адрес клиента"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+        # Сортировка: сначала онлайн, затем по активности
+        ordering = self.request.query_params.get('ordering', '-is_online')
+        if ordering == 'online':
+            queryset = queryset.order_by('-is_online', '-last_login')
+        elif ordering == '-online':
+            queryset = queryset.order_by('is_online', '-last_login')
+        elif ordering in ['username', '-username', 'nickname', '-nickname', 'display_name', '-display_name', 'level', '-level', '-last_login', '-created_at']:
+            queryset = queryset.order_by(ordering)
         else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
+            queryset = queryset.order_by('-is_online', '-last_login')
 
-
-# ==================== COMBINED SETTINGS VIEW WITH REDIS CACHING ====================
-
-class AllSettingsView(APIView):
-    """
-    Объединенный View для получения и обновления всех настроек пользователя
-    с использованием Redis для кеширования
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        """Получить все настройки пользователя с кешированием в Redis"""
-        from django.core.cache import cache
-        import json
-
-        user_id = request.user.id
-        cache_key = f'user_settings:{user_id}'
-
-        # Пытаемся получить из кэша
-        cached_settings = cache.get(cache_key)
-        if cached_settings:
-            print(f"✅ Settings from cache for user {user_id}")
-            return Response(json.loads(cached_settings))
-
-        # Если нет в кэше, получаем из базы
-        try:
-            # Основные настройки профиля
-            profile_settings = UserProfileSettings.objects.get_or_create(user=request.user)[0]
-            profile_data = UserProfileSettingsSerializer(profile_settings).data
-
-            # Данные пользователя
-            user_data = {
-                'display_name': request.user.display_name,
-                'nickname': request.user.nickname,
-                'avatar': request.user.avatar.url if request.user.avatar else None,
-                'bio': request.user.bio,
-                'favorite_genres': request.user.favorite_genres,
-                'website': request.user.website,
-                'vk_profile': request.user.vk_profile,
-                'telegram': request.user.telegram,
-                'phone_number': request.user.phone_number,
-                'email': request.user.email,
-                'email_verified': request.user.email_verified,
-                'phone_verified': request.user.phone_verified,
-            }
-
-            # Настройки уведомлений
-            notification_settings = NotificationSettings.objects.get_or_create(user=request.user)[0]
-            notification_data = NotificationSettingsSerializer(notification_settings).data
-
-            # Настройки приватности
-            privacy_settings = PrivacySettings.objects.get_or_create(user=request.user)[0]
-            privacy_data = PrivacySettingsSerializer(privacy_settings).data
-
-            # Настройки 2FA
-            two_factor = TwoFactorAuth.objects.get_or_create(user=request.user)[0]
-            two_factor_data = {
-                'is_enabled': two_factor.is_enabled,
-                'require_on_new_device': two_factor.require_on_new_device,
-                'remember_device_days': two_factor.remember_device_days,
-            }
-
-            # Объединяем все данные
-            all_settings = {
-                'user': user_data,
-                'profile_settings': profile_data,
-                'notification_settings': notification_data,
-                'privacy_settings': privacy_data,
-                'two_factor_settings': two_factor_data,
-            }
-
-            # Кешируем на 5 минут
-            cache.set(cache_key, json.dumps(all_settings), timeout=300)
-
-            print(f"✅ Settings fetched from DB and cached for user {user_id}")
-            return Response(all_settings)
-
-        except Exception as e:
-            print(f"❌ Error fetching settings: {e}")
-            return Response({'error': str(e)}, status=500)
-
-    def put(self, request):
-        """Обновить настройки пользователя"""
-        from django.core.cache import cache
-        import json
-
-        user_id = request.user.id
-        cache_key = f'user_settings:{user_id}'
-
-        try:
-            data = request.data
-            updated_fields = []
-
-            # Обновляем данные пользователя
-            if 'user' in data:
-                user_data = data['user']
-                if 'display_name' in user_data:
-                    request.user.display_name = user_data['display_name']
-                    updated_fields.append('display_name')
-                if 'nickname' in user_data:
-                    # Проверяем уникальность nickname
-                    if user_data['nickname'] != request.user.nickname:
-                        if User.objects.filter(nickname=user_data['nickname']).exists():
-                            return Response({'error': 'Этот nickname уже занят'}, status=400)
-                    request.user.nickname = user_data['nickname']
-                    updated_fields.append('nickname')
-                if 'bio' in user_data:
-                    request.user.bio = user_data['bio']
-                    updated_fields.append('bio')
-                if 'favorite_genres' in user_data:
-                    request.user.favorite_genres = user_data['favorite_genres']
-                    updated_fields.append('favorite_genres')
-                if 'website' in user_data:
-                    request.user.website = user_data['website']
-                    updated_fields.append('website')
-                if 'vk_profile' in user_data:
-                    request.user.vk_profile = user_data['vk_profile']
-                    updated_fields.append('vk_profile')
-                if 'telegram' in user_data:
-                    request.user.telegram = user_data['telegram']
-                    updated_fields.append('telegram')
-
-                if updated_fields:
-                    request.user.save(update_fields=updated_fields)
-                    print(f"✅ Updated user fields: {updated_fields}")
-
-            # Обновляем настройки профиля
-            if 'profile_settings' in data:
-                profile_settings = UserProfileSettings.objects.get_or_create(user=request.user)[0]
-                profile_serializer = UserProfileSettingsSerializer(
-                    profile_settings,
-                    data=data['profile_settings'],
-                    partial=True,
-                    context={'request': request}
-                )
-
-                if profile_serializer.is_valid():
-                    profile_serializer.save()
-                    updated_fields.append('profile_settings')
-                    print(f"✅ Updated profile settings")
-                else:
-                    return Response(profile_serializer.errors, status=400)
-
-            # Обновляем настройки уведомлений
-            if 'notification_settings' in data:
-                notification_data = data['notification_settings']
-
-                # Обновляем UserProfileSettings (звук, вибрация, превью)
-                profile_settings = UserProfileSettings.objects.get_or_create(user=request.user)[0]
-                if 'sound_enabled' in notification_data:
-                    profile_settings.notification_sound = 'custom' if notification_data['sound_enabled'] else 'none'
-                if 'vibration_enabled' in notification_data:
-                    profile_settings.vibration = notification_data['vibration_enabled']
-                if 'preview_enabled' in notification_data:
-                    profile_settings.preview_content = notification_data['preview_enabled']
-                profile_settings.save()
-
-                # Обновляем NotificationSettings
-                notification_settings = NotificationSettings.objects.get_or_create(user=request.user)[0]
-                notification_serializer = NotificationSettingsSerializer(
-                    notification_settings,
-                    data=notification_data,
-                    partial=True,
-                    context={'request': request}
-                )
-
-                if notification_serializer.is_valid():
-                    notification_serializer.save()
-                    updated_fields.append('notification_settings')
-                    print(f"✅ Updated notification settings")
-                else:
-                    return Response(notification_serializer.errors, status=400)
-
-            # Обновляем настройки приватности
-            if 'privacy_settings' in data:
-                privacy_data = data['privacy_settings']
-
-                # Обновляем UserProfileSettings (основные настройки)
-                profile_settings = UserProfileSettings.objects.get_or_create(user=request.user)[0]
-                if 'show_online_status' in privacy_data:
-                    profile_settings.show_online_status = privacy_data['show_online_status']
-                if 'show_last_seen' in privacy_data:
-                    profile_settings.show_last_seen = privacy_data['show_last_seen']
-                if 'show_typing_status' in privacy_data:
-                    profile_settings.show_typing_status = privacy_data['show_typing_status']
-                if 'allow_calls' in privacy_data:
-                    profile_settings.allow_calls = privacy_data['allow_calls']
-                if 'allow_group_invites' in privacy_data:
-                    profile_settings.allow_group_invites = privacy_data['allow_group_invites']
-                if 'sync_contacts' in privacy_data:
-                    profile_settings.sync_contacts = privacy_data['sync_contacts']
-                if 'suggest_frequent_contacts' in privacy_data:
-                    profile_settings.suggest_frequent_contacts = privacy_data['suggest_frequent_contacts']
-                profile_settings.save()
-
-                # Обновляем PrivacySettings
-                privacy_settings = PrivacySettings.objects.get_or_create(user=request.user)[0]
-                privacy_serializer = PrivacySettingsSerializer(
-                    privacy_settings,
-                    data=privacy_data,
-                    partial=True,
-                    context={'request': request}
-                )
-
-                if privacy_serializer.is_valid():
-                    privacy_serializer.save()
-                    updated_fields.append('privacy_settings')
-                    print(f"✅ Updated privacy settings")
-                else:
-                    return Response(privacy_serializer.errors, status=400)
-
-            # Обновляем настройки 2FA
-            if 'two_factor_settings' in data:
-                two_factor_settings = data['two_factor_settings']
-                two_factor = TwoFactorAuth.objects.get_or_create(user=request.user)[0]
-
-                if 'require_on_new_device' in two_factor_settings:
-                    two_factor.require_on_new_device = two_factor_settings['require_on_new_device']
-                if 'remember_device_days' in two_factor_settings:
-                    two_factor.remember_device_days = two_factor_settings['remember_device_days']
-
-                two_factor.save()
-                updated_fields.append('two_factor_settings')
-                print(f"✅ Updated 2FA settings")
-
-            # Удаляем кэш после обновления
-            cache.delete(cache_key)
-            print(f"🗑️ Cleared settings cache for user {user_id}")
-
-            # Публикуем событие обновления настроек в Redis
-            from core.redis_events import publish_settings_update
-            publish_settings_update(user_id, updated_fields)
-
-            # Получаем обновленные данные
-            return self.get(request)
-
-        except Exception as e:
-            print(f"❌ Error updating settings: {e}")
-            import traceback
-            traceback.print_exc()
-            return Response({'error': str(e)}, status=500)
-
-    def post(self, request):
-        """Очистить кэш настроек (отдельный endpoint)"""
-        from django.core.cache import cache
-
-        user_id = request.user.id
-        cache_key = f'user_settings:{user_id}'
-        cache.delete(cache_key)
-
-        print(f"🗑️ Manually cleared settings cache for user {user_id}")
-        return Response({'message': 'Кэш очищен'})
+        return queryset
 
 
 class ChangePasswordView(APIView):
-    """Смена пароля пользователя"""
+    """Смена пароля"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """Сменить пароль"""
-        serializer = ChangePasswordSerializer(
-            data=request.data,
-            context={'request': request}
-        )
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
 
-        if serializer.is_valid():
-            serializer.save()
+        if not old_password or not new_password:
+            return Response({'error': 'old_password и new_password обязательны'}, status=400)
 
-            # Отправляем уведомление на email
-            self.send_password_change_notification(request.user)
+        if not request.user.check_password(old_password):
+            return Response({'error': 'Текущий пароль неверен'}, status=400)
 
-            return Response({
-                'success': True,
-                'message': 'Пароль успешно изменен. Все другие сессии были завершены.'
-            })
+        if len(new_password) < 8:
+            return Response({'error': 'Пароль должен содержать минимум 8 символов'}, status=400)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def send_password_change_notification(self, user):
-        """Отправить уведомление о смене пароля"""
-        from django.core.mail import send_mail
-        from django.conf import settings
-
-        subject = 'Ваш пароль был изменен - AnimeCore'
-        message = f'''
-Здравствуйте, {user.display_name or user.username}!
-
-Ваш пароль был успешно изменен.
-
-Если вы это сделали, то все в порядке — вы можете проигнорировать это письмо.
-
-Если вы НЕ меняли свой пароль, пожалуйста, немедленно:
-1. Войдите в свой аккаунт
-2. Смените пароль на новый
-3. Проверьте настройки безопасности
-
-Если вы не можете войти в аккаунт, свяжитесь с поддержкой.
-
-Время изменения: {timezone.now().strftime('%d.%m.%Y %H:%M:%S')}
-IP адрес: {self.get_client_ip(None)}
-        '''
-
-        html_message = f'''
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">AnimeCore</h1>
-                <p style="color: #e8e8e8; margin: 10px 0 0 0;">Смена пароля</p>
-            </div>
-
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <p style="color: #333; line-height: 1.6;">Здравствуйте, <strong>{user.display_name or user.username}</strong>!</p>
-
-                <p style="color: #666; line-height: 1.6;">Ваш пароль был успешно изменен.</p>
-
-                <div style="background: #f0f0f0; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0;">
-                    <p style="margin: 0; color: #666; font-size: 14px;">
-                        <strong>Если вы это сделали</strong>, то все в порядке — вы можете проигнорировать это письмо.
-                    </p>
-                </div>
-
-                <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-                    <p style="margin: 0; color: #856404; font-size: 14px;">
-                        <strong>Если вы НЕ меняли свой пароль</strong>, пожалуйста, немедленно:
-                    </p>
-                    <ul style="margin: 10px 0 0 20px; color: #856404; font-size: 14px;">
-                        <li>Войдите в свой аккаунт</li>
-                        <li>Смените пароль на новый</li>
-                        <li>Проверьте настройки безопасности</li>
-                    </ul>
-                    <p style="margin: 10px 0 0 0; color: #856404; font-size: 14px;">
-                        Если вы не можете войти в аккаунт, свяжитесь с поддержкой.
-                    </p>
-                </div>
-
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px;">
-                    <p style="margin: 0; color: #666; font-size: 12px;">
-                        <strong>Детали изменения:</strong><br>
-                        Время: {timezone.now().strftime('%d.%m.%Y %H:%M:%S')}<br>
-                        IP адрес: {self.get_client_ip(None)}
-                    </p>
-                </div>
-            </div>
-
-            <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-                <p>© 2026 AnimeCore. Все права защищены.</p>
-            </div>
-        </body>
-        </html>
-        '''
-
-        try:
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                html_message=html_message,
-                fail_silently=True
-            )
-        except Exception as e:
-            print(f"Ошибка отправки email о смене пароля: {e}")
-
-    def get_client_ip(self, request):
-        """Получить IP адрес клиента"""
-        if not request:
-            return "Неизвестно"
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
-
-
-class AvatarUploadView(APIView):
-    """Загрузка аватара пользователя"""
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        """Загрузить новый аватар"""
-        from django.core.cache import cache
-
-        if 'avatar' not in request.FILES:
-            return Response({'error': 'Файл аватара не предоставлен'}, status=400)
-
-        avatar_file = request.FILES['avatar']
-
-        # Проверяем размер файла (макс 5MB)
-        if avatar_file.size > 5 * 1024 * 1024:
-            return Response({'error': 'Размер файла не должен превышать 5MB'}, status=400)
-
-        # Проверяем формат файла
-        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-        if avatar_file.content_type not in allowed_types:
-            return Response({'error': 'Недопустимый формат файла. Используйте JPEG, PNG, GIF или WebP'}, status=400)
-
-        try:
-            # Удаляем старый аватар если есть
-            if request.user.avatar:
-                request.user.avatar.delete(save=False)
-
-            # Сохраняем новый аватар
-            request.user.avatar = avatar_file
-            request.user.save()
-
-            # Очищаем кэш
-            cache_key = f'user_settings:{request.user.id}'
-            cache.delete(cache_key)
-
-            # Публикуем событие обновления
-            from core.redis_events import publish_avatar_update
-            publish_avatar_update(request.user.id, request.user.avatar.url if request.user.avatar else None)
-
-            return Response({
-                'success': True,
-                'avatar_url': request.user.avatar.url if request.user.avatar else None
-            })
-
-        except Exception as e:
-            print(f"❌ Error uploading avatar: {e}")
-            return Response({'error': 'Ошибка при загрузке аватара'}, status=500)
-
-    def delete(self, request):
-        """Удалить аватар"""
-        from django.core.cache import cache
-
-        try:
-            if request.user.avatar:
-                request.user.avatar.delete(save=False)
-                request.user.avatar = None
-                request.user.save()
-
-                # Очищаем кэш
-                cache_key = f'user_settings:{request.user.id}'
-                cache.delete(cache_key)
-
-            return Response({'success': True})
-
-        except Exception as e:
-            print(f"❌ Error deleting avatar: {e}")
-            return Response({'error': 'Ошибка при удалении аватара'}, status=500)
+        request.user.set_password(new_password)
+        request.user.save()
+        return Response({'message': 'Пароль успешно изменён'})
 
 
 class HeadersDebugView(APIView):
-    """View для проверки всех заголовков запроса"""
-    permission_classes = (AllowAny,)
+    """Отладка заголовков запроса"""
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        """Вернуть все заголовки запроса"""
-        print(f"\n{'='*60}")
-        print(f"🔍 HeadersDebugView - Request received")
-        print(f"{'='*60}")
-
-        # Собираем все заголовки
-        headers = {}
-        for key, value in request.META.items():
-            if 'HTTP' in key or 'CONTENT' in key or 'AUTH' in key:
-                headers[key] = str(value)[:200]
-                print(f"{key}: {headers[key]}")
-
-        # Специально проверяем Authorization
-        auth = request.META.get('HTTP_AUTHORIZATION')
-        print(f"\n🔑 Authorization header:")
-        print(f"  Found: {bool(auth)}")
-        if auth:
-            print(f"  Value: {auth[:200]}")
-
+        headers = {k: v for k, v in request.META.items() if k.startswith('HTTP_')}
         return Response({
-            'method': request.method,
-            'path': request.path,
             'headers': headers,
-            'authorization_header': auth,
-            'user_authenticated': request.user.is_authenticated,
-            'user_id': request.user.id if request.user.is_authenticated else None
+            'user': str(request.user),
+            'auth': str(request.auth),
         })
 
 
 class AuthDebugView(APIView):
-    """View для отладки аутентификации"""
-    permission_classes = (AllowAny,)
+    """Отладка аутентификации"""
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        """Проверить статус аутентификации и показать все заголовки"""
-        print(f"\n{'='*60}")
-        print(f"🔍 AuthDebugView - Request received")
-        print(f"{'='*60}")
-
-        # Проверяем DRF authentication
-        from rest_framework_simplejwt.authentication import JWTAuthentication
-        from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-
-        auth = JWTAuthentication()
-
-        # Проверяем наличие заголовка Authorization
-        auth_header = request.META.get('HTTP_AUTHORIZATION')
-        print(f"Authorization header: {auth_header[:100] if auth_header else 'NOT FOUND'}")
-
-        try:
-            user_auth_tuple = auth.authenticate(request)
-            if user_auth_tuple is not None:
-                user, token = user_auth_tuple
-                print(f"✅ Authentication successful: {user.username}")
-                return Response({
-                    'authenticated': True,
-                    'user': {
-                        'id': user.id,
-                        'username': user.username,
-                        'email': user.email,
-                    },
-                    'token_payload': {
-                        'user_id': token.get('user_id'),
-                        'exp': token.get('exp'),
-                    }
-                })
-            else:
-                print(f"❌ Authentication returned None")
-                return Response({
-                    'authenticated': False,
-                    'error': 'Authentication returned None'
-                }, status=401)
-        except Exception as e:
-            print(f"❌ Authentication error: {e}")
-            return Response({
-                'authenticated': False,
-                'error': str(e)
-            }, status=401)
-
-
-# ==================== USER LIBRARY (Моя коллекция) ====================
-
-from rest_framework.viewsets import ModelViewSet
-from django.db.models import Sum
-from .models import UserLibrary
-from .serializers import (
-    UserLibrarySerializer, UserLibraryCreateSerializer,
-    UserLibraryUpdateSerializer, UserLibraryProgressSerializer
-)
-
-
-class UserLibraryViewSet(ModelViewSet):
-    """ViewSet для библиотеки аниме пользователя (Моя коллекция)"""
-    permission_classes = [IsAuthenticated]
-
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return UserLibraryCreateSerializer
-        elif self.action in ['update', 'partial_update']:
-            return UserLibraryUpdateSerializer
-        elif self.action == 'update_progress':
-            return UserLibraryProgressSerializer
-        return UserLibrarySerializer
-
-    def get_queryset(self):
-        queryset = UserLibrary.objects.filter(user=self.request.user).select_related('anime')
-
-        # Фильтр по статусу
-        status_filter = self.request.query_params.get('status')
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-
-        # Фильтр по избранному
-        is_favorite = self.request.query_params.get('is_favorite')
-        if is_favorite == 'true':
-            queryset = queryset.filter(is_favorite=True)
-
-        # Поиск по названию аниме
-        search = self.request.query_params.get('search')
-        if search:
-            queryset = queryset.filter(
-                Q(anime__title_ru__icontains=search) |
-                Q(anime__title_en__icontains=search)
-            )
-
-        # Сортировка
-        ordering = self.request.query_params.get('ordering', '-updated_at')
-        if ordering in ['-updated_at', '-added_at', '-rating', 'current_episode']:
-            queryset = queryset.order_by(ordering)
-
-        return queryset
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-    @action(detail=False, methods=['get'])
-    def by_status(self, request):
-        """Получить аниме по статусу"""
-        status_filter = request.query_params.get('status')
-
-        if not status_filter:
-            return Response({'error': 'Не указан статус'}, status=400)
-
-        queryset = self.get_queryset().filter(status=status_filter)
-        serializer = UserLibrarySerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def favorites(self, request):
-        """Получить избранные аниме"""
-        queryset = self.get_queryset().filter(is_favorite=True)
-        serializer = UserLibrarySerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def statistics(self, request):
-        """Получить статистику коллекции"""
-        queryset = UserLibrary.objects.filter(user=self.request.user)
-
-        stats = {
-            'total': queryset.count(),
-            'started': queryset.filter(status='started').count(),
-            'completed': queryset.filter(status='completed').count(),
-            'on_hold': queryset.filter(status='on_hold').count(),
-            'dropped': queryset.filter(status='dropped').count(),
-            'planned': queryset.filter(status='planned').count(),
-            'favorites': queryset.filter(is_favorite=True).count(),
-            'episodes_watched': queryset.aggregate(total=Sum('episodes_watched'))['total'] or 0,
-        }
-
-        return Response(stats)
-
-    @action(detail=True, methods=['post'])
-    def update_progress(self, request, pk=None):
-        """Обновить прогресс просмотра аниме"""
-        library_item = self.get_object()
-
-        serializer = UserLibraryProgressSerializer(data=request.data)
-        if serializer.is_valid():
-            episode = serializer.validated_data['episode']
-            library_item.update_progress(episode)
-
-            return Response(UserLibrarySerializer(library_item).data)
-
-        return Response(serializer.errors, status=400)
-
-    @action(detail=True, methods=['post'])
-    def mark_favorite(self, request, pk=None):
-        """Отметить/убрать из избранного"""
-        library_item = self.get_object()
-        library_item.is_favorite = not library_item.is_favorite
-        library_item.save(update_fields=['is_favorite', 'updated_at'])
-
         return Response({
-            'is_favorite': library_item.is_favorite,
-            'message': 'Добавлено в избранное' if library_item.is_favorite else 'Убрано из избранного'
+            'user': str(request.user),
+            'is_authenticated': request.user.is_authenticated,
+            'auth': str(request.auth),
+            'method': request.method,
         })
 
-    @action(detail=False, methods=['post'])
-    def add_anime(self, request):
-        """Добавить аниме в библиотеку"""
-        serializer = UserLibraryCreateSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        if serializer.is_valid():
-            library_item = serializer.save()
-            return Response(UserLibrarySerializer(library_item).data, status=201)
 
-        return Response(serializer.errors, status=400)
+class UserFeedView(generics.ListAPIView):
+    """Лента пользователя"""
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]
 
-    @action(detail=False, methods=['get'])
-    def check_anime(self, request):
-        """Проверить, есть ли аниме в библиотеке"""
-        anime_id = request.query_params.get('anime_id')
-        if not anime_id:
-            return Response({'error': 'Не указан anime_id'}, status=400)
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        return User.objects.filter(id=user_id)
 
+    def list(self, request, *args, **kwargs):
+        user_id = self.kwargs.get('user_id')
         try:
-            library_item = UserLibrary.objects.get(
-                user=request.user,
-                anime_id=anime_id
-            )
-            return Response({
-                'in_library': True,
-                'status': library_item.status,
-                'current_episode': library_item.current_episode,
-                'rating': library_item.rating,
-                'is_favorite': library_item.is_favorite
-            })
-        except UserLibrary.DoesNotExist:
-            return Response({'in_library': False})
-
-
-# ==================== USER FEED AND STATS VIEWS ====================
-
-class UserFeedView(APIView):
-    """Лента постов пользователя"""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, user_id):
-        """Получить ленту постов пользователя"""
-        try:
-            user = User.objects.get(pk=user_id)
+            user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response({'error': 'Пользователь не найден'}, status=404)
 
-        from social.models import Post
-        from django.core.paginator import Paginator, EmptyPage
-
-        # Получаем посты пользователя
-        posts = Post.objects.filter(
-            author=user,
-            is_deleted=False
-        ).select_related('author').prefetch_related('media_files', 'hashtag_links__hashtag')
-
-        # Пагинация
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 20))
-
-        paginator = Paginator(posts, page_size)
         try:
-            posts_page = paginator.page(page)
-        except EmptyPage:
-            posts_page = paginator.page(paginator.num_pages)
-
-        # Сериализуем посты
-        from social.serializers import PostSerializer
-        serializer = PostSerializer(posts_page.object_list, many=True)
-
-        return Response({
-            'results': serializer.data,
-            'count': paginator.count,
-            'next': posts_page.has_next(),
-            'previous': posts_page.has_previous(),
-        })
+            from social.models import Post
+            from social.serializers import PostSerializer
+            posts = Post.objects.filter(author=user).order_by('-created_at')[:20]
+            serializer = PostSerializer(posts, many=True, context={'request': request})
+            return Response({'results': serializer.data})
+        except Exception:
+            return Response({'results': []})
 
 
 class UserStatsView(APIView):
@@ -3272,53 +2467,234 @@ class UserStatsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, pk=None):
-        """Получить статистику пользователя по ID или username"""
-        # Определяем, передан ли username (начинается с @) или id
-        if pk and str(pk).startswith('@'):
-            # Это username
-            username = str(pk)[1:]  # Убираем @
+        try:
+            if isinstance(pk, int) or (isinstance(pk, str) and pk.isdigit()):
+                user = User.objects.get(id=int(pk))
+            else:
+                user = User.objects.get(username=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'Пользователь не найден'}, status=404)
+
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'level': user.level,
+            'experience': user.experience,
+            'posts_count': user.posts_count,
+            'comments_count': user.comments_count,
+            'likes_received': user.likes_received,
+            'playlists_count': user.playlists_count,
+            'library_count': user.library.count() if hasattr(user, 'library') else 0,
+            'is_online': user.is_online,
+            'created_at': user.created_at,
+        })
+
+
+class AllSettingsView(APIView):
+    """Объединённые настройки пользователя"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        data = {}
+
+        try:
+            from .models import UserSettings
+            settings = UserSettings.objects.get(user=user)
+            from .serializers import UserSettingsSerializer
+            data['settings'] = UserSettingsSerializer(settings).data
+        except Exception:
+            data['settings'] = {}
+
+        try:
+            profile = user.profile_settings
+            from .serializers import UserProfileSettingsSerializer
+            data['profile'] = UserProfileSettingsSerializer(profile).data
+        except Exception:
+            data['profile'] = {}
+
+        try:
+            notif = user.notification_settings
+            from .serializers import NotificationSettingsSerializer
+            data['notifications'] = NotificationSettingsSerializer(notif).data
+        except Exception:
+            data['notifications'] = {}
+
+        try:
+            privacy = user.privacy_settings
+            from .serializers import PrivacySettingsSerializer
+            data['privacy'] = PrivacySettingsSerializer(privacy).data
+        except Exception:
+            data['privacy'] = {}
+
+        return Response(data)
+
+    def put(self, request):
+        """Массовое обновление настроек"""
+        user = request.user
+        data = request.data
+        updated = []
+
+        if 'settings' in data:
             try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                return Response({'error': 'Пользователь не найден'}, status=404)
-        elif pk:
-            # Это ID — сначала валидируем, что это число
+                from .models import UserSettings
+                from .serializers import UserSettingsSerializer
+                obj, _ = UserSettings.objects.get_or_create(user=user)
+                s = UserSettingsSerializer(obj, data=data['settings'], partial=True)
+                if s.is_valid():
+                    s.save()
+                    updated.append('settings')
+            except Exception:
+                pass
+
+        return Response({'updated': updated})
+
+
+class AvatarUploadView(APIView):
+    """Загрузка аватара пользователя"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        avatar = request.FILES.get('avatar')
+
+        if not avatar:
+            return Response({'error': 'Файл аватара не загружен'}, status=400)
+
+        # Проверяем тип файла
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        if avatar.content_type not in allowed_types:
+            return Response({'error': 'Недопустимый тип файла. Разрешены: JPEG, PNG, GIF, WebP'}, status=400)
+
+        # Проверяем размер файла (макс 5MB)
+        if avatar.size > 5 * 1024 * 1024:
+            return Response({'error': 'Размер файла не должен превышать 5MB'}, status=400)
+
+        # Удаляем старый аватар если есть
+        if user.avatar:
             try:
-                user_id = int(pk)
-                user = User.objects.get(pk=user_id)
-            except (ValueError, TypeError):
-                return Response({'error': 'Некорректный ID пользователя'}, status=400)
-            except User.DoesNotExist:
-                return Response({'error': 'Пользователь не найден'}, status=404)
-        else:
-            return Response({'error': 'Не указан ID или username пользователя'}, status=400)
+                import os
+                if os.path.isfile(user.avatar.path):
+                    os.remove(user.avatar.path)
+            except Exception:
+                pass
 
-        # Подсчитываем статистику
-        from social.models import Post, Message, Follow, Favorite, Comment
-        from playlists.models import Playlist
+        user.avatar = avatar
+        user.save(update_fields=['avatar'])
 
-        followers_count = Follow.objects.filter(following=user).count()
-        following_count = Follow.objects.filter(follower=user).count()
-        posts_count = Post.objects.filter(author=user, is_deleted=False).count()
-        playlists_count = Playlist.objects.filter(user=user).count()
-        achievements_count = 0  # Пока нет модели achievements
+        return Response({
+            'message': 'Аватар успешно загружен',
+            'avatar_url': user.avatar.url
+        })
 
-        # Подсчет комментариев
-        comments_count = Comment.objects.filter(author=user, is_deleted=False).count()
+    def delete(self, request):
+        user = request.user
+        if user.avatar:
+            try:
+                import os
+                if os.path.isfile(user.avatar.path):
+                    os.remove(user.avatar.path)
+            except Exception:
+                pass
+            user.avatar = None
+            user.save(update_fields=['avatar'])
 
-        # Подсчет сообщений
-        messages_count = Message.objects.filter(sender=user).count()
+        return Response({'message': 'Аватар удалён'})
 
-        stats = {
-            'followers': followers_count,
-            'following': following_count,
-            'posts': posts_count,
-            'playlists': playlists_count,
-            'achievements': achievements_count,
-            'comments': comments_count,
-            'messages': messages_count,
-            'level': getattr(user, 'level', 1),
-            'xp': getattr(user, 'xp', 0),
-        }
 
-        return Response(stats)
+class UserLibraryViewSet(viewsets.ModelViewSet):
+    """CRUD для библиотеки аниме пользователя"""
+    serializer_class = UserLibrarySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = UserLibrary.objects.filter(
+            user=self.request.user
+        ).select_related('anime').order_by('-updated_at')
+        
+        # Фильтр по избранному
+        is_favorite = self.request.query_params.get('is_favorite')
+        if is_favorite and is_favorite.lower() in ('true', '1', 'yes'):
+            queryset = queryset.filter(is_favorite=True)
+        
+        # Фильтр по статусу
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        # Поиск по названию
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(anime__title_ru__icontains=search) |
+                Q(anime__title_en__icontains=search)
+            )
+        
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Статистика библиотеки пользователя"""
+        qs = UserLibrary.objects.filter(user=request.user)
+        from django.db.models import Count, Sum
+        
+        counts = {s: 0 for s, _ in UserLibrary.STATUS_CHOICES}
+        for row in qs.values('status').annotate(n=Count('id')):
+            counts[row['status']] = row['n']
+        
+        # Считаем избранное
+        favorites = qs.filter(is_favorite=True).count()
+        
+        # Считаем просмотренные эпизоды
+        episodes_watched = qs.aggregate(total=Sum('episodes_watched'))['total'] or 0
+        
+        return Response({
+            'total': qs.count(),
+            'started': counts.get('started', 0),
+            'completed': counts.get('completed', 0),
+            'on_hold': counts.get('on_hold', 0),
+            'dropped': counts.get('dropped', 0),
+            'planned': counts.get('planned', 0),
+            'favorites': favorites,
+            'episodes_watched': episodes_watched,
+        })
+
+    @action(detail=False, methods=['get'])
+    def check_anime(self, request):
+        """Проверить наличие аниме в библиотеке"""
+        anime_id = request.query_params.get('anime_id')
+        if not anime_id:
+            return Response({'error': 'anime_id is required'}, status=400)
+        
+        try:
+            entry = UserLibrary.objects.get(user=request.user, anime_id=anime_id)
+            return Response({
+                'in_library': True,
+                'status': entry.status,
+                'current_episode': entry.current_episode,
+                'rating': entry.rating,
+                'is_favorite': entry.is_favorite,
+            })
+        except UserLibrary.DoesNotExist:
+            return Response({'in_library': False})
+
+    @action(detail=True, methods=['post'])
+    def mark_favorite(self, request, pk=None):
+        """Переключить флаг is_favorite"""
+        entry = self.get_object()
+        entry.is_favorite = not entry.is_favorite
+        entry.save(update_fields=['is_favorite', 'updated_at'])
+        return Response({'is_favorite': entry.is_favorite})
+
+    @action(detail=True, methods=['post'])
+    def update_progress(self, request, pk=None):
+        """Обновить текущий эпизод"""
+        entry = self.get_object()
+        episode = request.data.get('episode')
+        if episode is None:
+            return Response({'error': 'episode is required'}, status=400)
+        entry.update_progress(int(episode))
+        return Response(self.get_serializer(entry).data)

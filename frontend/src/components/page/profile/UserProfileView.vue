@@ -16,7 +16,27 @@
     <div v-else class="profile-content">
       <!-- Шапка профиля -->
       <div class="profile-header">
-        <div class="header-background"></div>
+        <!-- Обложка профиля -->
+        <div 
+          class="header-background" 
+          :style="coverImageStyle"
+        >
+          <!-- Кнопка загрузки обложки (только для своего профиля) -->
+          <label v-if="isOwnProfile" class="cover-upload-btn">
+            <input 
+              type="file" 
+              accept="image/*" 
+              @change="handleCoverUpload" 
+              hidden
+            />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span>Изменить обложку</span>
+          </label>
+        </div>
+
         <div class="header-content">
           <div class="avatar-section">
             <img :src="user.avatar || '/img/default-avatar.svg'" class="avatar" />
@@ -30,7 +50,6 @@
             <p class="bio">{{ user.bio || 'Пользователь пока ничего не написал о себе' }}</p>
 
             <div class="user-meta">
-              <span v-if="user.level" class="level-badge">⭐ Уровень {{ user.level }}</span>
               <span v-if="user.experience" class="exp-badge">✨ {{ user.experience }} опыта</span>
               <span v-if="user.created_at">📅 На сайте с {{ formatDate(user.created_at) }}</span>
             </div>
@@ -38,27 +57,27 @@
 
           <div class="header-actions">
             <button
-              v-if="!isFollowing"
+              v-if="!isOwnProfile && !isFollowing"
               @click="toggleFollow"
               class="btn-follow"
             >
               Подписаться
             </button>
             <button
-              v-else
+              v-if="!isOwnProfile && isFollowing"
               @click="toggleFollow"
               class="btn-unfollow"
             >
               ✓ Подписан
             </button>
-            <button @click="openChat" class="btn-message">
+            <button v-if="!isOwnProfile" @click="openChat" class="btn-message">
               <ChatBubbleLeftIcon class="w-5 h-5" />
               Написать
             </button>
-            <button @click="toggleFavorite" :class="['btn-favorite', { active: isFavorite }]">
+            <button v-if="!isOwnProfile" @click="toggleFavorite" :class="['btn-favorite', { active: isFavorite }]">
               <StarIcon class="w-5 h-5" />
             </button>
-            <button @click="reportUser" class="btn-report">
+            <button v-if="!isOwnProfile" @click="reportUser" class="btn-report">
               <FlagIcon class="w-5 h-5" />
               Пожаловаться
             </button>
@@ -129,6 +148,11 @@
           <AchievementsView :username="user.username" />
         </div>
 
+        <!-- Избранное -->
+        <div v-if="activeTab === 'favorites'" class="tab-content">
+          <UserFavorites :user-id="userId" />
+        </div>
+
         <!-- О себе -->
         <div v-if="activeTab === 'about'" class="tab-content">
           <ProfileAbout :user="user" />
@@ -151,6 +175,7 @@ import UserFeed from '@/components/Profile/UserFeed.vue'
 import UserAnimeCollection from '@/components/Profile/UserAnimeCollection.vue'
 import UserPublicPlaylists from '@/components/Profile/UserPublicPlaylists.vue'
 import UserShorts from '@/components/Profile/UserShorts.vue'
+import UserFavorites from '@/components/Profile/UserFavorites.vue'
 import AchievementsView from '@/components/page/other/AchievementsView.vue'
 import ProfileAbout from '@/components/Profile/ProfileAbout.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
@@ -177,10 +202,26 @@ const tabs = [
   { id: 'playlists', name: 'Плейлисты' },
   { id: 'shorts', name: 'Shorts' },
   { id: 'achievements', name: 'Достижения' },
+  { id: 'favorites', name: 'Избранное' },
   { id: 'about', name: 'О себе' },
 ]
 
 const currentUser = computed(() => authStore.user)
+
+const isOwnProfile = computed(() => {
+  return currentUser.value && userId.value && currentUser.value.id === userId.value
+})
+
+const coverImageStyle = computed(() => {
+  if (user.value.cover_image_url) {
+    return {
+      backgroundImage: `url(${user.value.cover_image_url})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    }
+  }
+  return {}
+})
 
 const loadProfile = async () => {
   loading.value = true
@@ -289,6 +330,27 @@ const reportUser = () => {
   }
 }
 
+const handleCoverUpload = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  const formData = new FormData()
+  formData.append('cover_image', file)
+
+  try {
+    const response = await api.patch(`/users/profile/update/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    user.value.cover_image_url = response.data.cover_image_url
+    user.value.cover_image = response.data.cover_image
+  } catch (error) {
+    console.error('Ошибка загрузки обложки:', error)
+    alert('Не удалось загрузить обложку')
+  }
+}
+
 const goToFeed = () => {
   router.push('/feed')
 }
@@ -358,9 +420,41 @@ onMounted(async () => {
 }
 
 .header-background {
-  height: 200px;
+  height: 280px;
   background-color: var(--color-background-surface);
   border-bottom: 1px solid var(--color-divider);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.header-background::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%);
+}
+
+.cover-upload-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+  z-index: 10;
+}
+
+.cover-upload-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 .header-content {
@@ -589,7 +683,7 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
   .header-background {
-    height: 150px;
+    height: 180px;
   }
 
   .header-content {

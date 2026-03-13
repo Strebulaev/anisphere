@@ -24,18 +24,24 @@ class UserSimpleSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя"""
+    cover_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'unique_id', 'username', 'email', 'first_name', 'last_name', 'display_name',
-            'nickname', 'phone_number', 'avatar', 'bio', 'favorite_genres',
+            'nickname', 'phone_number', 'avatar', 'cover_image', 'cover_image_url', 'bio', 'favorite_genres',
             'website', 'vk_profile', 'telegram', 'email_verified',
             'phone_verified', 'two_factor_enabled', 'is_online', 'last_login',
             'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges',
             'posts_count', 'comments_count', 'likes_received', 'playlists_count'
         ]
         read_only_fields = ['id', 'unique_id', 'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges', 'posts_count', 'comments_count', 'likes_received', 'playlists_count']
+
+    def get_cover_image_url(self, obj):
+        if obj.cover_image:
+            return obj.cover_image.url
+        return None
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -115,7 +121,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'display_name', 'nickname', 'avatar', 'bio', 'favorite_genres',
+            'display_name', 'nickname', 'avatar', 'cover_image', 'bio', 'favorite_genres',
             'website', 'vk_profile', 'telegram'
         ]
 
@@ -481,20 +487,6 @@ class ActiveSessionSerializer(serializers.ModelSerializer):
         return "Неизвестно"
 
 
-class NotificationSettingsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = NotificationSettings
-        fields = '__all__'
-        read_only_fields = ['user', 'updated_at']
-
-
-class PrivacySettingsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PrivacySettings
-        fields = '__all__'
-        read_only_fields = ['user']
-
-
 class UserThemeSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserTheme
@@ -533,21 +525,6 @@ class UserAnalyticsSerializer(serializers.ModelSerializer):
 
     def get_weekly_report(self, obj):
         return obj.get_weekly_report()
-
-
-class UserSimpleSerializer(serializers.ModelSerializer):
-    """Простой сериализатор для пользователей (для списков)"""
-
-    is_online = serializers.SerializerMethodField()
-
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'display_name', 'avatar', 'is_online', 'last_seen']
-
-    def get_is_online(self, obj):
-        """Определяем онлайн статус через Redis"""
-        from core.online_status import online_status
-        return online_status.is_online(obj.id)
 
 
 class UserLibrarySerializer(serializers.ModelSerializer):
