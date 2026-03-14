@@ -9,7 +9,7 @@ from .views import (
     SearchAPIView, ParserStatusAPIView, UpdatesAPIView,
     KodikImportView, KodikFiltersView, KodikTranslationsView,
     CustomDubListView, CustomDubDetailView, HomeAPIView,
-    RandomAnimeView, CurrentlyWatchingView,
+    RandomAnimeView, CurrentlyWatchingView, UserActiveTabView,
     EpisodeProgressView, EpisodeProgressUndoView,
     AnimeThemesView, KodikVideoUrlView, KodikClipDownloadView,
 )
@@ -27,6 +27,7 @@ urlpatterns = [
     path('home/', HomeAPIView.as_view(), name='anime-home'),
     path('random/', RandomAnimeView.as_view(), name='anime-random'),
     path('currently-watching/', CurrentlyWatchingView.as_view(), name='anime-currently-watching'),
+    path('active-tab/', UserActiveTabView.as_view(), name='anime-active-tab'),
 
     # Episode Progress System
     path('<int:anime_id>/episode-progress/', EpisodeProgressView.as_view(), name='episode-progress'),

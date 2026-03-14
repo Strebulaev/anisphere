@@ -5,6 +5,9 @@ import type { Anime } from '@/types'
 
 export type AnimeSection = 'catalog' | 'ongoings' | 'recommendations' | 'announcements' | 'random' | 'currently_watching'
 
+// Флаг для отслеживания первого открытия каталога в сессии
+let catalogInitialShuffleApplied = false
+
 export function useAnimeSections() {
   const route = useRoute()
   const router = useRouter()
@@ -157,6 +160,7 @@ export function useAnimeSections() {
   }
 
   const catalogFilters = ref<any>({})
+  const catalogShuffle = ref(false)
 
   const fetchCatalog = async (page: number = 1, filters?: any) => {
     catalogLoading.value = true
@@ -184,6 +188,7 @@ export function useAnimeSections() {
         score_from:    f.score_from,
         score_to:      f.score_to,
         studio:        f.studio,
+        shuffle:       catalogShuffle.value,
       })
       catalogAnime.value = (response.results || []) as any
       if (page === 1) originalCatalogAnime.value = [...(response.results || [])]
@@ -208,7 +213,17 @@ export function useAnimeSections() {
       case 'recommendations': if (!recommendations.value.length) fetchRecommendations(); break
       case 'announcements':   if (!announcements.value.length)   fetchAnnouncements();   break
       case 'random':          if (!randomAnimeList.value.length) fetchRandomAnimeList(6);break
-      case 'catalog':         if (!catalogAnime.value.length)    fetchCatalog(1);        break
+      case 'catalog':
+        if (!catalogAnime.value.length) {
+          // Автоматически применяем shuffle при первом открытии каталога в сессии
+          if (!catalogInitialShuffleApplied) {
+            catalogShuffle.value = true
+            isShuffled.value.catalog = true
+            catalogInitialShuffleApplied = true
+          }
+          fetchCatalog(1)
+        }
+        break
     }
   }
 
@@ -297,14 +312,27 @@ export function useAnimeSections() {
     }
   })
 
+  const enableCatalogShuffle = () => {
+    catalogShuffle.value = true
+    isShuffled.value.catalog = true
+    fetchCatalog(1)
+  }
+
+  const disableCatalogShuffle = () => {
+    catalogShuffle.value = false
+    isShuffled.value.catalog = false
+    fetchCatalog(1)
+  }
+
   return {
     currentSection, currentData, currentLoading, currentError,
     catalogAnime, ongoings, announcements, recommendations, randomAnimeList,
     catalogLoading, ongoingsLoading, announcementsLoading, recommendationsLoading, randomLoading,
     catalogError, ongoingsError, announcementsError, recommendationsError, randomError,
     catalogPage, catalogTotalPages, catalogTotalCount,
-    isShuffled, currentSectionIsShuffled,
+    isShuffled, currentSectionIsShuffled, catalogShuffle,
     shuffleCurrentSection, unshuffleCurrentSection,
+    enableCatalogShuffle, disableCatalogShuffle,
     switchSection, refreshCurrentSection,
     fetchCatalog, fetchOngoings, fetchAnnouncements, fetchRecommendations, fetchRandomAnimeList,
     loadAllSections

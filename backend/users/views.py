@@ -29,7 +29,7 @@ from .models import (
     UserAnalytics, EmailLog, SecurityLog
 )
 from .serializers import (
-    UserSerializer, RegisterSerializer, LoginSerializer,
+    UserSerializer, UserSimpleSerializer, RegisterSerializer, LoginSerializer,
     PhoneVerificationSerializer, EmailVerificationSerializer,
     GoogleAuthSerializer, PasswordResetSerializer,
     ProfileUpdateSerializer, UserSessionSerializer, UserSettingsSerializer,
@@ -2698,3 +2698,43 @@ class UserLibraryViewSet(viewsets.ModelViewSet):
             return Response({'error': 'episode is required'}, status=400)
         entry.update_progress(int(episode))
         return Response(self.get_serializer(entry).data)
+
+class UsersListView(generics.ListAPIView):
+    """
+    Список пользователей с фильтрацией:
+    - ?status=online - только онлайн
+    - ?status=offline - только оффлайн
+    - ?status=all - все (по умолчанию)
+    - ?search=query - поиск по имени
+    """
+    serializer_class = UserSimpleSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        status_filter = self.request.query_params.get('status', 'all')
+        search = self.request.query_params.get('search', '').strip()
+
+        queryset = User.objects.all()
+
+        # Фильтр по статусу
+        if status_filter == 'online':
+            queryset = queryset.filter(is_online=True)
+        elif status_filter == 'offline':
+            queryset = queryset.filter(is_online=False)
+        # all - без фильтра
+
+        # Поиск
+        if search:
+            queryset = queryset.filter(
+                Q(username__icontains=search) |
+                Q(nickname__icontains=search) |
+                Q(display_name__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search)
+            )
+
+        # Сортировка: сначала онлайн, потом по последней активности
+        queryset = queryset.order_by('-is_online', '-last_login')
+
+        # Ограничиваем 50 пользователями
+        return queryset.select_related('settings')[:50]

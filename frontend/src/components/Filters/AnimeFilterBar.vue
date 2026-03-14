@@ -35,21 +35,16 @@
 
       <div class="afb-actions">
         <!-- Перетасовать -->
-        <button v-if="showShuffle && !isShuffled" @click="$emit('shuffle')" class="afb-btn" title="Перемешать" type="button">
+        <button v-if="showShuffle" @click="$emit('shuffle')" class="afb-btn" title="Перемешать" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
             <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
             <line x1="4" y1="4" x2="9" y2="9"/>
           </svg>
         </button>
-        <button v-if="showShuffle && isShuffled" @click="$emit('unshuffle')" class="afb-btn afb-btn-active" title="Сбросить перемешку" type="button">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
-          </svg>
-        </button>
 
         <!-- Обновить -->
-        <button @click="$emit('refresh')" class="afb-btn" title="Обновить" type="button">
+        <button @click="$emit('unshuffle')" class="afb-btn" title="Обновить" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10"/>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>

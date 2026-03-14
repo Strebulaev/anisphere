@@ -103,6 +103,10 @@
               Ссылки
             </button>
 
+            <!-- <button v-if="playlist.items_count > 0" @click="spinFromPlaylist" class="action-hero-btn wheel">
+              🎡 Крутить колесо
+            </button> -->
+
             <template v-if="isOwner">
               <button @click="showAddAnimeModal = true" class="action-hero-btn primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -580,6 +584,7 @@ import { ref, computed, onMounted, onUnmounted, reactive, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import playlistsApi, { type Playlist, type PlaylistItem, type PlaylistVisibility } from '@/api/playlists'
+import { rouletteApi } from '@/api/roulette'
 import apiClient, { getMediaUrl } from '@/api/client'
 
 const route = useRoute()
@@ -996,6 +1001,46 @@ const copyAnimeLink = async (item: PlaylistItem) => {
   }
 }
 
+// Крутить колесо из плейлиста
+const spinFromPlaylist = async () => {
+  if (!playlist.value || sortedItems.value.length === 0) return
+  
+  try {
+    // Получаем или создаём рулетку
+    const { data: roulettes } = await rouletteApi.getRoulettes()
+    let rouletteId: string
+    
+    if (roulettes && roulettes.length > 0 && roulettes[0]) {
+      rouletteId = roulettes[0].id
+    } else {
+      const { data: newRoulette } = await rouletteApi.createRoulette({
+        name: 'Из плейлиста',
+        spin_duration: 5
+      })
+      rouletteId = newRoulette.id
+    }
+    
+    // Очищаем рулетку и добавляем аниме из плейлиста
+    await rouletteApi.clear(rouletteId)
+    
+    const itemsToAdd = sortedItems.value.map(item => ({
+      anime_id: item.anime,
+      anime_title: item.anime_title,
+      anime_poster: item.anime_poster || undefined,
+      weight: 1
+    }))
+    
+    await rouletteApi.bulkAdd(rouletteId, itemsToAdd)
+    
+    // Переходим на страницу колеса
+    router.push('/wheel')
+    showToast(`Добавлено ${itemsToAdd.length} аниме из плейлиста!`)
+  } catch (e: any) {
+    console.error('Ошибка добавления в колесо:', e)
+    showToast('Не удалось добавить в колесо')
+  }
+}
+
 // Fallback для старых браузеров
 const fallbackCopyText = (text: string) => {
   const textarea = document.createElement('textarea')
@@ -1241,6 +1286,8 @@ onUnmounted(() => {
 .action-hero-btn.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
 .action-hero-btn.primary:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); color: #fff; }
 .action-hero-btn.danger:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; color: #ef4444; }
+.action-hero-btn.wheel { background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: #fff; }
+.action-hero-btn.wheel:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
 
 .hero-stats { display: flex; gap: 0.75rem; }
 .stat-chip { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--color-text-tertiary); }

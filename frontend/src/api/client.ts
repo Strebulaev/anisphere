@@ -121,4 +121,6 @@ export const patch = <T>(url: string, data?: unknown, config?: AxiosRequestConfi
 export const remove = (url: string, config?: AxiosRequestConfig) =>
   apiClient.delete(url, config)
 
+// Экспортируем и как default, и как именованный экспорт для удобства
+export { apiClient }
 export default apiClient

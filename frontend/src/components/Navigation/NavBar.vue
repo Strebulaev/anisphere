@@ -163,19 +163,14 @@ const navigateToSection = async (item: any) => {
     if (randomLoading.value) return
     randomLoading.value = true
     try {
-      const res = await apiClient.get('/anime/random/')
-      const id = res.data?.id || res.data?.[0]?.id
-      if (id) {
-        const target = `/anime/${id}`
-        // Если уже на этой странице — перезагружаем, иначе переходим
-        if (router.currentRoute.value.path === target) {
-          window.location.reload()
-        } else {
-          router.push(target)
-        }
+      const response = await apiClient.get('/anime/random/')
+      const animeId = response.data?.id
+      if (animeId) {
+        // Перезагружаем страницу с новым URL
+        window.location.href = `/anime/${animeId}`
       }
     } catch (e) {
-      console.error('Random anime error:', e)
+      console.error('Failed to get random anime:', e)
     } finally {
       randomLoading.value = false
     }

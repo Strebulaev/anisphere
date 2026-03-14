@@ -214,9 +214,16 @@ class AnimeViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(genre_q).distinct()
 
         # ── Студия (studios — JSON array field) ─────────────────
-        studio_param = request.query_params.get('studio')
-        if studio_param:
-            studios = _split_param(studio_param)
+        # Поддерживаем оба формата: ?studio=Madhouse,Sunrise (через запятую) и ?studio=Madhouse&studio=Sunrise (multiple)
+        studio_params = request.query_params.getlist('studio')
+        if not studio_params:
+            # Fallback: если getlist не вернул (может быть в виде comma-separated строки)
+            studio_param = request.query_params.get('studio')
+            if studio_param:
+                studio_params = _split_param(studio_param)
+        
+        if studio_params:
+            studios = studio_params
             if studios:
                 studio_q = Q()
                 for s in studios:
@@ -275,6 +282,8 @@ class AnimeViewSet(viewsets.ModelViewSet):
 
         # ── Сортировка ───────────────────────────────────────────
         ordering = request.query_params.get('ordering', '-score')
+        shuffle = request.query_params.get('shuffle', '').lower() in ('true', '1', 'yes')
+        
         VALID_ORDER_FIELDS = {
             'score', '-score',
             'year', '-year',
@@ -284,7 +293,12 @@ class AnimeViewSet(viewsets.ModelViewSet):
         }
         if ordering not in VALID_ORDER_FIELDS:
             ordering = '-score'
-        queryset = queryset.order_by(ordering)
+        
+        if shuffle:
+            # Перемешивание - используем random() для PostgreSQL
+            queryset = queryset.order_by('?')
+        else:
+            queryset = queryset.order_by(ordering)
 
         # ── Пагинация ────────────────────────────────────────────
         try:
@@ -912,43 +926,144 @@ class RandomAnimeView(APIView):
 class CurrentlyWatchingView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    # «Сейчас смотрит» = last_watched обновлялся не позже 2 часов назад.
-    # UserEpisodeProgress.last_watched (auto_now=True) пишется каждые ~30с из AnimeWatchView.
+    # «Сейчас смотрит» = активность была не позже 2 часов назад.
+    # Источники данных:
+    # 1. UserEpisodeProgress.last_watched — плеер активен (воспроизведение идёт)
+    # 2. UserActiveTab.last_ping — вкладка открыта (пользователь на странице аниме)
     ACTIVE_WINDOW_HOURS = 2
 
     def get(self, request):
         from django.utils import timezone
         from datetime import timedelta
         from django.db.models import Count
+        from anime.models import UserActiveTab
+
         try:
             cutoff = timezone.now() - timedelta(hours=self.ACTIVE_WINDOW_HOURS)
-            active = (
+
+            # 1. Активные плееры (UserEpisodeProgress)
+            active_players = (
                 UserEpisodeProgress.objects
                 .filter(last_watched__gte=cutoff)
                 .values('anime_id')
                 .annotate(viewers=Count('user', distinct=True))
                 .order_by('-viewers')
             )
-            anime_ids   = [r['anime_id'] for r in active]
-            viewers_map = {r['anime_id']: r['viewers'] for r in active}
+            player_ids = [r['anime_id'] for r in active_players]
+            player_viewers = {r['anime_id']: r['viewers'] for r in active_players}
 
-            if not anime_ids:
+            # 2. Открытые вкладки (UserActiveTab)
+            active_tabs = (
+                UserActiveTab.objects
+                .filter(last_ping__gte=cutoff)
+                .values('anime_id')
+                .annotate(viewers=Count('user', distinct=True))
+                .order_by('-viewers')
+            )
+            tab_ids = [r['anime_id'] for r in active_tabs]
+            tab_viewers = {r['anime_id']: r['viewers'] for r in active_tabs}
+
+            # Объединяем уникальные ID аниме
+            all_anime_ids = list(set(player_ids + tab_ids))
+
+            if not all_anime_ids:
                 return Response({'results': [], 'count': 0})
 
-            animes = Anime.objects.filter(id__in=anime_ids)
+            animes = Anime.objects.filter(id__in=all_anime_ids)
             animes_dict = {a.id: a for a in animes}
             results = []
-            for aid in anime_ids:
+
+            for aid in all_anime_ids:
                 a = animes_dict.get(aid)
                 if not a:
                     continue
                 data = AnimeSerializer(a).data
-                data['viewers_count'] = viewers_map[aid]
+                # Суммируем зрителей из обоих источников
+                data['viewers_count'] = player_viewers.get(aid, 0) + tab_viewers.get(aid, 0)
+                # Добавляем флаги источников для отладки/отображения
+                data['has_active_player'] = aid in player_ids
+                data['has_active_tab'] = aid in tab_ids
                 results.append(data)
+
+            # Сортируем по количеству зрителей
+            results.sort(key=lambda x: x['viewers_count'], reverse=True)
+
             return Response({'results': results, 'count': len(results)})
         except Exception as e:
             import traceback
             return Response({'error': str(e), 'detail': traceback.format_exc()}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserActiveTabView(APIView):
+    """
+    API для управления активными вкладками пользователя.
+    Позволяет отмечать, что пользователь находится на странице аниме.
+    
+    POST /anime/active-tab/
+    {
+        "anime_id": 123,
+        "activity_type": "watching" | "player",  // optional, default: "watching"
+        "current_episode": 5  // optional
+    }
+    
+    DELETE /anime/active-tab/?anime_id=123 — удалить вкладку
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from anime.models import UserActiveTab
+
+        anime_id = request.data.get('anime_id')
+        activity_type = request.data.get('activity_type', 'watching')
+        current_episode = request.data.get('current_episode')
+
+        if not anime_id:
+            return Response({'error': 'Требуется anime_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Обновляем или создаём запись
+        tab, created = UserActiveTab.objects.update_or_create(
+            user=request.user,
+            anime=anime,
+            defaults={
+                'activity_type': activity_type,
+                'current_episode': current_episode,
+            }
+        )
+
+        return Response({
+            'anime_id': anime.id,
+            'activity_type': tab.activity_type,
+            'current_episode': tab.current_episode,
+            'last_ping': tab.last_ping.isoformat(),
+            'created': created,
+        })
+
+    def delete(self, request):
+        from anime.models import UserActiveTab
+
+        anime_id = request.query_params.get('anime_id')
+        if not anime_id:
+            return Response({'error': 'Требуется anime_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=status.HTTP_404_NOT_FOUND)
+
+        deleted, _ = UserActiveTab.objects.filter(
+            user=request.user,
+            anime=anime
+        ).delete()
+
+        return Response({
+            'deleted': deleted > 0,
+            'anime_id': anime_id,
+        })
 
 
 class HomeAPIView(APIView):

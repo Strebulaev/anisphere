@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('dubs', '0002_dub_created_by'),
-        ('anime', '0002_dub_dubstudio_voiceactor_dubrole_dub_studio_and_more'),
+        ('anime', '0002b_dub_dubstudio_voiceactor_dubrole_dub_studio_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

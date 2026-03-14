@@ -1,4 +1,4 @@
-  <template>
+<template>
   <transition name="suggestions">
     <div v-if="show" class="search-suggestions" @click.stop>
       <div v-if="isLoading" class="suggestions-loading">
@@ -14,7 +14,7 @@
           class="suggestions-section"
         >
           <div class="suggestions-section-title">
-            <component :is="getCategoryIcon(category.id)" width="10" height="10" />
+            <component :is="getCategoryIcon(category.id)" width="12" height="12" class="section-icon" />
             {{ category.name }}
           </div>
 
@@ -34,7 +34,7 @@
         </div>
 
         <div v-if="!hasResults" class="suggestions-empty">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
@@ -179,20 +179,85 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
 
+// Единый компонент для миниатюры любого типа
+const SuggestionThumbnail = {
+  props: ['item', 'type'],
+  setup(props: { item: any, type: string }) {
+    return () => {
+      const { item, type } = props
+      
+      // Для аниме
+      if (type === 'anime') {
+        return h('div', { class: 'suggestion-thumbnail' }, [
+          item.poster_url
+            ? h('img', { 
+                src: getMediaUrl(item.poster_url), 
+                alt: item.title_ru || item.title_en,
+                class: 'thumbnail-img'
+              })
+            : h('div', { class: 'thumbnail-placeholder' }, [
+                h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [
+                  h('rect', { x: 2, y: 2, width: 20, height: 20, rx: 2 })
+                ])
+              ])
+        ])
+      }
+      
+      // Для пользователей
+      if (type === 'users') {
+        return h('div', { class: 'suggestion-thumbnail rounded-full' }, [
+          item.avatar_url
+            ? h('img', { 
+                src: getMediaUrl(item.avatar_url), 
+                alt: item.display_name || item.username,
+                class: 'thumbnail-img'
+              })
+            : h('div', { class: 'thumbnail-placeholder' }, (item.display_name || item.username)?.[0]?.toUpperCase())
+        ])
+      }
+      
+      // Для групп
+      if (type === 'groups') {
+        return h('div', { class: 'suggestion-thumbnail rounded' }, [
+          item.avatar_url
+            ? h('img', { 
+                src: getMediaUrl(item.avatar_url), 
+                alt: item.name,
+                class: 'thumbnail-img'
+              })
+            : h('div', { class: 'thumbnail-placeholder' }, item.name?.[0]?.toUpperCase())
+        ])
+      }
+      
+      // Для плейлистов
+      if (type === 'playlists') {
+        return h('div', { class: 'suggestion-thumbnail playlist' }, [
+          h('div', { class: 'playlist-mini-posters' }, [
+            ...(item.items?.slice(0, 4).map((anime: any) =>
+              h('div', { class: 'mini-poster' }, [
+                anime.poster_url 
+                  ? h('img', { 
+                      src: getMediaUrl(anime.poster_url), 
+                      alt: anime.title_ru || anime.title_en,
+                      class: 'thumbnail-img'
+                    }) 
+                  : null
+              ])
+            ) || [])
+          ])
+        ])
+      }
+      
+      return null
+    }
+  }
+}
+
 const AnimeSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: AnimeResult }) {
     return () => h('div', { class: 'suggestion-content' }, [
-      h('div', { class: 'suggestion-poster' }, [
-        props.item.poster_url
-          ? h('img', { src: getMediaUrl(props.item.poster_url), alt: props.item.title_ru || props.item.title_en })
-          : h('div', { class: 'suggestion-poster-placeholder' }, [
-              h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [
-                h('rect', { x: 2, y: 2, width: 20, height: 20, rx: 2 }),
-                h('path', { d: 'M12 2v20M2 12h20' })
-              ])
-            ])
-      ]),
+      h(SuggestionThumbnail, { item: props.item, type: 'anime' }),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.title_ru || props.item.title_en),
         h('div', { class: 'suggestion-meta' }, [
@@ -209,11 +274,7 @@ const UserSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: UserResult }) {
     return () => h('div', { class: 'suggestion-content' }, [
-      h('div', { class: 'suggestion-avatar' }, [
-        props.item.avatar_url
-          ? h('img', { src: getMediaUrl(props.item.avatar_url), alt: props.item.display_name || props.item.username })
-          : h('div', { class: 'avatar-placeholder' }, (props.item.display_name || props.item.username)?.[0]?.toUpperCase())
-      ]),
+      h(SuggestionThumbnail, { item: props.item, type: 'users' }),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.display_name || props.item.username),
         h('div', { class: 'suggestion-meta' }, `@${props.item.username}`)
@@ -226,15 +287,7 @@ const PlaylistSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: PlaylistResult }) {
     return () => h('div', { class: 'suggestion-content' }, [
-      h('div', { class: 'suggestion-playlist-cover' }, [
-        h('div', { class: 'playlist-mini-posters' }, [
-          ...(props.item.items?.slice(0, 4).map(anime =>
-            h('div', { class: 'mini-poster' }, [
-              anime.poster_url ? h('img', { src: getMediaUrl(anime.poster_url), alt: anime.title_ru || anime.title_en }) : null
-            ])
-          ) || [])
-        ])
-      ]),
+      h(SuggestionThumbnail, { item: props.item, type: 'playlists' }),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.title),
         h('div', { class: 'suggestion-meta' }, `${props.item.items?.length || 0} аниме`)
@@ -247,11 +300,7 @@ const GroupSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: GroupResult }) {
     return () => h('div', { class: 'suggestion-content' }, [
-      h('div', { class: 'suggestion-avatar group-avatar' }, [
-        props.item.avatar_url
-          ? h('img', { src: getMediaUrl(props.item.avatar_url), alt: props.item.name })
-          : h('div', { class: 'avatar-placeholder' }, props.item.name?.[0]?.toUpperCase())
-      ]),
+      h(SuggestionThumbnail, { item: props.item, type: 'groups' }),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.name),
         h('div', { class: 'suggestion-meta' }, `${props.item.members_count || 0} участников`)
@@ -265,32 +314,41 @@ const GroupSuggestionItem = {
 .search-suggestions {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  max-width: 90vw;
   background-color: var(--color-background-secondary);
   border: 1px solid var(--color-divider);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: var(--shadow-card-hover);
-  max-height: 55vh;
-  min-width: 340px;
+  max-height: 450px;
   overflow-y: auto;
   z-index: 1000;
-  margin-top: 4px;
 }
+
+/* Если поисковая строка имеет определенную ширину, можно сделать так:
+.parent-search-container {
+  position: relative;
+}
+.search-suggestions {
+  width: min(400px, calc(100vw - 32px));
+}
+*/
 
 .suggestions-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px;
+  padding: 20px;
   color: var(--color-text-tertiary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .loading-spinner {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--color-divider);
   border-top-color: var(--color-accent);
   border-radius: 50%;
@@ -309,27 +367,31 @@ const GroupSuggestionItem = {
   border-bottom: 1px solid var(--color-divider-light);
 }
 
-/* Заголовок секции — маленький, компактный */
 .suggestions-section-title {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 12px 3px;
-  font-size: 9px;
-  font-weight: 700;
+  gap: 6px;
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.7;
+  letter-spacing: 0.5px;
+}
+
+.section-icon {
+  opacity: 0.6;
+  width: 14px;
+  height: 14px;
 }
 
 .suggestion-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
+  padding: 8px 12px;
   cursor: pointer;
-  transition: background-color 0.12s;
+  transition: background-color 0.1s;
+  min-height: 48px;
 }
 
 .suggestion-item:hover,
@@ -340,71 +402,61 @@ const GroupSuggestionItem = {
 .suggestion-content {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   width: 100%;
 }
 
-/* Постер аниме */
-.suggestion-poster {
-  width: 26px;
-  height: 36px;
-  object-fit: cover;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.suggestion-poster-placeholder {
-  width: 26px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color-background-active);
-  border-radius: 3px;
-  color: var(--color-text-tertiary);
-  flex-shrink: 0;
-}
-
-/* Аватарка пользователя */
-.suggestion-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.suggestion-avatar.group-avatar {
-  border-radius: 5px;
-}
-
-.suggestion-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color-accent);
-  color: white;
-  font-weight: 700;
-  font-size: 11px;
-}
-
-.suggestion-playlist-cover {
-  width: 26px;
-  height: 26px;
+/* Единый размер для всех миниатюр - 32x32 */
+.suggestion-thumbnail {
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
   background-color: var(--color-background-active);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.suggestion-thumbnail.rounded-full {
+  border-radius: 50%;
+}
+
+.suggestion-thumbnail.rounded {
+  border-radius: 6px;
+}
+
+.suggestion-thumbnail.playlist {
+  background: transparent;
+  padding: 0;
+}
+
+.thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-background-active);
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.thumbnail-placeholder svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Плейлист мини постеры */
 .playlist-mini-posters {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -418,9 +470,10 @@ const GroupSuggestionItem = {
   width: 100%;
   height: 100%;
   background-color: var(--color-background-surface);
+  overflow: hidden;
 }
 
-.mini-poster img {
+.mini-poster .thumbnail-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -429,25 +482,29 @@ const GroupSuggestionItem = {
 .suggestion-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .suggestion-title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-text);
-  margin: 0 0 1px 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.4;
 }
 
 .suggestion-meta {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-tertiary);
-  margin: 0;
   display: flex;
-  gap: 5px;
+  gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
+  line-height: 1.3;
 }
 
 .suggestion-rating {
@@ -466,19 +523,25 @@ const GroupSuggestionItem = {
   text-align: center;
 }
 
+.suggestions-empty svg {
+  opacity: 0.4;
+  width: 32px;
+  height: 32px;
+}
+
 .suggestions-empty p {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .suggestions-enter-active,
 .suggestions-leave-active {
-  transition: all 0.2s var(--transition-smooth);
+  transition: all 0.15s var(--transition-smooth);
 }
 
 .suggestions-enter-from,
 .suggestions-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-4px) translateX(-50%);
 }
 </style>

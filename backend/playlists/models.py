@@ -9,7 +9,7 @@ import os
 import uuid
 import secrets
 from datetime import timedelta
-from pillow import PILImage
+from PIL import Image as PILImage
 User = get_user_model()
 
 

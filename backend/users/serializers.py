@@ -9,28 +9,34 @@ from .models import (
 
 
 class UserSimpleSerializer(serializers.ModelSerializer):
-    """Упрощенный сериализатор пользователя для списка заблокированных"""
+    """Упрощенный сериализатор пользователя для списков"""
     avatar_url = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'display_name', 'avatar_url']
+        fields = ['id', 'username', 'nickname', 'display_name', 'avatar_url', 'is_online', 'last_login', 'level', 'bio']
 
     def get_avatar_url(self, obj):
         if obj.avatar:
             return obj.avatar.url
         return None
 
+    def get_display_name(self, obj):
+        return obj.display_name or obj.nickname or obj.username
+
 
 class UserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя"""
+    avatar_url = serializers.SerializerMethodField()
     cover_image_url = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'unique_id', 'username', 'email', 'first_name', 'last_name', 'display_name',
-            'nickname', 'phone_number', 'avatar', 'cover_image', 'cover_image_url', 'bio', 'favorite_genres',
+            'nickname', 'phone_number', 'avatar', 'avatar_url', 'cover_image', 'cover_image_url', 'bio', 'favorite_genres',
             'website', 'vk_profile', 'telegram', 'email_verified',
             'phone_verified', 'two_factor_enabled', 'is_online', 'last_login',
             'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges',
@@ -38,10 +44,18 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'unique_id', 'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges', 'posts_count', 'comments_count', 'likes_received', 'playlists_count']
 
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            return obj.avatar.url
+        return None
+
     def get_cover_image_url(self, obj):
         if obj.cover_image:
             return obj.cover_image.url
         return None
+
+    def get_display_name(self, obj):
+        return obj.display_name or obj.nickname or obj.username
 
 
 class RegisterSerializer(serializers.ModelSerializer):

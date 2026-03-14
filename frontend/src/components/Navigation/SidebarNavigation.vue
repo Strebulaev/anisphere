@@ -98,6 +98,15 @@
         <span>Моя коллекция</span>
       </router-link>
 
+      <!-- <router-link 
+        to="/wheel" 
+        class="nav-item"
+        :class="{ active: isActiveRoute('/wheel') }"
+      >
+        <span class="nav-icon-emoji">🎡</span>
+        <span>Колесо фортуны</span>
+      </router-link> -->
+
       <router-link 
         to="/chats" 
         class="nav-item"
@@ -110,9 +119,9 @@
       </router-link>
 
       <router-link 
-        to="/online" 
+        to="/people" 
         class="nav-item"
-        :class="{ active: isActiveRoute('/online') }"
+        :class="{ active: isActiveRoute('/people') }"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <!-- Основной человек (в центре) -->
@@ -356,6 +365,16 @@ const isActiveRoute = (path: string) => {
 .nav-item:hover svg,
 .nav-item.active svg {
   opacity: 1;
+}
+
+.nav-icon-emoji {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 /* ── Разделитель ───────────────────────────────────────────── */

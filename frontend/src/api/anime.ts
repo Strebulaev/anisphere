@@ -90,6 +90,7 @@ export interface AnimeFilters {
   ordering?: SortOrder
   page?: number
   page_size?: number
+  shuffle?: boolean  // Перемешивание результатов
 }
 
 const toComma = (v: string[] | string | undefined): string | undefined => {
@@ -123,6 +124,9 @@ export const animeApi = {
 
     // Сортировка
     params.ordering = filters.ordering ?? '-score'
+
+    // Перемешивание
+    if (filters.shuffle) params.shuffle = 'true'
 
     // Поиск
     if (filters.search) params.search = filters.search

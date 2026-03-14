@@ -35,6 +35,9 @@ import UsersView from '@/views/UsersView.vue'
 import StudiosView from '@/views/studios/StudiosView.vue'
 import StudioDetailView from '@/views/studios/StudioDetailView.vue'
 import SharedPlaylistView from '@/components/page/playlists/SharedPlaylistView.vue'
+import WheelView from '@/views/WheelView.vue'
+import WheelSettingsView from '@/views/WheelSettingsView.vue'
+import WheelHistoryView from '@/views/WheelHistoryView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -265,6 +268,24 @@ const router = createRouter({
       name: 'studio-detail',
       component: StudioDetailView,
       props: true
+    },
+    {
+      path: '/wheel',
+      name: 'wheel',
+      component: WheelView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/wheel/settings',
+      name: 'wheel-settings',
+      component: WheelSettingsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/wheel/history',
+      name: 'wheel-history',
+      component: WheelHistoryView,
+      meta: { requiresAuth: true }
     }
   ]
 })

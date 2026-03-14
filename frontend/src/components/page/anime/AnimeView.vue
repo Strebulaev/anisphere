@@ -77,7 +77,6 @@
             @refresh="fetchCurrentlyWatching"
           />
         </div>
-
       </transition>
     </div>
   </div>
@@ -92,6 +91,7 @@ import OngoingsView from './OngoingsView.vue'
 import RecommendationsView from './RecommendationsView.vue'
 import AnnouncementsView from './AnnouncementsView.vue'
 import CurrentlyWatchingView from './CurrentlyWatchingView.vue'
+import RouletteTabView from './RouletteTabView.vue'
 import { useAnimeSections, type AnimeSection as SectionType } from '@/composables/useAnimeSections'
 import type { FilterState } from '@/components/Filters/AnimeFilterBar.vue'
 import apiClient from '@/api/client'
@@ -108,6 +108,7 @@ const {
   catalogPage, catalogTotalPages, catalogTotalCount,
   isShuffled,
   switchSection, fetchCatalog, fetchOngoings, fetchAnnouncements,
+  enableCatalogShuffle, disableCatalogShuffle,
 } = useAnimeSections()
 
 const ongoingCount = computed(() => ongoings.value.length || null)
@@ -215,14 +216,10 @@ onMounted(() => {
   }
 })
 const shuffleCatalog = () => {
-  if (catalogAnime.value.length) {
-    catalogAnime.value = [...catalogAnime.value].sort(() => Math.random() - 0.5)
-    isShuffled.value.catalog = true
-  }
+  enableCatalogShuffle()
 }
 const unshuffleCatalog = () => {
-  isShuffled.value.catalog = false
-  fetchCatalog(1)
+  disableCatalogShuffle()
 }
 
 const goToDetail = (anime: Anime) => {

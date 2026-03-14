@@ -3,7 +3,7 @@
     <!-- Заголовок -->
     <div class="page-header">
       <h1 class="page-title">Люди</h1>
-      <p class="page-subtitle">Пользователи сообщества AnimeCore</p>
+      <p class="page-subtitle">Пользователи</p>
     </div>
 
     <!-- Фильтры и поиск -->

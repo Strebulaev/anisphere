@@ -641,6 +641,51 @@ class UserEpisodeProgress(models.Model):
         return 0
 
 
+class UserActiveTab(models.Model):
+    """
+    Отслеживание активных вкладок пользователя на страницах аниме.
+    Используется для раздела "Сейчас смотрят" — показывает аниме,
+    которые пользователи открыли в данный момент (даже без воспроизведения).
+    """
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='active_tabs'
+    )
+    anime = models.ForeignKey(
+        Anime,
+        on_delete=models.CASCADE,
+        related_name='active_viewers'
+    )
+    
+    # Тип активности: 'watching' (открыта страница аниме), 'player' (воспроизведение идёт)
+    activity_type = models.CharField(
+        'Тип активности',
+        max_length=20,
+        choices=[
+            ('watching', 'Просмотр страницы'),
+            ('player', 'Воспроизведение'),
+        ],
+        default='watching'
+    )
+    
+    # Текущая серия (если известно)
+    current_episode = models.PositiveIntegerField('Текущая серия', null=True, blank=True)
+    
+    # Последняя активность
+    last_ping = models.DateTimeField('Последний пинг', auto_now=True)
+    created_at = models.DateTimeField('Создано', auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['user', 'anime']
+        ordering = ['-last_ping']
+        verbose_name = 'Активная вкладка'
+        verbose_name_plural = 'Активные вкладки'
+    
+    def __str__(self):
+        return f'{self.user.username} | {self.anime.title_ru} ({self.activity_type})'
+
+
 class CustomDub(models.Model):
     """Пользовательская озвучка аниме"""
     MODERATION_STATUS_CHOICES = [

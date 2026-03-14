@@ -1,0 +1,200 @@
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 768;
+    multi_accept on;
+    use epoll;
+}
+
+http {
+    # WebSocket upgrade map
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    # Базовые настройки
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    server_tokens off;
+    client_max_body_size 100M;
+
+    # MIME типы
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Логирование
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # Сжатие
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss application/atom+xml image/svg+xml;
+
+    # Лимиты и таймауты
+    proxy_connect_timeout 300s;
+    proxy_send_timeout 300s;
+    proxy_read_timeout 300s;
+    fastcgi_read_timeout 300s;
+
+    # HTTP сервер - редирект на HTTPS
+    server {
+        listen 80;
+        listen [::]:80;
+        server_name anisphere.ru www.anisphere.ru;
+        
+        location / {
+            return 301 https://$server_name$request_uri;
+        }
+    }
+
+    # HTTPS сервер
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+        http2 on;
+        server_name anisphere.ru www.anisphere.ru;
+
+        ssl_certificate /etc/letsencrypt/live/anisphere.ru/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/anisphere.ru/privkey.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+
+        root /var/www/www-root/data/www/anisphere.ru;
+
+        # Статика
+        location /static/ {
+            alias /var/www/www-root/data/www/anisphere.ru/static/;
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+
+        location /media/ {
+            alias /var/www/www-root/data/www/anisphere.ru/media/;
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+
+        location /img/ {
+            alias /var/www/www-root/data/www/anisphere.ru/img/;
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+            try_files $uri /img/default-avatar.svg =404;
+        }
+
+        # WebSocket для чатов (Daphne на порту 8002)
+        location /ws/ {
+            proxy_pass http://127.0.0.1:8002;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
+        }
+
+        # WebSocket через /api/ws/ (Daphne на порту 8002)
+        location /api/ws/ {
+            proxy_pass http://127.0.0.1:8002;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
+        }
+
+        # API
+        location /api/ {
+            proxy_pass http://127.0.0.1:8001;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Port $server_port;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header Authorization $http_authorization;
+            proxy_pass_header Authorization;
+            proxy_connect_timeout 300s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
+            proxy_buffering on;
+            proxy_buffer_size 128k;
+            proxy_buffers 4 256k;
+            proxy_busy_buffers_size 256k;
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 3;
+            proxy_hide_header X-Powered-By;
+            proxy_hide_header Server;
+            add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+            add_header Pragma "no-cache" always;
+            add_header Expires "0" always;
+            add_header Service-Worker-Allowed "/" always;
+            add_header Access-Control-Allow-Origin $http_origin always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization" always;
+            add_header Access-Control-Allow-Credentials "true" always;
+            add_header Access-Control-Expose-Headers "Content-Length,Content-Range" always;
+            if ($request_method = 'OPTIONS') {
+                add_header Access-Control-Allow-Origin $http_origin always;
+                add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+                add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization" always;
+                add_header Access-Control-Allow-Credentials "true" always;
+                add_header Access-Control-Max-Age 1728000;
+                add_header Content-Type 'text/plain charset=UTF-8';
+                add_header Content-Length 0;
+                return 204;
+            }
+        }
+
+        # Админка
+        location /admin/ {
+            proxy_pass http://127.0.0.1:8001;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Port $server_port;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header Authorization $http_authorization;
+            proxy_pass_header Authorization;
+        }
+
+        # Service Worker — без кэша, всегда актуальный
+        location = /service-worker.js {
+            root /var/www/www-root/data/www/anisphere.ru;
+            add_header Cache-Control "no-cache, must-revalidate" always;
+            add_header Service-Worker-Allowed "/" always;
+            expires -1;
+        }
+
+        # Фронтенд SPA — try_files с $uri.html чтобы не было 403 на /anime/ и подобных
+        location / {
+            root /var/www/www-root/data/www/anisphere.ru;
+            try_files $uri $uri.html /index.html;
+            add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+            autoindex off;
+        }
+
+        # Логи
+        access_log /var/log/nginx/anisphere-access.log;
+        error_log /var/log/nginx/anisphere-error.log warn;
+    }
+}

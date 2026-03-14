@@ -221,6 +221,9 @@
                 :anime-title="anime.title_ru"
                 :anime-poster="anime.poster || undefined"
               />
+              <!-- <button class="btn btn-wheel" @click="addToWheel">
+                🎡 В колесо
+              </button> -->
             </div>
           </div>
         </div>
@@ -446,6 +449,7 @@
   import { PlaylistSelectModal, ImageLightbox } from '@/components/Modals'
   import { AddToFavoriteButton } from '@/components/Buttons'
   import playlistsApi from '@/api/playlists'
+  import { rouletteApi } from '@/api/roulette'
   import { getTranslationAvatarUrl } from '@/utils/translationAvatars'
   import { animeDiscussionsApi } from '@/api/animeDiscussions'
   import { useToast } from '@/composables/useToast'
@@ -513,6 +517,7 @@
 
   const route = useRoute()
   const router = useRouter()
+  const toast = useToast()
 
   const anime = ref<Anime | null>(null)
   const franchise = ref<FranchiseDetail | null>(null)
@@ -733,6 +738,43 @@
       creatingPlaylist.value = false
     }
   }
+
+  // // Добавить в колесо фортуны
+  // const addToWheel = async () => {
+  //   if (!anime.value) return
+    
+  //   try {
+  //     // Получаем список рулеток
+  //     const { data: roulettes } = await rouletteApi.getRoulettes()
+      
+  //     let rouletteId: string
+      
+  //     if (roulettes && roulettes.length > 0 && roulettes[0]) {
+  //       // Используем первую рулетку
+  //       rouletteId = roulettes[0].id
+  //     } else {
+  //       // Создаём новую рулетку
+  //       const { data: newRoulette } = await rouletteApi.createRoulette({
+  //         name: 'Моя рулетка',
+  //         spin_duration: 5
+  //       })
+  //       rouletteId = newRoulette.id
+  //     }
+      
+  //     // Добавляем аниме в рулетку
+  //     await rouletteApi.addItem(rouletteId, {
+  //       anime_id: anime.value.id,
+  //       anime_title: anime.value.title_ru || anime.value.title_en,
+  //       anime_poster: anime.value.poster || undefined,
+  //       weight: 1
+  //     })
+      
+  //     toast.success(`"${anime.value.title_ru || anime.value.title_en}" добавлено в колесо!`)
+  //   } catch (e: any) {
+  //     console.error('Ошибка добавления в колесо:', e)
+  //     toast.error('Не удалось добавить в колесо')
+  //   }
+  // }
 
   const fetchFranchise = async (franchiseId: number) => {
     try {
@@ -1128,6 +1170,17 @@
   border-color: var(--color-primary);
   color: var(--color-primary);
   transform: translateY(-2px);
+}
+
+.btn-wheel {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  color: white;
+}
+
+.btn-wheel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .discuss-btn:disabled {

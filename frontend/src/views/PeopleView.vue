@@ -3,7 +3,7 @@
     <!-- Заголовок -->
     <div class="page-header">
       <h1 class="page-title">Люди</h1>
-      <p class="page-subtitle">Актёры озвучки, режиссёры, авторы и персонажи</p>
+      <p class="page-subtitle">Пользователи</p>
     </div>
 
     <!-- Фильтры и поиск -->
@@ -16,7 +16,9 @@
           @click="activeTab = tab.value"
           :class="['tab-btn', { active: activeTab === tab.value }]"
         >
+          <span v-if="tab.value === 'online'" class="online-dot"></span>
           {{ tab.label }}
+          <span v-if="tab.count !== undefined" class="tab-count">{{ tab.count }}</span>
         </button>
       </div>
 
@@ -56,38 +58,35 @@
     </div>
 
     <!-- Сетка карточек -->
-    <div v-else-if="people.length > 0" class="people-grid">
+    <div v-else-if="users.length > 0" class="people-grid">
       <router-link
-        v-for="person in people"
-        :key="person.id"
-        :to="`/people/${person.id}`"
+        v-for="user in users"
+        :key="user.id"
+        :to="`/profile/${user.id}`"
         class="person-card"
       >
         <div class="person-avatar">
           <img
-            v-if="person.photo_url"
-            :src="getMediaUrl(person.photo_url)"
-            :alt="person.name"
+            v-if="user.avatar_url"
+            :src="user.avatar_url"
+            :alt="getUserDisplayName(user)"
             class="avatar-image"
             @error="handleImageError"
           />
           <div v-else class="avatar-placeholder">
-            {{ person.name[0]?.toUpperCase() }}
+            {{ getUserDisplayName(user)[0]?.toUpperCase() }}
           </div>
+          <span v-if="user.is_online" class="online-badge">онлайн</span>
         </div>
         <div class="person-info">
-          <h3 class="person-name">{{ person.name }}</h3>
-          <p v-if="person.name_jp" class="person-name-jp">{{ person.name_jp }}</p>
-          <div class="person-roles">
-            <span
-              v-for="(role, index) in person.roles_display?.slice(0, 2)"
-              :key="index"
-              class="role-tag"
-            >
-              {{ role }}
-            </span>
+          <h3 class="person-name">{{ getUserDisplayName(user) }}</h3>
+          <p v-if="user.nickname && user.nickname !== getUserDisplayName(user)" class="person-nickname">
+            @{{ user.nickname }}
+          </p>
+          <div class="user-stats">
+            <span v-if="user.level" class="level-badge">Ур. {{ user.level }}</span>
           </div>
-          <p class="person-works">{{ person.works_count || person.anime_count }} работ</p>
+          <p v-if="user.bio" class="person-bio">{{ truncateBio(user.bio) }}</p>
         </div>
       </router-link>
     </div>
@@ -98,7 +97,7 @@
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
         <circle cx="12" cy="7" r="4"/>
       </svg>
-      <p>Персоны не найдены</p>
+      <p>Пользователи не найдены</p>
     </div>
 
     <!-- Пагинация -->
@@ -127,20 +126,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { getMediaUrl } from '@/api/client'
-import peopleApi, { type Person } from '@/api/people'
+import { ref, onMounted, watch } from 'vue'
+import usersApi, { type User } from '@/api/users'
 
-const tabs = [
-  { value: '', label: 'Все' },
-  { value: 'voice_actor', label: 'Сейю' },
-  { value: 'director', label: 'Режиссёры' },
-  { value: 'character', label: 'Персонажи' }
-]
+const tabs = ref([
+  { value: 'all', label: 'Все', count: undefined as number | undefined },
+  { value: 'online', label: 'Онлайн', count: undefined as number | undefined },
+  { value: 'offline', label: 'Оффлайн', count: undefined as number | undefined }
+])
 
-const activeTab = ref('')
+const activeTab = ref('all')
 const searchQuery = ref('')
-const people = ref<Person[]>([])
+const users = ref<User[]>([])
 const isLoading = ref(false)
 const currentPage = ref(1)
 const totalPages = ref(1)
@@ -149,30 +146,46 @@ const totalCount = ref(0)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let pageSize = 24
 
-const fetchPeople = async () => {
+const getUserDisplayName = (user: User): string => {
+  return user.display_name || user.nickname || user.username
+}
+
+const truncateBio = (bio: string): string => {
+  return bio.length > 60 ? bio.slice(0, 60) + '...' : bio
+}
+
+const fetchUsers = async () => {
   isLoading.value = true
   try {
     const params: any = {
       page: currentPage.value,
-      page_size: pageSize,
-      ordering: 'name'
+      page_size: pageSize
     }
 
-    if (activeTab.value) {
-      params.role = activeTab.value
+    // Маппинг табов на статус API
+    if (activeTab.value === 'online') {
+      params.status = 'online'
+    } else if (activeTab.value === 'offline') {
+      params.status = 'offline'
     }
+    // all - без параметра status
 
     if (searchQuery.value) {
       params.search = searchQuery.value
     }
 
-    const response = await peopleApi.getPeople(params)
-    people.value = response.data.results || []
+    const response = await usersApi.getUsers(params)
+    users.value = response.data.results || []
     totalCount.value = response.data.count || 0
     totalPages.value = Math.ceil(totalCount.value / pageSize)
+
+    // Обновляем счётчики в табах
+    if (activeTab.value === 'all' && tabs.value[0]) {
+      tabs.value[0].count = totalCount.value
+    }
   } catch (error) {
-    console.error('Error fetching people:', error)
-    people.value = []
+    console.error('Error fetching users:', error)
+    users.value = []
   } finally {
     isLoading.value = false
   }
@@ -180,7 +193,7 @@ const fetchPeople = async () => {
 
 const loadPage = (page: number) => {
   currentPage.value = page
-  fetchPeople()
+  fetchUsers()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -188,14 +201,14 @@ const debouncedSearch = () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
     currentPage.value = 1
-    fetchPeople()
+    fetchUsers()
   }, 300)
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
   currentPage.value = 1
-  fetchPeople()
+  fetchUsers()
 }
 
 const handleImageError = (event: Event) => {
@@ -205,11 +218,11 @@ const handleImageError = (event: Event) => {
 
 watch(activeTab, () => {
   currentPage.value = 1
-  fetchPeople()
+  fetchUsers()
 })
 
 onMounted(() => {
-  fetchPeople()
+  fetchUsers()
 })
 </script>
 
@@ -361,15 +374,17 @@ onMounted(() => {
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: visible;
   margin-bottom: 0.75rem;
   background: var(--color-background-active);
+  position: relative;
 }
 
 .avatar-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 
 .avatar-placeholder {
@@ -382,6 +397,21 @@ onMounted(() => {
   color: #fff;
   font-size: 2rem;
   font-weight: 700;
+  border-radius: 50%;
+}
+
+.online-badge {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.625rem;
+  padding: 0.125rem 0.5rem;
+  background: #22c55e;
+  color: #fff;
+  border-radius: 9999px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .person-info {
@@ -399,13 +429,13 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.person-name-jp {
+.person-nickname {
   font-size: 0.75rem;
   color: var(--color-text-tertiary);
   margin: 0 0 0.5rem;
 }
 
-.person-roles {
+.user-stats {
   display: flex;
   gap: 0.25rem;
   justify-content: center;
@@ -413,19 +443,36 @@ onMounted(() => {
   margin-bottom: 0.5rem;
 }
 
-.role-tag {
+.level-badge {
   font-size: 0.6875rem;
   padding: 0.125rem 0.5rem;
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #fff;
   border-radius: 9999px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.person-works {
+.person-bio {
   font-size: 0.75rem;
   color: var(--color-text-tertiary);
   margin: 0;
+  line-height: 1.4;
+}
+
+/* Онлайн точка в табе */
+.online-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #22c55e;
+  border-radius: 50%;
+  margin-right: 0.375rem;
+}
+
+.tab-count {
+  font-size: 0.75rem;
+  margin-left: 0.375rem;
+  opacity: 0.7;
 }
 
 /* Загрузка */

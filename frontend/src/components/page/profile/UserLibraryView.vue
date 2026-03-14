@@ -10,6 +10,9 @@
         <p class="page-subtitle">Ваша личная библиотека аниме</p>
       </div>
       <div class="header-right">
+        <!-- <router-link to="/wheel" class="wheel-btn">
+          🎡 Крутить колесо
+        </router-link> -->
         <div class="search-box">
           <svg class="search-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -570,6 +573,30 @@ onMounted(() => {
 }
 
 .state-btn:hover { opacity: 0.85; }
+
+/* ═══ КНОПКА КОЛЕСА ФОРТУНЫ ══════════════════════════════════ */
+.wheel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 var(--space-4);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--duration-base);
+  white-space: nowrap;
+}
+
+.wheel-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
 
 /* ═══ АНИМАЦИИ ══════════════════════════════════════════════ */
 @keyframes shimmer {
