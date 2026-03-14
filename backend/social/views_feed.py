@@ -7,11 +7,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import F
+from django.db.models import F, Count
 
 from .models import Post, Follow, GroupMembership, UserPostHidden
 from .serializers import FeedPostSerializer, PostSerializer
-from .services import FeedGenerationService, TrendingService
+from .services.feed_service import FeedGenerationService, TrendingService
 
 
 class FeedViewSet(viewsets.ReadOnlyModelViewSet):
@@ -24,13 +24,17 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         """Базовая лента - публичные посты"""
+        from django.db.models import Count
+        
         queryset = Post.objects.filter(
             status='published',
             is_deleted=False,
             visibility='public'
         ).select_related(
             'author', 'anime', 'group', 'playlist', 'reactor_post'
-        ).prefetch_related('media_files').order_by('-created_at')
+        ).prefetch_related('media_files').annotate(
+            playlist_items_count=Count('playlist__items')
+        ).order_by('-created_at')
         
         # Исключаем скрытые посты
         if self.request.user.is_authenticated:
@@ -144,6 +148,8 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
     def trending(self, request):
         """Получить трендовые посты (популярные за последнее время)"""
         try:
+            from django.db.models import Count
+            
             hours = int(request.query_params.get('hours', 6))
             limit = int(request.query_params.get('limit', 20))
             
@@ -155,7 +161,8 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
                 created_at__gte=time_threshold,
                 post_type__in=['text', 'image', 'video', 'anime', 'playlist']
             ).annotate(
-                activity_score=F('likes_count') + F('comments_count') * 2 + F('views_count')
+                activity_score=F('likes_count') + F('comments_count') * 2 + F('views_count'),
+                playlist_items_count=Count('playlist__items')
             ).order_by('-activity_score', '-created_at').select_related(
                 'author', 'anime', 'playlist', 'group'
             ).prefetch_related('media_files')[:limit]
@@ -174,6 +181,8 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
     def followers(self, request):
         """Получить посты только от подписок пользователя"""
         try:
+            from django.db.models import Count
+            
             user = request.user
             page = int(request.query_params.get('page', 1))
             per_page = int(request.query_params.get('page_size', 20))
@@ -189,6 +198,8 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
                 status='published',
                 is_deleted=False,
                 visibility__in=['public', 'followers']
+            ).annotate(
+                playlist_items_count=Count('playlist__items')
             ).select_related(
                 'author', 'anime', 'playlist', 'group'
             ).prefetch_related('media_files').order_by('-created_at')[offset:offset + per_page]

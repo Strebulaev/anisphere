@@ -164,17 +164,23 @@ class FeedGenerationService:
         own_posts = Post.objects.filter(
             base_filter &
             Q(author_id=user.id)
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).exclude(exclude_filter).select_related('author', 'anime', 'playlist')
 
         subscription_posts = Post.objects.filter(
             base_filter &
             visibility_filter &
             Q(author_id__in=subscriptions)
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).exclude(exclude_filter).select_related('author', 'anime', 'playlist')
         
         group_posts = Post.objects.filter(
             base_filter &
             Q(group_id__in=member_groups)
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).exclude(exclude_filter).select_related('author', 'anime', 'playlist', 'group')
         
         recommended_posts = Post.objects.filter(
@@ -183,6 +189,8 @@ class FeedGenerationService:
             ~Q(author_id__in=subscriptions) &
             ~Q(author_id=user.id) &
             ~Q(group_id__in=member_groups)
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).exclude(
             id__in=hidden_post_ids
         ).order_by('-likes_count', '-comments_count', '-created_at').select_related(
@@ -242,6 +250,8 @@ class FeedGenerationService:
     @classmethod
     def get_user_feed_posts(cls, user: User, page: int = 1, per_page: int = 20):
         """Получить посты для ленты пользователя с пагинацией"""
+        from django.db.models import Count
+        
         offset = (page - 1) * per_page
         posts = cls.get_feed_queryset(user, limit=per_page, offset=offset)
         
@@ -250,6 +260,8 @@ class FeedGenerationService:
             is_pinned=True,
             status='published',
             is_deleted=False
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).select_related('author', 'anime', 'playlist')
         
         return {
@@ -260,12 +272,16 @@ class FeedGenerationService:
     @classmethod
     def get_group_feed(cls, group: Group, page: int = 1, per_page: int = 20):
         """Получить ленту группы"""
+        from django.db.models import Count
+        
         offset = (page - 1) * per_page
         
         posts = Post.objects.filter(
             group=group,
             status='published',
             is_deleted=False
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).select_related(
             'author', 'anime', 'playlist'
         ).order_by('-is_pinned', '-created_at')[offset:offset + per_page]
@@ -275,12 +291,16 @@ class FeedGenerationService:
     @classmethod
     def get_profile_posts(cls, user: User, page: int = 1, per_page: int = 20):
         """Получить посты профиля пользователя"""
+        from django.db.models import Count
+        
         offset = (page - 1) * per_page
         
         posts = Post.objects.filter(
             author=user,
             status='published',
             is_deleted=False
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).select_related(
             'author', 'anime', 'playlist', 'group'
         ).order_by('-is_pinned', '-created_at')[offset:offset + per_page]
@@ -294,7 +314,7 @@ class TrendingService:
     @classmethod
     def get_hot_posts(cls, hours: int = 24, limit: int = 20) -> List[Post]:
         """Получить горячие посты за последние N часов"""
-        from django.db.models import F
+        from django.db.models import F, Count
         
         time_threshold = timezone.now() - timedelta(hours=hours)
         
@@ -303,6 +323,8 @@ class TrendingService:
             is_deleted=False,
             created_at__gte=time_threshold,
             post_type__in=['text', 'image', 'video', 'anime', 'playlist']
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).select_related(
             'author', 'anime', 'group', 'playlist', 'reactor_post'
         ).prefetch_related(
@@ -312,10 +334,12 @@ class TrendingService:
         )[:limit]
         
         return list(posts)
-    
+
     @classmethod
     def get_top_posts(cls, days: int = 7, limit: int = 20) -> List[Post]:
         """Получить топ постов за последние N дней по лайкам"""
+        from django.db.models import Count
+        
         time_threshold = timezone.now() - timedelta(days=days)
         
         posts = Post.objects.filter(
@@ -323,6 +347,8 @@ class TrendingService:
             is_deleted=False,
             created_at__gte=time_threshold,
             post_type__in=['text', 'image', 'video', 'anime', 'playlist']
+        ).annotate(
+            playlist_items_count=Count('playlist__items')
         ).order_by('-likes_count', '-comments_count', '-created_at')[:limit]
         
         return list(posts)

@@ -9,20 +9,24 @@ export const CommentThreadNode: any = defineComponent({
     comment:     { type: Object, required: true },
     allComments: { type: Array, required: true },
     postId:      { type: Number, required: true },
-    depth:       { type: Number, default: 0 },
+    isReply:     { type: Boolean, default: false }, // Это ответ (не корневой комментарий)
+    replyToUser: { type: String, default: '' },     // Username того, кому отвечаем
   },
   emits: ['reply-added'],
   setup(p, { emit: emitNode }) {
     const replying = ref(false)
     const replyText = ref('')
     const sendingReply = ref(false)
-    const showReplies = ref(true)
+    const showReplies = ref(false)
     const defaultAv = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23333'/%3E%3C/svg%3E`
 
-    const children = computed(() =>
-      (p.allComments as any[]).filter(c => c.parent === p.comment.id)
+    // Дети - только если это корневой комментарий
+    const children = computed(() => {
+      if (p.isReply) return [] // У ответов нет детей
+      return (p.allComments as any[])
+        .filter(c => c.parent === p.comment.id)
         .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-    )
+    })
 
     const submitReply = async () => {
       if (!replyText.value.trim() || sendingReply.value) return
@@ -33,6 +37,7 @@ export const CommentThreadNode: any = defineComponent({
         emitNode('reply-added', norm)
         replyText.value = ''
         replying.value = false
+        showReplies.value = true
       } catch {}
       finally { sendingReply.value = false }
     }
@@ -48,18 +53,20 @@ export const CommentThreadNode: any = defineComponent({
 
     return () => {
       const c = p.comment as any
-      const MAX_DEPTH = 5
-      const indent = Math.min(p.depth, MAX_DEPTH) * 20
 
       return h('div', { class: 'comment-node' }, [
-        h('div', {
-          class: ['comment-row', p.depth > 0 ? 'is-reply' : ''],
-          style: p.depth > 0 ? { marginLeft: indent + 'px' } : {}
-        }, [
+        h('div', { class: ['comment-row', p.isReply ? 'is-reply' : ''] }, [
           h('img', { src: c.author_avatar || defaultAv, class: 'c-avatar' }),
           h('div', { class: 'c-body' }, [
             h('div', { class: 'c-header' }, [
-              h('span', { class: 'c-author' }, c.author_username || c.author_display_name || ''),
+              // Если это ответ на ответ - показываем упоминание
+              p.isReply && p.replyToUser ? [
+                h('span', { class: 'c-author' }, c.author_username || c.author_display_name || ''),
+                h('span', { class: 'c-reply-arrow' }, '→'),
+                h('span', { class: 'c-reply-to' }, '@' + p.replyToUser),
+              ] : [
+                h('span', { class: 'c-author' }, c.author_username || c.author_display_name || ''),
+              ],
               h('span', { class: 'c-time' }, formatTime(c.created_at)),
             ]),
             h('p', { class: 'c-text', innerHTML: (c.content || '').replace(/\n/g, '<br>') }),
@@ -75,16 +82,19 @@ export const CommentThreadNode: any = defineComponent({
                   } catch {}
                 }
               }, [c.is_liked ? '❤️' : '🤍', ' ', String(c.likes_count || 0)]),
-              p.depth < MAX_DEPTH ? h('button', {
+              // Кнопка "Ответить" только у корневых комментариев
+              !p.isReply ? h('button', {
                 class: 'c-btn',
                 onClick: (e: Event) => { e.stopPropagation(); replying.value = !replying.value }
               }, '💬 Ответить') : null,
-              children.value.length > 0 ? h('button', {
+              // Кнопка "Показать ответы" только у корневых комментариев
+              !p.isReply && children.value.length > 0 ? h('button', {
                 class: 'c-btn c-toggle',
                 onClick: (e: Event) => { e.stopPropagation(); showReplies.value = !showReplies.value }
-              }, showReplies.value ? `▲ Скрыть (${children.value.length})` : `▼ Ответы (${children.value.length})`) : null,
+              }, showReplies.value ? `▲ Скрыть (${children.value.length})` : `▼ Показать ответы (${children.value.length})`) : null,
             ]),
-            replying.value ? h('div', { class: 'reply-form' }, [
+            // Форма ответа только у корневых комментариев
+            !p.isReply && replying.value ? h('div', { class: 'reply-form' }, [
               h('textarea', {
                 class: 'reply-textarea',
                 placeholder: `Ответ @${c.author_username}...`,
@@ -104,7 +114,8 @@ export const CommentThreadNode: any = defineComponent({
             ]) : null,
           ]),
         ]),
-        showReplies.value && children.value.length > 0
+        // Ответы только у корневых комментариев, на одном уровне
+        !p.isReply && showReplies.value && children.value.length > 0
           ? h('div', { class: 'comment-children' },
               children.value.map((child: any) =>
                 h(CommentThreadNode, {
@@ -112,7 +123,8 @@ export const CommentThreadNode: any = defineComponent({
                   comment: child,
                   allComments: p.allComments,
                   postId: p.postId,
-                  depth: p.depth + 1,
+                  isReply: true,
+                  replyToUser: c.author_username || c.author_display_name || '',
                   onReplyAdded: (reply: any) => emitNode('reply-added', reply),
                 })
               )

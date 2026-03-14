@@ -548,8 +548,10 @@ const openEdit = () => {
 }
 
 .card-action-btn:hover { background-color: var(--accent); transform: scale(1.1); }
-.card-action-btn.fav-btn.active { color: var(--danger); background-color: rgba(239,68,68,0.85); }
-.card-action-btn.fav-btn.active:hover { background-color: var(--danger); }
+.card-action-btn.fav-btn { color: var(--text-secondary); }
+.card-action-btn.fav-btn:hover { background-color: rgba(239,68,68,0.2); color: var(--danger); }
+.card-action-btn.fav-btn.active { color: var(--danger); }
+.card-action-btn.fav-btn.active:hover { background-color: rgba(239,68,68,0.3); }
 .card-action-btn.discuss-btn:hover { background-color: var(--accent); }
 .card-action-btn.playlist-btn:hover { background-color: var(--accent-2, var(--accent)); }
 .card-action-btn.reminder-btn:hover { background-color: var(--warning); }

@@ -32,7 +32,7 @@
 
       <!-- Content -->
       <div class="content-area">
-        <!-- Text -->
+        <!-- Text (БЕЗ заголовка - по умолчанию) -->
         <textarea
           ref="textArea"
           v-model="text"
@@ -96,19 +96,12 @@
         </div>
       </div>
 
-      <!-- Attachment Buttons — скрепочка + ⚡📁🎬 -->
+      <!-- Attachment Buttons — ТОЛЬКО скрепочка (объединяет всё) -->
       <div class="attachment-buttons">
-        <!-- 📎 Фото/Видео (мультивыбор) -->
-        <button @click="triggerMediaPick" title="Фото / Видео" class="attach-btn" :class="{ active: mediaFiles.length > 0 }">
+        <!-- 📎 Прикрепить (фото/видео/аниме/плейлист/shorts) -->
+        <button @click="openAttachModal" title="Прикрепить" class="attach-btn main-attach" :class="{ active: hasAnyAttachments }">
           📎
-          <span v-if="mediaFiles.length > 0" class="attach-count">{{ mediaFiles.length }}</span>
-        </button>
-        <input ref="mediaInput" type="file" accept="image/*,video/*" multiple class="hidden-input" @change="onMediaSelected">
-
-        <!-- 🎬📁⚡ Прикрепить контент (одна кнопка → модальное окно с выбором) -->
-        <button @click="openAttachModal" title="Аниме / Плейлист / Shorts" class="attach-btn" :class="{ active: hasAttachments }">
-          🎬
-          <span v-if="attachCount > 0" class="attach-count">{{ attachCount }}</span>
+          <span v-if="totalAttachCount > 0" class="attach-count">{{ totalAttachCount }}</span>
         </button>
       </div>
 
@@ -129,9 +122,32 @@
         </div>
 
         <div class="attach-tabs">
+          <button :class="{ active: attachTab === 'media' }" @click="attachTab = 'media'">📷 Фото/Видео</button>
           <button :class="{ active: attachTab === 'anime' }" @click="attachTab = 'anime'">🎬 Аниме</button>
           <button :class="{ active: attachTab === 'playlist' }" @click="switchToPlaylist">📁 Плейлист</button>
           <button :class="{ active: attachTab === 'shorts' }" @click="attachTab = 'shorts'; loadShorts()">⚡ Shorts</button>
+        </div>
+
+        <!-- ФОТО/ВИДЕО -->
+        <div v-if="attachTab === 'media'" class="tab-content">
+          <div class="media-upload-area" @click="triggerMediaPick">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">Нажмите для выбора фото или видео</div>
+            <div class="upload-hint">Поддерживается мультивыбор</div>
+          </div>
+          <input ref="mediaInput" type="file" accept="image/*,video/*" multiple class="hidden-input" @change="onMediaSelected">
+          
+          <!-- Preview уже выбранных медиа -->
+          <div v-if="mediaFiles.length > 0" class="selected-media-preview">
+            <div class="selected-label">Выбрано {{ mediaFiles.length }} файл(ов):</div>
+            <div class="media-preview-grid">
+              <div v-for="(m, idx) in mediaFiles" :key="idx" class="preview-thumb">
+                <img v-if="m.type === 'image'" :src="m.url" alt="">
+                <video v-else :src="m.url" muted></video>
+                <button class="remove-thumb-btn" @click="removeMedia(idx)">✕</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- АНИМЕ -->
@@ -156,8 +172,11 @@
 
         <!-- ПЛЕЙЛИСТ -->
         <div v-if="attachTab === 'playlist'" class="tab-content">
-          <div v-if="playlistLoading" class="selector-loading">Загрузка...</div>
-          <div v-else-if="playlists.length === 0" class="no-results">Плейлистов нет. Создайте плейлист в разделе «Плейлисты».</div>
+          <div v-if="playlistLoading" class="selector-loading">Загрузка плейлистов...</div>
+          <div v-else-if="playlists.length === 0" class="no-results">
+            <div>У вас пока нет плейлистов</div>
+            <button class="create-playlist-btn" @click="goToPlaylists">Создать плейлист</button>
+          </div>
           <div v-else class="results-list">
             <div
               v-for="p in playlists"
@@ -169,7 +188,7 @@
               <span class="result-icon">📁</span>
               <div class="result-info">
                 <span class="result-title">{{ p.title || p.name }}</span>
-                <span class="result-sub">{{ p.anime_count || p.items_count || 0 }} аниме</span>
+                <span class="result-sub">{{ p.anime_count || p.items_count || p.animes_count || 0 }} аниме</span>
               </div>
               <span class="check-icon">{{ attachedPlaylists.some(x => x.id === p.id) ? '✓' : '' }}</span>
             </div>
@@ -275,6 +294,14 @@ const attachCount = computed(() =>
   attachedAnimes.value.length + attachedPlaylists.value.length + attachedShortsList.value.length
 )
 
+// Общее количество всех прикреплений (включая медиа)
+const hasAnyAttachments = computed(() =>
+  mediaFiles.value.length > 0 || hasAttachments.value
+)
+const totalAttachCount = computed(() =>
+  mediaFiles.value.length + attachCount.value
+)
+
 const removeAnime = (idx: number) => { attachedAnimes.value.splice(idx, 1); animeRatings.value.splice(idx, 1) }
 const removePlaylist = (idx: number) => { attachedPlaylists.value.splice(idx, 1) }
 const removeShorts = (idx: number) => { attachedShortsList.value.splice(idx, 1) }
@@ -297,7 +324,7 @@ const toggleShorts = (s: any) => {
 
 // ─── Attach modal ─────────────────────────────────────
 const showAttachModal = ref(false)
-const attachTab = ref<'anime' | 'playlist' | 'shorts'>('anime')
+const attachTab = ref<'media' | 'anime' | 'playlist' | 'shorts'>('media')
 
 // Anime search
 const animeSearch = ref('')
@@ -321,28 +348,56 @@ const searchAnime = () => {
 // Playlists — используем правильный API
 const playlists = ref<any[]>([])
 const playlistLoading = ref(false)
-let playlistsLoaded = false
 
 const loadPlaylists = async () => {
-  if (playlistsLoaded && playlists.value.length > 0) return
+  if (playlistLoading.value) return
   playlistLoading.value = true
+  
   try {
+    // Сначала пробуем getMyPlaylists
     const { data } = await playlistsApi.getMyPlaylists()
-    playlists.value = Array.isArray(data) ? data : (data as any).results || []
-    playlistsLoaded = true
-  } catch (e) {
-    console.error('loadPlaylists error', e)
-    // Fallback
-    try {
-      const { data } = await apiClient.get('/playlists/playlists/my/')
-      playlists.value = Array.isArray(data) ? data : data.results || []
-      playlistsLoaded = true
-    } catch (e2) {
-      console.error('loadPlaylists fallback error', e2)
+    console.log('Playlists API response:', data)
+    
+    // Нормализуем данные
+    if (Array.isArray(data)) {
+      playlists.value = data
+    } else if (data && typeof data === 'object') {
+      // Если пришел объект с results
+      playlists.value = (data as any).results || []
+    } else {
       playlists.value = []
     }
+    
+    console.log('Loaded playlists count:', playlists.value.length)
+    
+    // Если плейлисты не загрузились, пробуем альтернативные варианты
+    if (playlists.value.length === 0) {
+      // Пробуем с параметром my=true
+      try {
+        const { data: data2 } = await apiClient.get('/playlists/playlists/', { 
+          params: { my: 'true', page_size: 100 } 
+        })
+        console.log('Playlists my=true response:', data2)
+        playlists.value = Array.isArray(data2) ? data2 : (data2 as any).results || []
+      } catch (e) {
+        console.error('Fallback playlists error:', e)
+      }
+    }
+  } catch (e) {
+    console.error('loadPlaylists error', e)
+    
+    // Fallback - пробуем прямой вызов
+    try {
+      const { data } = await apiClient.get('/playlists/playlists/my/')
+      console.log('Playlists direct fallback:', data)
+      playlists.value = Array.isArray(data) ? data : (data as any).results || []
+    } catch (e2) {
+      console.error('All playlist loading attempts failed', e2)
+      playlists.value = []
+    }
+  } finally {
+    playlistLoading.value = false
   }
-  playlistLoading.value = false
 }
 
 const switchToPlaylist = () => {
@@ -381,7 +436,13 @@ const searchShorts = () => {
 
 const openAttachModal = () => {
   showAttachModal.value = true
-  attachTab.value = 'anime'
+  attachTab.value = 'media' // По умолчанию открываем на вкладке медиа
+}
+
+const goToPlaylists = () => {
+  // Закрываем модальное окно и перенаправляем на страницу плейлистов
+  emit('close')
+  window.location.href = '/playlists'
 }
 
 // ─── Submit ───────────────────────────────────────────
@@ -538,21 +599,25 @@ onMounted(async () => {
 .toggle-label input[type="checkbox"] { accent-color: #667eea; }
 
 .attachment-buttons {
-  display: flex; align-items: center; gap: 0.25rem;
-  padding: 0.5rem 1.5rem; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 0.75rem 1.5rem; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a;
 }
 .attach-btn {
   position: relative;
-  background: none; border: none; font-size: 1.35rem;
-  padding: 0.45rem 0.65rem; cursor: pointer; border-radius: 8px;
-  transition: background 0.2s, transform 0.1s; opacity: 0.75;
+  background: #1a1a1a; border: 1px solid #2a2a2a; font-size: 1.5rem;
+  padding: 0.75rem 1.5rem; cursor: pointer; border-radius: 12px;
+  transition: all 0.2s; opacity: 0.85;
 }
-.attach-btn:hover, .attach-btn.active { background: #1a1a1a; opacity: 1; }
-.attach-btn.active { background: rgba(102,126,234,0.15); }
+.attach-btn:hover { background: #222; opacity: 1; }
+.attach-btn.active { background: rgba(102,126,234,0.2); border-color: #667eea; opacity: 1; }
+.attach-btn.main-attach {
+  font-size: 1.6rem;
+  padding: 0.875rem 2rem;
+}
 .attach-count {
-  position: absolute; top: 2px; right: 2px;
-  background: #667eea; color: #fff; font-size: 0.6rem;
-  width: 14px; height: 14px; border-radius: 50%;
+  position: absolute; top: -4px; right: -4px;
+  background: #667eea; color: #fff; font-size: 0.7rem;
+  width: 18px; height: 18px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-weight: 700;
 }
 .hidden-input { display: none; }
@@ -628,4 +693,34 @@ onMounted(async () => {
   font-weight: 600;
 }
 .close-selector:hover { background: #5a6fd6; }
+
+/* Media Upload Area */
+.media-upload-area {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 2rem 1rem; margin: 0.75rem; background: #1a1a1a;
+  border: 2px dashed #333; border-radius: 12px; cursor: pointer;
+  transition: all 0.2s;
+}
+.media-upload-area:hover { background: #222; border-color: #444; }
+.upload-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.upload-text { color: #aaa; font-size: 0.95rem; font-weight: 500; }
+.upload-hint { color: #555; font-size: 0.8rem; margin-top: 0.25rem; }
+
+.selected-media-preview { margin: 0.75rem; padding: 0.75rem; background: #1a1a1a; border-radius: 8px; }
+.selected-label { color: #888; font-size: 0.8rem; margin-bottom: 0.5rem; }
+.media-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.5rem; }
+.preview-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
+.preview-thumb img, .preview-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.remove-thumb-btn {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(0,0,0,0.75); color: #fff; border: none;
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+  font-size: 0.7rem; display: flex; align-items: center; justify-content: center;
+}
+.remove-thumb-btn:hover { background: #ef4444; }
+
+.create-playlist-btn {
+  margin-top: 0.75rem; background: #667eea; border: none; color: #fff;
+  padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+}
 </style>

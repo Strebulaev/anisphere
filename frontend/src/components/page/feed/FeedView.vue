@@ -17,7 +17,6 @@
           </button>
         </div>
         <button @click="openCreatePostModal()" class="btn-create-post">
-          <span class="icon">✏️</span>
           <span>Создать пост</span>
         </button>
       </div>
@@ -89,109 +88,252 @@
       <div class="feed-layout">
         <!-- Main Content Area -->
         <main class="feed-main">
-          <!-- SUBSCRIPTIONS TAB - Shows profile cards -->
+          <!-- SUBSCRIPTIONS TAB - Shows profile cards with sub-tabs -->
           <div v-if="activeTab === 'subscriptions'" class="subscriptions-tab">
-            <div class="tab-header">
-              <input 
-                v-model="subscriptionsSearch" 
-                placeholder="Поиск подписок..." 
-                class="search-input"
-                @input="debouncedSearchSubscriptions"
+            <!-- Sub-tabs -->
+            <div class="sub-tabs">
+              <button
+                :class="['sub-tab-btn', { active: subscriptionsSubTab === 'profiles' }]"
+                @click="subscriptionsSubTab = 'profiles'"
               >
-              <select v-model="subscriptionsSort" @change="loadSubscriptions" class="sort-select">
-                <option value="date">По дате</option>
-                <option value="name">По имени</option>
-                <option value="activity">По активности</option>
-              </select>
-            </div>
-            
-            <div v-if="loadingSubscriptions" class="loading-state">
-              <div class="skeleton-user" v-for="i in 5" :key="i">
-                <div class="skeleton-avatar"></div>
-                <div class="skeleton-info">
-                  <div class="skeleton-line"></div>
-                  <div class="skeleton-line short"></div>
-                </div>
-              </div>
-            </div>
-            
-            <div v-else-if="subscriptions.length === 0" class="empty-state">
-              <div class="empty-icon">👥</div>
-              <h3>Нет подписок</h3>
-              <p>Подпишитесь на интересных авторов!</p>
-            </div>
-            
-            <div v-else class="subscriptions-grid">
-              <div v-for="user in subscriptions" :key="user.id" class="subscription-card">
-                <img :src="user.avatar || defaultAvatar" class="avatar-lg" alt="">
-                <div class="user-info">
-                  <h4>{{ user.display_name || user.username }}</h4>
-                  <span class="username">@{{ user.username }}</span>
-                  <span class="followers">{{ user.followers_count || 0 }} подписчиков</span>
-                </div>
-                <div class="user-actions">
-                  <button class="btn-following" @click="unfollowUser(user.id)">
-                    ✓ Подписан
-                  </button>
-                  <button class="btn-message" @click="openChat(user.id)">
-                    💬
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div v-if="hasMoreSubscriptions" class="load-more">
-              <button @click="loadMoreSubscriptions" :disabled="loadingMoreSubscriptions" class="btn-load-more">
-                {{ loadingMoreSubscriptions ? 'Загрузка...' : 'Загрузить ещё' }}
+                👤 Профили
               </button>
+              <button
+                :class="['sub-tab-btn', { active: subscriptionsSubTab === 'favorites' }]"
+                @click="subscriptionsSubTab = 'favorites'; loadFavoritePosts()"
+              >
+                ⭐ Избранные посты
+              </button>
+            </div>
+            
+            <!-- Profiles Sub-tab -->
+            <div v-if="subscriptionsSubTab === 'profiles'">
+              <div class="tab-header">
+                <input
+                  v-model="subscriptionsSearch"
+                  placeholder="Поиск подписок..."
+                  class="search-input"
+                  @input="debouncedSearchSubscriptions"
+                >
+                <select v-model="subscriptionsSort" @change="loadSubscriptions" class="sort-select">
+                  <option value="date">По дате</option>
+                  <option value="name">По имени</option>
+                  <option value="activity">По активности</option>
+                </select>
+              </div>
+
+              <div v-if="loadingSubscriptions" class="loading-state">
+                <div class="skeleton-user" v-for="i in 5" :key="i">
+                  <div class="skeleton-avatar"></div>
+                  <div class="skeleton-info">
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="subscriptions.length === 0" class="empty-state">
+                <div class="empty-icon">👥</div>
+                <h3>Нет подписок</h3>
+                <p>Подпишитесь на интересных авторов!</p>
+              </div>
+
+              <div v-else class="subscriptions-grid">
+                <div v-for="user in subscriptions" :key="user.id" class="subscription-card clickable" @click="goToProfile(user.id)">
+                  <img :src="user.avatar_url || user.avatar || defaultAvatar" class="avatar-lg" alt="">
+                  <div class="user-info">
+                    <h4>{{ user.display_name || user.username }}</h4>
+                    <span class="username">@{{ user.username }}</span>
+                    <span class="followers">{{ user.followers_count || 0 }} подписчиков</span>
+                  </div>
+                  <div class="user-actions" @click.stop>
+                    <button class="btn-following" @click="unfollowUser(user.id)">
+                      ✓ Подписан
+                    </button>
+                    <button class="btn-message" @click="openChat(user.id)">
+                      💬
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="hasMoreSubscriptions" class="load-more">
+                <button @click="loadMoreSubscriptions" :disabled="loadingMoreSubscriptions" class="btn-load-more">
+                  {{ loadingMoreSubscriptions ? 'Загрузка...' : 'Загрузить ещё' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Favorites Posts Sub-tab -->
+            <div v-else-if="subscriptionsSubTab === 'favorites'">
+              <div v-if="loadingFavoritePosts" class="loading-state">
+                <div class="skeleton-post" v-for="i in 3" :key="i">
+                  <div class="skeleton-header">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-info">
+                      <div class="skeleton-line short"></div>
+                      <div class="skeleton-line"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="favoritePosts.length === 0" class="empty-state">
+                <div class="empty-icon">⭐</div>
+                <h3>Нет избранных постов</h3>
+                <p>Добавляйте посты в избранное, чтобы они появились здесь</p>
+              </div>
+
+              <div v-else class="posts-list">
+                <PostCard
+                  v-for="post in favoritePosts"
+                  :key="post.id"
+                  :post="post"
+                  @like="handleLike"
+                  @dislike="handleDislike"
+                  @bookmark="toggleBookmark"
+                  @menu="openPostMenu"
+                />
+              </div>
             </div>
           </div>
 
-          <!-- NOT INTERESTED TAB - Shows hidden profiles -->
+          <!-- NOT INTERESTED TAB - Shows hidden profiles/posts with sub-tabs -->
           <div v-else-if="activeTab === 'not_interested'" class="not-interested-tab">
-            <div class="tab-header">
-              <input 
-                v-model="notInterestedSearch" 
-                placeholder="Поиск скрытых..." 
-                class="search-input"
-                @input="debouncedSearchNotInterested"
+            <!-- Sub-tabs -->
+            <div class="sub-tabs">
+              <button
+                :class="['sub-tab-btn', { active: notInterestedSubTab === 'profiles' }]"
+                @click="notInterestedSubTab = 'profiles'"
               >
+                👤 Профили
+              </button>
+              <button
+                :class="['sub-tab-btn', { active: notInterestedSubTab === 'posts' }]"
+                @click="notInterestedSubTab = 'posts'; loadHiddenPosts()"
+              >
+                📝 Посты
+              </button>
             </div>
-            
-            <div v-if="loadingNotInterested" class="loading-state">
-              <div class="skeleton-user" v-for="i in 3" :key="i">
-                <div class="skeleton-avatar"></div>
-                <div class="skeleton-info">
-                  <div class="skeleton-line"></div>
-                  <div class="skeleton-line short"></div>
+
+            <!-- Profiles Sub-tab -->
+            <div v-if="notInterestedSubTab === 'profiles'">
+              <div class="tab-header">
+                <input
+                  v-model="notInterestedSearch"
+                  placeholder="Поиск скрытых..."
+                  class="search-input"
+                  @input="debouncedSearchNotInterested"
+                >
+              </div>
+
+              <div v-if="loadingNotInterested" class="loading-state">
+                <div class="skeleton-user" v-for="i in 3" :key="i">
+                  <div class="skeleton-avatar"></div>
+                  <div class="skeleton-info">
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="notInterestedUsers.length === 0" class="empty-state">
+                <div class="empty-icon">🙈</div>
+                <h3>Нет скрытых профилей</h3>
+                <p>Профили, которые вы скроете, появятся здесь</p>
+              </div>
+
+              <div v-else class="subscriptions-grid">
+                <div v-for="user in notInterestedUsers" :key="user.id" class="subscription-card blocked clickable" @click="goToProfile(user.id)">
+                  <img :src="user.avatar_url || user.avatar || defaultAvatar" class="avatar-lg" alt="">
+                  <div class="user-info">
+                    <h4>{{ user.display_name || user.username }}</h4>
+                    <span class="username">@{{ user.username }}</span>
+                    <span class="hidden-date">🚫 Заблокирован: {{ formatDate(user.hidden_at) }}</span>
+                    <span v-if="user.reason" class="reason">{{ user.reason }}</span>
+                  </div>
+                  <div class="user-actions" @click.stop>
+                    <button class="btn-unblock" @click="unhideUser(user.id)">
+                      Разблокировать
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            
-            <div v-else-if="notInterestedUsers.length === 0" class="empty-state">
-              <div class="empty-icon">🙈</div>
-              <h3>Нет скрытых профилей</h3>
-              <p>Профили, которые вы скроете, появятся здесь</p>
-            </div>
-            
-            <div v-else class="subscriptions-grid">
-              <div v-for="user in notInterestedUsers" :key="user.id" class="subscription-card">
-                <img :src="user.avatar || defaultAvatar" class="avatar-lg" alt="">
-                <div class="user-info">
-                  <h4>{{ user.display_name || user.username }}</h4>
-                  <span class="username">@{{ user.username }}</span>
-                  <span class="hidden-date">Скрыт: {{ formatDate(user.hidden_at) }}</span>
-                  <span v-if="user.reason" class="reason">{{ user.reason }}</span>
+
+            <!-- Posts Sub-tab -->
+            <div v-else-if="notInterestedSubTab === 'posts'">
+              <div v-if="loadingHiddenPosts" class="loading-state">
+                <div class="skeleton-post" v-for="i in 3" :key="i">
+                  <div class="skeleton-header">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-info">
+                      <div class="skeleton-line short"></div>
+                      <div class="skeleton-line"></div>
+                    </div>
+                  </div>
                 </div>
-                <div class="user-actions">
-                  <button class="btn-unhide" @click="unhideUser(user.id)">
-                    Больше не скрывать
-                  </button>
-                  <button class="btn-profile" @click="goToProfile(user.id)">
-                    👤
+              </div>
+
+              <div v-else-if="hiddenPosts.length === 0" class="empty-state">
+                <div class="empty-icon">📝</div>
+                <h3>Нет скрытых постов</h3>
+                <p>Посты, которые вы отметите как "Не интересно", появятся здесь</p>
+              </div>
+
+              <div v-else class="posts-list">
+                <div v-for="item in hiddenPosts" :key="item.id" class="hidden-post-card">
+                  <div class="hidden-post-info" @click="openHiddenPost(item)">
+                    <span class="hidden-post-title">{{ item.post_preview || 'Пост #' + item.post_id }}</span>
+                    <span class="hidden-date">Скрыт: {{ formatDate(item.hidden_at) }}</span>
+                  </div>
+                  <button class="btn-restore" @click="restorePost(item.post_id)">
+                    Восстановить
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- POPULAR TAB - Shows popular posts -->
+          <div v-else-if="activeTab === 'popular'" class="popular-tab">
+            <div class="tab-header">
+              <select v-model="popularPeriod" @change="loadPopularPosts" class="sort-select">
+                <option value="day">За день</option>
+                <option value="week">За неделю</option>
+                <option value="month">За месяц</option>
+                <option value="all">За всё время</option>
+              </select>
+            </div>
+
+            <div v-if="loadingPopular" class="loading-state">
+              <div class="skeleton-post" v-for="i in 5" :key="i">
+                <div class="skeleton-header">
+                  <div class="skeleton-avatar"></div>
+                  <div class="skeleton-info">
+                    <div class="skeleton-line short"></div>
+                    <div class="skeleton-line"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="popularPosts.length === 0" class="empty-state">
+              <div class="empty-icon">🔥</div>
+              <h3>Нет популярных постов</h3>
+              <p>Популярные посты появятся здесь</p>
+            </div>
+
+            <div v-else class="posts-list">
+              <PostCard
+                v-for="(post, index) in popularPosts"
+                :key="post.id"
+                :post="post"
+                @like="handleLike"
+                @dislike="handleDislike"
+                @bookmark="toggleBookmark"
+                @menu="openPostMenu"
+              />
             </div>
           </div>
 
@@ -256,16 +398,10 @@
 
           <!-- FEED TAB - Shows posts -->
           <div v-else class="feed-tab">
-            <!-- Create Post Card -->
+            <!-- Create Post Card - simplified, no quick attachment buttons -->
             <div class="create-post-card" @click="openCreatePostModal()">
               <img :src="currentUser?.avatar || defaultAvatar" class="avatar" alt="Avatar">
               <span class="placeholder">Что у вас нового?</span>
-              <div class="create-actions">
-                <button type="button" @click.stop="handleCreateImage" title="Фото">📷</button>
-                <button type="button" @click.stop="handleCreateVideo" title="Видео">🎥</button>
-                <button type="button" @click.stop="handleCreatePlaylist" title="Плейлист">📁</button>
-                <button type="button" @click.stop="handleCreateAnime" title="Аниме">🎬</button>
-              </div>
             </div>
 
             <!-- Posts Feed -->
@@ -306,6 +442,7 @@
                   v-for="post in posts"
                   :key="post.id"
                   :post="post"
+                  :data-post-id="post.id"
                   @like="handleLike"
                   @dislike="handleDislike"
                   @comment="openComments"
@@ -314,7 +451,6 @@
                   @bookmark="toggleBookmark"
                   @menu="openPostMenu"
                   @report="openReportModal"
-                  @click.native="openPostDetail(post)"
                 />
 
                 <!-- Load More -->
@@ -387,8 +523,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import apiClient from '@/api/client'
 import PostCard from '@/components/feed/PostCard.vue'
 import CreatePostModal from '@/components/feed/CreatePostModal.vue'
@@ -399,7 +535,8 @@ import ForwardModal from '@/components/feed/ForwardModal.vue'
 import ReportModal from '@/components/feed/ReportModal.vue'
 import PostDetailModal from '@/components/feed/PostDetailModal.vue'
 import type { FeedPost } from '@/api/feed'
-import { postsApi, subscriptionsApi } from '@/api/feed'
+import { postsApi, subscriptionsApi, bookmarksApi } from '@/api/feed'
+import { normalizePost } from '@/utils/normalizers'
 
 type Post = FeedPost & {
   image_file: string | null
@@ -448,6 +585,7 @@ interface FilterState {
 }
 
 const router = useRouter()
+const route = useRoute()
 
 // State
 const posts = ref<Post[]>([])
@@ -477,11 +615,22 @@ const hasMoreSubscriptions = ref(true)
 const subscriptionsPage = ref(1)
 const subscriptionsSearch = ref('')
 const subscriptionsSort = ref('date')
+const subscriptionsSubTab = ref<'profiles' | 'favorites'>('profiles')
+const favoritePosts = ref<Post[]>([])
+const loadingFavoritePosts = ref(false)
 
 // Not Interested tab state
 const notInterestedUsers = ref<any[]>([])
 const loadingNotInterested = ref(false)
 const notInterestedSearch = ref('')
+const notInterestedSubTab = ref<'profiles' | 'posts'>('profiles')
+const hiddenPosts = ref<any[]>([])
+const loadingHiddenPosts = ref(false)
+
+// Popular tab state
+const popularPosts = ref<Post[]>([])
+const loadingPopular = ref(false)
+const popularPeriod = ref('week')
 
 // Reports tab state
 const reports = ref<any[]>([])
@@ -513,6 +662,7 @@ const defaultAvatar = '/img/default-avatar.svg'
 const feedTabs = computed(() => {
   const tabs = [
     { id: 'feed', label: 'Лента' },
+    { id: 'popular', label: 'Популярное' },
     { id: 'subscriptions', label: 'Подписки' },
     { id: 'not_interested', label: 'Не интересно' }
   ]
@@ -609,12 +759,85 @@ const switchTab = async (tabId: string) => {
   
   if (tabId === 'feed') {
     await loadPosts()
+  } else if (tabId === 'popular') {
+    await loadPopularPosts()
   } else if (tabId === 'subscriptions') {
     await loadSubscriptions()
   } else if (tabId === 'not_interested') {
     await loadNotInterested()
   } else if (tabId === 'reports') {
     await loadReports()
+  }
+}
+
+// Popular posts methods
+const loadPopularPosts = async () => {
+  loadingPopular.value = true
+  try {
+    const params: Record<string, any> = { limit: 20 }
+    if (popularPeriod.value !== 'all') {
+      const now = new Date()
+      let days = 7
+      if (popularPeriod.value === 'day') days = 1
+      else if (popularPeriod.value === 'month') days = 30
+      params.days = days
+    }
+    const { data } = await apiClient.get('/social/feed/top/', { params })
+    popularPosts.value = (data.results || data || []).map(normalizePost)
+  } catch (error) {
+    console.error('Error loading popular posts:', error)
+    // Fallback to regular feed sorted by likes
+    try {
+      const { data } = await apiClient.get('/social/feed/extended/', { params: { sort: 'best', page_size: 20 } })
+      popularPosts.value = (data.results || []).map(normalizePost)
+    } catch (fallbackError) {
+      console.error('Fallback popular feed also failed:', fallbackError)
+    }
+  } finally {
+    loadingPopular.value = false
+  }
+}
+
+// Favorite posts methods
+const loadFavoritePosts = async () => {
+  loadingFavoritePosts.value = true
+  try {
+    const { data } = await bookmarksApi.getPosts()
+    favoritePosts.value = (data.results || []).map(normalizePost)
+  } catch (error) {
+    console.error('Error loading favorite posts:', error)
+    favoritePosts.value = []
+  } finally {
+    loadingFavoritePosts.value = false
+  }
+}
+
+// Hidden posts methods
+const loadHiddenPosts = async () => {
+  loadingHiddenPosts.value = true
+  try {
+    const { data } = await subscriptionsApi.getHiddenPosts()
+    hiddenPosts.value = data.results || []
+  } catch (error) {
+    console.error('Error loading hidden posts:', error)
+    hiddenPosts.value = []
+  } finally {
+    loadingHiddenPosts.value = false
+  }
+}
+
+const restorePost = async (postId: number) => {
+  try {
+    await subscriptionsApi.restoreHiddenPost(postId)
+    hiddenPosts.value = hiddenPosts.value.filter(p => p.post_id !== postId)
+  } catch (error) {
+    console.error('Error restoring post:', error)
+  }
+}
+
+const openHiddenPost = (item: any) => {
+  if (item.post_id) {
+    router.push(`/post/${item.post_id}`)
   }
 }
 
@@ -798,7 +1021,49 @@ const openComments = (post: any) => { selectedPost.value = post; showComments.va
 const openRepostModal = (post: any) => { selectedPost.value = post; showRepost.value = true }
 const openPostMenu = (post: any) => { selectedPost.value = post; showMenu.value = true }
 const openReportModal = (post: any) => { selectedPost.value = post; showReport.value = true }
-const openPostDetail = (post: any) => { selectedPost.value = post; showPostDetail.value = true }
+// Removed: clicking on post should NOT open modal
+// const openPostDetail = (post: any) => { selectedPost.value = post; showPostDetail.value = true }
+
+// Load specific post from route and scroll to it
+const loadPostFromRoute = async () => {
+  const postId = route.params.id || route.name === 'post-detail' ? route.params.id : null
+  if (!postId) return
+
+  try {
+    // Load the specific post
+    const { data } = await apiClient.get(`/social/posts/${postId}/`)
+    const post = normalizePost(data)
+
+    // Load feed posts if not loaded
+    if (posts.value.length === 0) {
+      await loadPosts()
+    }
+
+    // Check if post is already in the list
+    const existingIndex = posts.value.findIndex(p => p.id === Number(postId))
+    if (existingIndex === -1) {
+      // Add post to the beginning of the list
+      posts.value.unshift(post)
+    }
+
+    // Wait for DOM update
+    await nextTick()
+
+    // Scroll to the post
+    setTimeout(() => {
+      const postElement = document.querySelector(`[data-post-id="${postId}"]`)
+      if (postElement) {
+        postElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        postElement.classList.add('highlight-post')
+        setTimeout(() => postElement.classList.remove('highlight-post'), 3000)
+      }
+    }, 100)
+  } catch (error) {
+    console.error('Error loading post from route:', error)
+    // Fallback: just load the feed
+    await loadPosts()
+  }
+}
 
 const openTrendingPost = (trend: TrendingPost) => {
   const post: Post = {
@@ -883,7 +1148,7 @@ const hidePost = async (post: any) => {
 
 const hidePostByAuthor = async (post: any) => {
   try {
-    await subscriptionsApi.addNotInterested(post.author)
+    await apiClient.post(`/social/users/${post.author}/hide/`)
   } catch (error) {
     console.error('Error hiding author:', error)
   }
@@ -917,7 +1182,15 @@ const handleScroll = () => {
 
 onMounted(async () => {
   await fetchCurrentUser()
-  await loadPosts()
+
+  // Check if we're on a specific post route
+  const postId = route.params.id
+  if (postId && route.name === 'post-detail') {
+    await loadPostFromRoute()
+  } else {
+    await loadPosts()
+  }
+
   window.addEventListener('scroll', handleScroll)
 })
 
@@ -956,6 +1229,29 @@ onUnmounted(() => { window.removeEventListener('scroll', handleScroll) })
 .filter-tag { background: #1a1a1a; color: #888; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
 .filter-tag:hover { background: #252525; color: #fff; }
 .clear-all { background: none; border: none; color: #667eea; cursor: pointer; font-size: 0.8rem; }
+
+/* Sub-tabs */
+.sub-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid #1f1f1f; padding-bottom: 0.5rem; }
+.sub-tab-btn { background: none; border: none; color: #666; padding: 0.5rem 1rem; font-size: 0.85rem; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+.sub-tab-btn:hover { background: #1a1a1a; color: #aaa; }
+.sub-tab-btn.active { background: #667eea; color: #fff; }
+
+/* Subscription cards */
+.subscription-card.clickable { cursor: pointer; }
+.subscription-card.clickable:hover { background: #1f1f1f; }
+.subscription-card.blocked { border: 1px solid #ef444440; background: #1a0a0a; }
+.subscription-card.blocked .user-info h4 { color: #ef4444; }
+.btn-unblock { background: #ef4444; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+.btn-unblock:hover { background: #dc2626; }
+
+/* Hidden post cards */
+.hidden-post-card { display: flex; justify-content: space-between; align-items: center; background: #111; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; }
+.hidden-post-info { display: flex; flex-direction: column; gap: 0.25rem; cursor: pointer; }
+.hidden-post-info:hover .hidden-post-title { color: #667eea; }
+.hidden-post-title { color: #ddd; font-size: 0.9rem; }
+.hidden-date { color: #555; font-size: 0.8rem; }
+.btn-restore { background: #1a1a1a; color: #888; border: 1px solid #333; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+.btn-restore:hover { background: #252525; color: #fff; }
 
 .feed-layout { display: grid; grid-template-columns: 1fr 280px; gap: 1.5rem; padding: 1.5rem 0; }
 .feed-main { min-height: 500px; }
@@ -1054,4 +1350,11 @@ onUnmounted(() => { window.removeEventListener('scroll', handleScroll) })
 .btn-submit:hover { background: #5a6fd6; }
 
 @media (min-width: 768px) { .feed-layout { grid-template-columns: 1fr 300px; } }
+
+/* Highlight effect for post loaded from route */
+.highlight-post { animation: highlight-fade 3s ease-out; }
+@keyframes highlight-fade {
+  0% { box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.8); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
 </style>

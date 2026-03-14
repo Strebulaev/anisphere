@@ -121,6 +121,13 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/post/:id',
+      name: 'post-detail',
+      component: FeedView,
+      props: true,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/reactor',
       name: 'reactor',
       component: ReactorView,

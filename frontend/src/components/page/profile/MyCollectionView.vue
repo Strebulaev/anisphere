@@ -145,7 +145,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { libraryApi, type LibraryItem, type LibraryStatus, type LibraryStats } from '@/api/library'
+import { libraryApi, type LibraryItem, type LibraryStatus, type LibraryStats, type CollectionTab } from '@/api/library'
 import CollectionCard from '@/components/Cards/CollectionCard.vue'
 import EditLibraryModal from '@/components/Modals/EditLibraryModal.vue'
 
@@ -160,7 +160,7 @@ const error      = ref(false)
 const searchQuery= ref('')
 const ordering   = ref('-updated_at')
 const editItem   = ref<LibraryItem | null>(null)
-const activeTab  = ref<LibraryStatus | ''>('')
+const activeTab  = ref<CollectionTab | ''>('')
 
 // ── Вкладки ──────────────────────────────────────────────────
 const tabs = [
@@ -247,7 +247,7 @@ const loadStats = async () => {
   }
 }
 
-const setTab = (key: LibraryStatus | '') => {
+const setTab = (key: CollectionTab | '') => {
   activeTab.value = key
   loadItems()
   // Обновляем query param для bookmark

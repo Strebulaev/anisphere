@@ -652,21 +652,14 @@ class PostCommentViewSet(ModelViewSet):
         if not post_pk:
             return PostComment.objects.none()
 
-        # Получаем корневые комментарии (без parent)
+        # Получаем ВСЕ комментарии (и корневые, и ответы)
         queryset = PostComment.objects.filter(
             post_id=post_pk,
-            parent__isnull=True,
             is_deleted=False
         ).select_related('author')
 
-        # Сортировка
-        sort = self.request.query_params.get('sort', 'best')
-        if sort == 'new':
-            queryset = queryset.order_by('-created_at')
-        else:  # 'best' - по лайкам
-            queryset = queryset.annotate(
-                likes_count_annotation=Count('likes')
-            ).order_by('-likes_count_annotation', '-created_at')
+        # Сортировка: всегда по дате (новые сверху)
+        queryset = queryset.order_by('-created_at')
 
         return queryset
 

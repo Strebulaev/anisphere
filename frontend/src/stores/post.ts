@@ -11,7 +11,6 @@ export const usePostStore = defineStore('post', () => {
   const loadingMoreComments = ref(false)
   const commentsPage = ref(1)
   const commentsHasMore = ref(true)
-  const commentsSort = ref<'best' | 'newest' | 'oldest'>('best')
   const error = ref<string | null>(null)
 
   async function fetchPost(id: number) {
@@ -29,18 +28,17 @@ export const usePostStore = defineStore('post', () => {
     }
   }
 
-  async function fetchComments(postId: number, sort = commentsSort.value, reset = true) {
+  async function fetchComments(postId: number, reset = true) {
     if (reset) {
       comments.value = []
       commentsPage.value = 1
       commentsHasMore.value = true
     }
 
-    commentsSort.value = sort
     loadingComments.value = true
 
     try {
-      const { data } = await commentsApi.getComments(postId, sort, 1)
+      const { data } = await commentsApi.getComments(postId, 1)
       comments.value = data.results
       if (data.next === null) commentsHasMore.value = false
     } catch {
@@ -57,7 +55,7 @@ export const usePostStore = defineStore('post', () => {
     const nextPage = commentsPage.value + 1
 
     try {
-      const { data } = await commentsApi.getComments(postId, commentsSort.value, nextPage)
+      const { data } = await commentsApi.getComments(postId, nextPage)
       comments.value.push(...data.results)
       commentsPage.value = nextPage
       if (data.next === null) commentsHasMore.value = false
@@ -182,7 +180,6 @@ export const usePostStore = defineStore('post', () => {
     loadingComments,
     loadingMoreComments,
     commentsHasMore,
-    commentsSort,
     error,
     fetchPost,
     fetchComments,

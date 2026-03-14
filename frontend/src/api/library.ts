@@ -1,6 +1,9 @@
 import apiClient from './client'
 
-export type LibraryStatus = 'started' | 'completed' | 'on_hold' | 'dropped' | 'planned' | 'favorite'
+export type LibraryStatus = 'started' | 'completed' | 'on_hold' | 'dropped' | 'planned'
+
+// Отдельный тип для вкладок коллекции (включая избранное)
+export type CollectionTab = LibraryStatus | 'favorite'
 
 export interface LibraryItem {
   id: number

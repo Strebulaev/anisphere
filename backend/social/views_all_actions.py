@@ -59,19 +59,20 @@ def toggle_follow(request, user_id):
 @permission_classes([IsAuthenticated])
 def toggle_post_like(request, post_id):
     """Лайк/дизлайк поста"""
-    post = get_object_or_404(Post, id=post_id)
-    
-    if post.author == request.user:
-        return Response({'error': 'Нельзя лайкать свой пост'}, status=400)
-    
+    try:
+        post = Post.objects.get(id=post_id)
+    except Post.DoesNotExist:
+        return Response({'error': 'Пост не найден'}, status=404)
+
+    # Allow self-liking (many social networks allow this)
     existing_like = PostLike.objects.filter(user=request.user, post=post).first()
     existing_dislike = PostDislike.objects.filter(user=request.user, post=post).first()
-    
+
     if existing_like:
         existing_like.delete()
         post.likes_count = max(0, post.likes_count - 1)
         post.save(update_fields=['likes_count'])
-        return Response({'liked': False, 'likes_count': post.likes_count})
+        return Response({'liked': False, 'likes_count': post.likes_count, 'dislikes_count': post.dislikes_count})
     else:
         if existing_dislike:
             existing_dislike.delete()
@@ -79,26 +80,26 @@ def toggle_post_like(request, post_id):
         PostLike.objects.create(user=request.user, post=post)
         post.likes_count += 1
         post.save(update_fields=['likes_count', 'dislikes_count'])
-        return Response({'liked': True, 'likes_count': post.likes_count})
+        return Response({'liked': True, 'likes_count': post.likes_count, 'dislikes_count': post.dislikes_count})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def toggle_post_dislike(request, post_id):
     """Дизлайк поста"""
-    post = get_object_or_404(Post, id=post_id)
-    
-    if post.author == request.user:
-        return Response({'error': 'Нельзя дизлайкать свой пост'}, status=400)
-    
+    try:
+        post = Post.objects.get(id=post_id)
+    except Post.DoesNotExist:
+        return Response({'error': 'Пост не найден'}, status=404)
+
     existing_dislike = PostDislike.objects.filter(user=request.user, post=post).first()
     existing_like = PostLike.objects.filter(user=request.user, post=post).first()
-    
+
     if existing_dislike:
         existing_dislike.delete()
         post.dislikes_count = max(0, post.dislikes_count - 1)
         post.save(update_fields=['dislikes_count'])
-        return Response({'disliked': False, 'dislikes_count': post.dislikes_count})
+        return Response({'disliked': False, 'dislikes_count': post.dislikes_count, 'likes_count': post.likes_count})
     else:
         if existing_like:
             existing_like.delete()
@@ -106,7 +107,7 @@ def toggle_post_dislike(request, post_id):
         PostDislike.objects.create(user=request.user, post=post)
         post.dislikes_count += 1
         post.save(update_fields=['likes_count', 'dislikes_count'])
-        return Response({'disliked': True, 'dislikes_count': post.dislikes_count})
+        return Response({'disliked': True, 'dislikes_count': post.dislikes_count, 'likes_count': post.likes_count})
 
 
 @api_view(['GET'])
@@ -520,6 +521,73 @@ def mark_post_not_interested(request, post_id):
     return hide_post_from_feed(request, post_id)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def hide_author_from_feed(request, user_id):
+    """Скрыть все посты автора из ленты"""
+    target_user = get_object_or_404(User, id=user_id)
+
+    if target_user == request.user:
+        return Response({'error': 'Нельзя скрыть самого себя'}, status=400)
+
+    # Создаём запись о скрытом пользователе
+    _, created = UserNotInterested.objects.get_or_create(
+        user=request.user,
+        target_user=target_user
+    )
+
+    return Response({
+        'success': True,
+        'hidden': True,
+        'message': 'Автор скрыт из ленты' if created else 'Автор уже был скрыт'
+    })
+
+
+# ==================== HIDDEN POSTS ====================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_hidden_posts(request):
+    """Получить список скрытых постов"""
+    hidden_posts = UserPostHidden.objects.filter(user=request.user).select_related('post').order_by('-created_at')
+
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+    offset = (page - 1) * page_size
+
+    total = hidden_posts.count()
+    hidden_posts_page = hidden_posts[offset:offset + page_size]
+
+    results = []
+    for hp in hidden_posts_page:
+        if hp.post:
+            results.append({
+                'id': hp.id,
+                'post_id': hp.post.id,
+                'post_preview': hp.post.text[:100] if hp.post.text else '',
+                'hidden_at': hp.created_at.isoformat()
+            })
+
+    return Response({
+        'results': results,
+        'count': total,
+        'next': page + 1 if offset + page_size < total else None,
+        'previous': page - 1 if page > 1 else None
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def restore_hidden_post(request, post_id):
+    """Восстановить скрытый пост"""
+    try:
+        hidden = UserPostHidden.objects.get(user=request.user, post_id=post_id)
+        hidden.delete()
+        return Response({'success': True, 'message': 'Пост восстановлен'})
+    except UserPostHidden.DoesNotExist:
+        return Response({'error': 'Пост не найден в скрытых'}, status=404)
+
+
 # ==================== FEED STATISTICS ====================
 
 @api_view(['GET'])
@@ -672,7 +740,7 @@ class UserAchievementViewSet(viewsets.ModelViewSet):
     """Достижения пользователя"""
     serializer_class = None
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return UserAchievement.objects.filter(user=self.request.user)
 
@@ -1018,7 +1086,11 @@ class PostCommentViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         post_id = self.kwargs.get('post_pk')
-        return PostComment.objects.filter(post_id=post_id).select_related('author')
+        # Возвращаем ВСЕ комментарии (и корневые, и ответы), отсортированные по дате
+        return PostComment.objects.filter(
+            post_id=post_id,
+            is_deleted=False
+        ).select_related('author').order_by('-created_at')
     
     def perform_create(self, serializer):
         post_id = self.kwargs.get('post_pk')
@@ -1031,6 +1103,32 @@ class BookmarkViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Bookmark.objects.filter(user=self.request.user).select_related('post')
+
+    def list(self, request):
+        """Получить список закладок"""
+        bookmarks = self.get_queryset().order_by('-created_at')
+
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        offset = (page - 1) * page_size
+        
+        total = bookmarks.count()
+        bookmarks_page = bookmarks[offset:offset + page_size]
+
+        posts = [b.post for b in bookmarks_page if b.post]
+        serializer = FeedPostSerializer(posts, many=True, context={'request': request})
+
+        return Response({
+            'results': serializer.data,
+            'count': total,
+            'next': page + 1 if offset + page_size < total else None,
+            'previous': page - 1 if page > 1 else None
+        })
+
+    @action(detail=False, methods=['get'], url_path='posts')
+    def posts(self, request):
+        """Получить посты из закладок"""
+        return self.list(request)
 
 
 class ReportViewSet(viewsets.ModelViewSet):
@@ -1053,7 +1151,7 @@ class ReportViewSet(viewsets.ModelViewSet):
 class PostMediaViewSet(viewsets.ModelViewSet):
     """Медиа постов"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return PostMedia.objects.all()
 
@@ -1086,7 +1184,7 @@ class PostAttachmentViewSet(viewsets.ModelViewSet):
 class SubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
     """Подписки пользователя"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return Follow.objects.filter(follower=self.request.user).select_related('following')
     
@@ -1412,7 +1510,7 @@ class ModerationReportViewSet(viewsets.ModelViewSet):
                 except PostComment.DoesNotExist:
                     pass
             report.action_taken = 'content_deleted'
-        
+
         elif action == 'warn_author':
             report.action_taken = 'author_warned'
             # Здесь можно добавить отправку уведомления автору

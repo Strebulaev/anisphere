@@ -9,7 +9,7 @@ import os
 import uuid
 import secrets
 from datetime import timedelta
-
+from pillow import PILImage
 User = get_user_model()
 
 
@@ -128,7 +128,6 @@ class Playlist(models.Model):
         Генерирует квадратную обложку с горизонтальным расположением постеров
         poster_data: список кортежей ('local'|'url', path_or_url)
         """
-        from PIL import Image as PILImage
         import requests
         from io import BytesIO
         

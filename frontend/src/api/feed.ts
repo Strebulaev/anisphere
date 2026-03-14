@@ -73,6 +73,8 @@ export interface PlaylistCard {
   id: number
   title: string
   anime_count: number
+  items_count?: number  // Альтернативное поле
+  description?: string
   anime?: (AnimeCard & { poster?: string | null })[]
 }
 
@@ -138,6 +140,12 @@ export const feedApi = {
 
   getTrendingFeed: (hours = 6, limit = 20) =>
     apiClient.get<FeedPost[]>('/social/feed/trending/', { params: { hours, limit } }),
+
+  // Популярные посты (по лайкам)
+  getPopularFeed: (page = 1, pageSize = 20, period = 'week') =>
+    apiClient.get<FeedPage>('/social/feed/popular/', { 
+      params: { page, page_size: pageSize, period } 
+    }),
 }
 
 // ==================== POSTS ====================
@@ -205,9 +213,9 @@ export const postsApi = {
 // ==================== COMMENTS ====================
 
 export const commentsApi = {
-  getComments: (postId: number, sort = 'best', page = 1) =>
+  getComments: (postId: number, page = 1) =>
     apiClient.get<{ results: PostComment[]; count: number; next: number | null }>(`/social/posts/${postId}/comments/`, {
-      params: { sort, page }
+      params: { page }
     }),
 
   createComment: (postId: number, content: string, parentId?: number) =>
@@ -242,6 +250,7 @@ export interface SubscriptionUser {
   username: string
   display_name: string | null
   avatar_url: string | null
+  avatar?: string | null
   followers_count: number
   is_online: boolean
   followed_at: string
@@ -252,6 +261,14 @@ export interface NotInterestedUser {
   username: string
   display_name: string | null
   avatar_url: string | null
+  avatar?: string | null
+  hidden_at: string
+}
+
+export interface HiddenPost {
+  id: number
+  post_id: number
+  post_preview: string
   hidden_at: string
 }
 
@@ -288,6 +305,15 @@ export const subscriptionsApi = {
       params: { page, search }
     }),
 
+  // Скрытые посты
+  getHiddenPosts: (page = 1) =>
+    apiClient.get<{ results: HiddenPost[]; count: number; next: number | null }>('/social/hidden-posts/', {
+      params: { page }
+    }),
+
+  restoreHiddenPost: (postId: number) =>
+    apiClient.delete<{ success: boolean; message: string }>(`/social/hidden-posts/${postId}/restore/`),
+
   removeNotInterested: (userId: number) =>
     apiClient.delete<{ hidden: boolean; message: string }>(`/social/not-interested/${userId}/`),
 
@@ -303,6 +329,15 @@ export const subscriptionsApi = {
 
   rejectReport: (id: number, comment?: string) =>
     apiClient.patch<ReportItem>(`/social/moderation/reports/${id}/`, { status: 'rejected', moderator_comment: comment }),
+}
+
+// ==================== BOOKMARKS ====================
+
+export const bookmarksApi = {
+  getPosts: (page = 1) =>
+    apiClient.get<{ results: FeedPost[]; count: number; next: number | null }>('/social/bookmarks/posts/', {
+      params: { page }
+    }),
 }
 
 // ==================== CHATS FOR FORWARD ====================

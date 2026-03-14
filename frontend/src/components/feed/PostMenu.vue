@@ -209,12 +209,26 @@ const handleFollowToggle = async () => {
   try {
     // Найти userId автора поста
     const authorId = (props.post as any).author
-    if (authorId) {
+    const authorUsername = props.post.author_username
+    
+    if (!authorId && authorUsername) {
+      // Если нет ID, получаем пользователя по username
+      const { data: userData } = await apiClient.get(`/users/username/${authorUsername}/`)
+      if (userData && userData.id) {
+        const { data } = await followsApi.toggleFollow(userData.id)
+        isFollowing.value = data.following
+        emit('followed', userData.id, data.following)
+      }
+    } else if (authorId) {
       const { data } = await followsApi.toggleFollow(authorId)
       isFollowing.value = data.following
       emit('followed', authorId, data.following)
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error('Follow toggle error:', e)
+    // Показываем ошибку пользователю
+    alert('Не удалось изменить подписку. Попробуйте позже.')
+  }
   finally { followLoading.value = false }
 }
 
@@ -226,7 +240,16 @@ const doHide = (mode: 'post' | 'author') => {
 }
 
 const handleForward = () => { emit('forward', props.post); emit('close') }
-const handleRepost = () => { emit('repost', props.post); emit('close') }
+
+const handleRepost = async () => {
+  try {
+    await apiClient.post(`/social/posts/${props.post.id}/repost/action/`, { comment: '' })
+    emit('repost', props.post)
+  } catch (e) {
+    console.error('Repost error:', e)
+  }
+  emit('close')
+}
 const handleReport = () => { showReport.value = true }
 
 const submitReport = async () => {

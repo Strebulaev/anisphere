@@ -32,6 +32,7 @@ from .views_all_actions import (
     get_comment_replies, report_comment,
     edit_post, edit_comment,
     hide_post_from_feed, mark_post_not_interested, hide_author_from_feed,
+    get_hidden_posts, restore_hidden_post,
     get_feed_statistics, get_popular_posts, get_user_posts, get_group_posts,
     get_hashtag_posts, search_hashtags,
     get_user_notification_settings, update_user_notification_settings,
@@ -219,6 +220,14 @@ urlpatterns = [
     # Not Interested (скрытые профили)
     path('not-interested/user/<int:user_id>/', mark_post_not_interested, name='not-interested-user'),
     path('users/<int:user_id>/hide/', hide_author_from_feed, name='hide-author'),
+
+    # Hidden posts
+    path('hidden-posts/', get_hidden_posts, name='hidden-posts'),
+    path('hidden-posts/<int:post_id>/restore/', restore_hidden_post, name='restore-hidden-post'),
+
+    # Extended Feed
+    path('feed/extended/', get_extended_feed, name='feed-extended'),
+    path('feed/', get_extended_feed, name='feed'),
 
     # Forward Post (пересылка)
     path('chats/for-forward/', get_chats_for_forward, name='chats-for-forward'),

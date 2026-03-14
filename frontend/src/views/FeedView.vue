@@ -367,9 +367,9 @@ const activeTab = ref('feed')
 const feedSubTabs = [
   { type: 'weighted' as FeedType, label: '✨ Для вас' },
   { type: 'followers' as FeedType, label: '👥 Подписки' },
+  { type: 'popular' as FeedType, label: '⭐ Популярное' },
   { type: 'trending' as FeedType, label: '📈 Тренды' },
   { type: 'hot' as FeedType, label: '🔥 Горячее' },
-  { type: 'top' as FeedType, label: '🏆 Топ' },
 ]
 
 // ==================== FEED ====================

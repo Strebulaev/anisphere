@@ -4,7 +4,7 @@ import { feedApi, postsApi, extendedFeedApi, type FeedPost, type FeedPage } from
 import { normalizePost } from '@/utils/normalizers'
 import apiClient from '@/api/client'
 
-type FeedType = 'weighted' | 'followers' | 'hot' | 'top' | 'trending'
+type FeedType = 'weighted' | 'followers' | 'hot' | 'top' | 'trending' | 'popular'
 
 export interface FeedFiltersState {
   myPosts: boolean
@@ -95,6 +95,22 @@ export const useFeedStore = defineStore('feed', () => {
       case 'followers':
         data = (await feedApi.getFollowersFeed(1)).data
         break
+      case 'popular':
+        // Популярные посты по лайкам
+        try {
+          const { data: popularData } = await feedApi.getPopularFeed(1, 20, 'week')
+          const results = (popularData as FeedPage).results || []
+          posts.value = results.map(normalizePost)
+          hasMore.value = !!(popularData as FeedPage).next
+          return
+        } catch {
+          // Fallback к топ
+          const { data: topData } = await apiClient.get('/social/feed/top/', { params: { days: 7, limit: 50 } })
+          const results = Array.isArray(topData) ? topData : topData.results || []
+          posts.value = results.map(normalizePost)
+          hasMore.value = false
+          return
+        }
       case 'hot':
         data = (await feedApi.getHotFeed()).data
         hasMore.value = false

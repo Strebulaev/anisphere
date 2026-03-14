@@ -165,30 +165,47 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_anime(self, obj):
         if obj.anime:
-            # Получить абсолютный URL для постера
             poster_url = None
+            # Сначала проверяем локальный файл
             if obj.anime.poster:
-                poster_url = obj.anime.poster.url
-                # Сделать абс. ссылку если нужно
-                request = self.context.get('request')
-                if request and not poster_url.startswith('http'):
-                    poster_url = request.build_absolute_uri(poster_url)
+                try:
+                    # Проверяем что файл существует
+                    if obj.anime.poster.storage.exists(obj.anime.poster.name):
+                        poster_url = obj.anime.poster.url
+                        # Сделать абс. ссылку если нужно
+                        request = self.context.get('request')
+                        if request and poster_url and not poster_url.startswith('http'):
+                            poster_url = request.build_absolute_uri(poster_url)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Error getting poster for anime {obj.anime.id}: {e}")
+                    poster_url = None
             # Fallback to external CDN URL
             if not poster_url:
                 poster_url = obj.anime.poster_url or None
+            
             return {
                 'id': obj.anime.id,
                 'title_ru': obj.anime.title_ru,
                 'title_en': obj.anime.title_en,
-                'poster_url': poster_url
+                'poster': poster_url,  # Для совместимости с фронтендом
+                'poster_url': poster_url,
             }
         return None
 
     def get_playlist(self, obj):
         if obj.playlist:
+            # Используем аннотированное поле если есть, иначе items.count()
+            anime_count = getattr(obj, 'playlist_items_count', None)
+            if anime_count is None:
+                anime_count = obj.playlist.items.count()
             return {
                 'id': obj.playlist.id,
-                'title': obj.playlist.title
+                'title': obj.playlist.title,
+                'anime_count': anime_count,
+                'items_count': anime_count,
+                'description': obj.playlist.description,
             }
         return None
 
