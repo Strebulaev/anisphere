@@ -286,9 +286,19 @@ class PlaylistShareLink(models.Model):
 
 
 class PlaylistItem(models.Model):
-    """Элемент плейлиста"""
+    """Элемент плейлиста - может быть аниме или вложенным плейлистом"""
     playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='items')
-    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE)
+    
+    # Элемент может быть либо аниме, либо вложенным плейлистом
+    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, null=True, blank=True)
+    nested_playlist = models.ForeignKey(
+        Playlist, 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True,
+        related_name='parent_items',
+        verbose_name='Вложенный плейлист'
+    )
 
     position = models.PositiveIntegerField(default=0, verbose_name='Позиция')
     notes = models.TextField(blank=True, verbose_name='Заметки')
@@ -300,19 +310,45 @@ class PlaylistItem(models.Model):
         ordering = ['position', 'added_at']
         verbose_name = 'Элемент плейлиста'
         verbose_name_plural = 'Элементы плейлиста'
-        unique_together = ['playlist', 'anime']
 
     def __str__(self):
-        return f"{self.playlist.title}: {self.anime.title_ru}"
+        if self.anime:
+            return f"{self.playlist.title}: {self.anime.title_ru}"
+        elif self.nested_playlist:
+            return f"{self.playlist.title}: [Плейлист] {self.nested_playlist.title}"
+        return f"{self.playlist.title}: Пустой элемент"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        # Должен быть заполнен либо anime, либо nested_playlist
+        if self.anime and self.nested_playlist:
+            raise ValidationError('Элемент не может быть одновременно аниме и плейлистом')
+        if not self.anime and not self.nested_playlist:
+            raise ValidationError('Элемент должен содержать аниме или вложенный плейлист')
+        # Нельзя добавить плейлист самого в себя (прямая рекурсия)
+        if self.nested_playlist and self.nested_playlist.id == self.playlist.id:
+            raise ValidationError('Нельзя добавить плейлист самого в себя')
 
     def save(self, *args, **kwargs):
+        self.clean()
         if self.position == 0:
             max_position = PlaylistItem.objects.filter(
                 playlist=self.playlist
             ).aggregate(models.Max('position'))['position__max'] or 0
             self.position = max_position + 1
         super().save(*args, **kwargs)
-        self.playlist.update_cover()
+        # Обновляем обложку только если добавлено аниме
+        if self.anime:
+            self.playlist.update_cover()
+
+    @property
+    def item_type(self):
+        """Возвращает тип элемента: 'anime' или 'playlist'"""
+        return 'playlist' if self.nested_playlist else 'anime'
+
+    @property
+    def is_nested_playlist(self):
+        return bool(self.nested_playlist)
 
 
 class FavoritePlaylist(models.Model):

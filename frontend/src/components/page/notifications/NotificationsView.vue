@@ -96,7 +96,7 @@
               :key="`rem-${r.id}`"
               :class="['notif-row', 'reminder-row', {
                 inactive: !r.is_active,
-                'reminder-ringing': store.ringingReminderIds.has(r.id)
+                'reminder-ringing': store.isReminderRinging(r.id)
               }]"
             >
               <div class="notif-avatar" style="background: rgba(245,158,11,0.15)">
@@ -119,7 +119,13 @@
               </div>
 
               <div class="notif-actions">
-                <router-link :to="`/anime/${r.anime_detail?.id}/watch`" class="action-btn watch-btn" title="Смотреть">▶</router-link>
+                <router-link 
+                  v-if="r.anime_detail?.id" 
+                  :to="`/anime/${r.anime_detail.id}`" 
+                  class="action-btn watch-btn" 
+                  title="Смотреть"
+                  @click="store.acknowledgeReminder(r.id)"
+                >▶</router-link>
                 <button
                   v-if="r.is_active"
                   class="action-btn deact-btn"

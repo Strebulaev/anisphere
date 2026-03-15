@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.utils import timezone
+from datetime import timedelta
 from .models import Complaint, Notification, Reminder, NotificationSetting
 from anime.serializers import AnimeSerializer
 
@@ -16,14 +18,24 @@ class ComplaintSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    """Сериализатор уведомлений с поддержкой сверкания"""
+    is_flashing = serializers.SerializerMethodField()
+
     class Meta:
         model = Notification
         fields = [
             'id', 'type', 'title', 'content', 'icon', 'link',
-            'is_read', 'is_important', 'is_deleted',
+            'is_read', 'is_important', 'is_deleted', 'is_flashing',
             'created_at', 'read_at', 'expires_at',
         ]
         read_only_fields = ['id', 'created_at', 'read_at', 'is_deleted']
+
+    def get_is_flashing(self, obj):
+        """Уведомление сверкает, если создано менее 1 минуты назад"""
+        if obj.is_read:
+            return False
+        one_minute_ago = timezone.now() - timedelta(minutes=1)
+        return obj.created_at > one_minute_ago
 
 
 class ReminderSerializer(serializers.ModelSerializer):

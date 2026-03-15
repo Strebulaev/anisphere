@@ -15,7 +15,42 @@ def get_full_url(url):
     return f"{base_url}{url if url.startswith('/') else '/' + url}"
 
 
+class NestedPlaylistSerializer(serializers.ModelSerializer):
+    """Сериализатор для вложенного плейлиста (краткая информация)"""
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    items_count = serializers.SerializerMethodField()
+    cover_urls = serializers.SerializerMethodField()
+    cover_image = serializers.ImageField(read_only=True)
+
+    class Meta:
+        model = Playlist
+        fields = [
+            'id', 'title', 'description', 'cover_image', 'cover_urls',
+            'user_id', 'user_username', 'items_count', 'visibility',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = fields
+
+    def get_items_count(self, obj):
+        return obj.items.count()
+
+    def get_cover_urls(self, obj):
+        urls = obj.get_cover_urls()
+        cleaned = []
+        for url in urls:
+            if url.startswith('/media/media/'):
+                url = url.replace('/media/media/', '/media/')
+            cleaned.append(get_full_url(url))
+        return cleaned
+
+
 class PlaylistItemSerializer(serializers.ModelSerializer):
+    """Сериализатор элемента плейлиста (аниме или вложенный плейлист)"""
+    item_type = serializers.CharField(read_only=True)
+    is_nested_playlist = serializers.BooleanField(read_only=True)
+    
+    # Поля для аниме
     anime = serializers.IntegerField(source='anime.id', read_only=True)
     anime_id = serializers.IntegerField(source='anime.id', read_only=True)
     anime_title = serializers.CharField(source='anime.title_ru', read_only=True)
@@ -27,24 +62,39 @@ class PlaylistItemSerializer(serializers.ModelSerializer):
     anime_status = serializers.CharField(source='anime.status', read_only=True)
     anime_kind = serializers.CharField(source='anime.kind', read_only=True)
     anime_genres = serializers.ListField(source='anime.genres', read_only=True)
+    
+    # Поля для вложенного плейлиста
+    nested_playlist_data = serializers.SerializerMethodField()
 
     class Meta:
         model = PlaylistItem
         fields = [
-            'id', 'anime', 'anime_id', 'anime_title', 'anime_title_en',
+            'id', 'item_type', 'is_nested_playlist',
+            # Аниме поля
+            'anime', 'anime_id', 'anime_title', 'anime_title_en',
             'anime_poster', 'anime_poster_url', 'anime_year', 'anime_score',
             'anime_status', 'anime_kind', 'anime_genres',
+            # Плейлист поля
+            'nested_playlist_data',
+            # Общие поля
             'position', 'notes', 'added_at', 'created_at'
         ]
         read_only_fields = ['id', 'added_at', 'created_at']
 
     def get_anime_poster(self, obj):
+        if not obj.anime:
+            return None
         if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
             poster_url = obj.anime.poster.url
             if poster_url.startswith('/media/media/'):
                 poster_url = poster_url.replace('/media/media/', '/media/')
             return get_full_url(poster_url)
         return obj.anime.poster_url or None
+
+    def get_nested_playlist_data(self, obj):
+        if not obj.nested_playlist:
+            return None
+        return NestedPlaylistSerializer(obj.nested_playlist, context=self.context).data
 
 
 class PlaylistSerializer(serializers.ModelSerializer):
@@ -199,9 +249,54 @@ class PlaylistUpdateSerializer(serializers.ModelSerializer):
 
 
 class PlaylistItemCreateSerializer(serializers.ModelSerializer):
+    anime_id = serializers.IntegerField(required=False)
+    nested_playlist_id = serializers.IntegerField(required=False)
+
     class Meta:
         model = PlaylistItem
-        fields = ['anime', 'notes']
+        fields = ['anime_id', 'nested_playlist_id', 'notes']
+
+    def validate(self, data):
+        anime_id = data.get('anime_id')
+        nested_playlist_id = data.get('nested_playlist_id')
+        
+        if anime_id and nested_playlist_id:
+            raise serializers.ValidationError(
+                "Нельзя добавить одновременно аниме и плейлист"
+            )
+        if not anime_id and not nested_playlist_id:
+            raise serializers.ValidationError(
+                "Необходимо указать anime_id или nested_playlist_id"
+            )
+        
+        # Проверяем существование аниме
+        if anime_id:
+            try:
+                Anime.objects.get(id=anime_id)
+            except Anime.DoesNotExist:
+                raise serializers.ValidationError("Аниме не найдено")
+        
+        # Проверяем существование плейлиста
+        if nested_playlist_id:
+            try:
+                Playlist.objects.get(id=nested_playlist_id)
+            except Playlist.DoesNotExist:
+                raise serializers.ValidationError("Плейлист не найден")
+        
+        return data
+
+    def create(self, validated_data):
+        anime_id = validated_data.pop('anime_id', None)
+        nested_playlist_id = validated_data.pop('nested_playlist_id', None)
+        
+        item = PlaylistItem(**validated_data)
+        if anime_id:
+            item.anime_id = anime_id
+        if nested_playlist_id:
+            item.nested_playlist_id = nested_playlist_id
+        
+        item.save()
+        return item
 
 
 class PlaylistItemUpdateSerializer(serializers.ModelSerializer):

@@ -551,12 +551,14 @@ class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         franchise = self.get_object()
-        franchise._prefetched_objects_cache = {}
-        franchise.entries_sorted = franchise.entries.order_by('franchise_order', 'year')
+        # Не сбрасываем кэш - он нужен для вычисления агрегированных данных
         serializer = FranchiseDetailSerializer(franchise)
         data = serializer.data
         from .serializers import FranchiseEntrySerializer
-        data['entries'] = FranchiseEntrySerializer(franchise.entries.order_by('franchise_order', 'year'), many=True).data
+        data['entries'] = FranchiseEntrySerializer(
+            franchise.entries.all().order_by('franchise_order', 'year'), 
+            many=True
+        ).data
         return Response(data)
 
 
@@ -1127,18 +1129,19 @@ class HomeAPIView(APIView):
     def _get_recommendations(self, user):
         """
         Персонализированные рекомендации:
-          - Основа: жанры аниме которое пользователь уже смотрел (статус started/completed)
+          - Основа: жанры аниме которое пользователь уже смотрил (статус started/completed)
           - Бонус: жанры студий, на которые подписан (если есть подписки)
           - Исключаем аниме которое пользователь уже смотрит или планирует
+          - Группируем по франшизам
           - Для неавторизованных: лучшее по рейтингу
         """
-        from anime.models import Anime
+        from anime.models import Anime, Franchise
         from collections import Counter
 
         if not user or not user.is_authenticated:
-            # Без авторизации — просто топ 20 по рейтингу
-            animes = Anime.objects.filter(score__gte=7.0).order_by('-score')[:20]
-            return [self._anime_to_dict(a) for a in animes]
+            # Без авторизации — просто топ 20 по рейтингу (с группировкой по франшизам)
+            animes = list(Anime.objects.filter(score__gte=7.0).select_related('franchise').order_by('-score')[:60])
+            return self._dedupe_franchises(animes)[:20]
 
         from users.models import UserLibrary
         from studios.models import StudioSubscription
@@ -1180,9 +1183,9 @@ class HomeAPIView(APIView):
             genre_q = Q()
             for g in top_genres:
                 genre_q |= Q(genres__icontains=g)
-            qs = Anime.objects.filter(genre_q, score__gte=6.5)
+            qs = Anime.objects.filter(genre_q, score__gte=6.5).select_related('franchise')
         else:
-            qs = Anime.objects.filter(score__gte=7.5)
+            qs = Anime.objects.filter(score__gte=7.5).select_related('franchise')
 
         # 5. Бонус: аниме подписанных студий (JSON поле studios)
         studio_bonus_ids = set()
@@ -1210,13 +1213,32 @@ class HomeAPIView(APIView):
             return base + bonus + overlap * 0.3
 
         candidates.sort(key=sort_key, reverse=True)
-        return [self._anime_to_dict(a) for a in candidates[:20]]
+        
+        # 8. Дедуплицируем по франшизам
+        return self._dedupe_franchises(candidates)[:20]
+    
+    def _dedupe_franchises(self, animes):
+        """Дедуплицирует список аниме по франшизам, оставляя только одну карточку на франшизу"""
+        seen_franchises = set()
+        result = []
+        
+        for anime in animes:
+            if anime.franchise:
+                fid = anime.franchise_id
+                if fid not in seen_franchises:
+                    seen_franchises.add(fid)
+                    result.append(self._anime_to_dict(anime))
+            else:
+                result.append(self._anime_to_dict(anime))
+        
+        return result
 
     def _get_trending(self, user=None):
         """
         Популярное на этой неделе:
           - Определяем по количеству записей UserEpisodeProgress за последние 7 дней
           - Исключаем аниме которое текущий пользователь уже смотрит или смотрел
+          - Группируем по франшизам
         """
         from django.utils import timezone
         from datetime import timedelta
@@ -1249,10 +1271,10 @@ class HomeAPIView(APIView):
         # Загружаем аниме в порядке идентификаторов
         anime_map = {
             a.id: a
-            for a in Anime.objects.filter(id__in=trending_ids)
+            for a in Anime.objects.filter(id__in=trending_ids).select_related('franchise')
         }
 
-        result = []
+        candidates = []
         for row in trending_qs:
             aid = row['anime_id']
             if aid in excluded_ids:
@@ -1260,29 +1282,79 @@ class HomeAPIView(APIView):
             anime = anime_map.get(aid)
             if not anime:
                 continue
-            d = self._anime_to_dict(anime)
-            d['views_this_week'] = row['views']
-            result.append(d)
+            candidates.append((anime, row['views']))
+
+        # Дедуплицируем по франшизам
+        seen_franchises = set()
+        result = []
+        for anime, views in candidates:
+            if anime.franchise:
+                fid = anime.franchise_id
+                if fid not in seen_franchises:
+                    seen_franchises.add(fid)
+                    d = self._anime_to_dict(anime)
+                    d['views_this_week'] = views
+                    result.append(d)
+            else:
+                d = self._anime_to_dict(anime)
+                d['views_this_week'] = views
+                result.append(d)
+            
             if len(result) >= 20:
                 break
 
         # Фоллбэк: если активность недельная недостаточна — дополняем топом по рейтингу
         if len(result) < 10:
-            existing = {r['anime_id'] for r in result}
-            fallback = (
+            existing_ids = {r['anime_id'] for r in result}
+            existing_franchises = {r.get('franchise_id') for r in result if r.get('franchise_id')}
+            fallback = list(
                 Anime.objects.filter(score__isnull=False)
-                .exclude(id__in=excluded_ids | existing)
+                .exclude(id__in=excluded_ids | existing_ids)
+                .select_related('franchise')
                 .order_by('-score')
-                [:20 - len(result)]
+                [:60]
             )
+            
             for anime in fallback:
+                if anime.franchise:
+                    fid = anime.franchise_id
+                    if fid in existing_franchises:
+                        continue
+                    existing_franchises.add(fid)
                 result.append(self._anime_to_dict(anime))
+                if len(result) >= 20:
+                    break
 
         return result
 
     @staticmethod
     def _anime_to_dict(anime):
+        """Преобразует аниме в словарь, добавляя данные о франшизе если есть"""
         poster_url = anime.poster.url if anime.poster else anime.poster_url
+        
+        # Если аниме входит во франшизу, возвращаем данные франшизы
+        if anime.franchise:
+            franchise = anime.franchise
+            return {
+                'anime_id':        anime.id,
+                'title':           anime.title_ru or anime.title_en or '',
+                'title_en':        anime.title_en or '',
+                'poster':          poster_url,
+                'genres':          anime.genres or [],
+                'rating':          anime.score,
+                'rating_count':    0,
+                'year':            anime.year,
+                'status':          anime.status,
+                # Данные франшизы
+                'is_franchise':    True,
+                'franchise_id':    franchise.id,
+                'franchise_name':  franchise.name,
+                'franchise_parts_count': franchise.entries.count(),
+                'franchise_year_start': franchise.year_start,
+                'franchise_year_end': franchise.year_end,
+                'franchise_score': franchise.score,
+            }
+        
         return {
             'anime_id':     anime.id,
             'title':        anime.title_ru or anime.title_en or '',
@@ -1293,6 +1365,7 @@ class HomeAPIView(APIView):
             'rating_count': 0,
             'year':         anime.year,
             'status':       anime.status,
+            'is_franchise': False,
         }
 
 

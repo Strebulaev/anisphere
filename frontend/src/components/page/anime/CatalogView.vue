@@ -51,14 +51,20 @@
 
     <!-- Результат -->
     <div v-else>
-      <p class="catalog-info">Показано {{ deduplicatedList.length }} из {{ totalCount }} аниме</p>
+      <p class="catalog-info">Показано {{ deduplicatedList.length }} из {{ totalCount }}</p>
       <div class="catalog-grid">
-        <AnimeCard
-          v-for="anime in deduplicatedList"
-          :key="(anime as any).franchise_id ? 'f' + (anime as any).franchise_id : anime.id"
-          :anime="anime as any"
-          @click="handleClick(anime)"
-        />
+        <template v-for="item in deduplicatedList" :key="item._key">
+          <FranchiseCard
+            v-if="item._isFranchise"
+            :franchise="item"
+            @click="handleFranchiseClick(item)"
+          />
+          <AnimeCard
+            v-else
+            :anime="item as any"
+            @click="handleClick(item as Anime)"
+          />
+        </template>
       </div>
       <div v-if="totalPages > 1" class="catalog-pagination">
         <Pagination
@@ -76,9 +82,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import AnimeFilterBar from '@/components/Filters/AnimeFilterBar.vue'
 import type { FilterState } from '@/components/Filters/AnimeFilterBar.vue'
 import AnimeCard from '@/components/Cards/AnimeCard.vue'
+import FranchiseCard from '@/components/Cards/FranchiseCard.vue'
 import { Pagination } from '@/components/Navigation'
 import type { Anime } from '@/types'
 
@@ -98,6 +106,8 @@ const props = withDefaults(defineProps<Props>(), {
   isShuffled: false,
 })
 
+const router = useRouter()
+
 const emit = defineEmits<{
   pageChange: [page: number]
   refresh: []
@@ -108,25 +118,64 @@ const emit = defineEmits<{
   filterChange: [filters: FilterState]
 }>()
 
+interface FranchiseItem {
+  id: number
+  name: string
+  slug?: string
+  description?: string
+  poster_url?: string
+  poster_image_url?: string
+  poster?: any
+  score?: number | null
+  year_start?: number | null
+  year_end?: number | null
+  parts_count?: number
+  year_range?: string
+  avg_score?: number | null
+  all_genres?: string[]
+  all_posters?: string[]
+  entries?: any[]
+  _isFranchise: true
+  _key: string
+  _franchiseId: number
+}
+
 const deduplicatedList = computed(() => {
   const seen = new Map<string, any>()
+  
+  // Обрабатываем аниме
   for (const a of props.animeList) {
     const fid = (a as any).franchise_id
+    
     if (fid) {
       const key = `franchise_${fid}`
-      const existing = seen.get(key)
-      if (!existing || ((a as any).score || 0) > ((existing as any).score || 0)) {
-        seen.set(key, {
-          ...a,
-          title_ru:         (a as any).franchise_name                  || (a as any).title_ru,
-          poster_image_url: (a as any).franchise_poster_image_url       || (a as any).poster_image_url,
-          poster_url:       (a as any).franchise_poster_image_url       || (a as any).poster_url,
-        })
+      if (!seen.has(key)) {
+        // Используем данные с бэкенда
+        const franchiseItem: FranchiseItem = {
+          id: fid,
+          name: (a as any).franchise_name || a.title_ru,
+          slug: (a as any).franchise_slug,
+          poster_url: (a as any).franchise_poster_image_url || a.poster_url,
+          poster_image_url: (a as any).franchise_poster_image_url || a.poster_image_url,
+          poster: (a as any).franchise_poster,
+          score: (a as any).franchise_avg_score,
+          year_start: (a as any).franchise_year_start,
+          year_end: (a as any).franchise_year_end,
+          parts_count: (a as any).franchise_parts_count,
+          all_genres: (a as any).franchise_all_genres || [],
+          all_posters: (a as any).franchise_all_posters || [],
+          entries: [],
+          _isFranchise: true,
+          _key: key,
+          _franchiseId: fid,
+        }
+        seen.set(key, franchiseItem)
       }
     } else {
-      seen.set(`anime_${a.id}`, a)
+      seen.set(`anime_${a.id}`, { ...a, _isFranchise: false, _key: `anime_${a.id}` })
     }
   }
+  
   return Array.from(seen.values())
 })
 
@@ -135,6 +184,10 @@ const onFilterChange = (filters: FilterState) => {
 }
 
 const handleClick = (anime: Anime) => emit('animeClick', anime)
+
+const handleFranchiseClick = (franchise: FranchiseItem) => {
+  router.push(`/franchise/${franchise._franchiseId}`)
+}
 
 const handlePageChange = (newPage: number) => {
   emit('pageChange', newPage)

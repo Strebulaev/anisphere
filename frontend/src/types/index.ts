@@ -277,6 +277,14 @@ export interface RecommendationItem {
   year: number | null
   status: string
   weekly_views?: number
+  // Поля для франшизы
+  is_franchise?: boolean
+  franchise_id?: number | null
+  franchise_name?: string
+  franchise_parts_count?: number
+  franchise_year_start?: number | null
+  franchise_year_end?: number | null
+  franchise_score?: number | null
 }
 
 export interface HomeData {

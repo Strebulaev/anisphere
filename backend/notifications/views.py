@@ -12,6 +12,7 @@ from .serializers import (
     ReminderSerializer, ReminderCreateSerializer,
     NotificationSettingSerializer,
 )
+from .services import NotificationService
 from anime.models import Anime
 
 
@@ -53,6 +54,12 @@ class NotificationViewSet(ModelViewSet):
         if important in ('1', 'true'):
             qs = qs.filter(is_important=True)
 
+        # Только сверкающие (новые)
+        flashing = self.request.query_params.get('flashing')
+        if flashing in ('1', 'true'):
+            one_minute_ago = timezone.now() - timedelta(minutes=1)
+            qs = qs.filter(is_read=False, created_at__gte=one_minute_ago)
+
         return qs
 
     # ── Мягкое удаление ──────────────────────────────────────────────────────
@@ -73,7 +80,20 @@ class NotificationViewSet(ModelViewSet):
             is_read=False,
             is_deleted=False,
         ).count()
-        return Response({'count': cnt})
+
+        # Количество сверкающих (новых)
+        one_minute_ago = timezone.now() - timedelta(minutes=1)
+        flashing_cnt = Notification.objects.filter(
+            user=request.user,
+            is_read=False,
+            is_deleted=False,
+            created_at__gte=one_minute_ago
+        ).count()
+
+        return Response({
+            'count': cnt,
+            'flashing_count': flashing_cnt
+        })
 
     @action(detail=False, methods=['get'], url_path='recent')
     def recent(self, request):
@@ -87,9 +107,20 @@ class NotificationViewSet(ModelViewSet):
             unread_count = Notification.objects.filter(
                 user=request.user, is_read=False, is_deleted=False
             ).count()
+
+            # Количество сверкающих
+            one_minute_ago = timezone.now() - timedelta(minutes=1)
+            flashing_count = Notification.objects.filter(
+                user=request.user,
+                is_read=False,
+                is_deleted=False,
+                created_at__gte=one_minute_ago
+            ).count()
+
             return Response({
                 'results': serializer.data,
                 'unread_count': unread_count,
+                'flashing_count': flashing_count,
             })
         except Exception as e:
             import logging
@@ -98,6 +129,7 @@ class NotificationViewSet(ModelViewSet):
             return Response({
                 'results': [],
                 'unread_count': 0,
+                'flashing_count': 0,
                 'error': 'Failed to load notifications'
             }, status=500)
 
@@ -192,6 +224,14 @@ class ReminderViewSet(ModelViewSet):
         reminder.save(update_fields=['is_active'])
         return Response({'status': 'deactivated'})
 
+    @action(detail=True, methods=['post'])
+    def acknowledge(self, request, pk=None):
+        """POST /api/notifications/reminders/{id}/acknowledge/ - пользователь увидел напоминание"""
+        reminder = self.get_object()
+        reminder.is_triggered = False
+        reminder.save(update_fields=['is_triggered'])
+        return Response({'status': 'acknowledged'})
+
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
         """GET /api/notifications/reminders/upcoming/ — напоминания в ближайший час"""
@@ -202,6 +242,52 @@ class ReminderViewSet(ModelViewSet):
             reminder_time__lte=now + timedelta(minutes=60),
         ).order_by('reminder_time')[:20]
         return Response(ReminderSerializer(reminders, many=True).data)
+
+    @action(detail=False, methods=['post'])
+    def check_and_trigger(self, request):
+        """
+        POST /api/notifications/reminders/check_and_trigger/
+        Проверяет напоминания и создаёт уведомления для сработавших.
+        Вызывается фронтендом периодически.
+        """
+        now = timezone.now()
+        # Окно в 2 минуты - чтобы точно поймать срабатывание
+        window_start = now - timedelta(minutes=2)
+
+        # Находим напоминания которые должны сработать
+        reminders_to_trigger = self.get_queryset().filter(
+            is_active=True,
+            is_triggered=False,
+            reminder_time__gte=window_start,
+            reminder_time__lte=now,
+        )
+
+        triggered_ids = []
+        for reminder in reminders_to_trigger:
+            # Создаём уведомление
+            NotificationService.create_notification(
+                user=reminder.user,
+                notification_type='reminder_episode',
+                title=f'⏰ Напоминание: {reminder.anime.title_ru}',
+                content=f'Время посмотреть {reminder.anime.title_ru}!' + (f' {reminder.comment}' if reminder.comment else ''),
+                link=f'/anime/{reminder.anime.id}',
+                icon='🔔',
+            )
+
+            # Помечаем как сработавшее
+            reminder.is_triggered = True
+            if reminder.repeat_weekly:
+                # Переносим на неделю вперёд и сбрасываем флаг
+                reminder.reminder_time = reminder.reminder_time + timedelta(weeks=1)
+                reminder.is_triggered = False
+            reminder.save(update_fields=['is_triggered', 'reminder_time'])
+
+            triggered_ids.append(reminder.id)
+
+        return Response({
+            'triggered_count': len(triggered_ids),
+            'triggered_ids': triggered_ids
+        })
 
 
 class NotificationSettingViewSet(

@@ -251,17 +251,51 @@ class PlaylistViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def add_item(self, request, pk=None):
+        """Добавить аниме или вложенный плейлист"""
         playlist = self.get_object()
         if playlist.user != request.user:
             return Response({'error': 'Нет прав'}, status=status.HTTP_403_FORBIDDEN)
         serializer = PlaylistItemCreateSerializer(data=request.data)
         if serializer.is_valid():
-            anime = serializer.validated_data['anime']
-            if PlaylistItem.objects.filter(playlist=playlist, anime=anime).exists():
+            anime_id = serializer.validated_data.get('anime_id')
+            nested_playlist_id = serializer.validated_data.get('nested_playlist_id')
+            
+            # Проверяем дубликаты
+            if anime_id and PlaylistItem.objects.filter(playlist=playlist, anime_id=anime_id).exists():
                 return Response({'error': 'Аниме уже есть в плейлисте'}, status=status.HTTP_400_BAD_REQUEST)
-            serializer.save(playlist=playlist)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            if nested_playlist_id:
+                # Проверяем что не добавляем самого себя
+                if nested_playlist_id == playlist.id:
+                    return Response({'error': 'Нельзя добавить плейлист самого в себя'}, status=status.HTTP_400_BAD_REQUEST)
+                if PlaylistItem.objects.filter(playlist=playlist, nested_playlist_id=nested_playlist_id).exists():
+                    return Response({'error': 'Плейлист уже добавлен'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            item = serializer.save(playlist=playlist)
+            return Response(PlaylistItemSerializer(item).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='search-for-nested')
+    def search_for_nested(self, request):
+        """Поиск плейлистов для добавления как вложенных"""
+        search = request.query_params.get('q', '').strip()
+        limit = int(request.query_params.get('limit', 20))
+        
+        if not search:
+            # Если нет поискового запроса, возвращаем последние плейлисты пользователя
+            playlists = Playlist.objects.filter(user=request.user).order_by('-updated_at')[:limit]
+        else:
+            # Ищем по названию среди своих плейлистов и публичных
+            playlists = Playlist.objects.filter(
+                Q(title__icontains=search),
+                Q(user=request.user) | Q(visibility='public')
+            ).distinct().order_by('-updated_at')[:limit]
+        
+        from .serializers import NestedPlaylistSerializer
+        serializer = NestedPlaylistSerializer(playlists, many=True, context={'request': request})
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })
 
     @action(detail=True, methods=['post'])
     def add_by_link(self, request, pk=None):

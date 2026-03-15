@@ -62,20 +62,37 @@
             <h1 class="hero-title">{{ franchise.name }}</h1>
 
             <div class="hero-meta">
-              <span v-if="franchise.year_start">
+              <span v-if="franchise.year_range && franchise.year_range !== '—'">
+                {{ franchise.year_range }}
+              </span>
+              <span v-else-if="franchise.year_start">
                 {{ franchise.year_start }}{{ franchise.year_end && franchise.year_end !== franchise.year_start ? ' — ' + franchise.year_end : '' }}
               </span>
               <span class="dot">·</span>
-              <span>{{ franchise.entries?.length || 0 }} частей</span>
-              <template v-if="franchise.score">
+              <span>{{ franchise.parts_count || franchise.entries?.length || 0 }} частей</span>
+              <template v-if="franchise.avg_score || franchise.score">
                 <span class="dot">·</span>
                 <span class="score-badge">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                   </svg>
-                  {{ Number(franchise.score).toFixed(1) }}
+                  {{ Number(franchise.avg_score || franchise.score).toFixed(1) }}
                 </span>
               </template>
+            </div>
+
+            <!-- Жанры -->
+            <div v-if="franchise.all_genres && franchise.all_genres.length > 0" class="hero-genres">
+              <span 
+                v-for="(genre, index) in franchise.all_genres.slice(0, 6)" 
+                :key="index" 
+                class="genre-tag"
+              >
+                {{ genre }}
+              </span>
+              <span v-if="franchise.all_genres.length > 6" class="genre-more">
+                +{{ franchise.all_genres.length - 6 }}
+              </span>
             </div>
 
             <p v-if="franchise.description" class="hero-desc">{{ franchise.description }}</p>
@@ -186,6 +203,11 @@ interface FranchiseDetail {
   score: number | null
   year_start: number | null
   year_end: number | null
+  year_range?: string
+  parts_count?: number
+  avg_score?: number | null
+  all_genres?: string[]
+  all_posters?: string[]
   entries: FranchiseEntry[]
 }
 
@@ -230,10 +252,12 @@ const load = async () => {
   error.value   = false
   try {
     const id  = route.params.id
+    console.log('Loading franchise:', id)
     const res = await apiClient.get(`/anime/franchises/${id}/`)
+    console.log('Franchise data:', res.data)
     franchise.value = res.data
   } catch (e) {
-    console.error(e)
+    console.error('Error loading franchise:', e)
     error.value = true
   } finally {
     loading.value = false
@@ -364,6 +388,32 @@ onMounted(load)
   font-weight: 700;
 }
 
+.hero-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.genre-tag {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  backdrop-filter: blur(4px);
+}
+
+.genre-more {
+  padding: 4px 10px;
+  background: rgba(124, 92, 252, 0.2);
+  border: 1px solid rgba(124, 92, 252, 0.3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
 .hero-desc {
   color: var(--text-secondary);
   font-size: var(--text-sm);
@@ -371,13 +421,14 @@ onMounted(load)
   margin: 0;
   max-width: 600px;
   display: -webkit-box;
+  line-clamp: 4;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 /* ── Секция частей ───────────────────────────────────────── */
-.entries-section { }
+/* .entries-section { } */
 
 .entries-title {
   font-size: var(--text-2xl);
@@ -512,6 +563,7 @@ onMounted(load)
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }

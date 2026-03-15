@@ -28,6 +28,7 @@ export const useNotificationStore = defineStore('notifications', () => {
   const recentNotifications = ref<NotificationItem[]>([])  // только для дропдауна
   const reminders       = ref<Reminder[]>([])
   const unreadCount     = ref(0)
+  const flashingCount   = ref(0)  // Количество сверкающих уведомлений
   const loading         = ref(false)
   const loadingMore     = ref(false)
   const hasMore         = ref(true)
@@ -35,18 +36,25 @@ export const useNotificationStore = defineStore('notifications', () => {
   const settings        = ref<NotificationSettings | null>(null)
 
   // Сверкающие напоминания: id напоминаний которые сейчас сверкают (первая минута)
-  const ringingReminderIds = ref<Set<number>>(new Set())
-  // Сверкает ли колокольчик сейчас
-  const isBellRinging = computed(() => ringingReminderIds.value.size > 0)
+  const ringingReminderIds = ref<number[]>([])
+  
+  // Сверкает ли колокольчик сейчас (есть новые уведомления или непрочитанные)
+  const isBellRinging = computed(() => {
+    // Звеним если есть сверкающие уведомления
+    if (flashingCount.value > 0) return true
+    // Или есть сверкающие напоминания
+    if (ringingReminderIds.value.length > 0) return true
+    return false
+  })
 
   // Таймеры сверкания (id напоминания -> timer handle)
   const _ringTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
   function startRinging(reminderId: number) {
-    // Добавляем в Set и принудительно триггерим реактивность
-    const next = new Set(ringingReminderIds.value)
-    next.add(reminderId)
-    ringingReminderIds.value = next
+    // Добавляем в массив если ещё нет
+    if (!ringingReminderIds.value.includes(reminderId)) {
+      ringingReminderIds.value = [...ringingReminderIds.value, reminderId]
+    }
 
     // Через 1 минуту прекращаем сверкание
     const t = setTimeout(() => {
@@ -58,9 +66,12 @@ export const useNotificationStore = defineStore('notifications', () => {
   function stopRinging(reminderId: number) {
     const t = _ringTimers.get(reminderId)
     if (t) { clearTimeout(t); _ringTimers.delete(reminderId) }
-    const next = new Set(ringingReminderIds.value)
-    next.delete(reminderId)
-    ringingReminderIds.value = next
+    ringingReminderIds.value = ringingReminderIds.value.filter(id => id !== reminderId)
+  }
+
+  // Проверка, сверкает ли напоминание
+  function isReminderRinging(reminderId: number): boolean {
+    return ringingReminderIds.value.includes(reminderId)
   }
 
   // WS
@@ -102,6 +113,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       hasMore.value = !!pageData.next
 
       unreadCount.value = notifications.value.filter(n => !n.is_read).length
+      flashingCount.value = notifications.value.filter(n => (n as any).is_flashing).length
     } catch (e) {
       console.error('Error fetching notifications:', e)
     } finally {
@@ -114,6 +126,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     try {
       const { data } = await notificationsApi.recent()
       unreadCount.value = data.unread_count
+      flashingCount.value = data.flashing_count || 0
       // Обновляем отдельный список для дропдауна (последние 5)
       recentNotifications.value = data.results.slice(0, 5)
       // Также мержим в основной список если он уже загружен
@@ -132,6 +145,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     try {
       const { data } = await notificationsApi.count()
       unreadCount.value = data.count
+      flashingCount.value = data.flashing_count || 0
     } catch {}
   }
 
@@ -147,7 +161,9 @@ export const useNotificationStore = defineStore('notifications', () => {
     try {
       await notificationsApi.markRead(id)
       n.is_read = true
+      ;(n as any).is_flashing = false
       unreadCount.value = Math.max(0, unreadCount.value - 1)
+      flashingCount.value = Math.max(0, flashingCount.value - 1)
     } catch (e) {
       console.error('markRead error:', e)
     }
@@ -156,8 +172,12 @@ export const useNotificationStore = defineStore('notifications', () => {
   async function markAllRead() {
     try {
       await notificationsApi.markAllRead()
-      notifications.value.forEach(n => (n.is_read = true))
+      notifications.value.forEach(n => {
+        n.is_read = true
+        ;(n as any).is_flashing = false
+      })
       unreadCount.value = 0
+      flashingCount.value = 0
     } catch (e) {
       console.error('markAllRead error:', e)
     }
@@ -177,8 +197,12 @@ export const useNotificationStore = defineStore('notifications', () => {
   async function deleteNotification(id: number) {
     try {
       await notificationsApi.delete(id)
+      const n = notifications.value.find(n => n.id === id)
       notifications.value = notifications.value.filter(n => n.id !== id)
       unreadCount.value = notifications.value.filter(n => !n.is_read).length
+      if (n && (n as any).is_flashing) {
+        flashingCount.value = Math.max(0, flashingCount.value - 1)
+      }
     } catch (e) {
       console.error('deleteNotification error:', e)
     }
@@ -211,6 +235,10 @@ export const useNotificationStore = defineStore('notifications', () => {
       recentNotifications.value = [notification, ...recentNotifications.value].slice(0, 5)
     }
     if (!notification.is_read) unreadCount.value++
+    // Если уведомление новое (сверкает)
+    if ((notification as any).is_flashing) {
+      flashingCount.value++
+    }
   }
 
   // ── Reminders ─────────────────────────────────────────────────────
@@ -248,6 +276,48 @@ export const useNotificationStore = defineStore('notifications', () => {
     await apiClient.post(`/notifications/reminders/${id}/deactivate/`)
     const r = reminders.value.find(r => r.id === id)
     if (r) r.is_active = false
+  }
+
+  async function acknowledgeReminder(id: number) {
+    // Пользователь кликнул на напоминание - перестаёт сверчать
+    const { default: apiClient } = await import('@/api/client')
+    await apiClient.post(`/notifications/reminders/${id}/acknowledge/`)
+    const r = reminders.value.find(r => r.id === id)
+    if (r) r.is_triggered = false
+    stopRinging(id)
+  }
+
+  async function checkAndTriggerReminders() {
+    // Проверяет и запускает сработавшие напоминания
+    try {
+      const { default: apiClient } = await import('@/api/client')
+      const { data } = await apiClient.post('/notifications/reminders/check_and_trigger/')
+      
+      // Обновляем напоминания если что-то сработало
+      if (data.triggered_count > 0) {
+        // Перезагружаем напоминания
+        await fetchReminders()
+        
+        // Запускаем сверкание для каждого сработавшего напоминания
+        data.triggered_ids.forEach((id: number) => {
+          startRinging(id)
+        })
+        
+        // Загружаем новые уведомления
+        await fetchRecent()
+        
+        // Воспроизводим звук уведомления
+        try {
+          const audio = new Audio('/sounds/notification.mp3')
+          audio.volume = 0.5
+          audio.play().catch(() => {}) // Игнорируем ошибки автоплея
+        } catch {}
+      }
+      return data
+    } catch (e) {
+      console.error('checkAndTriggerReminders error:', e)
+      return { triggered_count: 0, triggered_ids: [] }
+    }
   }
 
   const upcomingReminders = computed(() =>
@@ -335,6 +405,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     recentNotifications,
     reminders,
     unreadCount,
+    flashingCount,
     loading,
     loadingMore,
     hasMore,
@@ -344,6 +415,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     allActiveReminders,
     isBellRinging,
     ringingReminderIds,
+    isReminderRinging,
     startRinging,
     stopRinging,
 
@@ -363,6 +435,8 @@ export const useNotificationStore = defineStore('notifications', () => {
     createReminder,
     deleteReminder,
     deactivateReminder,
+    acknowledgeReminder,
+    checkAndTriggerReminders,
 
     fetchSettings,
     saveSettings,

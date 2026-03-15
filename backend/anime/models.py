@@ -16,6 +16,11 @@ class Franchise(models.Model):
     score       = models.FloatField(null=True, blank=True, verbose_name='Рейтинг (усредн.)')
     year_start  = models.PositiveIntegerField(null=True, blank=True, verbose_name='Год начала')
     year_end    = models.PositiveIntegerField(null=True, blank=True, verbose_name='Год конца')
+    
+    # Агрегированные данные (кэшируются для производительности)
+    genres      = models.JSONField(default=list, blank=True, verbose_name='Жанры всех частей')
+    parts_count = models.PositiveIntegerField(default=0, verbose_name='Количество частей')
+    
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
@@ -37,6 +42,72 @@ class Franchise(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+    def update_aggregated_data(self):
+        """Обновляет агрегированные данные франшизы (оценка, годы, жанры)"""
+        entries = self.entries.all()
+        if not entries:
+            return
+        
+        # Количество частей
+        self.parts_count = entries.count()
+
+        # Средняя оценка
+        scores = [e.score for e in entries if e.score]
+        self.score = sum(scores) / len(scores) if scores else None
+
+        # Годы
+        years = [e.year for e in entries if e.year]
+        if years:
+            self.year_start = min(years)
+            self.year_end = max(years)
+
+        # Жанры (совокупность всех жанров)
+        all_genres = set()
+        for entry in entries:
+            if entry.genres:
+                all_genres.update(entry.genres)
+        self.genres = list(all_genres)
+
+        self.save(update_fields=['score', 'year_start', 'year_end', 'genres', 'parts_count'])
+
+    @property
+    def parts_count(self):
+        """Количество частей во франшизе"""
+        return self.entries.count()
+
+    @property
+    def all_genres(self):
+        """Все жанры всех частей франшизы"""
+        genres = set()
+        for entry in self.entries.all():
+            if entry.genres:
+                genres.update(entry.genres)
+        return list(genres)
+
+    @property
+    def all_posters(self):
+        """Список постеров всех частей франшизы"""
+        posters = []
+        for entry in self.entries.all().order_by('franchise_order'):
+            if entry.poster and hasattr(entry.poster, 'url'):
+                posters.append(entry.poster.url)
+            elif entry.poster_url:
+                posters.append(entry.poster_url)
+        return posters
+
+    @property
+    def year_range(self):
+        """Период выхода (строка)"""
+        if self.year_start and self.year_end:
+            if self.year_start == self.year_end:
+                return str(self.year_start)
+            return f"{self.year_start} – {self.year_end}"
+        elif self.year_start:
+            return str(self.year_start)
+        elif self.year_end:
+            return str(self.year_end)
+        return "—"
 
 
 class Genre(models.Model):

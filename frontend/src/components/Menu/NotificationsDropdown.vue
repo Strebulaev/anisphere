@@ -2,7 +2,7 @@
   <div class="notif-wrap" ref="wrapRef">
 
     <!-- Кнопка колокольчик -->
-    <button class="bell-btn" @click="toggle">
+    <button :class="['bell-btn', { ringing: store.isBellRinging }]" @click="toggle">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -56,28 +56,33 @@
               <div
                 v-for="r in store.upcomingReminders"
                 :key="`rem-${r.id}`"
-                class="notif-item reminder-item"
+                :class="['notif-item reminder-item', { 
+                  flashing: store.isReminderRinging(r.id),
+                  triggered: r.is_triggered 
+                }]"
                 @click="goToAnime(r)"
               >
-                <div class="notif-icon" style="background: rgba(245,158,11,0.2); color: #f59e0b;">⏰</div>
+                <div class="notif-icon" :style="store.isReminderRinging(r.id) ? 'background: rgba(239,68,68,0.2); color: #ef4444;' : r.is_triggered ? 'background: rgba(107,114,128,0.2); color: #6b7280;' : 'background: rgba(245,158,11,0.2); color: #f59e0b;'">
+                  {{ store.isReminderRinging(r.id) ? '🔔' : r.is_triggered ? '🔔' : '⏰' }}
+                </div>
                 <div class="notif-body">
-                  <p class="notif-title">Напоминание о просмотре</p>
+                  <p class="notif-title">{{ store.isReminderRinging(r.id) ? '⏰ Сработало напоминание!' : r.is_triggered ? 'Напоминание сработало' : 'Напоминание о просмотре' }}</p>
                   <p class="notif-text">
                     {{ r.anime_detail?.title_ru || 'Аниме' }}
                     <span v-if="r.comment"> — {{ r.comment }}</span>
                   </p>
                   <span class="notif-time">{{ formatTime(r.reminder_time) }}</span>
                 </div>
-                <button class="notif-del" @click.stop="store.deactivateReminder(r.id)" title="Отклонить">✕</button>
+                <button v-if="!r.is_triggered && !store.isReminderRinging(r.id)" class="notif-del" @click.stop="store.deactivateReminder(r.id)" title="Отклонить">✕</button>
               </div>
-              <div class="section-label">🔔 Новые</div>
+              <div class="section-label">🔔 Уведомления</div>
             </template>
 
             <!-- Обычные уведомления -->
             <div
               v-for="n in filteredNotifications"
               :key="n.id"
-              :class="['notif-item', { unread: !n.is_read }]"
+              :class="['notif-item', { unread: !n.is_read, flashing: n.is_flashing }]"
               @click="handleClick(n)"
             >
               <div class="notif-icon" :style="iconStyle(n.type)">{{ getIcon(n.type) }}</div>
@@ -155,6 +160,8 @@ const handleClick = async (n: Notification) => {
 }
 
 const goToAnime = (r: Reminder) => {
+  // Останавливаем сверкание при клике и помечаем как просмотренное
+  store.acknowledgeReminder(r.id)
   if (r.anime_detail?.id) router.push(`/anime/${r.anime_detail.id}`)
   open.value = false
 }
@@ -182,18 +189,19 @@ const ICONS: Record<string, string> = {
   like: '❤️', dislike: '👎', comment: '💬', mention: '@',
   follow: '👥', repost: '🔁', message: '✉️', group_message: '👥',
   achievement: '🏆', contest: '🏅', system: '⚙️', group_invite: '📨',
+  reminder_episode: '🔔', reminder_event: '📅', reminder_contest: '⏳',
 }
 const COLORS: Record<string, string> = {
   like: 'rgba(244,67,54,0.2)', dislike: 'rgba(158,158,158,0.2)',
   comment: 'rgba(33,150,243,0.2)', mention: 'rgba(255,152,0,0.2)',
   follow: 'rgba(76,175,80,0.2)', repost: 'rgba(156,39,176,0.2)',
   message: 'rgba(0,188,212,0.2)', achievement: 'rgba(255,193,7,0.2)',
-  system: 'rgba(96,125,139,0.2)',
+  system: 'rgba(96,125,139,0.2)', reminder_episode: 'rgba(245,158,11,0.2)',
 }
 const TEXT_COLORS: Record<string, string> = {
   like: '#f44336', dislike: '#9e9e9e', comment: '#2196f3', mention: '#ff9800',
   follow: '#4caf50', repost: '#9c27b0', message: '#00bcd4',
-  achievement: '#ffc107', system: '#607d8b',
+  achievement: '#ffc107', system: '#607d8b', reminder_episode: '#f59e0b',
 }
 
 const getIcon  = (type: string) => ICONS[type] || '🔔'
@@ -209,22 +217,33 @@ const onOutsideClick = (e: MouseEvent) => {
   }
 }
 
-// ── Polling напоминаний каждые 60 сек ────────────────────
+// ── Polling напоминаний каждые 30 сек ────────────────────
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let triggerTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   document.addEventListener('click', onOutsideClick)
   store.fetchNotifications()
   store.fetchReminders()
+
+  // Сразу проверяем сработавшие напоминания
+  store.checkAndTriggerReminders()
+
+  // Проверка срабатывания напоминаний каждые 10 сек
+  triggerTimer = setInterval(() => {
+    store.checkAndTriggerReminders()
+  }, 10_000)
+
+  // Обновление уведомлений каждую минуту
   pollTimer = setInterval(() => {
-    store.fetchNotifications()
-    store.fetchReminders()
+    store.fetchRecent()
   }, 60_000)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onOutsideClick)
   if (pollTimer) clearInterval(pollTimer)
+  if (triggerTimer) clearInterval(triggerTimer)
 })
 </script>
 
@@ -251,6 +270,62 @@ onUnmounted(() => {
   color: #fff;
 }
 
+/* Сверкающий колокольчик */
+.bell-btn.ringing {
+  color: #ef4444;
+  animation: bell-shake 0.5s ease-in-out infinite;
+  position: relative;
+}
+
+/* Волны звука вокруг колокольчика */
+.bell-btn.ringing::before,
+.bell-btn.ringing::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #ef4444;
+  animation: sound-wave 1s ease-out infinite;
+}
+
+.bell-btn.ringing::before {
+  width: 50px;
+  height: 50px;
+  animation-delay: 0s;
+}
+
+.bell-btn.ringing::after {
+  width: 65px;
+  height: 65px;
+  animation-delay: 0.3s;
+}
+
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(15deg); }
+  20% { transform: rotate(-15deg); }
+  30% { transform: rotate(12deg); }
+  40% { transform: rotate(-12deg); }
+  50% { transform: rotate(8deg); }
+  60% { transform: rotate(-8deg); }
+  70% { transform: rotate(4deg); }
+  80% { transform: rotate(-4deg); }
+  90% { transform: rotate(2deg); }
+}
+
+@keyframes sound-wave {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
 .bell-badge {
   position: absolute;
   top: 3px; right: 3px;
@@ -265,6 +340,22 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   line-height: 1;
+}
+
+.bell-btn.ringing .bell-badge {
+  animation: badge-pulse 0.8s ease-in-out infinite;
+  background: #dc2626;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% { 
+    transform: scale(1.15); 
+    box-shadow: 0 0 12px 4px rgba(239, 68, 68, 0.5);
+  }
 }
 
 /* Дропдаун */
@@ -410,8 +501,26 @@ onUnmounted(() => {
   border-radius: 0 2px 2px 0;
 }
 
+/* Сверкающее уведомление */
+.notif-item.flashing {
+  animation: item-flash 1s ease-in-out infinite;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+@keyframes item-flash {
+  0%, 100% { background: rgba(251, 191, 36, 0.1); }
+  50% { background: rgba(251, 191, 36, 0.2); }
+}
+
 .reminder-item { background: rgba(245,158,11,0.04); }
 .reminder-item:hover { background: rgba(245,158,11,0.08); }
+
+/* Сработавшее напоминание - более тусклое */
+.reminder-item.triggered { 
+  background: rgba(107,114,128,0.04); 
+  opacity: 0.8;
+}
+.reminder-item.triggered:hover { background: rgba(107,114,128,0.08); }
 
 /* Иконка */
 .notif-icon {

@@ -14,10 +14,16 @@ class AnimeSerializer(serializers.ModelSerializer):
     is_franchise = serializers.SerializerMethodField()
     franchise_name = serializers.SerializerMethodField()
     franchise_poster_image_url = serializers.SerializerMethodField()
+    franchise_parts_count = serializers.SerializerMethodField()
+    franchise_year_start = serializers.SerializerMethodField()
+    franchise_year_end = serializers.SerializerMethodField()
+    franchise_avg_score = serializers.SerializerMethodField()
+    franchise_all_genres = serializers.SerializerMethodField()
+    franchise_all_posters = serializers.SerializerMethodField()
 
     def get_franchise_id(self, obj):
         try:
-            return obj.franchise_id  # Django FK id поле — безопасно, не делает запрос
+            return obj.franchise_id
         except Exception:
             return None
 
@@ -47,6 +53,85 @@ class AnimeSerializer(serializers.ModelSerializer):
             return f.poster_url or None
         except Exception:
             return None
+
+    def get_franchise_parts_count(self, obj):
+        """Количество частей во франшизе"""
+        try:
+            if not obj.franchise_id:
+                return None
+            # Используем кэшированное значение или считаем
+            if obj.franchise.parts_count:
+                return obj.franchise.parts_count
+            return obj.franchise.entries.count()
+        except Exception:
+            return None
+
+    def get_franchise_year_start(self, obj):
+        """Год начала франшизы"""
+        try:
+            if not obj.franchise_id:
+                return None
+            return obj.franchise.year_start
+        except Exception:
+            return None
+
+    def get_franchise_year_end(self, obj):
+        """Год конца франшизы"""
+        try:
+            if not obj.franchise_id:
+                return None
+            return obj.franchise.year_end
+        except Exception:
+            return None
+
+    def get_franchise_avg_score(self, obj):
+        """Средняя оценка франшизы"""
+        try:
+            if not obj.franchise_id:
+                return None
+            if obj.franchise.score:
+                return round(obj.franchise.score, 1)
+            # Вычисляем если нет кэша
+            entries = obj.franchise.entries.all()
+            scores = [e.score for e in entries if e.score]
+            if not scores:
+                return None
+            return round(sum(scores) / len(scores), 1)
+        except Exception:
+            return None
+
+    def get_franchise_all_genres(self, obj):
+        """Все жанры франшизы"""
+        try:
+            if not obj.franchise_id:
+                return []
+            if obj.franchise.genres:
+                return obj.franchise.genres
+            # Вычисляем если нет кэша
+            entries = obj.franchise.entries.all()
+            genres = set()
+            for entry in entries:
+                if entry.genres:
+                    genres.update(entry.genres)
+            return list(genres)
+        except Exception:
+            return []
+
+    def get_franchise_all_posters(self, obj):
+        """Все постеры франшизы"""
+        try:
+            if not obj.franchise_id:
+                return []
+            entries = obj.franchise.entries.all().order_by('franchise_order')
+            posters = []
+            for entry in entries:
+                if entry.poster and hasattr(entry.poster, 'url'):
+                    posters.append(entry.poster.url)
+                elif entry.poster_url:
+                    posters.append(entry.poster_url)
+            return posters
+        except Exception:
+            return []
     
     def get_genres(self, obj):
         """Получение жанров из JSON поля"""
@@ -96,6 +181,8 @@ class AnimeSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'shikimori_id', 'data_source',
             'franchise_id', 'is_franchise', 'franchise_order',
             'franchise_name', 'franchise_poster_image_url',
+            'franchise_parts_count', 'franchise_year_start', 'franchise_year_end',
+            'franchise_avg_score', 'franchise_all_genres', 'franchise_all_posters',
         ]
         read_only_fields = ['created_at', 'updated_at']
 
@@ -236,17 +323,66 @@ class FranchiseEntrySerializer(serializers.ModelSerializer):
 
 
 class FranchiseSerializer(serializers.ModelSerializer):
-    """Cписок франшиз для каталога"""
+    """Список франшиз для каталога"""
     poster_image_url = serializers.SerializerMethodField()
-    entries_count    = serializers.SerializerMethodField()
+    parts_count = serializers.SerializerMethodField()
+    year_range = serializers.SerializerMethodField()
+    avg_score = serializers.SerializerMethodField()
+    all_genres = serializers.SerializerMethodField()
+    all_posters = serializers.SerializerMethodField()
 
     def get_poster_image_url(self, obj):
         if obj.poster and hasattr(obj.poster, 'url'):
             return obj.poster.url
         return obj.poster_url or ''
 
-    def get_entries_count(self, obj):
+    def get_parts_count(self, obj):
+        """Количество частей во франшизе"""
         return obj.entries.count()
+
+    def get_year_range(self, obj):
+        """Период выхода (строка)"""
+        entries = obj.entries.all()
+        years = [e.year for e in entries if e.year]
+        if not years:
+            return "—"
+        year_start = min(years)
+        year_end = max(years)
+        if year_start == year_end:
+            return str(year_start)
+        return f"{year_start} – {year_end}"
+
+    def get_avg_score(self, obj):
+        """Средняя оценка по всем частям"""
+        if obj.score:
+            return round(obj.score, 1)
+        entries = obj.entries.all()
+        scores = [e.score for e in entries if e.score]
+        if not scores:
+            return None
+        return round(sum(scores) / len(scores), 1)
+
+    def get_all_genres(self, obj):
+        """Все жанры всех частей"""
+        if obj.genres:
+            return obj.genres
+        entries = obj.entries.all()
+        genres = set()
+        for entry in entries:
+            if entry.genres:
+                genres.update(entry.genres)
+        return list(genres)
+
+    def get_all_posters(self, obj):
+        """Список постеров всех частей для прокрутки"""
+        entries = obj.entries.all().order_by('franchise_order')
+        posters = []
+        for entry in entries:
+            if entry.poster and hasattr(entry.poster, 'url'):
+                posters.append(entry.poster.url)
+            elif entry.poster_url:
+                posters.append(entry.poster_url)
+        return posters
 
     class Meta:
         model = Franchise
@@ -254,19 +390,68 @@ class FranchiseSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'description',
             'poster_url', 'poster_image_url',
             'score', 'year_start', 'year_end',
-            'entries_count', 'created_at', 'updated_at',
+            'parts_count', 'year_range', 'avg_score', 'all_genres', 'all_posters',
+            'created_at', 'updated_at',
         ]
 
 
 class FranchiseDetailSerializer(serializers.ModelSerializer):
-    """Dетальная страница франшизы со всеми энтриями"""
+    """Детальная страница франшизы со всеми энтриями"""
     poster_image_url = serializers.SerializerMethodField()
-    entries          = FranchiseEntrySerializer(many=True, read_only=True)
+    entries = FranchiseEntrySerializer(many=True, read_only=True)
+    parts_count = serializers.SerializerMethodField()
+    year_range = serializers.SerializerMethodField()
+    avg_score = serializers.SerializerMethodField()
+    all_genres = serializers.SerializerMethodField()
+    all_posters = serializers.SerializerMethodField()
 
     def get_poster_image_url(self, obj):
         if obj.poster and hasattr(obj.poster, 'url'):
             return obj.poster.url
         return obj.poster_url or ''
+
+    def get_parts_count(self, obj):
+        return obj.entries.count()
+
+    def get_year_range(self, obj):
+        entries = obj.entries.all()
+        years = [e.year for e in entries if e.year]
+        if not years:
+            return "—"
+        year_start = min(years)
+        year_end = max(years)
+        if year_start == year_end:
+            return str(year_start)
+        return f"{year_start} – {year_end}"
+
+    def get_avg_score(self, obj):
+        if obj.score:
+            return round(obj.score, 1)
+        entries = obj.entries.all()
+        scores = [e.score for e in entries if e.score]
+        if not scores:
+            return None
+        return round(sum(scores) / len(scores), 1)
+
+    def get_all_genres(self, obj):
+        if obj.genres:
+            return obj.genres
+        entries = obj.entries.all()
+        genres = set()
+        for entry in entries:
+            if entry.genres:
+                genres.update(entry.genres)
+        return list(genres)
+
+    def get_all_posters(self, obj):
+        entries = obj.entries.all().order_by('franchise_order')
+        posters = []
+        for entry in entries:
+            if entry.poster and hasattr(entry.poster, 'url'):
+                posters.append(entry.poster.url)
+            elif entry.poster_url:
+                posters.append(entry.poster_url)
+        return posters
 
     class Meta:
         model = Franchise
@@ -274,5 +459,6 @@ class FranchiseDetailSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'description',
             'poster_url', 'poster_image_url',
             'score', 'year_start', 'year_end',
-            'entries', 'created_at', 'updated_at',
+            'entries', 'parts_count', 'year_range', 'avg_score', 'all_genres', 'all_posters',
+            'created_at', 'updated_at',
         ]

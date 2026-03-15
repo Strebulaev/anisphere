@@ -19,13 +19,6 @@
           class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#1a1a1a]"
           :class="statusColor"
         ></div>
-        <!-- Online count for groups -->
-        <div
-          v-else-if="chat.onlineCount && chat.onlineCount > 0"
-          class="absolute -bottom-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 min-w-[18px] h-4 flex items-center justify-center border border-[#1a1a1a]"
-        >
-          {{ chat.onlineCount }}
-        </div>
       </div>
 
       <!-- Chat info -->

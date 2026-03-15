@@ -11,6 +11,7 @@ export interface NotificationItem {
   is_read: boolean
   is_important: boolean
   is_deleted: boolean
+  is_flashing?: boolean  // Сверкает ли уведомление (создано менее 1 мин назад)
   created_at: string
   read_at: string | null
   expires_at: string | null
@@ -26,6 +27,7 @@ export interface NotificationListResponse {
 export interface RecentResponse {
   results: NotificationItem[]
   unread_count: number
+  flashing_count?: number  // Количество сверкающих уведомлений
 }
 
 export interface NotificationSettings {
@@ -59,7 +61,7 @@ const notificationsApi = {
   },
 
   // Счётчик непрочитанных
-  count(): Promise<AxiosResponse<{ count: number }>> {
+  count(): Promise<AxiosResponse<{ count: number; flashing_count?: number }>> {
     return apiClient.get('/notifications/notifications/count/')
   },
 
