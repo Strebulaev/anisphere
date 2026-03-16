@@ -33,7 +33,7 @@
       </div>  
     </div>
 
-    <div class="messages-container" ref="messagesContainer">
+    <div class="messages-container" ref="messagesContainer" :style="wallpaperStyle">
       <!-- Панель закрепленных сообщений -->
       <div v-if="pinnedMessages.length > 0 && showPinnedBar" class="pinned-messages-bar">
         <span class="pinned-label">📌 Закреплено:</span>
@@ -168,11 +168,12 @@
 
     <!-- Модальное окно настроек чата -->
     <ChatSettingsModal
-      :is-open="showSettings"
+      v-if="showSettings"
       :chat-id="Number(route.params.id)"
-      :is-group="chat?.type === 'group'"
+      :chat-type="chat?.type || 'group'"
+      :is-owner="canManageChat"
       @close="showSettings = false"
-      @updated="loadChat"
+      @settings-changed="handleSettingsChanged"
     />
 
     <!-- Модальное окно поиска сообщений -->
@@ -242,7 +243,7 @@ import { useChatExtrasStore } from '@/stores/chatExtras'
 import { usePrivateChatStore } from '@/stores/privateChat'
 import { useGroupChatStore } from '@/stores/groupChat'
 import { useAvatar } from '@/composables/useAvatar'
-import ChatSettingsModal from '@/components/modal/chats/ChatSettingsModal.vue'
+import ChatSettingsModal from '@/components/Chats/ChatSettingsModal.vue'
 import MessageSearchModal from '@/components/modal/chats/MessageSearchModal.vue'
 import ForwardMessageModal from '@/components/modal/chats/ForwardMessageModal.vue'
 import ChatInviteModal from '@/components/modal/chats/ChatInviteModal.vue'
@@ -282,6 +283,7 @@ const wsConnected = ref(false)
 const reconnectAttempts = ref(0)
 const availableChats = ref<any[]>([])
 const loadingChats = ref(false)
+const currentWallpaper = ref<any>(null)
 
 // Контекстное меню + пикер реакций (единый блок)
 const contextMenu = ref({
@@ -612,6 +614,22 @@ const loadChat = async () => {
     if (response.data) {
       chat.value = response.data
       chat.value.type = (chat.value.user1 && chat.value.user2) ? 'private' : 'group'
+      
+      // Загружаем обои
+      try {
+        const wallpaperRes = await apiClient.get(`/social/chat-wallpapers/`, {
+          params: {
+            chat_id: chatId
+          }
+        })
+        const wallpaperData = wallpaperRes.data as any
+        const wallpapers = Array.isArray(wallpaperData) ? wallpaperData : (wallpaperData?.results || [])
+        if (wallpapers?.length > 0) {
+          currentWallpaper.value = wallpapers[0]
+        }
+      } catch (e) {
+        console.log('No wallpaper for this chat')
+      }
     }
   } catch (error) {
     console.error('Chat load error:', error)
@@ -822,6 +840,50 @@ const scrollToMessage = (messageId: number) => {
     messageElement.classList.remove('highlighted')
   }, 2000)
 }
+
+// Обработка изменений настроек
+const handleSettingsChanged = async (data: any) => {
+  if (data?.type === 'wallpaper' && data?.wallpaper) {
+    currentWallpaper.value = data.wallpaper
+  } else if (data?.type === 'clear' || data?.type === 'restore') {
+    messages.value = []
+  } else if (data?.type === 'leave' || data?.type === 'delete') {
+    // Навигация обратно
+    router.push('/chats')
+  }
+  await loadChat()
+}
+
+// Стили обоев
+const wallpaperStyle = computed(() => {
+  if (!currentWallpaper.value) return {}
+  
+  const wp = currentWallpaper.value
+  const intensity = (wp.wallpaper_intensity ?? 100) / 100
+  const blur = wp.wallpaper_blur ?? 0
+  
+  if (wp.wallpaper_type === 'solid') {
+    return {
+      backgroundColor: wp.wallpaper_color,
+      opacity: intensity
+    }
+  } else if (wp.wallpaper_type === 'gradient') {
+    return {
+      background: `linear-gradient(135deg, ${wp.wallpaper_color}, ${wp.wallpaper_color2 || '#2d2d2d'})`,
+      opacity: intensity
+    }
+  } else if (wp.wallpaper_type === 'image' && wp.wallpaper_image_url) {
+    return {
+      backgroundImage: `url(${wp.wallpaper_image_url})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      filter: blur > 0 ? `blur(${blur}px)` : 'none',
+      opacity: intensity
+    }
+  }
+  
+  return {}
+})
 
 // Загрузка списка чатов для пересылки
 const loadChatsList = async () => {

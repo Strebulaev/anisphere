@@ -1686,3 +1686,11 @@ class UserNotInterested(models.Model):
 
     def __str__(self):
         return f"{self.user.username} not interested in {self.target_user.username}"
+
+
+# Импорт дополнительных моделей для системы чатов
+from .models_chat import (
+    ChatInviteLink, ChatWallpaper, ChatTheme, MessageReaction,
+    ChatBan, ChatRestriction, ChatSlowMode, ChatJoinRequest,
+    ChatTag, ChatTagAssignment, AntiSpamRule, ChatBackup, ScheduledMessage
+)

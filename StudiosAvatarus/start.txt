@@ -1,0 +1,9 @@
+pip install -r requirements.txt
+
+python studio_parser.py
+
+
+python studio_parser.py --config my_config.json --proxies proxies.txt - кастомная конфигурация
+
+
+

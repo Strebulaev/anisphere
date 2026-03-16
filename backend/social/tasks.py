@@ -7,13 +7,423 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Q  # Добавляем импорт Q
-from .models import Message, ChatInvite, Attachment, EmailLog, GroupChat, PrivateChat
+from django.db.models import Q, Count
+from .models import Message, ChatInvite, Attachment, EmailLog, GroupChat, PrivateChat, ChatMember, ChatAdminLog
 from users.models import User
 import logging
 
 logger = logging.getLogger(__name__)
 
+
+# ==================== ЧАТЫ - ОСНОВНЫЕ ЗАДАЧИ ====================
+
+@shared_task
+def process_bulk_members(chat_id: int, user_ids: list, inviter_id: int):
+    """
+    Массовое добавление участников в чат.
+    """
+    try:
+        chat = GroupChat.objects.get(id=chat_id)
+        inviter = User.objects.get(id=inviter_id)
+
+        added_count = 0
+        for user_id in user_ids:
+            try:
+                user = User.objects.get(id=user_id)
+                if not ChatMember.objects.filter(chat=chat, user=user).exists():
+                    ChatMember.objects.create(
+                        user=user,
+                        chat=chat,
+                        can_send_messages=chat.can_send_media,
+                        can_send_media=chat.can_send_media
+                    )
+                    added_count += 1
+            except User.DoesNotExist:
+                continue
+
+        # Логируем
+        ChatAdminLog.objects.create(
+            chat=chat,
+            user=inviter,
+            action='member_joined',
+            details={'count': added_count, 'method': 'bulk_add_task'}
+        )
+
+        return {'success': True, 'added_count': added_count}
+    
+    except (GroupChat.DoesNotExist, User.DoesNotExist) as e:
+        return {'success': False, 'error': str(e)}
+
+
+@shared_task
+def cleanup_messages(days: int = 30):
+    """
+    Очистка старых сообщений (soft delete).
+    """
+    cutoff_date = timezone.now() - timedelta(days=days)
+    
+    # Получаем старые сообщения, которые не закреплены
+    old_messages = Message.objects.filter(
+        created_at__lt=cutoff_date,
+        is_pinned=False,
+        is_deleted=False
+    )
+    
+    count = old_messages.count()
+    
+    # Помечаем как удалённые (soft delete)
+    old_messages.update(
+        is_deleted=True,
+        deleted_at=timezone.now()
+    )
+    
+    logger.info(f"Cleaned up {count} old messages")
+    return {'status': 'completed', 'deleted_count': count}
+
+
+@shared_task
+def cleanup_expired_bans():
+    """
+    Снятие истёкших блокировок.
+    """
+    from .models_chat import ChatBan
+    
+    now = timezone.now()
+    
+    # Удаляем истёкшие временные блокировки
+    expired_bans = ChatBan.objects.filter(
+        until_date__isnull=False,
+        until_date__lt=now
+    )
+    
+    count = expired_bans.count()
+    expired_bans.delete()
+    
+    logger.info(f"Removed {count} expired bans")
+    return {'status': 'completed', 'removed_count': count}
+
+
+@shared_task
+def cleanup_expired_restrictions():
+    """
+    Снятие истёкших ограничений.
+    """
+    from .models_chat import ChatRestriction
+    
+    now = timezone.now()
+    
+    # Удаляем истёкшие ограничения
+    expired_restrictions = ChatRestriction.objects.filter(
+        until_date__isnull=False,
+        until_date__lt=now
+    )
+    
+    count = expired_restrictions.count()
+    expired_restrictions.delete()
+    
+    logger.info(f"Removed {count} expired restrictions")
+    return {'status': 'completed', 'removed_count': count}
+
+
+@shared_task
+def cleanup_old_invites():
+    """
+    Удаление истёкших приглашений.
+    """
+    from .models_chat import ChatInviteLink
+    
+    now = timezone.now()
+    
+    # Находим истёкшие приглашения
+    expired_invites = ChatInviteLink.objects.filter(
+        expires_at__isnull=False,
+        expires_at__lt=now,
+        is_revoked=False
+    )
+    
+    count = expired_invites.count()
+    expired_invites.update(is_revoked=True)
+    
+    logger.info(f"Revoked {count} expired invites")
+    return {'status': 'completed', 'revoked_count': count}
+
+
+@shared_task
+def update_members_count():
+    """
+    Обновление счётчиков участников во всех чатах.
+    """
+    chats = GroupChat.objects.all()
+    updated_count = 0
+    
+    for chat in chats:
+        actual_count = chat.members.count()
+        # Обновляем кэшированные настройки если есть
+        from .models_chat import GroupChatSettings
+        settings, _ = GroupChatSettings.objects.get_or_create(chat=chat)
+        settings.members_count = actual_count
+        settings.save(update_fields=['members_count'])
+        updated_count += 1
+    
+    logger.info(f"Updated members count for {updated_count} chats")
+    return {'status': 'completed', 'updated_count': updated_count}
+
+
+@shared_task
+def update_online_counts():
+    """
+    Обновление счётчиков онлайн участников.
+    """
+    from core.online_status import online_status
+    from .models_chat import GroupChatSettings
+    
+    chats = GroupChat.objects.all()
+    updated_count = 0
+    
+    for chat in chats:
+        online_count = sum(
+            1 for member in chat.members.all()
+            if online_status.is_online(member.user_id)
+        )
+        
+        settings, _ = GroupChatSettings.objects.get_or_create(chat=chat)
+        settings.online_count = online_count
+        settings.save(update_fields=['online_count'])
+        updated_count += 1
+    
+    return {'status': 'completed', 'updated_count': updated_count}
+
+
+@shared_task
+def process_scheduled_messages():
+    """
+    Обработка запланированных сообщений.
+    """
+    from .models_chat import ScheduledMessage
+    
+    now = timezone.now()
+    
+    # Находим сообщения, которые нужно отправить
+    scheduled = ScheduledMessage.objects.filter(
+        status='scheduled',
+        scheduled_at__lte=now
+    )
+    
+    sent_count = 0
+    failed_count = 0
+    
+    for scheduled_msg in scheduled:
+        try:
+            # Создаём сообщение
+            msg_data = {
+                'sender': scheduled_msg.sender,
+                'text': scheduled_msg.text,
+                'media': scheduled_msg.media if scheduled_msg.media else None,
+                'media_type': scheduled_msg.media_type,
+            }
+            
+            if scheduled_msg.chat:
+                msg_data['chat'] = scheduled_msg.chat
+            elif scheduled_msg.private_chat:
+                msg_data['private_chat'] = scheduled_msg.private_chat
+            
+            Message.objects.create(**msg_data)
+            
+            scheduled_msg.status = 'sent'
+            scheduled_msg.sent_at = now
+            scheduled_msg.save(update_fields=['status', 'sent_at'])
+            
+            # Если повторяющееся, создаём следующее
+            if scheduled_msg.is_recurring and scheduled_msg.recurring_interval:
+                next_date = now + timedelta(days=scheduled_msg.recurring_interval)
+                ScheduledMessage.objects.create(
+                    sender=scheduled_msg.sender,
+                    chat=scheduled_msg.chat,
+                    private_chat=scheduled_msg.private_chat,
+                    text=scheduled_msg.text,
+                    scheduled_at=next_date,
+                    is_recurring=True,
+                    recurring_interval=scheduled_msg.recurring_interval
+                )
+            
+            sent_count += 1
+            
+        except Exception as e:
+            scheduled_msg.status = 'failed'
+            scheduled_msg.error_message = str(e)
+            scheduled_msg.save(update_fields=['status', 'error_message'])
+            failed_count += 1
+            logger.error(f"Error sending scheduled message {scheduled_msg.id}: {e}")
+    
+    return {
+        'status': 'completed',
+        'sent_count': sent_count,
+        'failed_count': failed_count
+    }
+
+
+@shared_task
+def update_chat_statistics():
+    """
+    Обновление статистики чатов.
+    """
+    from .models_chat import GroupChatSettings
+    
+    chats = GroupChat.objects.all()
+    updated_count = 0
+    
+    for chat in chats:
+        settings, _ = GroupChatSettings.objects.get_or_create(chat=chat)
+        
+        # Обновляем счётчики
+        settings.messages_count = Message.objects.filter(chat=chat).count()
+        settings.members_count = chat.members.count()
+        
+        # Последнее сообщение
+        last_msg = Message.objects.filter(chat=chat).order_by('-created_at').first()
+        if last_msg:
+            settings.last_message_at = last_msg.created_at
+        
+        # Сообщения за день
+        today = timezone.now().replace(hour=0, minute=0, second=0)
+        settings.daily_messages = Message.objects.filter(
+            chat=chat,
+            created_at__gte=today
+        ).count()
+        
+        settings.save()
+        updated_count += 1
+    
+    logger.info(f"Updated statistics for {updated_count} chats")
+    return {'status': 'completed', 'updated_count': updated_count}
+
+
+@shared_task
+def detect_suspicious_activity():
+    """
+    Обнаружение подозрительной активности.
+    """
+    from .models_chat import SecurityLog
+    
+    # Проверяем неудачные входы за последний час
+    one_hour_ago = timezone.now() - timedelta(hours=1)
+    
+    # Группируем по IP
+    suspicious_ips = SecurityLog.objects.filter(
+        action='login',
+        created_at__gte=one_hour_ago
+    ).values('ip_address').annotate(
+        count=Count('id')
+    ).filter(count__gte=5)
+    
+    marked_count = 0
+    for entry in suspicious_ips:
+        # Помечаем как подозрительные
+        SecurityLog.objects.filter(
+            ip_address=entry['ip_address'],
+            created_at__gte=one_hour_ago
+        ).update(is_suspicious=True)
+        marked_count += 1
+    
+    logger.info(f"Marked {marked_count} IPs as suspicious")
+    return {'status': 'completed', 'marked_count': marked_count}
+
+
+@shared_task
+def send_daily_digest():
+    """
+    Отправка ежедневного дайджеста пользователям.
+    """
+    # Получаем пользователей с включённым дайджестом
+    from .models import UserNotificationSettings
+    
+    users_with_digest = UserNotificationSettings.objects.filter(
+        email_digest='daily'
+    ).select_related('user')
+    
+    sent_count = 0
+    for settings in users_with_digest:
+        try:
+            send_email_digest.delay(settings.user.id, 'daily')
+            sent_count += 1
+        except Exception as e:
+            logger.error(f"Error sending digest to user {settings.user.id}: {e}")
+    
+    return {'status': 'completed', 'sent_count': sent_count}
+
+
+@shared_task
+def send_weekly_digest():
+    """
+    Отправка еженедельного дайджеста.
+    """
+    from .models import UserNotificationSettings
+    
+    users_with_digest = UserNotificationSettings.objects.filter(
+        email_digest='weekly'
+    ).select_related('user')
+    
+    sent_count = 0
+    for settings in users_with_digest:
+        try:
+            send_email_digest.delay(settings.user.id, 'weekly')
+            sent_count += 1
+        except Exception as e:
+            logger.error(f"Error sending digest to user {settings.user.id}: {e}")
+    
+    return {'status': 'completed', 'sent_count': sent_count}
+
+
+@shared_task
+def invalidate_settings_cache():
+    """
+    Периодическая инвалидация кэша настроек.
+    """
+    from .services.chat_services import settings_cache
+    
+    # Инвалидируем кэш для чатов с недавней активностью
+    recent_chats = GroupChat.objects.filter(
+        last_message_at__gte=timezone.now() - timedelta(hours=1)
+    )
+    
+    count = 0
+    for chat in recent_chats:
+        settings_cache.invalidate_all_for_chat('group', chat.id)
+        count += 1
+    
+    return {'status': 'completed', 'invalidated_count': count}
+
+
+@shared_task
+def backup_chat_task(backup_id: int):
+    """
+    Асинхронное создание бэкапа чата.
+    """
+    from .models_chat import ChatBackup
+    from .services.chat_services import ChatBackupService
+    
+    try:
+        backup = ChatBackup.objects.get(id=backup_id)
+        service = ChatBackupService()
+        
+        result = service.create_backup(backup.chat, backup.created_by)
+        
+        if result['success']:
+            backup.status = 'completed'
+            backup.messages_count = result['messages_count']
+            backup.members_count = result['members_count']
+            backup.file_size = result['file_size']
+        else:
+            backup.status = 'failed'
+        
+        backup.save()
+        return result
+        
+    except ChatBackup.DoesNotExist:
+        return {'success': False, 'error': 'Backup not found'}
+
+
+# ==================== ИСХОДНЫЕ ЗАДАЧИ ====================
 
 @shared_task
 def send_push_notification(user_id, notification_data):

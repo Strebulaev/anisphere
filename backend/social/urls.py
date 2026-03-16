@@ -51,6 +51,30 @@ from .views_all_actions import (
     get_chats_for_forward, forward_post_to_chat,
     get_extended_feed,
 )
+# Новые views для системы чатов
+from .views_chat import (
+    ChatInviteLinkViewSet, join_chat_by_invite as join_chat_by_invite_new,
+    ChatWallpaperViewSet, set_chat_wallpaper,
+    ChatThemeViewSet,
+    MessageReactionViewSet, toggle_reaction as toggle_reaction_new,
+    ChatBanViewSet, ChatRestrictionViewSet,
+    ChatSlowModeViewSet,
+    ChatJoinRequestViewSet,
+    ChatTagViewSet, ChatTagAssignmentViewSet,
+    AntiSpamRuleViewSet,
+    ChatBackupViewSet,
+    ScheduledMessageViewSet,
+    set_member_role, transfer_ownership,
+    get_banned_users, get_restricted_users,
+    ChatFolderViewSet, get_folder_chats,
+    SecurityLogViewSet,
+    get_chat_analytics,
+    export_settings, import_settings,
+    bulk_delete_messages, bulk_add_members, bulk_remove_members,
+    pin_message_new, unpin_message_new, get_pinned_messages_new,
+    check_message_spam,
+    clear_chat_history,
+)
 
 
 # Endpoint для получения текущего пользователя
@@ -89,6 +113,21 @@ router.register(r'chat-folders', ChatFolderViewSet, basename='chat-folder')
 router.register(r'subscriptions', SubscriptionViewSet, basename='subscription')
 router.register(r'not-interested', NotInterestedViewSet, basename='not-interested')
 router.register(r'moderation/reports', ModerationReportViewSet, basename='moderation-report')
+
+# Новые ViewSet'ы для системы чатов
+router.register(r'chat-invite-links', ChatInviteLinkViewSet, basename='chat-invite-link')
+router.register(r'chat-wallpapers', ChatWallpaperViewSet, basename='chat-wallpaper')
+router.register(r'chat-themes', ChatThemeViewSet, basename='chat-theme')
+router.register(r'message-reactions', MessageReactionViewSet, basename='message-reaction')
+router.register(r'chat-bans', ChatBanViewSet, basename='chat-ban')
+router.register(r'chat-restrictions', ChatRestrictionViewSet, basename='chat-restriction')
+router.register(r'chat-slow-modes', ChatSlowModeViewSet, basename='chat-slow-mode')
+router.register(r'chat-join-requests', ChatJoinRequestViewSet, basename='chat-join-request')
+router.register(r'chat-tags', ChatTagViewSet, basename='chat-tag')
+router.register(r'chat-tag-assignments', ChatTagAssignmentViewSet, basename='chat-tag-assignment')
+router.register(r'anti-spam-rules', AntiSpamRuleViewSet, basename='anti-spam-rule')
+router.register(r'chat-backups', ChatBackupViewSet, basename='chat-backup')
+router.register(r'scheduled-messages', ScheduledMessageViewSet, basename='scheduled-message')
 
 urlpatterns = [
     # ВАЖНО: эти маршруты должны быть ПЕРЕД router.urls
@@ -241,4 +280,74 @@ urlpatterns = [
     path('anime/<int:anime_id>/discussion-group/', get_anime_discussion_group, name='anime-discussion-group'),
     path('anime/<int:anime_id>/discussion-group/create/', create_anime_discussion_group, name='anime-discussion-group-create'),
     path('anime/<int:anime_id>/discussion-group/join/', join_anime_discussion_group, name='anime-discussion-group-join'),
+    
+    # ==================== НОВЫЕ МАРШРУТЫ ДЛЯ СИСТЕМЫ ЧАТОВ ====================
+    
+    # Ссылки-приглашения
+    path('invite-links/join/<str:token>/', join_chat_by_invite_new, name='join-chat-by-invite-new'),
+    path('group-chats/<int:chat_id>/invite-links/', ChatInviteLinkViewSet.as_view({'get': 'list', 'post': 'create'}), name='chat-invite-links'),
+    
+    # Обои чатов
+    path('chats/<int:chat_id>/wallpaper/', set_chat_wallpaper, name='set-chat-wallpaper'),
+    path('wallpapers/presets/', ChatWallpaperViewSet.as_view({'get': 'presets'}), name='wallpaper-presets'),
+    
+    # Роли и модерация
+    path('group-chats/<int:chat_id>/members/<int:user_id>/role/', set_member_role, name='set-member-role'),
+    path('group-chats/<int:chat_id>/transfer-ownership/', transfer_ownership, name='transfer-ownership'),
+    path('group-chats/<int:chat_id>/banned-users/', get_banned_users, name='get-banned-users'),
+    path('group-chats/<int:chat_id>/restricted-users/', get_restricted_users, name='get-restricted-users'),
+    
+    # Запросы на вступление
+    path('group-chats/<int:chat_id>/join-requests/', ChatJoinRequestViewSet.as_view({'get': 'list', 'post': 'create'}), name='chat-join-requests'),
+    path('group-chats/<int:chat_id>/join-requests/<int:pk>/approve/', ChatJoinRequestViewSet.as_view({'post': 'approve'}), name='approve-join-request'),
+    path('group-chats/<int:chat_id>/join-requests/<int:pk>/reject/', ChatJoinRequestViewSet.as_view({'post': 'reject'}), name='reject-join-request'),
+    
+    # Анти-спам
+    path('group-chats/<int:chat_id>/anti-spam-rules/', AntiSpamRuleViewSet.as_view({'get': 'list', 'post': 'create'}), name='anti-spam-rules'),
+    
+    # Резервные копии
+    path('group-chats/<int:chat_id>/backups/', ChatBackupViewSet.as_view({'get': 'list', 'post': 'create'}), name='chat-backups'),
+    path('group-chats/<int:chat_id>/backups/<int:pk>/restore/', ChatBackupViewSet.as_view({'post': 'restore'}), name='restore-backup'),
+    
+    # Запланированные сообщения
+    path('chats/<int:chat_id>/scheduled-messages/', ScheduledMessageViewSet.as_view({'get': 'list', 'post': 'create'}), name='scheduled-messages'),
+    path('scheduled-messages/<int:pk>/cancel/', ScheduledMessageViewSet.as_view({'post': 'cancel'}), name='cancel-scheduled-message'),
+    path('scheduled-messages/<int:pk>/send-now/', ScheduledMessageViewSet.as_view({'post': 'send_now'}), name='send-scheduled-message-now'),
+    
+    # Теги чатов
+    path('chat-tags/<int:pk>/assign/', ChatTagAssignmentViewSet.as_view({'post': 'create'}), name='assign-chat-tag'),
+    path('chat-tags/<int:pk>/unassign/', ChatTagAssignmentViewSet.as_view({'delete': 'destroy'}), name='unassign-chat-tag'),
+    
+    # Папки чатов
+    path('chat-folders/<int:folder_id>/chats/', get_folder_chats, name='folder-chats'),
+    path('chat-folders/reorder/', ChatFolderViewSet.as_view({'post': 'reorder'}), name='reorder-folders'),
+    path('chat-folders/<int:pk>/add-chat/', ChatFolderViewSet.as_view({'post': 'add_chat'}), name='add-chat-to-folder'),
+    path('chat-folders/<int:pk>/remove-chat/', ChatFolderViewSet.as_view({'post': 'remove_chat'}), name='remove-chat-from-folder'),
+    
+    # Журнал безопасности
+    path('security-logs/', SecurityLogViewSet.as_view({'get': 'list'}), name='security-logs'),
+    
+    # Аналитика
+    path('group-chats/<int:chat_id>/analytics/', get_chat_analytics, name='chat-analytics'),
+    
+    # Экспорт/импорт настроек
+    path('chat-settings/export/', export_settings, name='export-settings'),
+    path('chat-settings/import/', import_settings, name='import-settings'),
+    
+    # Массовые операции
+    path('group-chats/<int:chat_id>/messages/bulk-delete/', bulk_delete_messages, name='bulk-delete-messages'),
+    path('group-chats/<int:chat_id>/members/bulk-add/', bulk_add_members, name='bulk-add-members'),
+    path('group-chats/<int:chat_id>/members/bulk-remove/', bulk_remove_members, name='bulk-remove-members'),
+    
+    # Закреплённые сообщения (новая реализация)
+    path('messages/<int:message_id>/pin-new/', pin_message_new, name='pin-message-new'),
+    path('messages/<int:message_id>/unpin-new/', unpin_message_new, name='unpin-message-new'),
+    path('chats/<int:chat_id>/pinned-messages-new/', get_pinned_messages_new, name='get-pinned-messages-new'),
+    
+    # Анти-спам
+    path('group-chats/<int:chat_id>/check-spam/', check_message_spam, name='check-message-spam'),
+    
+    # Очистка чата
+    path('chats/<int:chat_id>/clear-history/', clear_chat_history, name='clear-chat-history'),
+    
 ] + router.urls

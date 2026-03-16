@@ -5,6 +5,13 @@ from .models import (
     ChatSettings, PrivateChatUserSettings, Contest, ContestEntry, ContestVote
 )
 
+# Импорт новых моделей чатов
+from .admin_chat import (
+    ChatInviteLinkAdmin, ChatWallpaperAdmin, ChatThemeAdmin, MessageReactionAdmin,
+    ChatBanAdmin, ChatRestrictionAdmin, ChatSlowModeAdmin, ChatJoinRequestAdmin,
+    ChatTagAdmin, ChatTagAssignmentAdmin, AntiSpamRuleAdmin, ChatBackupAdmin, ScheduledMessageAdmin
+)
+
 
 class GroupMembershipInline(admin.TabularInline):
     model = GroupMembership

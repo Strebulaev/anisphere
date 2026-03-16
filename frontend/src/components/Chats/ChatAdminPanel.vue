@@ -2,12 +2,12 @@
   <div class="chat-admin-panel">
     <!-- Header with tabs -->
     <div class="border-b">
-      <nav class="flex space-x-4 px-4 pt-2">
+      <nav class="flex space-x-4 px-4 pt-2 overflow-x-auto">
         <button
-          v-for="tab in tabs"
+          v-for="tab in visibleTabs"
           :key="tab.id"
           @click="activeTab = tab.id"
-          class="px-3 py-2 text-sm font-medium"
+          class="px-3 py-2 text-sm font-medium whitespace-nowrap"
           :class="{
             'border-b-2 border-blue-500 text-blue-600': activeTab === tab.id,
             'text-gray-500 hover:text-gray-700': activeTab !== tab.id
@@ -19,18 +19,27 @@
     </div>
 
     <!-- Content -->
-    <div class="p-4">
+    <div class="p-4 overflow-y-auto" style="max-height: calc(80vh - 60px);">
       <!-- Members tab -->
       <div v-if="activeTab === 'members'" class="space-y-4">
         <div class="flex justify-between items-center">
           <h3 class="text-lg font-semibold">Участники ({{ members.length }})</h3>
-          <button
-            v-if="canInviteUsers"
-            @click="showInviteDialog = true"
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            Пригласить
-          </button>
+          <div class="flex gap-2">
+            <button
+              v-if="canInviteUsers"
+              @click="showInviteDialog = true"
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Пригласить
+            </button>
+            <button
+              v-if="canManageChat"
+              @click="showInviteLinksDialog = true"
+              class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+            >
+              Ссылки
+            </button>
+          </div>
         </div>
 
         <!-- Search -->
@@ -108,13 +117,22 @@
               </select>
 
               <button
+                v-if="canRestrictMembers && !member.is_owner && !member.is_admin"
+                @click="showRestrictDialog(member)"
+                class="p-1 text-gray-500 hover:text-orange-600"
+                title="Ограничить"
+              >
+                <ShieldCheckIcon class="w-5 h-5" />
+              </button>
+
+              <button
                 v-if="canManageChat && !member.is_owner"
                 @click="toggleMuteMember(member)"
                 class="p-1 text-gray-500 hover:text-gray-700"
                 :title="member.is_muted ? 'Разглушить' : 'Заглушить'"
               >
                 <SpeakerXMarkIcon v-if="member.is_muted" class="w-5 h-5" />
-                <SpeakerWaveIcon v-else="member.is_muted" class="w-5 h-5" />
+                <SpeakerWaveIcon v-else class="w-5 h-5" />
               </button>
 
               <button
@@ -135,6 +153,155 @@
                 <TrashIcon class="w-5 h-5" />
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invite Links tab -->
+      <div v-else-if="activeTab === 'invites'" class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h3 class="text-lg font-semibold">Ссылки-приглашения</h3>
+          <button
+            v-if="canInviteUsers"
+            @click="showCreateInviteLink = true"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Создать ссылку
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <div
+            v-for="link in inviteLinks"
+            :key="link.id"
+            class="p-4 border rounded-lg"
+          >
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium">{{ link.name || 'Без названия' }}</span>
+                  <span v-if="link.is_primary" class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">
+                    Основная
+                  </span>
+                  <span v-if="!link.is_valid" class="px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded">
+                    Недействительна
+                  </span>
+                </div>
+                <div class="text-sm text-gray-500 mt-1">
+                  {{ link.invite_link }}
+                </div>
+                <div class="flex gap-4 mt-2 text-xs text-gray-400">
+                  <span>Использований: {{ link.usage_count }}/{{ link.usage_limit || '∞' }}</span>
+                  <span v-if="link.expires_at">
+                    До: {{ formatDate(link.expires_at) }}
+                  </span>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  @click="copyInviteLink(link.invite_link)"
+                  class="p-2 text-gray-500 hover:text-blue-600"
+                  title="Копировать"
+                >
+                  <ClipboardDocumentIcon class="w-4 h-4" />
+                </button>
+                <button
+                  v-if="!link.is_revoked"
+                  @click="revokeInviteLink(link)"
+                  class="p-2 text-gray-500 hover:text-red-600"
+                  title="Отозвать"
+                >
+                  <XMarkIcon class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="inviteLinks.length === 0" class="text-center py-8 text-gray-400">
+            Нет созданных ссылок
+          </div>
+        </div>
+      </div>
+
+      <!-- Join Requests tab -->
+      <div v-else-if="activeTab === 'requests'" class="space-y-4">
+        <h3 class="text-lg font-semibold">Запросы на вступление ({{ joinRequests.length }})</h3>
+
+        <div class="space-y-3">
+          <div
+            v-for="request in joinRequests"
+            :key="request.id"
+            class="p-4 border rounded-lg"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <img
+                  :src="request.user.avatar || '/default-avatar.png'"
+                  class="w-10 h-10 rounded-full"
+                />
+                <div>
+                  <div class="font-medium">{{ request.user.username }}</div>
+                  <div class="text-sm text-gray-500">{{ request.message }}</div>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  @click="approveJoinRequest(request)"
+                  class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                >
+                  Принять
+                </button>
+                <button
+                  @click="rejectJoinRequest(request)"
+                  class="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                >
+                  Отклонить
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="joinRequests.length === 0" class="text-center py-8 text-gray-400">
+            Нет запросов на вступление
+          </div>
+        </div>
+      </div>
+
+      <!-- Banned Users tab -->
+      <div v-else-if="activeTab === 'banned'" class="space-y-4">
+        <h3 class="text-lg font-semibold">Заблокированные пользователи</h3>
+
+        <div class="space-y-3">
+          <div
+            v-for="ban in bannedUsers"
+            :key="ban.id"
+            class="p-4 border rounded-lg"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <img
+                  :src="ban.user.avatar || '/default-avatar.png'"
+                  class="w-10 h-10 rounded-full"
+                />
+                <div>
+                  <div class="font-medium">{{ ban.user.username }}</div>
+                  <div class="text-sm text-gray-500">{{ ban.reason }}</div>
+                  <div class="text-xs text-gray-400">
+                    {{ ban.until_date ? `До: ${formatDate(ban.until_date)}` : 'Навсегда' }}
+                  </div>
+                </div>
+              </div>
+              <button
+                @click="unbanUser(ban)"
+                class="px-3 py-1 bg-gray-700 text-white rounded text-sm hover:bg-gray-600"
+              >
+                Разблокировать
+              </button>
+            </div>
+          </div>
+
+          <div v-if="bannedUsers.length === 0" class="text-center py-8 text-gray-400">
+            Нет заблокированных пользователей
           </div>
         </div>
       </div>
@@ -286,7 +453,7 @@
             <div class="flex items-center justify-between">
               <div class="font-mono text-sm">{{ inviteLink }}</div>
               <button
-                @click="copyInviteLink"
+                @click="copyInviteLink(inviteLink)"
                 class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 Копировать
@@ -392,11 +559,34 @@
       @updated="handleRoleUpdated"
     />
 
-    <BanUserDialog
+    <BanUserModal
       v-if="banDialog.member"
       :member="banDialog.member"
       @close="banDialog.member = null"
       @banned="handleUserBanned"
+    />
+
+    <RestrictUserModal
+      v-if="restrictDialog.member"
+      :member="restrictDialog.member"
+      @close="restrictDialog.member = null"
+      @restricted="handleUserRestricted"
+    />
+
+    <CreateInviteLinkModal
+      v-if="showCreateInviteLink"
+      :chat-id="chatId"
+      @close="showCreateInviteLink = false"
+      @created="handleInviteLinkCreated"
+    />
+
+    <ChatSettingsModal
+      v-if="showSettingsModal"
+      :chat-id="chatId"
+      chat-type="group"
+      :is-owner="isOwner"
+      @close="showSettingsModal = false"
+      @settings-changed="handleSettingsChanged"
     />
 
     <!-- Toast notification -->
@@ -415,12 +605,21 @@ import {
   TrashIcon,
   NoSymbolIcon,
   SpeakerWaveIcon,
-  SpeakerXMarkIcon
+  SpeakerXMarkIcon,
+  ShieldCheckIcon,
+  ClipboardDocumentIcon
 } from '@heroicons/vue/24/outline'
 import { useGroupChatStore } from '@/stores/groupChat'
+import chatsApi from '@/api/chats'
 
 // Types
 import type { ChatMember, ChatRole } from '@/types'
+
+// Components
+import BanUserModal from './BanUserModal.vue'
+import RestrictUserModal from './RestrictUserModal.vue'
+import CreateInviteLinkModal from './CreateInviteLinkModal.vue'
+import ChatSettingsModal from './ChatSettingsModal.vue'
 
 interface Props {
   chatId: number
@@ -437,13 +636,25 @@ const searchQuery = ref('')
 const showInviteDialog = ref(false)
 const showCreateRoleDialog = ref(false)
 const showEditRoleDialog = ref(false)
+const showCreateInviteLink = ref(false)
+const showInviteLinksDialog = ref(false)
+const showSettingsModal = ref(false)
 const currentEditingRole = ref(null)
 const banDialog = ref({ member: null })
+const restrictDialog = ref({ member: null })
 const toastMessage = ref('')
 const toastType = ref('')
 
+// New state for invite links and join requests
+const inviteLinks = ref<any[]>([])
+const joinRequests = ref<any[]>([])
+const bannedUsers = ref<any[]>([])
+
 const tabs = [
   { id: 'members', name: 'Участники' },
+  { id: 'invites', name: 'Ссылки' },
+  { id: 'requests', name: 'Запросы', requiresPermission: 'can_invite_users' },
+  { id: 'banned', name: 'Забаненные', requiresPermission: 'can_ban_users' },
   { id: 'roles', name: 'Роли' },
   { id: 'logs', name: 'Логи' },
   { id: 'settings', name: 'Настройки' }
@@ -454,12 +665,21 @@ const members = computed(() => groupChatStore.chatMembers as any[])
 const chatRoles = computed(() => groupChatStore.chatRoles as any[])
 const adminLogs = computed(() => groupChatStore.adminLogs)
 const currentChat = computed(() => groupChatStore.currentChat)
+const isOwner = computed(() => groupChatStore.isOwner)
 
 const canManageChat = computed(() => groupChatStore.canManageChat())
 const canBanUsers = computed(() => groupChatStore.canBanUsers())
 const canInviteUsers = computed(() => groupChatStore.canInviteUsers())
 const canChangeChatInfo = computed(() => groupChatStore.canChangeChatInfo())
 const canPromoteMembers = computed(() => groupChatStore.canPromoteMembers())
+const canRestrictMembers = computed(() => groupChatStore.hasPermission('can_restrict_members'))
+
+const visibleTabs = computed(() => {
+  return tabs.filter(tab => {
+    if (!tab.requiresPermission) return true
+    return groupChatStore.hasPermission(tab.requiresPermission) || isOwner.value
+  })
+})
 
 const filteredMembers = computed(() => {
   if (!searchQuery.value) return members.value
@@ -546,17 +766,21 @@ const getStatusText = (status: string | undefined) => {
 
 const updateMemberRole = async (member: any) => {
   try {
-    await groupChatStore.updateMemberRole(props.chatId, member.user.id, member.role_id)
+    await chatsApi.roles.setMemberRole(props.chatId, member.user.id, member.role_id)
+    showToast('Роль обновлена', 'success')
   } catch (error) {
     console.error('Error updating member role:', error)
+    showToast('Ошибка обновления роли', 'error')
   }
 }
 
 const toggleMuteMember = async (member: any) => {
   try {
     await groupChatStore.toggleMemberMute(props.chatId, member.user.id, !member.is_muted)
+    showToast(member.is_muted ? 'Пользователь разглушён' : 'Пользователь заглушён', 'success')
   } catch (error) {
     console.error('Error toggling member mute:', error)
+    showToast('Ошибка', 'error')
   }
 }
 
@@ -565,34 +789,55 @@ const removeMember = async (member: any) => {
 
   try {
     await groupChatStore.removeMember(props.chatId, member.user.id)
-    // Reload members
     await groupChatStore.loadChatMembers(props.chatId)
+    showToast('Пользователь удалён', 'success')
   } catch (error) {
     console.error('Error removing member:', error)
+    showToast('Ошибка удаления', 'error')
   }
 }
 
 const showBanDialog = (member: any) => {
-  banDialog.value.member = member
+  banDialog.value.member = {
+    ...member,
+    chat: { id: props.chatId }
+  }
+}
+
+const showRestrictDialog = (member: any) => {
+  restrictDialog.value.member = {
+    ...member,
+    chat: { id: props.chatId }
+  }
 }
 
 const handleUserBanned = async () => {
   await groupChatStore.loadChatMembers(props.chatId)
+  await loadBannedUsers()
+  showToast('Пользователь заблокирован', 'success')
+}
+
+const handleUserRestricted = async () => {
+  await groupChatStore.loadChatMembers(props.chatId)
+  showToast('Ограничение применено', 'success')
 }
 
 const handleUserInvited = async () => {
   await groupChatStore.loadChatMembers(props.chatId)
   showInviteDialog.value = false
+  showToast('Пользователь приглашён', 'success')
 }
 
 const handleRoleCreated = async () => {
   await groupChatStore.loadChatRoles(props.chatId)
   showCreateRoleDialog.value = false
+  showToast('Роль создана', 'success')
 }
 
 const handleRoleUpdated = async () => {
   await groupChatStore.loadChatRoles(props.chatId)
   showEditRoleDialog.value = false
+  showToast('Роль обновлена', 'success')
 }
 
 const editRole = (role: any) => {
@@ -605,8 +850,10 @@ const deleteRole = async (role: any) => {
 
   try {
     await groupChatStore.deleteChatRole(props.chatId, role.id)
+    showToast('Роль удалена', 'success')
   } catch (error) {
     console.error('Error deleting role:', error)
+    showToast('Ошибка удаления роли', 'error')
   }
 }
 
@@ -624,11 +871,9 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString('ru-RU')
 }
 
-const copyInviteLink = async () => {
-  if (inviteLink.value) {
-    await navigator.clipboard.writeText(inviteLink.value)
-    showToast('Ссылка скопирована', 'success')
-  }
+const copyInviteLink = async (link: string) => {
+  await navigator.clipboard.writeText(link)
+  showToast('Ссылка скопирована', 'success')
 }
 
 const showToast = (message: string, type: string) => {
@@ -654,6 +899,94 @@ const saveSettings = async () => {
   }
 }
 
+// New methods for invite links
+const loadInviteLinks = async () => {
+  try {
+    const response = await chatsApi.inviteLinks.list(props.chatId)
+    inviteLinks.value = response.data
+  } catch (error) {
+    console.error('Error loading invite links:', error)
+  }
+}
+
+const revokeInviteLink = async (link: any) => {
+  if (!confirm('Отозвать эту ссылку?')) return
+  
+  try {
+    await chatsApi.inviteLinks.revoke(link.id)
+    await loadInviteLinks()
+    showToast('Ссылка отозвана', 'success')
+  } catch (error) {
+    console.error('Error revoking invite link:', error)
+    showToast('Ошибка', 'error')
+  }
+}
+
+const handleInviteLinkCreated = async () => {
+  await loadInviteLinks()
+  showCreateInviteLink.value = false
+  showToast('Ссылка создана', 'success')
+}
+
+// Load join requests
+const loadJoinRequests = async () => {
+  try {
+    const response = await chatsApi.joinRequests.list(props.chatId)
+    joinRequests.value = response.data.filter((r: any) => r.status === 'pending')
+  } catch (error) {
+    console.error('Error loading join requests:', error)
+  }
+}
+
+const approveJoinRequest = async (request: any) => {
+  try {
+    await chatsApi.joinRequests.approve(request.id)
+    await loadJoinRequests()
+    await groupChatStore.loadChatMembers(props.chatId)
+    showToast('Запрос одобрен', 'success')
+  } catch (error) {
+    console.error('Error approving join request:', error)
+    showToast('Ошибка', 'error')
+  }
+}
+
+const rejectJoinRequest = async (request: any) => {
+  try {
+    await chatsApi.joinRequests.reject(request.id)
+    await loadJoinRequests()
+    showToast('Запрос отклонён', 'success')
+  } catch (error) {
+    console.error('Error rejecting join request:', error)
+    showToast('Ошибка', 'error')
+  }
+}
+
+// Load banned users
+const loadBannedUsers = async () => {
+  try {
+    const response = await chatsApi.bans.getBannedUsers(props.chatId)
+    bannedUsers.value = response.data.filter((b: any) => b.is_active)
+  } catch (error) {
+    console.error('Error loading banned users:', error)
+  }
+}
+
+const unbanUser = async (ban: any) => {
+  try {
+    await chatsApi.bans.unban(ban.id)
+    await loadBannedUsers()
+    showToast('Пользователь разблокирован', 'success')
+  } catch (error) {
+    console.error('Error unbanning user:', error)
+    showToast('Ошибка', 'error')
+  }
+}
+
+const handleSettingsChanged = (data: any) => {
+  showToast('Настройки обновлены', 'success')
+  // Reload relevant data based on change type
+}
+
 // Load data
 onMounted(async () => {
   if (currentChat.value?.id !== props.chatId) {
@@ -662,6 +995,11 @@ onMounted(async () => {
   await groupChatStore.loadChatMembers(props.chatId)
   await groupChatStore.loadChatRoles(props.chatId)
   await groupChatStore.loadAdminLogs(props.chatId)
+  
+  // Load new data
+  await loadInviteLinks()
+  await loadJoinRequests()
+  await loadBannedUsers()
 })
 </script>
 
