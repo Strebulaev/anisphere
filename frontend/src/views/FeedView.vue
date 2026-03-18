@@ -1,5 +1,5 @@
 <template>
-  <div class="feed-page">
+  <div class="feed-page-container">
     <!-- Main Tabs -->
     <div class="main-tabs">
       <button
@@ -12,6 +12,10 @@
         {{ tab.label }}
       </button>
     </div>
+
+    <div class="feed-layout">
+      <!-- Лента и контент -->
+      <div class="feed-main">
 
     <!-- ==================== ЛЕНТА ==================== -->
     <template v-if="activeTab === 'feed'">
@@ -277,6 +281,37 @@
     <template v-else-if="activeTab === 'reports'">
       <ReportsTab />
     </template>
+      </div>
+
+      <!-- Боковая панель: Популярное -->
+      <aside class="feed-sidebar" v-if="activeTab === 'feed'">
+        <div class="sidebar-title">🔥 Популярное</div>
+        <div v-if="popularLoading" class="popular-loading">
+          <div class="spinner-sm"></div>
+        </div>
+        <div v-else-if="popularPosts.length === 0" class="popular-empty">
+          Пока нет популярных постов
+        </div>
+        <div v-else class="popular-list">
+          <div 
+            v-for="post in popularPosts" 
+            :key="post.id" 
+            class="popular-item"
+            @click="goToPost(post.id)"
+          >
+            <div class="popular-header">
+              <img :src="post.author_avatar || defaultAvatar" class="popular-avatar" alt="">
+              <span class="popular-author">{{ post.author_display_name || post.author_username }}</span>
+            </div>
+            <div class="popular-text">{{ truncateText(post.text, 80) }}</div>
+            <div class="popular-stats">
+              <span>❤️ {{ post.likes_count }}</span>
+              <span>💬 {{ post.comments_count }}</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
   </div>
 
   <!-- ==================== MODALS ==================== -->
@@ -604,20 +639,162 @@ const unhidePost = async (postId: number) => {
 watch(activeTab, (tab) => {
   if (tab === 'subscriptions' && subscriptions.value.length === 0) loadSubscriptions(true)
   if (tab === 'not_interested' && notInterested.value.length === 0) loadNotInterested(true)
+  if (tab === 'feed' && popularPosts.value.length === 0) loadPopularPosts()
 })
+
+// ==================== POPULAR POSTS ====================
+const popularPosts = ref<FeedPost[]>([])
+const popularLoading = ref(false)
+
+const loadPopularPosts = async () => {
+  popularLoading.value = true
+  try {
+    const { data } = await apiClient.get('/social/feed/popular/', { params: { page_size: 10 } })
+    popularPosts.value = (data.results || data || []).slice(0, 10)
+  } catch (e) {
+    console.error('Error loading popular posts:', e)
+    // Fallback
+    try {
+      const { data } = await apiClient.get('/social/feed/top/', { params: { days: 7, limit: 10 } })
+      popularPosts.value = Array.isArray(data) ? data.slice(0, 10) : (data.results || []).slice(0, 10)
+    } catch (e2) {
+      console.error('Fallback failed:', e2)
+    }
+  } finally {
+    popularLoading.value = false
+  }
+}
+
+const truncateText = (text: string | null | undefined, maxLength: number): string => {
+  if (!text) return ''
+  if (text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '...'
+}
 
 onMounted(async () => {
   await feedStore.loadFeed('weighted')
   setupInfiniteScroll()
+  await loadPopularPosts()
 })
 
 onUnmounted(() => { intersectionObserver?.disconnect() })
 </script>
 
 <style scoped>
-.feed-page {
-  max-width: 680px; margin: 0 auto; padding: 1rem;
+.feed-page-container {
+  max-width: 1200px; margin: 0 auto; padding: 1rem;
   display: flex; flex-direction: column; gap: 1rem;
+}
+
+.feed-layout {
+  display: flex; gap: 1.5rem;
+}
+
+.feed-main {
+  flex: 1;
+  max-width: 680px;
+  min-width: 0;
+}
+
+/* Sidebar - Popular */
+.feed-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .feed-sidebar { display: none; }
+}
+
+.sidebar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  background: #111;
+  border-radius: 12px;
+  border: 1px solid #222;
+}
+
+.popular-loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.spinner-sm {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #333;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.popular-empty {
+  color: #555;
+  text-align: center;
+  padding: 2rem 1rem;
+  background: #111;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.popular-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.popular-item {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.popular-item:hover {
+  border-color: #667eea;
+  background: #161616;
+}
+
+.popular-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.popular-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.popular-author {
+  color: #aaa;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.popular-text {
+  color: #888;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.popular-stats {
+  display: flex;
+  gap: 1rem;
+  color: #555;
+  font-size: 0.75rem;
 }
 
 /* Main Tabs */

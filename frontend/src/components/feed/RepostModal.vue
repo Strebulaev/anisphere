@@ -180,17 +180,20 @@ const submitRepost = async () => {
   try {
     if (destination.value === 'feed') {
       // Репост в ленту
-      await apiClient.post(`/social/posts/${props.post.id}/repost/`, {
+      const { data } = await apiClient.post(`/social/posts/${props.post.id}/repost/action/`, {
         comment: comment.value
       })
+      console.log('Repost response:', data)
+      emit('reposted', props.post)
     } else if (destination.value === 'chat' && selectedChat.value) {
       // Пересылка в чат
       await apiClient.post(`/social/chats/${selectedChat.value.id}/forward/`, {
         post_id: props.post.id,
         message: comment.value
       })
+      emit('reposted', props.post)
     }
-    emit('reposted', props.post)
+    emit('close')
   } catch (error) {
     console.error('Error reposting:', error)
     alert('Ошибка при репосте')

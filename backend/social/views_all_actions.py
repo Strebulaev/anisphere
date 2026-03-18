@@ -20,7 +20,7 @@ from .models import (
     Message, PrivateChat, GroupChat, ChatSettings,
     ChatFolder, ChatInvite, ChatRole, Reaction, Attachment,
     EmailLog, FeedView, UserPostHidden, UserNotInterested, Hashtag, PostMedia,
-    PostAttachment, UserMention, PostHashtag
+    PostAttachment, UserMention, PostHashtag, Comment
 )
 from users.models import User
 from .serializers import (
@@ -64,7 +64,7 @@ def toggle_post_like(request, post_id):
     except Post.DoesNotExist:
         return Response({'error': 'Пост не найден'}, status=404)
 
-    # Allow self-liking (many social networks allow this)
+    # Разрешаем самолайк (многие соцсети это поддерживают)
     existing_like = PostLike.objects.filter(user=request.user, post=post).first()
     existing_dislike = PostDislike.objects.filter(user=request.user, post=post).first()
 
@@ -144,10 +144,10 @@ def get_post_dislikers(request, post_id):
 @permission_classes([IsAuthenticated])
 def toggle_comment_like(request, comment_id):
     """Лайк комментария"""
-    comment = get_object_or_404(PostComment, id=comment_id)
+    comment = get_object_or_404(Comment, id=comment_id)
     
-    existing_like = PostCommentLike.objects.filter(user=request.user, comment=comment).first()
-    existing_dislike = PostCommentDislike.objects.filter(user=request.user, comment=comment).first()
+    # Используем Django User like system
+    existing_like = comment.likes.filter(user=request.user).first()
     
     if existing_like:
         existing_like.delete()
@@ -155,11 +155,11 @@ def toggle_comment_like(request, comment_id):
         comment.save(update_fields=['likes_count'])
         return Response({'liked': False, 'likes_count': comment.likes_count})
     else:
-        if existing_dislike:
-            existing_dislike.delete()
-            comment.dislikes_count = max(0, comment.dislikes_count - 1)
-        PostCommentLike.objects.create(user=request.user, comment=comment)
+        # Удаляем дизлайк если есть
+        comment.dislikes.filter(user=request.user).delete()
+        comment.likes.create(user=request.user)
         comment.likes_count += 1
+        comment.dislikes_count = max(0, comment.dislikes_count - 1)
         comment.save(update_fields=['likes_count', 'dislikes_count'])
         return Response({'liked': True, 'likes_count': comment.likes_count})
 
@@ -168,10 +168,9 @@ def toggle_comment_like(request, comment_id):
 @permission_classes([IsAuthenticated])
 def toggle_comment_dislike(request, comment_id):
     """Дизлайк комментария"""
-    comment = get_object_or_404(PostComment, id=comment_id)
+    comment = get_object_or_404(Comment, id=comment_id)
     
-    existing_dislike = PostCommentDislike.objects.filter(user=request.user, comment=comment).first()
-    existing_like = PostCommentLike.objects.filter(user=request.user, comment=comment).first()
+    existing_dislike = comment.dislikes.filter(user=request.user).first()
     
     if existing_dislike:
         existing_dislike.delete()
@@ -179,11 +178,11 @@ def toggle_comment_dislike(request, comment_id):
         comment.save(update_fields=['dislikes_count'])
         return Response({'disliked': False, 'dislikes_count': comment.dislikes_count})
     else:
-        if existing_like:
-            existing_like.delete()
-            comment.likes_count = max(0, comment.likes_count - 1)
-        PostCommentDislike.objects.create(user=request.user, comment=comment)
+        # Удаляем лайк если есть
+        comment.likes.filter(user=request.user).delete()
+        comment.dislikes.create(user=request.user)
         comment.dislikes_count += 1
+        comment.likes_count = max(0, comment.likes_count - 1)
         comment.save(update_fields=['likes_count', 'dislikes_count'])
         return Response({'disliked': True, 'dislikes_count': comment.dislikes_count})
 
@@ -193,7 +192,7 @@ def toggle_comment_dislike(request, comment_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def pin_post(request, post_id):
-    """Закрепить пост"""
+    """Закрепить пост - работает без ограничения по времени"""
     post = get_object_or_404(Post, id=post_id, author=request.user)
     
     # Снимаем закрепление с других постов
@@ -203,20 +202,20 @@ def pin_post(request, post_id):
     post.pinned_at = timezone.now()
     post.save(update_fields=['is_pinned', 'pinned_at'])
     
-    return Response({'success': True, 'message': 'Пост закреплен'})
+    return Response({'success': True, 'message': 'Пост закреплен', 'is_pinned': True})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def unpin_post(request, post_id):
-    """Открепить пост"""
+    """Открепить пост - работает без ограничения по времени"""
     post = get_object_or_404(Post, id=post_id, author=request.user)
     
     post.is_pinned = False
     post.pinned_at = None
     post.save(update_fields=['is_pinned', 'pinned_at'])
     
-    return Response({'success': True, 'message': 'Пост откреплен'})
+    return Response({'success': True, 'message': 'Пост откреплен', 'is_pinned': False})
 
 
 @api_view(['POST'])
@@ -403,12 +402,25 @@ def get_post_viewers(request, post_id):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_comment_replies(request, comment_id):
-    """Получить ответы на комментарий"""
-    comment = get_object_or_404(PostComment, id=comment_id)
-    replies = PostComment.objects.filter(parent=comment).select_related('author')[:20]
+    """Получить ответы на комментарий (для старой модели Comment)"""
+    comment = get_object_or_404(Comment, id=comment_id)
+    replies = Comment.objects.filter(parent=comment).select_related('author')[:20]
     
     from .serializers import CommentSerializer
     serializer = CommentSerializer(replies, many=True)
+    
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_post_comment_replies(request, comment_id):
+    """Получить ответы на комментарий к посту (модель PostComment)"""
+    comment = get_object_or_404(PostComment, id=comment_id)
+    replies = PostComment.objects.filter(parent=comment).select_related('author')[:20]
+    
+    from .serializers import PostCommentSerializer
+    serializer = PostCommentSerializer(replies, many=True)
     
     return Response(serializer.data)
 
@@ -548,7 +560,7 @@ def hide_author_from_feed(request, user_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_hidden_posts(request):
-    """Получить список скрытых постов"""
+    """Получить список скрытых постов с полными данными постов"""
     hidden_posts = UserPostHidden.objects.filter(user=request.user).select_related('post').order_by('-created_at')
 
     page = int(request.query_params.get('page', 1))
@@ -561,12 +573,48 @@ def get_hidden_posts(request):
     results = []
     for hp in hidden_posts_page:
         if hp.post:
-            results.append({
-                'id': hp.id,
-                'post_id': hp.post.id,
-                'post_preview': hp.post.text[:100] if hp.post.text else '',
-                'hidden_at': hp.created_at.isoformat()
-            })
+            from .serializers import PostSerializer
+            try:
+                serializer = PostSerializer(hp.post, context={'request': request})
+                data = serializer.data
+                data['hidden_at'] = hp.created_at.isoformat()
+                results.append(data)
+            except:
+                pass
+
+    return Response({
+        'results': results,
+        'count': total,
+        'next': page + 1 if offset + page_size < total else None,
+        'previous': page - 1 if page > 1 else None
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_bookmarked_posts(request):
+    """Получить список закладок с полными данными постов"""
+    bookmarks = Bookmark.objects.filter(user=request.user).select_related('post').order_by('-created_at')
+
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+    offset = (page - 1) * page_size
+
+    total = bookmarks.count()
+    bookmarks_page = bookmarks[offset:offset + page_size]
+
+    results = []
+    for bm in bookmarks_page:
+        if bm.post:
+            from .serializers import PostSerializer
+            try:
+                serializer = PostSerializer(bm.post, context={'request': request})
+                data = serializer.data
+                data['bookmarked_at'] = bm.created_at.isoformat()
+                data['bookmark_folder'] = bm.folder
+                results.append(data)
+            except:
+                pass
 
     return Response({
         'results': results,
@@ -622,10 +670,11 @@ def get_feed_statistics(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_popular_posts(request):
-    """Получить популярные посты"""
+    """Получить популярные посты (только с лайками)"""
     posts = Post.objects.filter(
         status='published',
-        is_deleted=False
+        is_deleted=False,
+        likes_count__gte=1  # Только посты с хотя бы 1 лайком
     ).order_by('-likes_count', '-created_at')[:20]
     
     from .serializers import PostSerializer

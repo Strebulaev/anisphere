@@ -184,10 +184,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # CORS settings for production
 CORS_ALLOWED_ORIGINS = parse_env_list(
     'CORS_ALLOWED_ORIGINS',
-    'https://anisphere.ru,https://www.anisphere.ru,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://frontend:3000,http://frontend:5173,http://localhost:8000',
+    'https://anisphere.ru,https://www.anisphere.ru,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://frontend:3000,http://frontend:5173,http://localhost:8000,http://localhost:5174,http://127.0.0.1:5174,http://localhost,http://127.0.0.1',
 )
 
-CORS_ALLOW_ALL_ORIGINS = False  # Важно: выключите в продакшене!
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Разрешаем все источники в режиме разработки
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [
@@ -351,12 +351,13 @@ if not DEBUG:
     # CSRF settings
     CSRF_COOKIE_HTTPONLY = False
     CSRF_COOKIE_SAMESITE = 'Lax'
-    CSRF_TRUSTED_ORIGINS = ['https://anisphere.ru', 'https://www.anisphere.ru']
+    CSRF_TRUSTED_ORIGINS = ['https://anisphere.ru', 'https://www.anisphere.ru', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost', 'http://127.0.0.1']
 else:
     # Development settings
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
     SECURE_SSL_REDIRECT = False
+    CSRF_TRUSTED_ORIGINS = ['https://anisphere.ru', 'https://www.anisphere.ru', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost', 'http://127.0.0.1']
 
 # Logging settings
 LOGGING = {

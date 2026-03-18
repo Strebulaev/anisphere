@@ -122,6 +122,7 @@ const sendForward = async () => {
   if (!selectedChatId.value) return
   sending.value = true
   try {
+    // Всегда отправляем пост, даже без комментария
     await chatsApi.forwardPost(selectedChatId.value, props.post.id, message.value || undefined)
     emit('forwarded')
     emit('close')

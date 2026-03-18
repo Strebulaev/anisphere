@@ -30,10 +30,10 @@ from .views_all_actions import (
     pin_post, unpin_post, report_post, add_bookmark, remove_bookmark, toggle_bookmark_view,
     get_bookmarks_folders, repost_post, unrepost_post, create_repost, delete_repost,
     track_post_view, get_post_viewers,
-    get_comment_replies, report_comment,
+    get_comment_replies, get_post_comment_replies, report_comment,
     edit_post, edit_comment,
     hide_post_from_feed, mark_post_not_interested, hide_author_from_feed,
-    get_hidden_posts, restore_hidden_post,
+    get_hidden_posts, restore_hidden_post, get_bookmarked_posts,
     get_feed_statistics, get_popular_posts, get_user_posts, get_group_posts,
     get_hashtag_posts, search_hashtags,
     get_user_notification_settings, update_user_notification_settings,
@@ -259,6 +259,9 @@ urlpatterns = [
     path('comments/<int:comment_id>/report/', report_comment, name='report-comment'),
     path('comments/<int:comment_id>/edit/', edit_comment, name='edit-comment'),
 
+    # ==================== POST COMMENT REPLIES ====================
+    path('posts/comments/<int:comment_id>/replies/', get_post_comment_replies, name='get-post-comment-replies'),
+
     # ==================== ПОДПИСКИ ====================
     path('follow/toggle/<int:user_id>/', toggle_follow, name='toggle-follow'),
     path('subscriptions/toggle/<int:user_id>/', toggle_follow, name='toggle-subscription'),
@@ -338,6 +341,7 @@ urlpatterns = [
     path('users/<int:user_id>/hide/', hide_author_from_feed, name='hide-author'),
     path('hidden-posts/', get_hidden_posts, name='hidden-posts'),
     path('hidden-posts/<int:post_id>/restore/', restore_hidden_post, name='restore-hidden-post'),
+    path('bookmarks/posts/', get_bookmarked_posts, name='bookmarked-posts'),
     path('feed/statistics/', get_feed_statistics, name='feed-statistics'),
     path('feed/popular/', get_popular_posts, name='popular-posts'),
 

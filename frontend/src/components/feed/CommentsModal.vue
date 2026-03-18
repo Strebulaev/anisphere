@@ -44,6 +44,7 @@
             v-for="comment in sortedComments"
             :key="comment.id"
             class="comment-thread"
+            :id="`comment-${comment.id}`"
             :style="{ marginLeft: comment.level * 20 + 'px' }"
           >
             <div class="comment" :class="{ 'is-reply': comment.level > 0 }">
@@ -56,6 +57,10 @@
                 <div class="comment-header">
                   <span class="author" @click="goToProfile(comment.author_username)">
                     {{ comment.author_username }}
+                  </span>
+                  <!-- Ссылка на родительский комментарий для ответов -->
+                  <span v-if="comment.parent_id" class="reply-to-link" @click="scrollToComment(comment.parent_id)">
+                    ↳ @{{ comment.parent_username }}
                   </span>
                   <span class="time">{{ formatTime(comment.created_at) }}</span>
                   <span v-if="comment.is_edited" class="edited">(ред.)</span>
@@ -173,6 +178,8 @@ interface Comment {
   author_username: string
   author_avatar: string | null
   parent: number | null
+  parent_id: number | null
+  parent_username: string | null
   content: string
   likes_count: number
   dislikes_count: number
@@ -262,11 +269,20 @@ const loadReplies = async (comment: Comment) => {
   if (!comment.id) return
 
   try {
-    const response = await apiClient.get(`/social/comments/${comment.id}/replies/`)
+    // Используем правильный endpoint для replies к комментариям постов
+    const response = await apiClient.get(`/social/posts/comments/${comment.id}/replies/`)
     comment.replies = response.data || []
     showReplies.value[comment.id] = true
   } catch (error) {
     console.error('Error loading replies:', error)
+    // Fallback - пробуем старый endpoint
+    try {
+      const response = await apiClient.get(`/social/comments/${comment.id}/replies/`)
+      comment.replies = response.data || []
+      showReplies.value[comment.id] = true
+    } catch (error2) {
+      console.error('Error loading replies (fallback):', error2)
+    }
   }
 }
 
@@ -361,6 +377,39 @@ const openMenu = (comment: Comment) => {
 
 const goToProfile = (username: string) => {
   router.push(`/profile/${username}`)
+}
+
+const scrollToComment = async (commentId: number) => {
+  // Ищем комментарий в списке
+  const findComment = (list: Comment[]): Comment | null => {
+    for (const c of list) {
+      if (c.id === commentId) return c
+      if (c.replies) {
+        const found = findComment(c.replies)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  
+  const targetComment = findComment(comments.value)
+  
+  if (targetComment) {
+    // Если нужно, загружаем replies для родительского комментария
+    if (targetComment.replies_count > 0 && !showReplies.value[targetComment.id]) {
+      await loadReplies(targetComment)
+    }
+    
+    // Прокрутка к комментарию
+    await nextTick()
+    const element = document.getElementById(`comment-${commentId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Подсветка комментария
+      element.classList.add('highlighted')
+      setTimeout(() => element.classList.remove('highlighted'), 2000)
+    }
+  }
 }
 
 const fetchCurrentUser = async () => {
@@ -461,6 +510,14 @@ watch(() => props.post?.id, () => {
 
 .comment-thread {
   margin-bottom: 1rem;
+  transition: background-color 0.3s;
+}
+
+.comment-thread.highlighted {
+  background-color: rgba(102, 126, 234, 0.15);
+  border-radius: 8px;
+  padding: 0.5rem;
+  margin: 0 -0.5rem 1rem -0.5rem;
 }
 
 .comment {
@@ -500,6 +557,16 @@ watch(() => props.post?.id, () => {
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+.reply-to-link {
+  color: #667eea;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.reply-to-link:hover {
+  text-decoration: underline;
 }
 
 .author:hover {

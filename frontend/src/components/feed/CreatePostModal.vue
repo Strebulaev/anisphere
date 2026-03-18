@@ -180,7 +180,7 @@
               :class="{ selected: attachedAnimes.some(x => x.id === a.id) }"
               @click="toggleAnime(a)"
             >
-              <img :src="getMediaUrl(a.poster_url || a.poster_image_url)" alt="">
+              <img :src="getAnimePoster(a)" alt="">
               <span class="result-item-title">{{ a.title_ru }}</span>
               <span class="check-icon">{{ attachedAnimes.some(x => x.id === a.id) ? '✓' : '' }}</span>
             </div>
@@ -203,7 +203,8 @@
               :class="{ selected: attachedPlaylists.some(x => x.id === p.id) }"
               @click="togglePlaylist(p)"
             >
-              <span class="result-icon">📁</span>
+              <img v-if="getPlaylistPoster(p)" :src="getPlaylistPoster(p)" alt="" class="playlist-thumb">
+              <span v-else class="result-icon">📁</span>
               <div class="result-info">
                 <span class="result-title">{{ p.title || p.name }}</span>
                 <span class="result-sub">{{ p.anime_count || p.items_count || p.animes_count || 0 }} аниме</span>
@@ -351,6 +352,20 @@ const animeResults = ref<any[]>([])
 const animeLoading = ref(false)
 let animeTimeout: ReturnType<typeof setTimeout> | null = null
 
+// Функция для получения постера аниме - использует poster (локальный файл), затем poster_url
+const getAnimePoster = (anime: any): string => {
+  if (!anime) return ''
+  // Сначала проверяем локальный файл poster
+  if (anime.poster) {
+    return getMediaUrl(anime.poster) || anime.poster_url || ''
+  }
+  // Fallback на poster_url
+  if (anime.poster_url) {
+    return getMediaUrl(anime.poster_url) || anime.poster_url
+  }
+  return ''
+}
+
 const searchAnime = () => {
   if (animeTimeout) clearTimeout(animeTimeout)
   animeTimeout = setTimeout(async () => {
@@ -424,6 +439,20 @@ const switchToPlaylist = () => {
   loadPlaylists()
 }
 
+// Функция для получения постера плейлиста
+const getPlaylistPoster = (playlist: any): string => {
+  if (!playlist) return ''
+  // Сначала пробуем cover_image
+  if (playlist.cover_image) {
+    return getMediaUrl(playlist.cover_image) || ''
+  }
+  // Затем poster_url
+  if (playlist.poster_url) {
+    return getMediaUrl(playlist.poster_url) || ''
+  }
+  return ''
+}
+
 // Shorts
 const shortsSearch = ref('')
 const shortsResults = ref<any[]>([])
@@ -484,7 +513,8 @@ const submitPost = async () => {
     fd.append('allow_comments', String(allowComments.value))
     fd.append('is_spoiler', String(isSpoiler.value))
     if (isSpoiler.value && spoilerFor.value.trim()) {
-      fd.append('spoiler_for', spoilerFor.value.trim())
+      // Используем spoiler_description вместо spoiler_for (это текстовое описание)
+      fd.append('spoiler_description', spoilerFor.value.trim())
     }
 
     // Аниме (первый — основной)
@@ -508,13 +538,22 @@ const submitPost = async () => {
 
     mediaFiles.value.forEach((m, i) => { fd.append(`media_${i}`, m.file) })
 
+    console.log('Creating post with data:', {
+      text: text.value,
+      visibility: visibility.value,
+      allow_comments: allowComments.value,
+      is_spoiler: isSpoiler.value,
+      spoiler_description: isSpoiler.value ? spoilerFor.value.trim() : '',
+    })
+
     const { data } = await apiClient.post('/social/posts/', fd, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     emit('created', normalizePost(data))
-  } catch (e) {
+  } catch (e: any) {
     console.error('Error creating post:', e)
-    alert('Ошибка при публикации поста')
+    console.error('Error response:', e.response?.data)
+    alert('Ошибка при публикации поста: ' + (e.response?.data?.detail || e.message))
   } finally {
     submitting.value = false
   }
@@ -752,6 +791,7 @@ onMounted(async () => {
 .result-title { color: #ddd; font-size: 0.9rem; font-weight: 500; }
 .result-sub { color: #666; font-size: 0.78rem; }
 .check-icon { color: #667eea; font-size: 1rem; font-weight: 700; min-width: 16px; text-align: center; }
+.playlist-thumb { width: 44px; height: 64px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
 
 .selector-loading { color: #666; font-size: 0.875rem; text-align: center; padding: 1.5rem; }
 .no-results { color: #555; font-size: 0.875rem; text-align: center; padding: 1.5rem; }

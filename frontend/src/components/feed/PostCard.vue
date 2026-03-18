@@ -85,9 +85,11 @@
             <div v-else class="anime-poster-placeholder">🎬</div>
           </div>
           <div class="anime-info">
-            <span class="anime-title">{{ post.anime.title_ru || post.anime.title_en || 'Аниме' }}</span>
+            <span class="anime-title">{{ post.anime.title_ru || post.anime.title_en || 'Название не известно' }}</span>
             <span v-if="shouldShowEnglishTitle(post.anime)" class="anime-title-en">{{ post.anime.title_en }}</span>
+            <span v-if="post.anime.year" class="anime-year">{{ post.anime.year }}</span>
             <span v-if="post.anime_rating" class="anime-rating">⭐ {{ post.anime_rating }}/10</span>
+            <span v-if="post.anime.description" class="anime-desc">{{ truncateText(post.anime.description, 150) }}</span>
           </div>
         </div>
 
@@ -274,6 +276,13 @@ const visibilityIcon = (v?: string) => {
 
 const goToProfile = () => router.push(`/profile/${props.post.author_username}`)
 
+// Функция для обрезания текста
+const truncateText = (text: string, maxLength: number): string => {
+  if (!text) return ''
+  if (text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '...'
+}
+
 // ── Anime Poster Helper ───────────────────────────────
 const getPosterUrl = (item: any): string | undefined => {
   if (!item) return undefined
@@ -380,6 +389,7 @@ const onReplyAdded = (reply: any) => {
 .post-card {
   background: #111; border-radius: 12px; padding: 1rem;
   transition: box-shadow 0.2s; border: 1px solid transparent;
+  margin-bottom: 1rem;
 }
 .post-card:hover { border-color: #1e1e1e; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
 .post-card.pinned { border-color: #667eea40; }
@@ -428,10 +438,10 @@ const onReplyAdded = (reply: any) => {
 .media-gallery.grid-3 { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
 .media-gallery.grid-3 .media-item:first-child { grid-row: span 2; }
 .media-gallery.grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.media-item { position: relative; overflow: hidden; cursor: pointer; aspect-ratio: 1; max-height: 300px; }
-.media-item img, .media-item video { width: 100%; height: 100%; object-fit: cover; }
+.media-item { position: relative; overflow: hidden; cursor: pointer; }
+.media-item img, .media-item video { width: 100%; height: 100%; object-fit: contain; background: #0a0a0a; max-height: 500px; }
 .single-media { border-radius: 8px; overflow: hidden; margin-bottom: 0.5rem; background: #0a0a0a; }
-.single-media img, .single-media video { width: 100%; max-height: 500px; object-fit: contain; background: #0a0a0a; display: block; }
+.single-media img, .single-media video { width: 100%; max-height: 600px; object-fit: contain; background: #0a0a0a; display: block; }
 
 .anime-card { display: flex; gap: 0.875rem; background: #1a1a1a; border-radius: 8px; padding: 0.75rem; cursor: pointer; margin-bottom: 0.5rem; transition: background 0.2s; }
 .anime-card:hover { background: #222; }
@@ -460,7 +470,9 @@ const onReplyAdded = (reply: any) => {
 .anime-info { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; min-width: 0; justify-content: center; }
 .anime-title { color: #fff; font-weight: 600; font-size: 0.9rem; line-height: 1.3; }
 .anime-title-en { color: #666; font-size: 0.8rem; line-height: 1.3; }
+.anime-year { color: #888; font-size: 0.8rem; }
 .anime-rating { color: #f59e0b; font-size: 0.8rem; }
+.anime-desc { color: #666; font-size: 0.75rem; line-height: 1.4; margin-top: 0.25rem; display: block; }
 
 .playlist-card { display: flex; align-items: center; gap: 0.75rem; background: #1a1a1a; border-radius: 8px; padding: 0.75rem 1rem; cursor: pointer; margin-bottom: 0.5rem; transition: background 0.2s; }
 .playlist-card:hover { background: #222; }

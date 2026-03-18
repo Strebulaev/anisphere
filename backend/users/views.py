@@ -338,6 +338,16 @@ class GoogleAuthCallbackView(APIView):
 
         print(f"DEBUG: Skipping state validation for development")
 
+        # Проверка state отключена, т.к. сессия не сохраняется между доменами
+        # В продакшене нужно использовать Redis для хранения state или передавать его через frontend
+        # session_state = request.session.get('google_oauth_state')
+        # if not state or state != session_state:
+        #     return Response({'error': 'Invalid state parameter'}, status=400)
+        # if request.session.get('google_oauth_state'):
+        #     del request.session['google_oauth_state']
+
+        print(f"DEBUG: State validation skipped - proceeding with token exchange")
+
         try:
             # Обмениваем authorization code на access token
             redirect_uri = f"{settings.SITE_URL.rstrip('/')}/api/users/google/callback/"
@@ -405,6 +415,15 @@ class GoogleAuthCallbackView(APIView):
             refresh = RefreshToken.for_user(user)
             update_last_login(None, user)
 
+            # Определяем URL для редиректа (используем referer или SITE_URL)
+            referer = request.META.get('HTTP_REFERER', '')
+            if 'www.anisphere.ru' in referer:
+                redirect_url = 'https://www.anisphere.ru/'
+            elif 'anisphere.ru' in referer:
+                redirect_url = 'https://anisphere.ru/'
+            else:
+                redirect_url = settings.SITE_URL
+
             # Возвращаем HTML страницу, которая сохранит токены и перенаправит на frontend
             user_data = UserSerializer(user).data
             html_content = f"""
@@ -419,7 +438,7 @@ class GoogleAuthCallbackView(APIView):
                     localStorage.setItem('user', JSON.stringify({json.dumps(user_data)}));
 
                     // Перенаправляем на главную страницу
-                    window.location.href = 'https://anisphere.ru/';
+                    window.location.href = '{redirect_url}';
                 </script>
             </head>
             <body>
@@ -2738,3 +2757,5 @@ class UsersListView(generics.ListAPIView):
 
         # Ограничиваем 50 пользователями
         return queryset.select_related('settings')[:50]
+
+       

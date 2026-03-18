@@ -17,12 +17,14 @@ class CommentSerializer(serializers.ModelSerializer):
     author_avatar = serializers.ImageField(source='author.avatar', read_only=True)
     replies_count = serializers.SerializerMethodField()
     is_reply = serializers.ReadOnlyField()
+    parent_id = serializers.IntegerField(source='parent.id', read_only=True)
+    parent_username = serializers.CharField(source='parent.author.username', read_only=True)
 
     class Meta:
         model = Comment
         fields = [
             'id', 'author', 'author_username', 'author_avatar',
-            'text', 'parent', 'is_reply', 'replies_count',
+            'text', 'parent', 'parent_id', 'parent_username', 'is_reply', 'replies_count',
             'created_at', 'updated_at', 'is_deleted'
         ]
         read_only_fields = ['id', 'author', 'created_at', 'updated_at']
@@ -30,7 +32,7 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_replies_count(self, obj):
         if hasattr(obj, 'replies'):
             return obj.replies.filter(is_deleted=False).count()
-        return 0
+        return obj.replies.count() if hasattr(obj, 'replies') else 0
 
 
 class CommentCreateSerializer(serializers.ModelSerializer):
@@ -1565,12 +1567,14 @@ class PostCommentSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     is_disliked = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
+    parent_id = serializers.IntegerField(source='parent.id', read_only=True)
+    parent_username = serializers.CharField(source='parent.author.username', read_only=True)
 
     class Meta:
         model = PostComment
         fields = [
             'id', 'post', 'author', 'author_username', 'author_avatar',
-            'parent', 'content', 'is_edited', 'is_deleted', 'deleted_at',
+            'parent', 'parent_id', 'parent_username', 'content', 'is_edited', 'is_deleted', 'deleted_at',
             'likes_count', 'dislikes_count', 'replies_count',
             'path', 'level', 'created_at', 'updated_at',
             'is_liked', 'is_disliked'
@@ -1809,6 +1813,8 @@ class FeedPostSerializer(serializers.ModelSerializer):
                 'id': obj.anime.id,
                 'title_ru': obj.anime.title_ru,
                 'title_en': obj.anime.title_en,
+                'year': obj.anime.year,
+                'description': obj.anime.description,
                 'poster_url': poster_url,
                 'rating': obj.anime_rating
             }
@@ -1819,7 +1825,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             return {
                 'id': obj.playlist.id,
                 'title': obj.playlist.title,
-                'anime_count': obj.playlist.anime_count if hasattr(obj.playlist, 'anime_count') else 0,
+                'anime_count': obj.playlist.items_count if hasattr(obj.playlist, 'items_count') else 0,
                 'poster_url': obj.playlist.cover_image.url if obj.playlist.cover_image else None
             }
         return None

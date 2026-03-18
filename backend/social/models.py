@@ -273,8 +273,6 @@ class Post(models.Model):
 
     def can_like(self, user):
         """Проверяет, может ли пользователь лайкнуть пост"""
-        if self.author == user:
-            return False
         if self.post_type == 'system':
             return False
         return True

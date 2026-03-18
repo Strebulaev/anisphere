@@ -11,7 +11,15 @@
       </template>
 
       <!-- Author actions -->
-      <template v-if="post.can_edit || post.can_delete">
+      <template v-if="post.can_edit || post.can_delete || isOwnPost">
+        <button v-if="isOwnPost && !post.is_pinned" @click="handlePin" class="menu-item">
+          <span class="icon">📌</span>
+          <span>Закрепить в профиле</span>
+        </button>
+        <button v-if="isOwnPost && post.is_pinned" @click="handleUnpin" class="menu-item">
+          <span class="icon">📍</span>
+          <span>Открепить</span>
+        </button>
         <button v-if="post.can_edit" @click="emit('edit', post); emit('close')" class="menu-item">
           <span class="icon">✏️</span>
           <span>Редактировать</span>
@@ -20,10 +28,6 @@
         <button v-if="post.can_delete" @click="confirmDelete" class="menu-item danger">
           <span class="icon">🗑️</span>
           <span>Удалить</span>
-        </button>
-        <button v-if="post.can_edit && !post.is_pinned" @click="emit('pin', post); emit('close')" class="menu-item">
-          <span class="icon">📌</span>
-          <span>Закрепить в профиле</span>
         </button>
         <div class="menu-divider"></div>
       </template>
@@ -188,6 +192,29 @@ const reportReasons = [
 
 const confirmDelete = () => { showDeleteConfirm.value = true }
 const doDelete = () => { emit('delete', props.post); emit('close') }
+
+// Pin/Unpin посты - работает для любых постов без ограничения по времени
+const handlePin = async () => {
+  try {
+    await apiClient.post(`/social/posts/${props.post.id}/pin/`)
+    emit('pin', props.post)
+    emit('close')
+  } catch (e) {
+    console.error('Pin error:', e)
+    alert('Не удалось закрепить пост')
+  }
+}
+
+const handleUnpin = async () => {
+  try {
+    await apiClient.post(`/social/posts/${props.post.id}/unpin/`)
+    emit('pin', { ...props.post, is_pinned: false })
+    emit('close')
+  } catch (e) {
+    console.error('Unpin error:', e)
+    alert('Не удалось открепить пост')
+  }
+}
 
 const handleBookmark = async () => {
   if (bookmarkLoading.value) return
