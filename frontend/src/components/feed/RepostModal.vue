@@ -42,61 +42,45 @@
             </div>
           </label>
 
-          <label class="option" :class="{ selected: destination === 'group' }">
-            <input type="radio" value="group" v-model="destination">
-            <span class="icon">👥</span>
-            <div class="option-content">
-              <span class="title">В группу</span>
-              <span class="desc">Выберите группу</span>
-            </div>
-          </label>
-
           <label class="option" :class="{ selected: destination === 'chat' }">
             <input type="radio" value="chat" v-model="destination">
             <span class="icon">💬</span>
             <div class="option-content">
-              <span class="title">В личные сообщения</span>
-              <span class="desc">Отправить другу</span>
+              <span class="title">В чат</span>
+              <span class="desc">Отправить в личку или группу</span>
             </div>
           </label>
-        </div>
-      </div>
-
-      <!-- Group Selector -->
-      <div v-if="destination === 'group'" class="selector-section">
-        <label>Выберите группу:</label>
-        <div class="groups-list">
-          <div
-            v-for="group in groups"
-            :key="group.id"
-            class="group-item"
-            :class="{ selected: selectedGroup?.id === group.id }"
-            @click="selectedGroup = group"
-          >
-            <img :src="group.avatar || defaultAvatar" class="avatar-sm">
-            <span>{{ group.name }}</span>
-          </div>
-          <div v-if="groups.length === 0" class="empty">
-            Вы не состоите в группах
-          </div>
         </div>
       </div>
 
       <!-- Chat Selector -->
       <div v-if="destination === 'chat'" class="selector-section">
         <label>Выберите чат:</label>
-        <div class="chats-list">
+        <div class="search-row">
+          <input
+            type="text"
+            v-model="chatSearch"
+            placeholder="Поиск чатов..."
+            class="search-input"
+          >
+        </div>
+        <div v-if="loadingChats" class="loading-chats">Загрузка...</div>
+        <div v-else class="chats-list">
           <div
-            v-for="chat in chats"
-            :key="chat.id"
+            v-for="chat in filteredChats"
+            :key="chat.id + '-' + chat.type"
             class="chat-item"
-            :class="{ selected: selectedChat?.id === chat.id }"
+            :class="{ selected: selectedChat?.id === chat.id && selectedChat?.type === chat.type }"
             @click="selectedChat = chat"
           >
             <img :src="chat.avatar || defaultAvatar" class="avatar-sm">
-            <span>{{ chat.name }}</span>
+            <div class="chat-item-info">
+              <span class="chat-item-name">{{ chat.name }}</span>
+              <span class="chat-item-type">{{ chat.type === 'private' ? 'Личный чат' : 'Группа' }}</span>
+            </div>
+            <span v-if="chat.is_online" class="online-dot"></span>
           </div>
-          <div v-if="chats.length === 0" class="empty">
+          <div v-if="filteredChats.length === 0" class="empty">
             Нет чатов
           </div>
         </div>
@@ -110,7 +94,7 @@
           :disabled="!canRepost || reposting"
           @click="submitRepost"
         >
-          {{ reposting ? 'Репост...' : 'Репостнуть' }}
+          {{ reposting ? 'Отправка...' : 'Репостнуть' }}
         </button>
       </div>
     </div>
@@ -118,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import apiClient from '@/api/client'
 
 interface Post {
@@ -129,16 +113,13 @@ interface Post {
   text: string
 }
 
-interface Group {
-  id: number
-  name: string
-  avatar: string | null
-}
-
 interface Chat {
   id: number
+  type: 'private' | 'group'
   name: string
   avatar: string | null
+  is_online?: boolean
+  members_count?: number
 }
 
 const props = defineProps<{
@@ -150,21 +131,28 @@ const emit = defineEmits<{
   reposted: [post: Post]
 }>()
 
-const defaultAvatar = '/img/default-avatar.svg'
+const defaultAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23333'/%3E%3C/svg%3E`
 
 const comment = ref('')
-const destination = ref<'feed' | 'group' | 'chat'>('feed')
-const selectedGroup = ref<Group | null>(null)
+const destination = ref<'feed' | 'chat'>('feed')
 const selectedChat = ref<Chat | null>(null)
-const groups = ref<Group[]>([])
 const chats = ref<Chat[]>([])
+const chatSearch = ref('')
+const loadingChats = ref(false)
 const reposting = ref(false)
 
 const canRepost = computed(() => {
   if (destination.value === 'feed') return true
-  if (destination.value === 'group') return selectedGroup.value !== null
   if (destination.value === 'chat') return selectedChat.value !== null
   return false
+})
+
+const filteredChats = computed(() => {
+  if (!chatSearch.value.trim()) return chats.value
+  const search = chatSearch.value.toLowerCase()
+  return chats.value.filter(chat => 
+    chat.name.toLowerCase().includes(search)
+  )
 })
 
 const truncateText = (text: string, length: number) => {
@@ -172,21 +160,15 @@ const truncateText = (text: string, length: number) => {
   return text.length > length ? text.substring(0, length) + '...' : text
 }
 
-const loadGroups = async () => {
-  try {
-    const response = await apiClient.get('/social/groups/my/')
-    groups.value = response.data.results || []
-  } catch (error) {
-    console.error('Error loading groups:', error)
-  }
-}
-
 const loadChats = async () => {
+  loadingChats.value = true
   try {
-    const response = await apiClient.get('/social/chats/')
-    chats.value = response.data.results || []
+    const response = await apiClient.get('/social/chats/for-forward/')
+    chats.value = response.data || []
   } catch (error) {
     console.error('Error loading chats:', error)
+  } finally {
+    loadingChats.value = false
   }
 }
 
@@ -196,17 +178,18 @@ const submitRepost = async () => {
   reposting.value = true
 
   try {
-    const data: any = {
-      comment: comment.value
-    }
-
-    if (destination.value === 'group' && selectedGroup.value) {
-      data.group_id = selectedGroup.value.id
+    if (destination.value === 'feed') {
+      // Репост в ленту
+      await apiClient.post(`/social/posts/${props.post.id}/repost/`, {
+        comment: comment.value
+      })
     } else if (destination.value === 'chat' && selectedChat.value) {
-      data.chat_id = selectedChat.value.id
+      // Пересылка в чат
+      await apiClient.post(`/social/chats/${selectedChat.value.id}/forward/`, {
+        post_id: props.post.id,
+        message: comment.value
+      })
     }
-
-    await apiClient.post(`/social/posts/${props.post.id}/repost/action/`, data)
     emit('reposted', props.post)
   } catch (error) {
     console.error('Error reposting:', error)
@@ -217,7 +200,6 @@ const submitRepost = async () => {
 }
 
 onMounted(() => {
-  loadGroups()
   loadChats()
 })
 </script>
@@ -464,6 +446,54 @@ onMounted(() => {
   color: #666;
   text-align: center;
   padding: 1rem;
+}
+
+.search-row {
+  margin-bottom: 0.75rem;
+}
+
+.search-input {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  color: #ddd;
+  font-size: 0.9rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.loading-chats {
+  color: #666;
+  text-align: center;
+  padding: 1rem;
+}
+
+.chat-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-item-name {
+  color: #ddd;
+}
+
+.chat-item-type {
+  color: #666;
+  font-size: 0.75rem;
+}
+
+.online-dot {
+  width: 8px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .modal-footer {

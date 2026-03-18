@@ -34,6 +34,8 @@
     </div>
 
     <div class="messages-container" ref="messagesContainer" :style="wallpaperStyle">
+      <!-- Псевдоэлемент для размытого фона -->
+      <div class="wallpaper-bg" :style="wallpaperBgStyle"></div>
       <!-- Панель закрепленных сообщений -->
       <div v-if="pinnedMessages.length > 0 && showPinnedBar" class="pinned-messages-bar">
         <span class="pinned-label">📌 Закреплено:</span>
@@ -284,6 +286,7 @@ const reconnectAttempts = ref(0)
 const availableChats = ref<any[]>([])
 const loadingChats = ref(false)
 const currentWallpaper = ref<any>(null)
+const currentTheme = ref<any>(null)
 
 // Контекстное меню + пикер реакций (единый блок)
 const contextMenu = ref({
@@ -322,8 +325,16 @@ const apiUrl = import.meta.env.VITE_API_URL || 'https://anisphere.ru'
 
 const chatName = computed(() => {
   if (!chat.value) return 'Загрузка...'
+  
+  // Если есть кастомное название (для личных чатов оно приходит в name)
+  if (chat.value.name && chat.value.type === 'private') {
+    // name уже содержит custom_name если он есть
+    const other = (chat.value as any).other_user 
+    return chat.value.name || other?.display_name || other?.username || 'Личный чат'
+  }
+  
   if (chat.value.user1 && chat.value.user2) {
-    // Try different fields for the other user
+    // Личный чат без кастомного названия
     const other = (chat.value as any).other_user 
       || (chat.value.user1?.id === authStore.user?.id ? chat.value.user2 : chat.value.user1)
     return other?.display_name || other?.username || 'Личный чат'
@@ -615,20 +626,24 @@ const loadChat = async () => {
       chat.value = response.data
       chat.value.type = (chat.value.user1 && chat.value.user2) ? 'private' : 'group'
       
-      // Загружаем обои
+      // Загружаем обои и тему параллельно
+      const chatType = chat.value.type
       try {
-        const wallpaperRes = await apiClient.get(`/social/chat-wallpapers/`, {
-          params: {
-            chat_id: chatId
-          }
-        })
-        const wallpaperData = wallpaperRes.data as any
-        const wallpapers = Array.isArray(wallpaperData) ? wallpaperData : (wallpaperData?.results || [])
-        if (wallpapers?.length > 0) {
-          currentWallpaper.value = wallpapers[0]
+        const [wallpaperRes, themeRes] = await Promise.allSettled([
+          apiClient.get(`/social/chat-settings/${chatType}/${chatId}/wallpaper/`),
+          apiClient.get(`/social/chat-settings/${chatType}/${chatId}/theme/`)
+        ])
+        
+        if (wallpaperRes.status === 'fulfilled' && wallpaperRes.value.data?.wallpaper) {
+          currentWallpaper.value = wallpaperRes.value.data.wallpaper
+        }
+        
+        if (themeRes.status === 'fulfilled' && themeRes.value.data?.theme) {
+          currentTheme.value = themeRes.value.data.theme
+          applyThemeToDom(themeRes.value.data.theme)
         }
       } catch (e) {
-        console.log('No wallpaper for this chat')
+        console.log('Error loading chat settings:', e)
       }
     }
   } catch (error) {
@@ -843,42 +858,168 @@ const scrollToMessage = (messageId: number) => {
 
 // Обработка изменений настроек
 const handleSettingsChanged = async (data: any) => {
-  if (data?.type === 'wallpaper' && data?.wallpaper) {
-    currentWallpaper.value = data.wallpaper
+  console.log('Settings changed:', data)
+  
+  if (data?.type === 'wallpaper') {
+    // Перезагружаем обои с сервера для получения актуальных данных
+    await loadWallpaper()
+  } else if (data?.type === 'theme') {
+    // Перезагружаем тему
+    await loadTheme()
+  } else if (data?.type === 'organize') {
+    // Обновляем настройки организации
+    await loadChat()
   } else if (data?.type === 'clear' || data?.type === 'restore') {
     messages.value = []
   } else if (data?.type === 'leave' || data?.type === 'delete') {
-    // Навигация обратно
     router.push('/chats')
   }
-  await loadChat()
 }
 
-// Стили обоев
+// Загрузка обоев
+const loadWallpaper = async () => {
+  const chatId = currentChatId.value
+  if (!chatId || !chat.value) return
+  
+  try {
+    const chatType = chat.value.type
+    const response = await apiClient.get(`/social/chat-settings/${chatType}/${chatId}/wallpaper/`)
+    const data = response.data as any
+    
+    if (data?.wallpaper) {
+      currentWallpaper.value = data.wallpaper
+      console.log('Wallpaper loaded:', currentWallpaper.value)
+    } else {
+      currentWallpaper.value = null
+    }
+  } catch (error) {
+    console.log('No wallpaper for this chat')
+    currentWallpaper.value = null
+  }
+}
+
+// Загрузка темы
+const loadTheme = async () => {
+  const chatId = currentChatId.value
+  if (!chatId || !chat.value) return
+  
+  try {
+    const chatType = chat.value.type
+    const response = await apiClient.get(`/social/chat-settings/${chatType}/${chatId}/theme/`)
+    const data = response.data as any
+    
+    if (data?.theme) {
+      currentTheme.value = data.theme
+      applyThemeToDom(data.theme)
+    } else {
+      currentTheme.value = null
+    }
+  } catch (error) {
+    console.log('No theme for this chat')
+    currentTheme.value = null
+  }
+}
+
+// Применение темы к DOM
+const applyThemeToDom = (theme: any) => {
+  if (!theme) return
+  const chatId = currentChatId.value
+  const root = document.documentElement
+  
+  // Цвета сообщений
+  if (theme.message_color_mine) root.style.setProperty(`--chat-msg-mine-bg`, theme.message_color_mine)
+  if (theme.message_color_other) root.style.setProperty(`--chat-msg-other-bg`, theme.message_color_other)
+  if (theme.message_text_color_mine) root.style.setProperty(`--chat-msg-mine-text`, theme.message_text_color_mine)
+  if (theme.message_text_color_other) root.style.setProperty(`--chat-msg-other-text`, theme.message_text_color_other)
+  
+  // Шрифт
+  if (theme.font_size_px) root.style.setProperty(`--chat-font-size`, theme.font_size_px + 'px')
+  if (theme.font_family) root.style.setProperty(`--chat-font-family`, theme.font_family)
+  if (theme.font_weight) root.style.setProperty(`--chat-font-weight`, theme.font_weight)
+  
+  // Пузыри
+  if (theme.bubble_border_radius) root.style.setProperty(`--chat-bubble-radius`, theme.bubble_border_radius + 'px')
+  if (theme.bubble_shadow !== undefined) root.style.setProperty(`--chat-bubble-shadow`, theme.bubble_shadow ? '0 2px 8px rgba(0,0,0,0.3)' : 'none')
+  
+  // Интерфейс
+  if (theme.background_color) root.style.setProperty(`--chat-bg`, theme.background_color)
+  if (theme.header_color) root.style.setProperty(`--chat-header-bg`, theme.header_color)
+  if (theme.input_color) root.style.setProperty(`--chat-input-bg`, theme.input_color)
+  if (theme.accent_color) root.style.setProperty(`--chat-accent`, theme.accent_color)
+}
+
+// Стили обоев - blur применяется к псевдоэлементу, а не к контейнеру
 const wallpaperStyle = computed(() => {
   if (!currentWallpaper.value) return {}
   
-  const wp = currentWallpaper.value
-  const intensity = (wp.wallpaper_intensity ?? 100) / 100
-  const blur = wp.wallpaper_blur ?? 0
+  const wp = currentWallpaper.value as any
   
   if (wp.wallpaper_type === 'solid') {
     return {
-      backgroundColor: wp.wallpaper_color,
-      opacity: intensity
+      '--wp-bg': wp.wallpaper_color || '#0f0f1a',
+      '--wp-blur': '0px',
+      '--wp-intensity': '1'
     }
   } else if (wp.wallpaper_type === 'gradient') {
+    const angle = wp.gradient_angle || 135
+    const color1 = wp.wallpaper_color || '#1a1a2e'
+    const color2 = wp.wallpaper_color2 || '#0f0f1a'
     return {
-      background: `linear-gradient(135deg, ${wp.wallpaper_color}, ${wp.wallpaper_color2 || '#2d2d2d'})`,
-      opacity: intensity
+      '--wp-bg': `linear-gradient(${angle}deg, ${color1}, ${color2})`,
+      '--wp-blur': '0px',
+      '--wp-intensity': '1'
     }
-  } else if (wp.wallpaper_type === 'image' && wp.wallpaper_image_url) {
+  } else if (wp.wallpaper_type === 'image') {
+    const imageUrl = wp.wallpaper_image_url || wp.wallpaper_image
+    if (imageUrl) {
+      const blur = wp.wallpaper_blur ?? 0
+      const intensity = (wp.wallpaper_intensity ?? 100) / 100
+      return {
+        '--wp-bg': `url(${imageUrl})`,
+        '--wp-blur': `${blur}px`,
+        '--wp-intensity': String(intensity)
+      }
+    }
+  } else if (wp.wallpaper_type === 'pattern') {
     return {
-      backgroundImage: `url(${wp.wallpaper_image_url})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      filter: blur > 0 ? `blur(${blur}px)` : 'none',
-      opacity: intensity
+      '--wp-bg': wp.wallpaper_color || '#0f0f1a',
+      '--wp-blur': '0px',
+      '--wp-intensity': '1'
+    }
+  }
+  
+  return {}
+})
+
+// Стили для фонового псевдоэлемента с blur
+const wallpaperBgStyle = computed(() => {
+  if (!currentWallpaper.value) return {}
+  
+  const wp = currentWallpaper.value as any
+  const blur = wp.wallpaper_blur ?? 0
+  const intensity = (wp.wallpaper_intensity ?? 100) / 100
+  
+  if (wp.wallpaper_type === 'image') {
+    const imageUrl = wp.wallpaper_image_url || wp.wallpaper_image
+    if (imageUrl) {
+      return {
+        backgroundImage: `url(${imageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        filter: blur > 0 ? `blur(${blur}px) brightness(${intensity})` : `brightness(${intensity})`
+      }
+    }
+  } else if (wp.wallpaper_type === 'gradient') {
+    const angle = wp.gradient_angle || 135
+    const color1 = wp.wallpaper_color || '#1a1a2e'
+    const color2 = wp.wallpaper_color2 || '#0f0f1a'
+    return {
+      background: `linear-gradient(${angle}deg, ${color1}, ${color2})`
+    }
+  } else if (wp.wallpaper_type === 'solid') {
+    return {
+      background: wp.wallpaper_color || '#0f0f1a'
     }
   }
   
@@ -1136,8 +1277,24 @@ watch(currentChatId, async (newId, oldId) => {
   overflow-y: auto;
   padding: 1rem;
   min-height: 0;
-  background: #0f0f0f;
+  background: var(--chat-bg, #0f0f0f);
+  position: relative;
 }
+
+/* Псевдоэлемент для размытого фона обоев */
+.wallpaper-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Контент сообщений поверх фона */
+.messages-container > *:not(.wallpaper-bg) {
+  position: relative;
+  z-index: 1;
+}
+
 .messages-list {
   display: flex;
   flex-direction: column;
@@ -1152,17 +1309,20 @@ watch(currentChatId, async (newId, oldId) => {
 .message-content {
   max-width: 70%;
   padding: 0.5rem 0.75rem;
-  border-radius: 1rem;
-  background: #2d2d2d;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  border-radius: var(--chat-bubble-radius, 1rem);
+  background: var(--chat-msg-other-bg, #2d2d2d);
+  color: var(--chat-msg-other-text, #ffffff);
+  box-shadow: var(--chat-bubble-shadow, 0 1px 2px rgba(0, 0, 0, 0.4));
+  font-size: var(--chat-font-size, 14px);
+  font-family: var(--chat-font-family, system-ui);
 }
 .own-message .message-content {
-  background: #1e7cff;
-  color: #fff;
+  background: var(--chat-msg-mine-bg, #1e7cff);
+  color: var(--chat-msg-mine-text, #fff);
 }
 .message-text {
   word-wrap: break-word;
-  color: #ffffff;
+  color: inherit;
   line-height: 1.4;
 }
 .message-image {

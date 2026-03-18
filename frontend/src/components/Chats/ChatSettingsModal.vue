@@ -2,2330 +2,1963 @@
   <Teleport to="body">
     <div class="modal-overlay" @click.self="$emit('close')">
       <div class="chat-settings-modal">
-        <!-- Sidebar -->
+
+        <!-- SIDEBAR -->
         <div class="settings-sidebar">
           <div class="sidebar-header">
-            <h3>Настройки чата</h3>
-            <button @click="$emit('close')" class="close-btn">
-              <XMarkIcon class="w-5 h-5" />
-            </button>
+            <div class="chat-info-row">
+              <img v-if="chatAvatar" :src="chatAvatar" class="chat-avatar-mini" />
+              <div v-else class="chat-avatar-mini avatar-placeholder">{{ (chatName || '?')[0] }}</div>
+              <div class="chat-meta">
+                <div class="chat-name-mini">{{ chatName }}</div>
+                <div class="chat-type-pill">{{ chatType === 'group' ? 'Группа' : 'Личный' }}</div>
+              </div>
+            </div>
+            <button @click="$emit('close')" class="close-btn">✕</button>
           </div>
 
           <nav class="sidebar-nav">
             <button
-              v-for="section in sections"
+              v-for="section in availableSections"
               :key="section.id"
               @click="activeSection = section.id"
               class="nav-item"
               :class="{ active: activeSection === section.id }"
             >
-              <component :is="section.icon" class="w-5 h-5" />
-              <span>{{ section.name }}</span>
+              <span class="nav-icon">{{ section.icon }}</span>
+              <span class="nav-label">{{ section.name }}</span>
             </button>
           </nav>
         </div>
 
-        <!-- Content -->
+        <!-- MAIN CONTENT -->
         <div class="settings-content">
           <div v-if="loading" class="loading-state">
             <div class="spinner"></div>
-            <span>Загрузка...</span>
+            <p>Загрузка настроек...</p>
           </div>
 
-          <!-- Обои -->
-          <div v-else-if="activeSection === 'wallpaper'" class="section">
-            <h2 class="section-title">Обои чата</h2>
+          <template v-else>
 
-            <div class="wallpaper-grid">
-              <div
-                v-for="preset in wallpaperPresets"
-                :key="preset.id"
-                @click="selectWallpaper(preset)"
-                class="wallpaper-item"
-                :class="{ active: currentWallpaperId === preset.id }"
-                :style="getWallpaperStyle(preset)"
-              >
-                <div v-if="preset.preset_name" class="preset-label">
-                  {{ preset.preset_name }}
+            <!-- ============ ОБОИ ============ -->
+            <section v-if="activeSection === 'wallpaper'" class="settings-section">
+              <div class="section-header">
+                <h2>🖼️ Обои чата</h2>
+                <button v-if="hasCustomWallpaper" @click="resetWallpaper" class="btn-ghost-sm">Сбросить</button>
+              </div>
+
+              <!-- Живой предпросмотр обоев -->
+              <div class="wallpaper-preview" :style="wallpaperPreviewStyle">
+                <div class="wp-msg wp-msg--other">
+                  <div class="wp-bubble" :style="otherBubbleStyle">Привет! 👋</div>
                 </div>
-                <CheckIcon v-if="currentWallpaperId === preset.id" class="w-6 h-6 check-icon" />
-              </div>
-            </div>
-
-            <div class="custom-wallpaper">
-              <h4>Свои обои</h4>
-
-              <div class="wallpaper-type-select">
-                <button
-                  v-for="type in wallpaperTypes"
-                  :key="type.value"
-                  @click="customWallpaper.wallpaper_type = type.value as 'solid' | 'gradient' | 'image'"
-                  :class="{ active: customWallpaper.wallpaper_type === type.value }"
-                >
-                  {{ type.label }}
-                </button>
-              </div>
-
-              <div v-if="customWallpaper.wallpaper_type === 'solid'" class="color-picker">
-                <label>Цвет</label>
-                <input type="color" v-model="customWallpaper.wallpaper_color" />
-              </div>
-
-              <div v-else-if="customWallpaper.wallpaper_type === 'gradient'" class="gradient-picker">
-                <div class="color-picker">
-                  <label>Цвет 1</label>
-                  <input type="color" v-model="customWallpaper.wallpaper_color" />
-                </div>
-                <div class="color-picker">
-                  <label>Цвет 2</label>
-                  <input type="color" v-model="customWallpaper.wallpaper_color2" />
+                <div class="wp-msg wp-msg--mine">
+                  <div class="wp-bubble" :style="mineBubbleStyle">Привет! Смотрю аниме 🎌</div>
                 </div>
               </div>
 
-              <div v-else-if="customWallpaper.wallpaper_type === 'image'" class="image-upload">
-                <input
-                  type="file"
-                  ref="wallpaperInput"
-                  @change="handleWallpaperUpload"
-                  accept="image/*"
-                  hidden
-                />
-                <button @click="wallpaperInput?.click()" class="upload-btn">
-                  <PhotoIcon class="w-5 h-5" />
-                  Загрузить изображение
-                </button>
-                <div v-if="wallpaperPreview" class="preview">
-                  <img :src="wallpaperPreview" alt="Preview" />
-                </div>
-              </div>
-
-              <div class="wallpaper-settings">
-                <div class="slider-setting">
-                  <label>Интенсивность: {{ customWallpaper.wallpaper_intensity }}%</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    v-model.number="customWallpaper.wallpaper_intensity"
-                  />
-                </div>
-                <div class="slider-setting">
-                  <label>Размытие: {{ customWallpaper.wallpaper_blur }}px</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="20"
-                    v-model.number="customWallpaper.wallpaper_blur"
-                  />
-                </div>
-              </div>
-
-              <button @click="applyCustomWallpaper" class="apply-btn" :disabled="saving">
-                {{ saving ? 'Сохранение...' : 'Применить' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Тема -->
-          <div v-else-if="activeSection === 'theme'" class="section">
-            <h2 class="section-title">Тема оформления</h2>
-
-            <div class="theme-options">
-              <div class="option-group">
-                <label>Тема</label>
-                <div class="theme-select">
-                  <button
-                    v-for="theme in themes"
-                    :key="theme.value"
-                    @click="currentTheme.theme = theme.value"
-                    :class="{ active: currentTheme.theme === theme.value }"
-                  >
-                    {{ theme.label }}
+              <!-- Тип обоев -->
+              <div class="field-group">
+                <label class="field-label">Тип</label>
+                <div class="type-tabs">
+                  <button v-for="wt in wallpaperTypeOptions" :key="wt.value"
+                    @click="wallpaperForm.wallpaper_type = wt.value"
+                    class="type-tab" :class="{ active: wallpaperForm.wallpaper_type === wt.value }">
+                    {{ wt.label }}
                   </button>
                 </div>
               </div>
 
-              <div class="option-group">
-                <label>Цвет сообщений</label>
-                <div class="color-options">
-                  <div class="color-picker">
-                    <span>Ваши сообщения</span>
-                    <input type="color" v-model="currentTheme.message_color" />
+              <!-- Сплошной цвет -->
+              <template v-if="wallpaperForm.wallpaper_type === 'solid'">
+                <div class="field-group">
+                  <label class="field-label">Цвет фона</label>
+                  <div class="color-row">
+                    <input type="color" v-model="wallpaperForm.wallpaper_color" class="color-picker-wide" />
+                    <input type="text" v-model="wallpaperForm.wallpaper_color" class="color-hex-input" placeholder="#1a1a2e" />
                   </div>
-                  <div class="color-picker">
-                    <span>Чужие сообщения</span>
-                    <input type="color" v-model="currentTheme.message_color_other" />
-                  </div>
-                </div>
-              </div>
-
-              <div class="option-group">
-                <label>Стиль пузырей</label>
-                <div class="bubble-styles">
-                  <button
-                    v-for="style in bubbleStyles"
-                    :key="style.value"
-                    @click="currentTheme.bubble_style = style.value"
-                    :class="{ active: currentTheme.bubble_style === style.value }"
-                  >
-                    {{ style.label }}
-                  </button>
-                </div>
-              </div>
-
-              <div class="option-group">
-                <label>Размер шрифта</label>
-                <div class="font-sizes">
-                  <button
-                    v-for="size in fontSizes"
-                    :key="size.value"
-                    @click="currentTheme.font_size = size.value"
-                    :class="{ active: currentTheme.font_size === size.value }"
-                  >
-                    {{ size.label }}
-                  </button>
-                </div>
-              </div>
-
-              <div class="option-group">
-                <label>Формат времени</label>
-                <div class="time-formats">
-                  <button
-                    v-for="format in timeFormats"
-                    :key="format.value"
-                    @click="currentTheme.time_format = format.value"
-                    :class="{ active: currentTheme.time_format === format.value }"
-                  >
-                    {{ format.label }}
-                  </button>
-                </div>
-              </div>
-
-              <div class="option-group">
-                <label>Анимации</label>
-                <div class="animation-settings">
-                  <ToggleSwitch 
-                    v-model="enableMessageAnimation" 
-                    label="Анимация сообщений" 
-                  />
-                  <ToggleSwitch 
-                    v-model="enableReactionAnimation" 
-                    label="Анимация реакций" 
-                  />
-                </div>
-              </div>
-
-              <div class="option-group">
-                <label>Набор эмодзи</label>
-                <div class="emoji-sets">
-                  <button
-                    v-for="set in emojiSets"
-                    :key="set.value"
-                    @click="currentTheme.emoji_set = set.value"
-                    :class="{ active: currentTheme.emoji_set === set.value }"
-                  >
-                    {{ set.label }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <button @click="saveTheme" class="save-btn" :disabled="saving">
-              {{ saving ? 'Сохранение...' : 'Сохранить тему' }}
-            </button>
-          </div>
-
-          <!-- Уведомления -->
-          <div v-else-if="activeSection === 'notifications'" class="section">
-            <h2 class="section-title">Уведомления</h2>
-
-            <div class="notification-settings">
-              <div class="setting-item">
-                <div class="setting-info">
-                  <span class="setting-name">Уведомления</span>
-                  <span class="setting-desc">Получать уведомления о новых сообщениях</span>
-                </div>
-                <ToggleSwitch v-model="notifications.enabled" />
-              </div>
-
-              <div v-if="notifications.enabled" class="setting-item">
-                <div class="setting-info">
-                  <span class="setting-name">Звук</span>
-                  <span class="setting-desc">Звуковое оповещение</span>
-                </div>
-                <ToggleSwitch v-model="notifications.sound" />
-              </div>
-
-              <div v-if="notifications.enabled" class="setting-item">
-                <div class="setting-info">
-                  <span class="setting-name">Превью сообщений</span>
-                  <span class="setting-desc">Показывать текст сообщения в уведомлении</span>
-                </div>
-                <ToggleSwitch v-model="notifications.preview" />
-              </div>
-
-              <div v-if="notifications.enabled" class="setting-item">
-                <div class="setting-info">
-                  <span class="setting-name">Только упоминания</span>
-                  <span class="setting-desc">Уведомлять только при упоминании @username</span>
-                </div>
-                <ToggleSwitch v-model="notifications.mentionsOnly" />
-              </div>
-
-              <div class="setting-item">
-                <div class="setting-info">
-                  <span class="setting-name">Отключить до</span>
-                  <span class="setting-desc">Временно отключить уведомления</span>
-                </div>
-                <select v-model="notifications.muteDuration" class="mute-select">
-                  <option value="">Не отключать</option>
-                  <option value="1h">На 1 час</option>
-                  <option value="8h">На 8 часов</option>
-                  <option value="1d">На 1 день</option>
-                  <option value="1w">На 1 неделю</option>
-                  <option value="always">Навсегда</option>
-                </select>
-              </div>
-            </div>
-
-            <button @click="saveNotifications" class="save-btn" :disabled="saving">
-              {{ saving ? 'Сохранение...' : 'Сохранить' }}
-            </button>
-          </div>
-
-          <!-- Теги -->
-          <div v-else-if="activeSection === 'tags'" class="section">
-            <h2 class="section-title">Теги чата</h2>
-
-            <div class="current-tags">
-              <div
-                v-for="tag in chatTags"
-                :key="tag.id"
-                class="tag-chip"
-                :style="{ backgroundColor: tag.color + '20', borderColor: tag.color }"
-              >
-                <span v-if="tag.emoji">{{ tag.emoji }}</span>
-                <span>{{ tag.name }}</span>
-                <button @click="removeTag(tag)" class="remove-tag">
-                  <XMarkIcon class="w-4 h-4" />
-                </button>
-              </div>
-              <div v-if="chatTags.length === 0" class="empty-tags">
-                Нет тегов
-              </div>
-            </div>
-
-            <div class="add-tag">
-              <h4>Создать новый тег</h4>
-              <div class="tag-form">
-                <input
-                  v-model="newTag.name"
-                  type="text"
-                  placeholder="Название тега"
-                  class="tag-input"
-                />
-                <div class="tag-colors">
-                  <button
-                    v-for="color in tagColors"
-                    :key="color"
-                    @click="newTag.color = color"
-                    class="color-btn"
-                    :style="{ backgroundColor: color }"
-                    :class="{ active: newTag.color === color }"
-                  />
-                </div>
-                <input
-                  v-model="newTag.emoji"
-                  type="text"
-                  placeholder="Эмодзи"
-                  class="emoji-input"
-                />
-                <button @click="createTag" class="create-tag-btn" :disabled="saving || !newTag.name.trim()">
-                  Создать
-                </button>
-              </div>
-            </div>
-
-            <div class="your-tags">
-              <h4>Ваши теги (нажмите, чтобы добавить к чату)</h4>
-              <div v-if="userTags.length === 0" class="empty-tags">
-                У вас пока нет тегов
-              </div>
-              <div v-else class="tags-list">
-                <div
-                  v-for="tag in userTags"
-                  :key="tag.id"
-                  @click="assignTag(tag)"
-                  class="tag-item"
-                  :style="{ borderColor: tag.color }"
-                >
-                  <span v-if="tag.emoji">{{ tag.emoji }}</span>
-                  <span>{{ tag.name }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Медленный режим -->
-          <div v-else-if="activeSection === 'slowmode'" class="section">
-            <h2 class="section-title">Медленный режим</h2>
-
-            <div class="slowmode-settings">
-              <div class="setting-item">
-                <div class="setting-info">
-                  <span class="setting-name">Медленный режим</span>
-                  <span class="setting-desc">Ограничить частоту отправки сообщений</span>
-                </div>
-                <ToggleSwitch v-model="slowMode.enabled" />
-              </div>
-
-              <div v-if="slowMode.enabled" class="slowmode-config">
-                <div class="option-group">
-                  <label>Задержка между сообщениями</label>
-                  <div class="delay-options">
-                    <button
-                      v-for="delay in delayOptions"
-                      :key="delay.value"
-                      @click="slowMode.delay = delay.value"
-                      :class="{ active: slowMode.delay === delay.value }"
-                    >
-                      {{ delay.label }}
+                  <div class="color-swatches">
+                    <button v-for="c in solidColorPresets" :key="c"
+                      @click="wallpaperForm.wallpaper_color = c"
+                      class="swatch" :style="{ background: c }"
+                      :class="{ 'swatch--active': wallpaperForm.wallpaper_color === c }">
                     </button>
                   </div>
                 </div>
+              </template>
 
-                <div class="setting-item">
-                  <div class="setting-info">
-                    <span class="setting-name">Исключить админов</span>
-                    <span class="setting-desc">Администраторы могут отправлять сообщения без ограничений</span>
+              <!-- Градиент -->
+              <template v-if="wallpaperForm.wallpaper_type === 'gradient'">
+                <div class="two-col">
+                  <div class="field-group">
+                    <label class="field-label">Цвет 1</label>
+                    <div class="color-row">
+                      <input type="color" v-model="wallpaperForm.wallpaper_color" class="color-picker-wide" />
+                      <input type="text" v-model="wallpaperForm.wallpaper_color" class="color-hex-input" />
+                    </div>
                   </div>
-                  <ToggleSwitch v-model="slowMode.exempt_admins" />
-                </div>
-
-                <div class="setting-item">
-                  <div class="setting-info">
-                    <span class="setting-name">Исключить модераторов</span>
-                    <span class="setting-desc">Модераторы могут отправлять сообщения без ограничений</span>
+                  <div class="field-group">
+                    <label class="field-label">Цвет 2</label>
+                    <div class="color-row">
+                      <input type="color" v-model="wallpaperForm.wallpaper_color2" class="color-picker-wide" />
+                      <input type="text" v-model="wallpaperForm.wallpaper_color2" class="color-hex-input" />
+                    </div>
                   </div>
-                  <ToggleSwitch v-model="slowMode.exempt_moderators" />
                 </div>
-              </div>
-            </div>
-
-            <button @click="saveSlowMode" class="save-btn" :disabled="saving">
-              {{ saving ? 'Сохранение...' : 'Сохранить' }}
-            </button>
-          </div>
-
-          <!-- Анти-спам -->
-          <div v-else-if="activeSection === 'antispam'" class="section">
-            <h2 class="section-title">Анти-спам</h2>
-
-            <div class="antispam-rules">
-              <div
-                v-for="rule in antiSpamRules"
-                :key="rule.id"
-                class="rule-item"
-              >
-                <div class="rule-header">
-                  <div class="rule-info">
-                    <span class="rule-name">{{ rule.rule_type_display }}</span>
-                    <span class="rule-desc">{{ getRuleDescription(rule) }}</span>
+                <div class="field-group">
+                  <label class="field-label">Угол: {{ wallpaperForm.gradient_angle }}°</label>
+                  <input type="range" v-model.number="wallpaperForm.gradient_angle" min="0" max="360" class="range-slider" />
+                  <div class="angle-presets">
+                    <button v-for="a in [0,45,90,135,180,225,270,315]" :key="a"
+                      @click="wallpaperForm.gradient_angle = a"
+                      class="angle-btn" :class="{ active: wallpaperForm.gradient_angle === a }">
+                      {{ a }}°
+                    </button>
                   </div>
-                  <ToggleSwitch v-model="rule.enabled" @change="updateRule(rule)" />
                 </div>
-                <div class="rule-actions">
-                  <button @click="editRule(rule)" class="edit-btn">
-                    <PencilIcon class="w-4 h-4" />
-                  </button>
-                  <button @click="deleteRule(rule)" class="delete-btn">
-                    <TrashIcon class="w-4 h-4" />
+                <div class="field-group">
+                  <label class="field-label">Готовые градиенты</label>
+                  <div class="gradient-presets">
+                    <button v-for="gp in gradientPresets" :key="gp.id"
+                      @click="applyGradientPreset(gp)"
+                      class="gradient-swatch"
+                      :style="{ background: `linear-gradient(135deg, ${gp.color1}, ${gp.color2})` }">
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Паттерн -->
+              <template v-if="wallpaperForm.wallpaper_type === 'pattern'">
+                <div class="field-group">
+                  <label class="field-label">Фон</label>
+                  <div class="color-row">
+                    <input type="color" v-model="wallpaperForm.wallpaper_color" class="color-picker-wide" />
+                    <input type="text" v-model="wallpaperForm.wallpaper_color" class="color-hex-input" />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Паттерн</label>
+                  <div class="pattern-grid">
+                    <button v-for="pt in patternTypes" :key="pt.value"
+                      @click="wallpaperForm.pattern_type = pt.value"
+                      class="pattern-btn" :class="{ active: wallpaperForm.pattern_type === pt.value }">
+                      {{ pt.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Цвет паттерна</label>
+                  <div class="color-row">
+                    <input type="color" v-model="wallpaperForm.pattern_color" class="color-picker-wide" />
+                    <input type="text" v-model="wallpaperForm.pattern_color" class="color-hex-input" />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Прозрачность: {{ wallpaperForm.pattern_opacity }}%</label>
+                  <input type="range" v-model.number="wallpaperForm.pattern_opacity" min="5" max="60" class="range-slider" />
+                </div>
+              </template>
+
+              <!-- Изображение -->
+              <template v-if="wallpaperForm.wallpaper_type === 'image'">
+                <div class="field-group">
+                  <label class="field-label">Изображение (до 5MB)</label>
+                  <div class="upload-zone"
+                    @click="triggerFileInput"
+                    @dragover.prevent
+                    @dragenter.prevent
+                    @drop.prevent="handleWallpaperDrop">
+                    <input ref="wallpaperFileRef" type="file" accept="image/*" @change="handleWallpaperFile" style="display:none" />
+                    <div v-if="wallpaperImagePreview" class="upload-preview">
+                      <img :src="wallpaperImagePreview" class="upload-preview-img" />
+                      <button @click.stop="clearWallpaperImage" class="clear-btn">✕</button>
+                    </div>
+                    <div v-else class="upload-placeholder">
+                      <div class="upload-icon-big">🖼️</div>
+                      <p>Нажмите или перетащите файл</p>
+                      <p class="upload-hint">JPG, PNG, WEBP — максимум 5MB</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Размытие: {{ wallpaperForm.wallpaper_blur }}px</label>
+                  <input type="range" v-model.number="wallpaperForm.wallpaper_blur" min="0" max="20" class="range-slider" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Яркость: {{ wallpaperForm.wallpaper_intensity }}%</label>
+                  <input type="range" v-model.number="wallpaperForm.wallpaper_intensity" min="20" max="100" class="range-slider" />
+                </div>
+              </template>
+
+              <!-- Готовые пресеты -->
+              <div class="field-group">
+                <label class="field-label">Готовые обои</label>
+                <div class="wallpaper-presets-grid">
+                  <button v-for="preset in wallpaperPresets" :key="preset.id"
+                    @click="applyWallpaperPreset(preset)"
+                    class="wp-preset" :style="getPresetStyle(preset)"
+                    :title="preset.name">
+                    <span class="wp-preset-name">{{ preset.name }}</span>
                   </button>
                 </div>
               </div>
 
-              <div v-if="antiSpamRules.length === 0" class="empty-state">
-                Нет правил анти-спама
-              </div>
-            </div>
-
-            <button @click="showCreateRule = true" class="add-rule-btn">
-              <PlusIcon class="w-5 h-5" />
-              Добавить правило
-            </button>
-          </div>
-
-          <!-- Запланированные сообщения -->
-          <div v-else-if="activeSection === 'scheduled'" class="section">
-            <h2 class="section-title">Запланированные сообщения</h2>
-
-            <div class="scheduled-list">
-              <div
-                v-for="msg in scheduledMessages"
-                :key="msg.id"
-                class="scheduled-item"
-              >
-                <div class="scheduled-info">
-                  <span class="scheduled-text">{{ msg.text?.substring(0, 50) ?? '' }}{{ (msg.text?.length ?? 0) > 50 ? '...' : '' }}</span>
-                  <span class="scheduled-time">
-                    {{ formatScheduledTime(msg.scheduled_at) }}
-                  </span>
-                </div>
-                <div class="scheduled-actions">
-                  <button @click="sendScheduledNow(msg)" class="send-btn">
-                    Отправить
-                  </button>
-                  <button @click="cancelScheduled(msg)" class="cancel-btn">
-                    Отменить
-                  </button>
-                </div>
-              </div>
-
-              <div v-if="scheduledMessages.length === 0" class="empty-state">
-                Нет запланированных сообщений
-              </div>
-            </div>
-
-            <button @click="showScheduleMessage = true" class="add-scheduled-btn">
-              <PlusIcon class="w-5 h-5" />
-              Запланировать сообщение
-            </button>
-          </div>
-
-          <!-- Резервные копии -->
-          <div v-else-if="activeSection === 'backups'" class="section">
-            <h2 class="section-title">Резервные копии</h2>
-
-            <div class="backups-list">
-              <div
-                v-for="backup in backups"
-                :key="backup.id"
-                class="backup-item"
-              >
-                <div class="backup-info">
-                  <span class="backup-date">{{ formatDate(backup.created_at) }}</span>
-                  <span class="backup-stats">
-                    {{ backup.messages_count }} сообщений • {{ backup.file_size_mb }} MB
-                  </span>
-                </div>
-                <div class="backup-actions">
-                  <button @click="downloadBackup(backup)" class="download-btn">
-                    <ArrowDownTrayIcon class="w-4 h-4" />
-                  </button>
-                  <button @click="restoreBackup(backup)" class="restore-btn">
-                    Восстановить
-                  </button>
-                </div>
-              </div>
-
-              <div v-if="backups.length === 0" class="empty-state">
-                Нет резервных копий
-              </div>
-            </div>
-
-            <button @click="createBackup" class="create-backup-btn" :disabled="creatingBackup">
-              <ArrowPathIcon class="w-5 h-5" />
-              {{ creatingBackup ? 'Создание...' : 'Создать резервную копию' }}
-            </button>
-          </div>
-
-          <!-- Danger Zone -->
-          <div v-else-if="activeSection === 'danger'" class="section danger-zone">
-            <h2 class="section-title text-red-500">Опасная зона</h2>
-
-            <div class="danger-actions">
-              <div class="danger-item">
-                <div class="danger-info">
-                  <span class="danger-name">Очистить историю</span>
-                  <span class="danger-desc">Удалить все сообщения в чате</span>
-                </div>
-                <button @click="clearHistory" class="danger-btn">
-                  Очистить
+              <div class="section-actions">
+                <button @click="saveWallpaper" class="btn-primary" :disabled="saving">
+                  <span v-if="saving" class="btn-spinner"></span>
+                  {{ saving ? 'Сохранение...' : '💾 Сохранить обои' }}
                 </button>
               </div>
+            </section>
 
-              <div class="danger-item">
-                <div class="danger-info">
-                  <span class="danger-name">Покинуть чат</span>
-                  <span class="danger-desc">Вы покинете этот чат</span>
-                </div>
-                <button @click="leaveChat" class="danger-btn">
-                  Покинуть
-                </button>
+            <!-- ============ ТЕМА ============ -->
+            <section v-if="activeSection === 'theme'" class="settings-section">
+              <div class="section-header">
+                <h2>🎨 Тема и стиль</h2>
+                <button @click="resetTheme" class="btn-ghost-sm">Сбросить</button>
               </div>
 
-              <div v-if="isOwner" class="danger-item">
-                <div class="danger-info">
-                  <span class="danger-name">Удалить чат</span>
-                  <span class="danger-desc">Это действие необратимо</span>
+              <!-- Предпросмотр -->
+              <div class="theme-preview-wrap">
+                <div class="theme-preview-chat" :style="{ background: themeForm.background_color }">
+                  <div class="tp-header" :style="{ background: themeForm.header_color }">
+                    <span>{{ chatName }}</span>
+                  </div>
+                  <div class="tp-messages">
+                    <div class="tp-row tp-row--other">
+                      <div class="tp-bubble" :style="otherBubblePreviewStyle">Привет!</div>
+                    </div>
+                    <div class="tp-row tp-row--mine">
+                      <div class="tp-bubble" :style="mineBubblePreviewStyle">Как дела? 😊</div>
+                    </div>
+                    <div class="tp-row tp-row--other">
+                      <div class="tp-bubble" :style="otherBubblePreviewStyle">Всё хорошо!</div>
+                    </div>
+                    <div class="tp-row tp-row--mine">
+                      <div class="tp-bubble" :style="mineBubblePreviewStyle">Смотрю аниме 🎌</div>
+                    </div>
+                  </div>
+                  <div class="tp-input" :style="{ background: themeForm.input_color }">
+                    <span :style="{ color: themeForm.input_text_color, opacity: 0.5 }">Написать...</span>
+                  </div>
                 </div>
-                <button @click="deleteChat" class="danger-btn critical">
-                  Удалить чат
+              </div>
+
+              <!-- Готовые темы -->
+              <div class="field-group">
+                <label class="field-label">Готовые темы</label>
+                <div class="theme-presets-grid">
+                  <button v-for="preset in themePresets" :key="preset.id"
+                    @click="applyThemePreset(preset)"
+                    class="theme-preset-btn"
+                    :class="{ active: currentPresetId === preset.id }">
+                    <div class="tpb-preview">
+                      <div class="tpb-mine" :style="{ background: preset.message_color_mine }"></div>
+                      <div class="tpb-other" :style="{ background: preset.message_color_other }"></div>
+                      <div class="tpb-bg" :style="{ background: preset.background_color || '#0f0f1a' }"></div>
+                    </div>
+                    <span class="tpb-name">{{ preset.name }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- ЦВЕТА СООБЩЕНИЙ -->
+              <div class="settings-group-card">
+                <div class="sgc-title">💬 Цвета сообщений</div>
+                <div class="two-col">
+                  <div class="field-group">
+                    <label class="field-label">Мои (фон)</label>
+                    <div class="color-row">
+                      <input type="color" v-model="themeForm.message_color_mine" class="color-picker-wide" />
+                      <input type="text" v-model="themeForm.message_color_mine" class="color-hex-input" />
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Чужие (фон)</label>
+                    <div class="color-row">
+                      <input type="color" v-model="themeForm.message_color_other" class="color-picker-wide" />
+                      <input type="text" v-model="themeForm.message_color_other" class="color-hex-input" />
+                    </div>
+                  </div>
+                </div>
+                <div class="two-col">
+                  <div class="field-group">
+                    <label class="field-label">Мои (текст)</label>
+                    <div class="color-row">
+                      <input type="color" v-model="themeForm.message_text_color_mine" class="color-picker-wide" />
+                      <input type="text" v-model="themeForm.message_text_color_mine" class="color-hex-input" />
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Чужие (текст)</label>
+                    <div class="color-row">
+                      <input type="color" v-model="themeForm.message_text_color_other" class="color-picker-wide" />
+                      <input type="text" v-model="themeForm.message_text_color_other" class="color-hex-input" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- СТИЛЬ ПУЗЫРЕЙ -->
+              <div class="settings-group-card">
+                <div class="sgc-title">💭 Пузыри сообщений</div>
+                <div class="field-group">
+                  <label class="field-label">Стиль</label>
+                  <div class="bubble-style-picker">
+                    <button v-for="bs in bubbleStyles" :key="bs.value"
+                      @click="themeForm.bubble_style = bs.value; themeForm.bubble_border_radius = bs.defaultRadius"
+                      class="bsp-item" :class="{ active: themeForm.bubble_style === bs.value }">
+                      <div class="bsp-demo" :style="{ borderRadius: bs.defaultRadius + 'px' }"></div>
+                      <span>{{ bs.label }}</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Скругление: {{ themeForm.bubble_border_radius }}px</label>
+                  <input type="range" v-model.number="themeForm.bubble_border_radius" min="0" max="32" class="range-slider" />
+                </div>
+                <div class="toggle-row">
+                  <div class="tr-info">
+                    <span class="tr-label">Тень пузырей</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" v-model="themeForm.bubble_shadow" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- ШРИФТЫ -->
+              <div class="settings-group-card">
+                <div class="sgc-title">🔤 Шрифт</div>
+                <div class="field-group">
+                  <label class="field-label">Гарнитура</label>
+                  <div class="font-family-list">
+                    <button v-for="ff in fontFamilies" :key="ff.value"
+                      @click="themeForm.font_family = ff.value"
+                      class="ff-btn" :class="{ active: themeForm.font_family === ff.value }"
+                      :style="{ fontFamily: ff.css }">
+                      {{ ff.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Размер</label>
+                  <div class="font-size-picker">
+                    <button v-for="fs in fontSizes" :key="fs.value"
+                      @click="themeForm.font_size = fs.value; themeForm.font_size_px = fs.px"
+                      class="fs-btn" :class="{ active: themeForm.font_size === fs.value }"
+                      :style="{ fontSize: fs.px + 'px' }">
+                      {{ fs.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Точный размер: {{ themeForm.font_size_px }}px</label>
+                  <input type="range" v-model.number="themeForm.font_size_px" min="10" max="22" class="range-slider" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Толщина: {{ themeForm.font_weight }}</label>
+                  <input type="range" v-model.number="themeForm.font_weight" min="300" max="700" step="100" class="range-slider" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Межстрочный: {{ themeForm.line_height }}</label>
+                  <input type="range" v-model.number="themeForm.line_height" min="1.2" max="2.2" step="0.1" class="range-slider" />
+                </div>
+              </div>
+
+              <!-- ЦВЕТА ИНТЕРФЕЙСА -->
+              <div class="settings-group-card">
+                <div class="sgc-title">🎨 Цвета интерфейса</div>
+                <div class="interface-colors-grid">
+                  <div v-for="ci in interfaceColors" :key="ci.key" class="ic-field">
+                    <label class="field-label">{{ ci.label }}</label>
+                    <div class="color-row">
+                      <input type="color" v-model="themeForm[ci.key as keyof typeof themeForm]" class="color-picker-wide" />
+                      <input type="text" v-model="themeForm[ci.key as keyof typeof themeForm]" class="color-hex-input" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ФОРМАТ ВРЕМЕНИ -->
+              <div class="settings-group-card">
+                <div class="sgc-title">🕐 Время</div>
+                <div class="field-group">
+                  <label class="field-label">Формат</label>
+                  <div class="type-tabs">
+                    <button @click="themeForm.time_format = '24h'" class="type-tab" :class="{ active: themeForm.time_format === '24h' }">24ч</button>
+                    <button @click="themeForm.time_format = '12h'" class="type-tab" :class="{ active: themeForm.time_format === '12h' }">12ч (AM/PM)</button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Цвет подписи времени</label>
+                  <input type="text" v-model="themeForm.time_color" class="text-field" placeholder="rgba(255,255,255,0.5)" />
+                </div>
+              </div>
+
+              <!-- АНИМАЦИИ -->
+              <div class="settings-group-card">
+                <div class="sgc-title">✨ Анимации</div>
+                <div class="field-group">
+                  <label class="field-label">Появление сообщений</label>
+                  <div class="type-tabs">
+                    <button v-for="a in messageAnimations" :key="a.value"
+                      @click="themeForm.message_animation = a.value"
+                      class="type-tab" :class="{ active: themeForm.message_animation === a.value }">
+                      {{ a.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Реакции</label>
+                  <div class="type-tabs">
+                    <button v-for="a in reactionAnimations" :key="a.value"
+                      @click="themeForm.reaction_animation = a.value"
+                      class="type-tab" :class="{ active: themeForm.reaction_animation === a.value }">
+                      {{ a.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Индикатор "печатает"</label>
+                  <div class="type-tabs">
+                    <button v-for="a in typingAnimations" :key="a.value"
+                      @click="themeForm.typing_animation = a.value"
+                      class="type-tab" :class="{ active: themeForm.typing_animation === a.value }">
+                      {{ a.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ЭМОДЗИ -->
+              <div class="settings-group-card">
+                <div class="sgc-title">😊 Эмодзи</div>
+                <div class="field-group">
+                  <label class="field-label">Набор</label>
+                  <div class="type-tabs">
+                    <button v-for="es in emojiSets" :key="es.value"
+                      @click="themeForm.emoji_set = es.value"
+                      class="type-tab" :class="{ active: themeForm.emoji_set === es.value }">
+                      {{ es.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Размер</label>
+                  <div class="type-tabs">
+                    <button v-for="es in emojiSizes" :key="es.value"
+                      @click="themeForm.emoji_size = es.value"
+                      class="type-tab" :class="{ active: themeForm.emoji_size === es.value }">
+                      {{ es.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ДОПОЛНИТЕЛЬНО -->
+              <div class="settings-group-card">
+                <div class="sgc-title">⚙️ Дополнительно</div>
+                <div class="toggle-list">
+                  <div v-for="tog in themeToggles" :key="tog.key" class="toggle-row">
+                    <div class="tr-info">
+                      <span class="tr-label">{{ tog.label }}</span>
+                      <span v-if="tog.desc" class="tr-desc">{{ tog.desc }}</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="themeForm[tog.key as keyof typeof themeForm]" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- КАСТОМНЫЙ CSS -->
+              <div class="settings-group-card">
+                <div class="sgc-title">💻 Кастомный CSS</div>
+                <textarea
+                  v-model="themeForm.custom_css"
+                  class="css-textarea"
+                  placeholder="/* Ваш CSS для тонкой настройки */"
+                  rows="5"
+                ></textarea>
+              </div>
+
+              <div class="section-actions">
+                <button @click="saveTheme" class="btn-primary" :disabled="saving">
+                  <span v-if="saving" class="btn-spinner"></span>
+                  {{ saving ? 'Сохранение...' : '💾 Сохранить тему' }}
                 </button>
               </div>
-            </div>
-          </div>
+            </section>
+
+            <!-- ============ УВЕДОМЛЕНИЯ ============ -->
+            <section v-if="activeSection === 'notifications'" class="settings-section">
+              <div class="section-header"><h2>🔔 Уведомления</h2></div>
+
+              <div class="settings-group-card">
+                <div class="toggle-list">
+                  <div class="toggle-row">
+                    <div class="tr-info">
+                      <span class="tr-label">Уведомления</span>
+                      <span class="tr-desc">Получать уведомления из этого чата</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="notifForm.notifications_enabled" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                  <template v-if="notifForm.notifications_enabled">
+                    <div v-if="chatType === 'group'" class="toggle-row">
+                      <div class="tr-info">
+                        <span class="tr-label">Только упоминания</span>
+                        <span class="tr-desc">Уведомлять только при @упоминании</span>
+                      </div>
+                      <label class="switch">
+                        <input type="checkbox" v-model="notifForm.mentions_only" />
+                        <span class="switch-slider"></span>
+                      </label>
+                    </div>
+                    <div class="toggle-row">
+                      <div class="tr-info"><span class="tr-label">Звук</span></div>
+                      <label class="switch">
+                        <input type="checkbox" v-model="notifForm.sound_enabled" />
+                        <span class="switch-slider"></span>
+                      </label>
+                    </div>
+                    <div class="toggle-row">
+                      <div class="tr-info"><span class="tr-label">Превью сообщения</span></div>
+                      <label class="switch">
+                        <input type="checkbox" v-model="notifForm.show_preview" />
+                        <span class="switch-slider"></span>
+                      </label>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="settings-group-card">
+                <div class="sgc-title">🔇 Заглушить</div>
+                <div class="mute-grid">
+                  <button v-for="opt in muteOptions" :key="opt.value"
+                    @click="muteChat(opt.value)"
+                    class="mute-btn" :class="{ active: currentMuteDuration === opt.value }">
+                    {{ opt.label }}
+                  </button>
+                </div>
+                <div v-if="notifForm.muted_until || notifForm.notifications_enabled === false" class="mute-status">
+                  <span>🔇 {{ notifForm.muted_until ? `Заглушено до ${formatMuteDate(notifForm.muted_until)}` : 'Навсегда заглушено' }}</span>
+                  <button @click="unmuteChat" class="btn-link">Включить звук</button>
+                </div>
+              </div>
+
+              <div class="section-actions">
+                <button @click="saveNotifSettings" class="btn-primary" :disabled="saving">
+                  {{ saving ? 'Сохранение...' : '💾 Сохранить' }}
+                </button>
+              </div>
+            </section>
+
+            <!-- ============ ОРГАНИЗАЦИЯ ============ -->
+            <section v-if="activeSection === 'organize'" class="settings-section">
+              <div class="section-header"><h2>📂 Организация</h2></div>
+
+              <div class="settings-group-card">
+                <div class="toggle-list">
+                  <div class="toggle-row">
+                    <div class="tr-info">
+                      <span class="tr-label">📌 Закрепить чат</span>
+                      <span class="tr-desc">Показывать вверху списка</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="organizeForm.is_pinned" @change="saveOrganizeSettings" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                  <div class="toggle-row">
+                    <div class="tr-info">
+                      <span class="tr-label">📦 Архивировать</span>
+                      <span class="tr-desc">Скрыть из основного списка</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="organizeForm.is_archived" @change="saveOrganizeSettings" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                  <div v-if="chatType === 'private'" class="toggle-row">
+                    <div class="tr-info">
+                      <span class="tr-label">🙈 Скрыть чат</span>
+                      <span class="tr-desc">Не показывать в списке</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="organizeForm.is_hidden" @change="saveOrganizeSettings" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-group-card">
+                <div class="sgc-title">📁 Папка</div>
+                <select v-model="organizeForm.folder_id" class="select-field" @change="saveOrganizeSettings">
+                  <option :value="null">Без папки</option>
+                  <option v-for="folder in chatFolders" :key="folder.id" :value="folder.id">
+                    {{ folder.icon || '📁' }} {{ folder.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div v-if="chatType === 'private'" class="settings-group-card">
+                <div class="sgc-title">✏️ Кастомное название</div>
+                <div class="field-group">
+                  <input v-model="organizeForm.custom_name" class="text-field"
+                    placeholder="Персональное название..." maxlength="255" />
+                  <p class="field-hint">Видно только вам</p>
+                </div>
+                <button @click="saveOrganizeSettings" class="btn-secondary">Сохранить</button>
+              </div>
+
+              <div v-if="chatType === 'private'" class="settings-group-card">
+                <div class="sgc-title">🗑️ Автоудаление</div>
+                <div class="toggle-row">
+                  <div class="tr-info">
+                    <span class="tr-label">Автоудаление сообщений</span>
+                    <span class="tr-desc">Удалять старые сообщения автоматически</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" v-model="organizeForm.auto_delete_enabled" @change="saveOrganizeSettings" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div v-if="organizeForm.auto_delete_enabled" class="field-group mt-3">
+                  <label class="field-label">Через {{ organizeForm.auto_delete_after }} дней</label>
+                  <input type="range" v-model.number="organizeForm.auto_delete_after"
+                    min="1" max="365" class="range-slider" @change="saveOrganizeSettings" />
+                </div>
+              </div>
+            </section>
+
+            <!-- ============ ПРИВАТНОСТЬ ============ -->
+            <section v-if="activeSection === 'privacy' && chatType === 'private'" class="settings-section">
+              <div class="section-header"><h2>🔒 Приватность</h2></div>
+
+              <div class="settings-group-card">
+                <div class="danger-row">
+                  <div class="dr-info">
+                    <span class="dr-title">{{ privacyForm.is_blocked ? '✅ Разблокировать' : '🚫 Заблокировать пользователя' }}</span>
+                    <span class="dr-desc">{{ privacyForm.is_blocked ? 'Снять блокировку' : 'Пользователь не сможет писать вам' }}</span>
+                  </div>
+                  <button v-if="!privacyForm.is_blocked" @click="blockUser" class="danger-btn">Заблокировать</button>
+                  <button v-else @click="unblockUser" class="btn-secondary">Разблокировать</button>
+                </div>
+              </div>
+
+              <div class="settings-group-card danger-card">
+                <div class="sgc-title" style="color:#ef4444">⚠️ Опасная зона</div>
+                <div class="danger-list">
+                  <div class="danger-row">
+                    <div class="dr-info">
+                      <span class="dr-title">Очистить историю</span>
+                      <span class="dr-desc">Удалить все сообщения только для вас</span>
+                    </div>
+                    <button @click="clearHistory" class="danger-btn">Очистить</button>
+                  </div>
+                  <div class="danger-row">
+                    <div class="dr-info">
+                      <span class="dr-title">Удалить чат</span>
+                      <span class="dr-desc">Безвозвратное удаление переписки</span>
+                    </div>
+                    <button @click="deleteChat" class="danger-btn danger-btn--critical">Удалить</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ============ МОДЕРАЦИЯ ============ -->
+            <section v-if="activeSection === 'moderation' && chatType === 'group'" class="settings-section">
+              <div class="section-header"><h2>🛡️ Модерация</h2></div>
+
+              <div class="settings-group-card">
+                <div class="sgc-title">⏱️ Медленный режим</div>
+                <div class="toggle-row">
+                  <div class="tr-info">
+                    <span class="tr-label">Медленный режим</span>
+                    <span class="tr-desc">Ограничение частоты сообщений</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" v-model="groupSettings.slow_mode_enabled" @change="saveGroupSettings" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div v-if="groupSettings.slow_mode_enabled" class="field-group mt-3">
+                  <label class="field-label">Задержка: {{ groupSettings.slow_mode_delay }}с</label>
+                  <input type="range" v-model.number="groupSettings.slow_mode_delay"
+                    min="5" max="3600" class="range-slider" @change="saveGroupSettings" />
+                  <div class="slow-presets">
+                    <button v-for="d in [5,10,30,60,300,3600]" :key="d"
+                      @click="groupSettings.slow_mode_delay = d; saveGroupSettings()"
+                      class="slow-preset-btn"
+                      :class="{ active: groupSettings.slow_mode_delay === d }">
+                      {{ formatDelay(d) }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-group-card">
+                <div class="sgc-title">✉️ Разрешённый контент</div>
+                <div class="toggle-list">
+                  <div v-for="perm in contentPermissions" :key="perm.key" class="toggle-row">
+                    <div class="tr-info"><span class="tr-label">{{ perm.label }}</span></div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="groupSettings[perm.key as keyof typeof groupSettings]" @change="saveGroupSettings" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-group-card">
+                <div class="sgc-title">🔐 Приватность группы</div>
+                <div class="toggle-list">
+                  <div class="toggle-row">
+                    <div class="tr-info">
+                      <span class="tr-label">Скрыть список участников</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="groupSettings.has_hidden_members" @change="saveGroupSettings" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                  <div class="toggle-row">
+                    <div class="tr-info">
+                      <span class="tr-label">Запретить сохранение медиа</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="groupSettings.restrict_saving_content" @change="saveGroupSettings" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </template>
         </div>
 
-        <!-- Toast -->
-        <Transition name="toast">
-          <div v-if="toast.show" class="toast" :class="toast.type">
-            {{ toast.message }}
-          </div>
-        </Transition>
-
-        <!-- Modals -->
-        <AntiSpamRuleModal
-          v-if="showCreateRule || editingRule"
-          :rule="editingRule"
-          :chat-id="chatId"
-          @close="closeRuleModal"
-          @save="handleRuleSave"
-        />
-
-        <ScheduleMessageModal
-          v-if="showScheduleMessage"
-          :chat-id="chatId"
-          :chat-type="chatType"
-          @close="showScheduleMessage = false"
-          @scheduled="handleScheduled"
-        />
       </div>
     </div>
+
+    <!-- Toast уведомление -->
+    <Transition name="toast-anim">
+      <div v-if="toast.show" class="global-toast" :class="`toast-${toast.type}`">
+        {{ toast.message }}
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import {
-  XMarkIcon,
-  PhotoIcon,
-  PencilIcon,
-  TrashIcon,
-  PlusIcon,
-  ArrowDownTrayIcon,
-  ArrowPathIcon,
-  BellIcon,
-  PaintBrushIcon,
-  TagIcon,
-  ClockIcon,
-  ShieldCheckIcon,
-  CalendarIcon,
-  ArchiveBoxIcon,
-  ExclamationTriangleIcon,
-  CheckIcon
-} from '@heroicons/vue/24/outline'
-import ToggleSwitch from '@/components/ui/ToggleSwitch.vue'
-import AntiSpamRuleModal from './AntiSpamRuleModal.vue'
-import ScheduleMessageModal from './ScheduleMessageModal.vue'
+import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/api/client'
 
-interface Props {
-  chatId: number
-  chatType: 'group' | 'private'
-  isOwner?: boolean
-}
-
-const props = defineProps<Props>()
-const emit = defineEmits(['close', 'settings-changed'])
-
-// State
-const activeSection = ref('wallpaper')
-const loading = ref(true)
-const saving = ref(false)
-const wallpaperInput = ref<HTMLInputElement | null>(null)
-
-const toast = ref({
-  show: false,
-  message: '',
-  type: 'success' as 'success' | 'error'
-})
-
-// Sections
-const sections = [
-  { id: 'wallpaper', name: 'Обои', icon: PaintBrushIcon },
-  { id: 'theme', name: 'Тема', icon: PaintBrushIcon },
-  { id: 'notifications', name: 'Уведомления', icon: BellIcon },
-  { id: 'tags', name: 'Теги', icon: TagIcon },
-  { id: 'slowmode', name: 'Медленный режим', icon: ClockIcon },
-  { id: 'antispam', name: 'Анти-спам', icon: ShieldCheckIcon },
-  { id: 'scheduled', name: 'Запланированные', icon: CalendarIcon },
-  { id: 'backups', name: 'Резервные копии', icon: ArchiveBoxIcon },
-  { id: 'danger', name: 'Опасная зона', icon: ExclamationTriangleIcon }
-]
-
-// Types
-interface ChatWallpaper {
-  id: number
-  wallpaper_type: 'solid' | 'gradient' | 'pattern' | 'image'
-  wallpaper_color: string
-  wallpaper_color2?: string
-  wallpaper_intensity: number
-  wallpaper_blur: number
-  wallpaper_motion: string
-  wallpaper_image?: string
-  wallpaper_image_url?: string
-  is_preset: boolean
-  preset_name?: string
-  created_at: string
-}
-
-interface ChatTheme {
-  id?: number
+interface ThemeForm {
   theme: string
-  message_color: string
+  message_color_mine: string
   message_color_other: string
+  message_text_color_mine: string
+  message_text_color_other: string
   bubble_style: string
+  bubble_border_radius: number
+  bubble_shadow: boolean
+  font_family: string
   font_size: string
+  font_size_px: number
+  font_weight: number
+  line_height: number
   time_format: string
+  time_color: string
+  background_color: string
+  header_color: string
+  input_color: string
+  input_text_color: string
+  accent_color: string
+  link_color: string
   message_animation: string
   reaction_animation: string
+  typing_animation: string
   emoji_set: string
   emoji_size: string
-  chat?: number
-  private_chat?: number
+  show_avatars: boolean
+  show_usernames: boolean
+  compact_mode: boolean
+  show_read_status: boolean
+  show_typing_indicator: boolean
+  message_grouping: boolean
+  custom_css: string
+  [key: string]: any
 }
 
-interface ChatTag {
-  id: number
-  name: string
-  color: string
-  emoji?: string
+interface GroupSettingsForm {
+  slow_mode_enabled: boolean
+  slow_mode_delay: number
+  has_hidden_members: boolean
+  restrict_saving_content: boolean
+  can_send_media: boolean
+  can_send_stickers: boolean
+  can_send_polls: boolean
+  can_invite_users: boolean
+  can_pin_messages: boolean
+  [key: string]: any
 }
 
-interface AntiSpamRule {
-  id: number
-  chat: number
-  rule_type: string
-  rule_type_display: string
-  threshold: number
-  time_window: number
-  action: string
-  action_display: string
-  enabled: boolean
-  created_at: string
-  updated_at: string
-}
+const props = defineProps<{
+  chatId: number
+  chatType: 'group' | 'private'
+  chatName?: string
+  chatAvatar?: string
+  isAdmin?: boolean
+  isOwner?: boolean
+}>()
 
-interface ChatBackup {
-  id: number
-  messages_count: number
-  file_size_mb: number
-  created_at: string
-}
+const emit = defineEmits<{
+  close: []
+  'settings-saved': [payload: any]
+}>()
 
-interface ScheduledMessage {
-  id: number
-  text?: string
-  scheduled_at: string
-  status: string
-}
+// ── State ──
+const loading = ref(true)
+const saving = ref(false)
+const activeSection = ref('wallpaper')
+const toast = ref({ show: false, message: '', type: 'success' })
+const hasCustomWallpaper = ref(false)
+const currentPresetId = ref<string | null>(null)
+const currentMuteDuration = ref<number | null>(null)
 
-// Wallpaper
-const wallpaperPresets = ref<ChatWallpaper[]>([])
-const currentWallpaperId = ref<number | null>(null)
-const wallpaperPreview = ref<string | null>(null)
+// ── File upload ──
+const wallpaperFileRef = ref<HTMLInputElement | null>(null)
+const wallpaperImagePreview = ref<string | null>(null)
+const wallpaperImageFile = ref<File | null>(null)
 
-const customWallpaper = ref({
-  wallpaper_type: 'solid' as 'solid' | 'gradient' | 'image',
-  wallpaper_color: '#1a1a1a',
-  wallpaper_color2: '#2d2d2d',
+// ── Data ──
+const wallpaperPresets = ref<any[]>([])
+const themePresets = ref<any[]>([])
+const chatFolders = ref<any[]>([])
+
+// ── Forms ──
+const wallpaperForm = ref({
+  wallpaper_type: 'solid',
+  wallpaper_color: '#0f0f1a',
+  wallpaper_color2: '#1a1a2e',
   wallpaper_intensity: 100,
   wallpaper_blur: 0,
-  wallpaper_motion: 'none'
+  wallpaper_motion: 'none',
+  gradient_angle: 135,
+  pattern_type: 'dots',
+  pattern_color: '#3b82f6',
+  pattern_opacity: 15,
 })
 
-const wallpaperTypes = [
-  { value: 'solid', label: 'Заливка' },
-  { value: 'gradient', label: 'Градиент' },
-  { value: 'image', label: 'Изображение' }
-]
-
-// Theme
-const currentTheme = ref<Partial<ChatTheme>>({
+const themeForm = ref<ThemeForm>({
   theme: 'default',
-  message_color: '#3b82f6',
-  message_color_other: '#2a2a2a',
+  message_color_mine: '#3b82f6',
+  message_color_other: '#1e1e32',
+  message_text_color_mine: '#ffffff',
+  message_text_color_other: '#e2e8f0',
   bubble_style: 'modern',
+  bubble_border_radius: 18,
+  bubble_shadow: false,
+  font_family: 'system',
   font_size: 'medium',
+  font_size_px: 14,
+  font_weight: 400,
+  line_height: 1.5,
   time_format: '24h',
+  time_color: 'rgba(255,255,255,0.5)',
+  background_color: '#0f0f1a',
+  header_color: '#1a1a2e',
+  input_color: '#1e1e32',
+  input_text_color: '#e2e8f0',
+  accent_color: '#3b82f6',
+  link_color: '#60a5fa',
   message_animation: 'slide',
   reaction_animation: 'bounce',
+  typing_animation: 'dots',
   emoji_set: 'default',
-  emoji_size: 'medium'
+  emoji_size: 'medium',
+  show_avatars: true,
+  show_usernames: true,
+  compact_mode: false,
+  show_read_status: true,
+  show_typing_indicator: true,
+  message_grouping: true,
+  custom_css: '',
 })
 
-const themes = [
-  { value: 'default', label: 'По умолчанию' },
-  { value: 'dark', label: 'Тёмная' },
-  { value: 'light', label: 'Светлая' },
-  { value: 'anime', label: 'Аниме' }
+const notifForm = ref({
+  notifications_enabled: true,
+  mentions_only: false,
+  sound_enabled: true,
+  show_preview: true,
+  muted_until: null as string | null,
+})
+
+const organizeForm = ref({
+  is_pinned: false,
+  is_archived: false,
+  is_hidden: false,
+  custom_name: '',
+  folder_id: null as number | null,
+  auto_delete_enabled: false,
+  auto_delete_after: 30,
+})
+
+const privacyForm = ref({ is_blocked: false })
+
+const groupSettings = ref<GroupSettingsForm>({
+  slow_mode_enabled: false,
+  slow_mode_delay: 30,
+  has_hidden_members: false,
+  restrict_saving_content: false,
+  can_send_media: true,
+  can_send_stickers: true,
+  can_send_polls: true,
+  can_invite_users: true,
+  can_pin_messages: true,
+})
+
+// ── Computed ──
+const availableSections = computed(() => {
+  const s = [
+    { id: 'wallpaper', name: 'Обои', icon: '🖼️' },
+    { id: 'theme', name: 'Тема', icon: '🎨' },
+    { id: 'notifications', name: 'Уведомления', icon: '🔔' },
+    { id: 'organize', name: 'Организация', icon: '📂' },
+  ]
+  if (props.chatType === 'private') s.push({ id: 'privacy', name: 'Приватность', icon: '🔒' })
+  if (props.chatType === 'group' && (props.isAdmin || props.isOwner))
+    s.push({ id: 'moderation', name: 'Модерация', icon: '🛡️' })
+  return s
+})
+
+const apiBase = computed(() => `/social/chat-settings/${props.chatType}/${props.chatId}`)
+
+const bubbleRadiusVal = computed(() => {
+  const map: Record<string, number> = { modern: 18, classic: 4, rounded: 24, flat: 8, minimal: 2 }
+  return map[themeForm.value.bubble_style] ?? themeForm.value.bubble_border_radius
+})
+
+const fontFamilyCSS = computed(() => {
+  const map: Record<string, string> = {
+    system: 'system-ui,-apple-system,sans-serif',
+    inter: 'Inter,sans-serif',
+    roboto: 'Roboto,sans-serif',
+    nunito: 'Nunito,sans-serif',
+    montserrat: 'Montserrat,sans-serif',
+    opensans: '"Open Sans",sans-serif',
+  }
+  return map[themeForm.value.font_family] || 'system-ui'
+})
+
+const wallpaperPreviewStyle = computed(() => {
+  const f = wallpaperForm.value
+  if (f.wallpaper_type === 'solid') return { background: f.wallpaper_color, minHeight: '120px', borderRadius: '10px' }
+  if (f.wallpaper_type === 'gradient') {
+    const c2 = f.wallpaper_color2 || f.wallpaper_color
+    return { background: `linear-gradient(${f.gradient_angle}deg, ${f.wallpaper_color}, ${c2})`, minHeight: '120px', borderRadius: '10px' }
+  }
+  if (f.wallpaper_type === 'image' && wallpaperImagePreview.value) {
+    return {
+      backgroundImage: `url(${wallpaperImagePreview.value})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      minHeight: '120px',
+      borderRadius: '10px',
+      filter: `blur(${f.wallpaper_blur * 0.3}px) brightness(${f.wallpaper_intensity / 100})`,
+    }
+  }
+  return { background: '#0f0f1a', minHeight: '120px', borderRadius: '10px' }
+})
+
+const mineBubbleStyle = computed(() => ({
+  background: themeForm.value.message_color_mine,
+  color: themeForm.value.message_text_color_mine,
+  borderRadius: bubbleRadiusVal.value + 'px',
+  fontFamily: fontFamilyCSS.value,
+  fontSize: themeForm.value.font_size_px + 'px',
+  padding: '6px 12px',
+  display: 'inline-block',
+  maxWidth: '80%',
+}))
+
+const otherBubbleStyle = computed(() => ({
+  background: themeForm.value.message_color_other,
+  color: themeForm.value.message_text_color_other,
+  borderRadius: bubbleRadiusVal.value + 'px',
+  fontFamily: fontFamilyCSS.value,
+  fontSize: themeForm.value.font_size_px + 'px',
+  padding: '6px 12px',
+  display: 'inline-block',
+  maxWidth: '80%',
+}))
+
+const mineBubblePreviewStyle = computed(() => ({
+  ...mineBubbleStyle.value,
+  boxShadow: themeForm.value.bubble_shadow ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
+}))
+
+const otherBubblePreviewStyle = computed(() => ({
+  ...otherBubbleStyle.value,
+  boxShadow: themeForm.value.bubble_shadow ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
+}))
+
+// ── Static data ──
+const wallpaperTypeOptions = [
+  { value: 'solid', label: '🎨 Цвет' },
+  { value: 'gradient', label: '🌈 Градиент' },
+  { value: 'pattern', label: '🔷 Паттерн' },
+  { value: 'image', label: '🖼️ Картинка' },
+]
+
+const solidColorPresets = [
+  '#0f0f1a','#1a1a2e','#1c1c1c','#0f172a','#1e1b4b',
+  '#14532d','#7f1d1d','#1e3a5f','#2d1b69','#000000',
+]
+
+const gradientPresets = [
+  { id:'g1', color1:'#1a1a2e', color2:'#16213e' },
+  { id:'g2', color1:'#831843', color2:'#9a3412' },
+  { id:'g3', color1:'#14532d', color2:'#134e4a' },
+  { id:'g4', color1:'#4c1d95', color2:'#831843' },
+  { id:'g5', color1:'#0c4a6e', color2:'#1e1b4b' },
+  { id:'g6', color1:'#1e1b4b', color2:'#312e81' },
+  { id:'g7', color1:'#1a1a2e', color2:'#4c1d95' },
+  { id:'g8', color1:'#0a0a1a', color2:'#1a1a3e' },
+]
+
+const patternTypes = [
+  { value:'dots', label:'Точки' },
+  { value:'grid', label:'Сетка' },
+  { value:'waves', label:'Волны' },
+  { value:'hexagon', label:'Соты' },
+  { value:'triangles', label:'Треугольники' },
 ]
 
 const bubbleStyles = [
-  { value: 'modern', label: 'Современный' },
-  { value: 'classic', label: 'Классический' },
-  { value: 'rounded', label: 'Округлый' }
+  { value:'modern', label:'Модерн', defaultRadius: 18 },
+  { value:'classic', label:'Классика', defaultRadius: 4 },
+  { value:'rounded', label:'Округлый', defaultRadius: 24 },
+  { value:'flat', label:'Плоский', defaultRadius: 8 },
+  { value:'minimal', label:'Минимал', defaultRadius: 2 },
+]
+
+const fontFamilies = [
+  { value:'system', label:'Системный', css:'system-ui' },
+  { value:'inter', label:'Inter', css:'Inter' },
+  { value:'roboto', label:'Roboto', css:'Roboto' },
+  { value:'nunito', label:'Nunito', css:'Nunito' },
+  { value:'montserrat', label:'Montserrat', css:'Montserrat' },
 ]
 
 const fontSizes = [
-  { value: 'small', label: 'Мелкий' },
-  { value: 'medium', label: 'Средний' },
-  { value: 'large', label: 'Крупный' }
+  { value:'small', label:'Маленький', px: 12 },
+  { value:'medium', label:'Средний', px: 14 },
+  { value:'large', label:'Большой', px: 16 },
+  { value:'xlarge', label:'Очень большой', px: 18 },
 ]
 
-const timeFormats = [
-  { value: '12h', label: '12-часовой' },
-  { value: '24h', label: '24-часовой' }
+const interfaceColors = [
+  { key:'background_color', label:'Фон чата' },
+  { key:'header_color', label:'Шапка' },
+  { key:'input_color', label:'Поле ввода' },
+  { key:'input_text_color', label:'Текст ввода' },
+  { key:'accent_color', label:'Акцент' },
+  { key:'link_color', label:'Ссылки' },
+]
+
+const messageAnimations = [
+  { value:'slide', label:'Скольжение' },
+  { value:'fade', label:'Затухание' },
+  { value:'pop', label:'Появление' },
+  { value:'none', label:'Нет' },
+]
+
+const reactionAnimations = [
+  { value:'bounce', label:'Прыжок' },
+  { value:'scale', label:'Масштаб' },
+  { value:'none', label:'Нет' },
+]
+
+const typingAnimations = [
+  { value:'dots', label:'Точки' },
+  { value:'wave', label:'Волна' },
+  { value:'pulse', label:'Пульс' },
 ]
 
 const emojiSets = [
-  { value: 'default', label: 'Стандартные' },
-  { value: 'twitter', label: 'Twitter' },
-  { value: 'google', label: 'Google' },
-  { value: 'anime', label: 'Аниме' }
+  { value:'default', label:'Системные' },
+  { value:'twitter', label:'Twitter' },
+  { value:'google', label:'Google' },
+  { value:'anime', label:'Аниме' },
 ]
 
-const enableMessageAnimation = ref(true)
-const enableReactionAnimation = ref(true)
-
-// Notifications
-const notifications = ref({
-  enabled: true,
-  sound: true,
-  preview: true,
-  mentionsOnly: false,
-  muteDuration: ''
-})
-
-// Tags
-const chatTags = ref<ChatTag[]>([])
-const userTags = ref<ChatTag[]>([])
-const newTag = ref({
-  name: '',
-  color: '#3b82f6',
-  emoji: ''
-})
-
-const tagColors = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e',
-  '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280'
+const emojiSizes = [
+  { value:'small', label:'Маленький' },
+  { value:'medium', label:'Средний' },
+  { value:'large', label:'Большой' },
 ]
 
-// Slow Mode
-const slowMode = ref({
-  id: null as number | null,
-  enabled: false,
-  delay: 30,
-  exempt_admins: true,
-  exempt_moderators: true
-})
-
-const delayOptions = [
-  { value: 10, label: '10 сек' },
-  { value: 30, label: '30 сек' },
-  { value: 60, label: '1 мин' },
-  { value: 300, label: '5 мин' },
-  { value: 600, label: '10 мин' }
+const themeToggles = [
+  { key:'show_avatars', label:'Аватарки', desc:'' },
+  { key:'show_usernames', label:'Имена участников', desc:'' },
+  { key:'compact_mode', label:'Компактный режим', desc:'Уменьшает отступы' },
+  { key:'show_read_status', label:'Статус прочтения', desc:'' },
+  { key:'show_typing_indicator', label:'Индикатор печати', desc:'' },
+  { key:'message_grouping', label:'Группировка сообщений', desc:'Объединять подряд идущие' },
 ]
 
-// Anti-spam
-const antiSpamRules = ref<AntiSpamRule[]>([])
-const showCreateRule = ref(false)
-const editingRule = ref<AntiSpamRule | null>(null)
+const muteOptions = [
+  { label:'15 мин', value: 15 },
+  { label:'1 час', value: 60 },
+  { label:'8 часов', value: 480 },
+  { label:'2 дня', value: 2880 },
+  { label:'1 неделя', value: 10080 },
+  { label:'Навсегда', value: 0 },
+]
 
-// Scheduled messages
-const scheduledMessages = ref<ScheduledMessage[]>([])
-const showScheduleMessage = ref(false)
+const contentPermissions = [
+  { key:'can_send_media', label:'Медиафайлы' },
+  { key:'can_send_stickers', label:'Стикеры и GIF' },
+  { key:'can_send_polls', label:'Опросы' },
+  { key:'can_invite_users', label:'Приглашения' },
+  { key:'can_pin_messages', label:'Закрепление сообщений' },
+]
 
-// Backups
-const backups = ref<ChatBackup[]>([])
-const creatingBackup = ref(false)
-
-// Methods
-const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  toast.value = { show: true, message, type }
-  setTimeout(() => {
-    toast.value.show = false
-  }, 3000)
-}
-
-const getWallpaperStyle = (preset: ChatWallpaper) => {
-  if (preset.wallpaper_type === 'solid') {
-    return { backgroundColor: preset.wallpaper_color }
-  } else if (preset.wallpaper_type === 'gradient') {
-    return {
-      background: `linear-gradient(135deg, ${preset.wallpaper_color}, ${preset.wallpaper_color2 || '#2d2d2d'})`
-    }
-  }
-  return {}
-}
-
-// ==================== WALLPAPER ====================
-
-const selectWallpaper = async (preset: ChatWallpaper) => {
-  saving.value = true
-  try {
-    const response = await apiClient.put(`/social/chats/${props.chatId}/wallpaper/`, {
-      wallpaper_type: preset.wallpaper_type,
-      wallpaper_color: preset.wallpaper_color,
-      wallpaper_color2: preset.wallpaper_color2,
-      wallpaper_intensity: preset.wallpaper_intensity,
-      wallpaper_blur: preset.wallpaper_blur,
-      type: props.chatType
-    })
-    currentWallpaperId.value = response.data?.id || preset.id
-    showToast('Обои применены')
-    emit('settings-changed', { 
-      type: 'wallpaper', 
-      wallpaper: response.data || preset 
-    })
-  } catch (error: any) {
-    console.error('Error applying wallpaper:', error)
-    showToast(error.response?.data?.error || 'Ошибка применения обоев', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-const handleWallpaperUpload = (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      wallpaperPreview.value = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  }
-}
-
-const applyCustomWallpaper = async () => {
-  saving.value = true
-  try {
-    const response = await apiClient.put(`/social/chats/${props.chatId}/wallpaper/`, {
-      ...customWallpaper.value,
-      type: props.chatType
-    })
-    currentWallpaperId.value = response.data?.id || null
-    showToast('Обои применены')
-    emit('settings-changed', { 
-      type: 'wallpaper', 
-      wallpaper: response.data 
-    })
-  } catch (error: any) {
-    console.error('Error applying wallpaper:', error)
-    showToast(error.response?.data?.error || 'Ошибка применения обоев', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-// ==================== THEME ====================
-
-const saveTheme = async () => {
-  saving.value = true
-  try {
-    const data: any = {
-      ...currentTheme.value,
-      message_animation: enableMessageAnimation.value ? 'slide' : 'none',
-      reaction_animation: enableReactionAnimation.value ? 'bounce' : 'none'
-    }
-    
-    if (props.chatType === 'group') {
-      data.chat = props.chatId
-    } else {
-      data.private_chat = props.chatId
-    }
-    
-    // Проверяем, есть ли уже тема для этого чата
-    if (currentTheme.value?.id) {
-      await apiClient.patch(`/social/chat-themes/${currentTheme.value.id}/`, data)
-    } else {
-      const response = await apiClient.post('/social/chat-themes/', data)
-      currentTheme.value = response.data
-    }
-    
-    showToast('Тема сохранена')
-    emit('settings-changed', { type: 'theme' })
-  } catch (error: any) {
-    console.error('Error saving theme:', error)
-    showToast(error.response?.data?.error || 'Ошибка сохранения темы', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-// ==================== NOTIFICATIONS ====================
-
-const saveNotifications = async () => {
-  saving.value = true
-  try {
-    if (props.chatType === 'private') {
-      const data: any = {
-        user1_notifications: notifications.value.enabled
-      }
-      
-      if (notifications.value.muteDuration) {
-        const now = new Date()
-        let muteUntil: Date | null = null
-        
-        switch (notifications.value.muteDuration) {
-          case '1h':
-            muteUntil = new Date(now.getTime() + 60 * 60 * 1000)
-            break
-          case '8h':
-            muteUntil = new Date(now.getTime() + 8 * 60 * 60 * 1000)
-            break
-          case '1d':
-            muteUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-            break
-          case '1w':
-            muteUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-            break
-          case 'always':
-            muteUntil = new Date('2099-12-31')
-            break
-        }
-        
-        if (muteUntil) {
-          data.user1_muted_until = muteUntil.toISOString()
-        }
-      }
-      
-      await apiClient.patch(`/social/private-chats/${props.chatId}/`, data)
-    }
-    
-    showToast('Настройки уведомлений сохранены')
-    emit('settings-changed', { type: 'notifications' })
-  } catch (error: any) {
-    console.error('Error saving notifications:', error)
-    showToast(error.response?.data?.error || 'Ошибка сохранения', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-// ==================== TAGS ====================
-
-const createTag = async () => {
-  if (!newTag.value.name.trim()) return
-  
-  saving.value = true
-  try {
-    const response = await apiClient.post('/social/chat-tags/', newTag.value)
-    userTags.value.push(response.data)
-    newTag.value = { name: '', color: '#3b82f6', emoji: '' }
-    showToast('Тег создан')
-  } catch (error: any) {
-    console.error('Error creating tag:', error)
-    showToast(error.response?.data?.error || 'Ошибка создания тега', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-const assignTag = async (tag: ChatTag) => {
-  saving.value = true
-  try {
-    await apiClient.post('/social/chat-tag-assignments/', {
-      tag: tag.id,
-      group_chat: props.chatType === 'group' ? props.chatId : null,
-      private_chat: props.chatType === 'private' ? props.chatId : null
-    })
-    chatTags.value.push(tag)
-    showToast('Тег добавлен к чату')
-  } catch (error: any) {
-    console.error('Error assigning tag:', error)
-    showToast(error.response?.data?.error || 'Ошибка добавления тега', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-const removeTag = async (tag: ChatTag) => {
-  try {
-    const response = await apiClient.get('/social/chat-tag-assignments/', {
-      params: {
-        tag: tag.id,
-        group_chat: props.chatType === 'group' ? props.chatId : undefined,
-        private_chat: props.chatType === 'private' ? props.chatId : undefined
-      }
-    })
-    
-    const data = response.data as any
-    const assignments = Array.isArray(data) ? data : (data?.results || [])
-    
-    if (assignments.length > 0) {
-      await apiClient.delete(`/social/chat-tag-assignments/${assignments[0].id}/`)
-      chatTags.value = chatTags.value.filter(t => t.id !== tag.id)
-      showToast('Тег удалён')
-    }
-  } catch (error: any) {
-    console.error('Error removing tag:', error)
-    showToast(error.response?.data?.error || 'Ошибка удаления тега', 'error')
-  }
-}
-
-// ==================== SLOW MODE ====================
-
-const saveSlowMode = async () => {
-  saving.value = true
-  try {
-    if (slowMode.value.id) {
-      await apiClient.patch(`/social/chat-slow-modes/${slowMode.value.id}/`, slowMode.value)
-    } else {
-      const response = await apiClient.post('/social/chat-slow-modes/', {
-        chat: props.chatId,
-        ...slowMode.value
-      })
-      slowMode.value.id = response.data.id
-    }
-    showToast('Настройки медленного режима сохранены')
-    emit('settings-changed', { type: 'slowmode' })
-  } catch (error: any) {
-    console.error('Error saving slow mode:', error)
-    showToast(error.response?.data?.error || 'Ошибка сохранения', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-// ==================== ANTI-SPAM ====================
-
-const getRuleDescription = (rule: AntiSpamRule) => {
-  const descriptions: Record<string, string> = {
-    'flood': `${rule.threshold} сообщений за ${rule.time_window} сек`,
-    'spam': `${rule.threshold} одинаковых сообщений`,
-    'links': `${rule.threshold} ссылок за ${rule.time_window} сек`,
-    'mentions': `${rule.threshold} упоминаний за ${rule.time_window} сек`,
-    'caps': `${rule.threshold}% заглавных букв`
-  }
-  return descriptions[rule.rule_type] || ''
-}
-
-const updateRule = async (rule: AntiSpamRule) => {
-  try {
-    await apiClient.patch(`/social/anti-spam-rules/${rule.id}/`, {
-      enabled: rule.enabled
-    })
-    showToast(rule.enabled ? 'Правило включено' : 'Правило отключено')
-  } catch (error: any) {
-    console.error('Error updating rule:', error)
-    showToast(error.response?.data?.error || 'Ошибка обновления', 'error')
-  }
-}
-
-const editRule = (rule: AntiSpamRule) => {
-  editingRule.value = rule
-}
-
-const deleteRule = async (rule: AntiSpamRule) => {
-  if (!confirm('Удалить правило?')) return
-  
-  try {
-    await apiClient.delete(`/social/anti-spam-rules/${rule.id}/`)
-    antiSpamRules.value = antiSpamRules.value.filter(r => r.id !== rule.id)
-    showToast('Правило удалено')
-  } catch (error: any) {
-    console.error('Error deleting rule:', error)
-    showToast(error.response?.data?.error || 'Ошибка удаления', 'error')
-  }
-}
-
-const closeRuleModal = () => {
-  showCreateRule.value = false
-  editingRule.value = null
-}
-
-const handleRuleSave = (rule: AntiSpamRule) => {
-  const index = antiSpamRules.value.findIndex(r => r.id === rule.id)
-  if (index >= 0) {
-    antiSpamRules.value[index] = rule
-  } else {
-    antiSpamRules.value.push(rule)
-  }
-  closeRuleModal()
-}
-
-// ==================== SCHEDULED MESSAGES ====================
-
-const formatScheduledTime = (dateStr: string) => {
-  const date = new Date(dateStr)
-  return date.toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-const sendScheduledNow = async (msg: ScheduledMessage) => {
-  try {
-    await apiClient.post(`/social/scheduled-messages/${msg.id}/send_now/`)
-    scheduledMessages.value = scheduledMessages.value.filter(m => m.id !== msg.id)
-    showToast('Сообщение отправлено')
-  } catch (error: any) {
-    console.error('Error sending message:', error)
-    showToast(error.response?.data?.error || 'Ошибка отправки', 'error')
-  }
-}
-
-const cancelScheduled = async (msg: ScheduledMessage) => {
-  try {
-    await apiClient.post(`/social/scheduled-messages/${msg.id}/cancel/`)
-    scheduledMessages.value = scheduledMessages.value.filter(m => m.id !== msg.id)
-    showToast('Сообщение отменено')
-  } catch (error: any) {
-    console.error('Error cancelling message:', error)
-    showToast(error.response?.data?.error || 'Ошибка отмены', 'error')
-  }
-}
-
-const handleScheduled = (msg: ScheduledMessage) => {
-  scheduledMessages.value.push(msg)
-  showScheduleMessage.value = false
-}
-
-// ==================== BACKUPS ====================
-
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr)
-  return date.toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-const createBackup = async () => {
-  creatingBackup.value = true
-  try {
-    const response = await apiClient.post('/social/chat-backups/', {
-      chat: props.chatId
-    })
-    backups.value.unshift(response.data)
-    showToast('Резервная копия создаётся...')
-  } catch (error: any) {
-    console.error('Error creating backup:', error)
-    showToast(error.response?.data?.error || 'Ошибка создания копии', 'error')
-  } finally {
-    creatingBackup.value = false
-  }
-}
-
-const downloadBackup = async (backup: ChatBackup) => {
-  try {
-    const response = await apiClient.get(`/social/chat-backups/${backup.id}/download/`, {
-      responseType: 'blob'
-    })
-    const url = window.URL.createObjectURL(response.data)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `chat_backup_${backup.id}.json`
-    link.click()
-    window.URL.revokeObjectURL(url)
-  } catch (error: any) {
-    console.error('Error downloading backup:', error)
-    showToast(error.response?.data?.error || 'Ошибка скачивания', 'error')
-  }
-}
-
-const restoreBackup = async (backup: ChatBackup) => {
-  if (!confirm('Восстановить чат из копии? Текущие сообщения будут заменены.')) return
-  
-  try {
-    await apiClient.post(`/social/chat-backups/${backup.id}/restore/`)
-    showToast('Восстановление начато...')
-    emit('settings-changed', { type: 'restore' })
-  } catch (error: any) {
-    console.error('Error restoring backup:', error)
-    showToast(error.response?.data?.error || 'Ошибка восстановления', 'error')
-  }
-}
-
-// ==================== DANGER ZONE ====================
-
-const clearHistory = async () => {
-  if (!confirm('Вы уверены, что хотите удалить все сообщения?')) return
-  if (!confirm('Это действие необратимо!')) return
-
-  try {
-    await apiClient.post(`/social/group-chats/${props.chatId}/clear_history/`)
-    showToast('История очищена')
-    emit('settings-changed', { type: 'clear' })
-  } catch (error: any) {
-    console.error('Error clearing history:', error)
-    showToast(error.response?.data?.error || 'Ошибка очистки', 'error')
-  }
-}
-
-const leaveChat = async () => {
-  if (!confirm('Вы уверены, что хотите покинуть чат?')) return
-
-  try {
-    await apiClient.post(`/social/group-chats/${props.chatId}/leave/`)
-    emit('close')
-    emit('settings-changed', { type: 'leave' })
-  } catch (error: any) {
-    console.error('Error leaving chat:', error)
-    showToast(error.response?.data?.error || 'Ошибка', 'error')
-  }
-}
-
-const deleteChat = async () => {
-  if (!confirm('Вы уверены, что хотите удалить чат? Это действие необратимо.')) return
-  if (!confirm('ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ! Чат будет удалён навсегда.')) return
-
-  try {
-    await apiClient.delete(`/social/group-chats/${props.chatId}/`)
-    emit('close')
-    emit('settings-changed', { type: 'delete' })
-  } catch (error: any) {
-    console.error('Error deleting chat:', error)
-    showToast(error.response?.data?.error || 'Ошибка удаления', 'error')
-  }
-}
-
-// ==================== LOAD DATA ====================
-
-const loadSettings = async () => {
+// ── Methods ──
+async function loadSettings() {
   loading.value = true
   try {
-    // Load wallpaper presets
-    const presetsRes = await apiClient.get('/social/wallpapers/presets/')
-    const presetsData = presetsRes.data as any
-    wallpaperPresets.value = Array.isArray(presetsData) ? presetsData : (presetsData?.results || [])
+    const [allRes, presetsRes, themePresetsRes, foldersRes] = await Promise.allSettled([
+      apiClient.get(`${apiBase.value}/all/`),
+      apiClient.get('/social/chat-settings/wallpapers/presets/'),
+      apiClient.get('/social/chat-settings/themes/presets/'),
+      apiClient.get('/social/chat-folders/'),
+    ])
 
-    // Load current wallpaper for this chat
-    const wallpaperRes = await apiClient.get('/social/chat-wallpapers/', {
-      params: {
-        chat_id: props.chatId
+    if (allRes.status === 'fulfilled') {
+      const d = allRes.value.data
+      if (d.wallpaper) {
+        hasCustomWallpaper.value = true
+        Object.assign(wallpaperForm.value, d.wallpaper)
       }
-    })
-    const wallpaperData = wallpaperRes.data as any
-    const wallpapers = Array.isArray(wallpaperData) ? wallpaperData : (wallpaperData?.results || [])
-    if (wallpapers.length > 0) {
-      currentWallpaperId.value = wallpapers[0].id
+      if (d.theme) Object.assign(themeForm.value, d.theme)
+    }
+    if (presetsRes.status === 'fulfilled') wallpaperPresets.value = presetsRes.value.data.presets || []
+    if (themePresetsRes.status === 'fulfilled') themePresets.value = themePresetsRes.value.data.presets || []
+    if (foldersRes.status === 'fulfilled') {
+      chatFolders.value = foldersRes.value.data.results || foldersRes.value.data || []
     }
 
-    // Load tags
-    const tagsRes = await apiClient.get('/social/chat-tags/')
-    const tagsData = tagsRes.data as any
-    userTags.value = Array.isArray(tagsData) ? tagsData : (tagsData?.results || [])
-
-    // Load chat tags
-    const chatTagsRes = await apiClient.get('/social/chat-tag-assignments/', {
-      params: {
-        group_chat: props.chatType === 'group' ? props.chatId : undefined,
-        private_chat: props.chatType === 'private' ? props.chatId : undefined
-      }
-    })
-    const chatTagsData = chatTagsRes.data as any
-    const chatTagsList = Array.isArray(chatTagsData) ? chatTagsData : (chatTagsData?.results || [])
-    chatTags.value = chatTagsList.map((a: any) => a.tag).filter(Boolean)
-
-    // Load anti-spam rules (только для групповых чатов)
-    if (props.chatType === 'group') {
-      const rulesRes = await apiClient.get('/social/anti-spam-rules/', {
-        params: { chat: props.chatId }
-      })
-      const rulesData = rulesRes.data as any
-      antiSpamRules.value = Array.isArray(rulesData) ? rulesData : (rulesData?.results || [])
-
-      // Load slow mode
-      const slowModeRes = await apiClient.get('/social/chat-slow-modes/', {
-        params: { chat: props.chatId }
-      })
-      const slowModeData = slowModeRes.data as any
-      const slowModeList = Array.isArray(slowModeData) ? slowModeData : (slowModeData?.results || [])
-      const sm = slowModeList?.[0]
-      if (sm) {
-        slowMode.value = {
-          id: sm.id,
-          enabled: sm.enabled,
-          delay: sm.delay,
-          exempt_admins: sm.exempt_admins,
-          exempt_moderators: sm.exempt_moderators
-        }
-      }
-    }
-
-    // Load scheduled messages
-    const scheduledRes = await apiClient.get('/social/scheduled-messages/', {
-      params: {
-        chat: props.chatType === 'group' ? props.chatId : undefined,
-        private_chat: props.chatType === 'private' ? props.chatId : undefined
-      }
-    })
-    const scheduledData = scheduledRes.data as any
-    const scheduledList = Array.isArray(scheduledData) ? scheduledData : (scheduledData?.results || [])
-    scheduledMessages.value = scheduledList.filter((m: ScheduledMessage) => m.status === 'scheduled')
-
-    // Load backups (только для групповых чатов)
-    if (props.chatType === 'group') {
-      const backupsRes = await apiClient.get('/social/chat-backups/', {
-        params: { chat: props.chatId }
-      })
-      const backupsData = backupsRes.data as any
-      backups.value = Array.isArray(backupsData) ? backupsData : (backupsData?.results || [])
-    }
-
-    // Load theme
-    const themesRes = await apiClient.get('/social/chat-themes/')
-    const themesData = themesRes.data as any
-    const themesList = Array.isArray(themesData) ? themesData : (themesData?.results || [])
-    const existingTheme = themesList.find((t: ChatTheme) => 
-      (props.chatType === 'group' && t.chat === props.chatId) ||
-      (props.chatType === 'private' && t.private_chat === props.chatId)
-    )
-    if (existingTheme) {
-      currentTheme.value = existingTheme
-      enableMessageAnimation.value = existingTheme.message_animation !== 'none'
-      enableReactionAnimation.value = existingTheme.reaction_animation !== 'none'
-    }
-
-  } catch (error) {
-    console.error('Error loading settings:', error)
+    await loadNotifSettings()
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  loadSettings()
-})
+async function loadNotifSettings() {
+  try {
+    const url = props.chatType === 'private'
+      ? `/social/private-chats/${props.chatId}/user-settings/`
+      : `/social/group-chats/${props.chatId}/member-settings/`
+    const { data } = await apiClient.get(url)
+    Object.assign(notifForm.value, {
+      notifications_enabled: data.notifications_enabled ?? true,
+      mentions_only: data.mentions_only ?? false,
+      sound_enabled: data.sound_enabled ?? true,
+      show_preview: data.show_preview ?? true,
+      muted_until: data.muted_until || null,
+    })
+    Object.assign(organizeForm.value, {
+      is_pinned: data.is_pinned ?? false,
+      is_archived: data.is_archived ?? false,
+      is_hidden: data.is_hidden ?? false,
+      custom_name: data.custom_name || '',
+      folder_id: data.folder_id || null,
+      auto_delete_enabled: data.auto_delete_enabled ?? false,
+      auto_delete_after: data.auto_delete_after || 30,
+    })
+    privacyForm.value.is_blocked = data.is_blocked ?? false
+  } catch { /* ignore */ }
+}
+
+async function saveWallpaper() {
+  saving.value = true
+  try {
+    if (wallpaperForm.value.wallpaper_type === 'image' && wallpaperImageFile.value) {
+      const fd = new FormData()
+      fd.append('wallpaper_image', wallpaperImageFile.value)
+      fd.append('wallpaper_blur', String(wallpaperForm.value.wallpaper_blur))
+      fd.append('wallpaper_intensity', String(wallpaperForm.value.wallpaper_intensity))
+      fd.append('wallpaper_type', 'image')
+      await apiClient.post(`${apiBase.value}/wallpaper/set/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    } else {
+      await apiClient.post(`${apiBase.value}/wallpaper/set/`, wallpaperForm.value)
+    }
+    hasCustomWallpaper.value = true
+    showToast('✅ Обои сохранены')
+    emit('settings-saved', { type: 'wallpaper', wallpaper: wallpaperForm.value })
+  } catch (err: any) {
+    showToast(err.response?.data?.error || 'Ошибка сохранения', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function resetWallpaper() {
+  try {
+    await apiClient.delete(`${apiBase.value}/wallpaper/reset/`)
+    hasCustomWallpaper.value = false
+    wallpaperImagePreview.value = null
+    Object.assign(wallpaperForm.value, { wallpaper_type:'solid', wallpaper_color:'#0f0f1a', wallpaper_color2:'#1a1a2e' })
+    showToast('Обои сброшены')
+    emit('settings-saved', { type: 'wallpaper', reset: true })
+  } catch { showToast('Ошибка', 'error') }
+}
+
+async function applyWallpaperPreset(preset: any) {
+  Object.assign(wallpaperForm.value, preset)
+  await saveWallpaper()
+}
+
+function applyGradientPreset(gp: any) {
+  wallpaperForm.value.wallpaper_type = 'gradient'
+  wallpaperForm.value.wallpaper_color = gp.color1
+  wallpaperForm.value.wallpaper_color2 = gp.color2
+}
+
+async function saveTheme() {
+  saving.value = true
+  try {
+    await apiClient.post(`${apiBase.value}/theme/set/`, themeForm.value)
+    showToast('✅ Тема сохранена')
+    emit('settings-saved', { type: 'theme', theme: { ...themeForm.value } })
+    applyThemeToDom()
+  } catch (err: any) {
+    showToast(err.response?.data?.error || 'Ошибка', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function resetTheme() {
+  try {
+    await apiClient.delete(`${apiBase.value}/theme/reset/`)
+    Object.assign(themeForm.value, {
+      theme:'default', message_color_mine:'#3b82f6', message_color_other:'#1e1e32',
+      message_text_color_mine:'#ffffff', message_text_color_other:'#e2e8f0',
+      bubble_style:'modern', bubble_border_radius:18, bubble_shadow:false,
+      font_family:'system', font_size:'medium', font_size_px:14,
+      font_weight:400, line_height:1.5, time_format:'24h',
+      background_color:'#0f0f1a', header_color:'#1a1a2e',
+      input_color:'#1e1e32', accent_color:'#3b82f6',
+    })
+    currentPresetId.value = null
+    showToast('Тема сброшена')
+    emit('settings-saved', { type:'theme', reset:true })
+  } catch { showToast('Ошибка', 'error') }
+}
+
+function applyThemePreset(preset: any) {
+  currentPresetId.value = preset.id
+  const fields = Object.keys(themeForm.value)
+  fields.forEach(f => { if (f in preset) themeForm.value[f] = preset[f] })
+  saveTheme()
+}
+
+function applyThemeToDom() {
+  // Применяем CSS переменные в DOM для мгновенного отображения
+  const root = document.documentElement
+  const t = themeForm.value
+  // Используем глобальные переменные для ChatDetailView
+  root.style.setProperty('--chat-msg-mine-bg', t.message_color_mine)
+  root.style.setProperty('--chat-msg-other-bg', t.message_color_other)
+  root.style.setProperty('--chat-msg-mine-text', t.message_text_color_mine)
+  root.style.setProperty('--chat-msg-other-text', t.message_text_color_other)
+  root.style.setProperty('--chat-bg', t.background_color)
+  root.style.setProperty('--chat-header-bg', t.header_color)
+  root.style.setProperty('--chat-input-bg', t.input_color)
+  root.style.setProperty('--chat-accent', t.accent_color)
+  root.style.setProperty('--chat-font-size', t.font_size_px + 'px')
+  root.style.setProperty('--chat-font-family', fontFamilyCSS.value)
+  root.style.setProperty('--chat-font-weight', String(t.font_weight))
+  root.style.setProperty('--chat-bubble-radius', bubbleRadiusVal.value + 'px')
+  root.style.setProperty('--chat-bubble-shadow', t.bubble_shadow ? '0 2px 8px rgba(0,0,0,0.3)' : 'none')
+}
+
+async function saveNotifSettings() {
+  saving.value = true
+  try {
+    const url = props.chatType === 'private'
+      ? `/social/private-chats/${props.chatId}/user-settings/`
+      : `/social/group-chats/${props.chatId}/member-settings/`
+    await apiClient.put(url, notifForm.value)
+    showToast('✅ Уведомления сохранены')
+  } catch { showToast('Ошибка', 'error') }
+  finally { saving.value = false }
+}
+
+async function muteChat(minutes: number) {
+  try {
+    const url = props.chatType === 'private'
+      ? `/social/private-chats/${props.chatId}/mute/`
+      : `/social/group-chats/${props.chatId}/mute/`
+    await apiClient.post(url, { duration: minutes || null })
+    currentMuteDuration.value = minutes
+    if (minutes === 0) {
+      notifForm.value.notifications_enabled = false
+      notifForm.value.muted_until = null
+    } else {
+      notifForm.value.muted_until = new Date(Date.now() + minutes * 60000).toISOString()
+    }
+    showToast('🔇 Чат заглушен')
+  } catch { showToast('Ошибка', 'error') }
+}
+
+async function unmuteChat() {
+  try {
+    if (props.chatType === 'private') {
+      await apiClient.post(`/social/private-chats/${props.chatId}/unmute/`)
+    } else {
+      await apiClient.put(`/social/group-chats/${props.chatId}/member-settings/`, {
+        notifications_enabled: true, muted_until: null,
+      })
+    }
+    notifForm.value.muted_until = null
+    notifForm.value.notifications_enabled = true
+    currentMuteDuration.value = null
+    showToast('🔔 Уведомления включены')
+  } catch { showToast('Ошибка', 'error') }
+}
+
+async function saveOrganizeSettings() {
+  try {
+    const url = props.chatType === 'private'
+      ? `/social/private-chats/${props.chatId}/user-settings/`
+      : `/social/group-chats/${props.chatId}/member-settings/`
+    await apiClient.put(url, organizeForm.value)
+    showToast('✅ Сохранено')
+    emit('settings-saved', { type: 'organize', ...organizeForm.value })
+  } catch { showToast('Ошибка', 'error') }
+}
+
+async function blockUser() {
+  if (!confirm('Заблокировать пользователя?')) return
+  try {
+    await apiClient.post(`/social/priv  ate-chats/${props.chatId}/block/`)
+    privacyForm.value.is_blocked = true
+    showToast('🚫 Пользователь заблокирован')
+  } catch { showToast('Ошибка', 'error') }
+}
+
+async function unblockUser() {
+  try {
+    await apiClient.post(`/social/private-chats/${props.chatId}/unblock/`)
+    privacyForm.value.is_blocked = false
+    showToast('✅ Пользователь разблокирован')
+  } catch { showToast('Ошибка', 'error') }
+}
+
+async function clearHistory() {
+  if (!confirm('Очистить историю? Это действие необратимо.')) return
+  try {
+    await apiClient.post(`/social/chats/${props.chatId}/clear-history/?type=${props.chatType}`)
+    showToast('🗑️ История очищена')
+  } catch { showToast('Ошибка', 'error') }
+}
+
+async function deleteChat() {
+  if (!confirm('Удалить чат? Это действие необратимо!')) return
+  showToast('Чат удалён')
+  emit('close')
+}
+
+async function saveGroupSettings() {
+  try {
+    await apiClient.put(`/social/group-chats/${props.chatId}/settings/`, groupSettings.value)
+    showToast('✅ Настройки сохранены')
+  } catch { showToast('Ошибка', 'error') }
+}
+
+// ── File helpers ──
+function triggerFileInput() {
+  wallpaperFileRef.value?.click()
+}
+
+function handleWallpaperFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  if (file.size > 5 * 1024 * 1024) { showToast('Файл слишком большой (максимум 5MB)', 'error'); return }
+  wallpaperImageFile.value = file
+  wallpaperImagePreview.value = URL.createObjectURL(file)
+}
+
+function handleWallpaperDrop(e: DragEvent) {
+  const file = e.dataTransfer?.files?.[0]
+  if (!file?.type.startsWith('image/')) return
+  wallpaperImageFile.value = file
+  wallpaperImagePreview.value = URL.createObjectURL(file)
+}
+
+function clearWallpaperImage() {
+  wallpaperImageFile.value = null
+  wallpaperImagePreview.value = null
+  if (wallpaperFileRef.value) wallpaperFileRef.value.value = ''
+}
+
+// ── Style helpers ──
+function getPresetStyle(preset: any): Record<string, string> {
+  if (preset.wallpaper_type === 'gradient') {
+    const c2 = preset.wallpaper_color2 || preset.wallpaper_color
+    return { background: `linear-gradient(135deg, ${preset.wallpaper_color}, ${c2})` }
+  }
+  return { background: preset.wallpaper_color || '#1a1a2e' }
+}
+
+// ── Formatters ──
+function formatMuteDate(iso: string): string {
+  return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDelay(seconds: number): string {
+  if (seconds < 60) return `${seconds}с`
+  if (seconds < 3600) return `${seconds / 60}м`
+  return `${seconds / 3600}ч`
+}
+
+// ── Toast ──
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+function showToast(message: string, type: 'success' | 'error' = 'success') {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => { toast.value.show = false }, 3000)
+}
+
+onMounted(loadSettings)
 </script>
 
 <style scoped>
-/* Modal Overlay */
 .modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
   backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
 }
 
 .chat-settings-modal {
   display: flex;
-  height: 85vh;
-  width: 100%;
-  max-width: 64rem;
+  width: min(900px, 95vw);
+  height: min(700px, 90vh);
   background: #111827;
-  color: white;
-  border-radius: 1rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border-radius: 16px;
   overflow: hidden;
-  z-index: 10000;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
+/* ── Sidebar ── */
 .settings-sidebar {
-  width: 14rem;
-  border-right: 1px solid #374151;
+  width: 220px;
+  min-width: 220px;
+  background: #0d1117;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.06);
 }
 
 .sidebar-header {
-  padding: 1rem;
-  border-bottom: 1px solid #374151;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
-.sidebar-header h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-.close-btn {
-  padding: 0.375rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s;
-}
-
-.close-btn:hover {
-  background: #374151;
-}
-
-.sidebar-nav {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.5rem;
-}
-
-.nav-item {
-  width: 100%;
+.chat-info-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
-  border-radius: 0.5rem;
-  text-align: left;
-  transition: all 0.2s;
-  font-size: 0.875rem;
-  background: transparent;
-  border: none;
-  color: #9ca3af;
-  cursor: pointer;
+  gap: 8px;
+  min-width: 0;
 }
 
-.nav-item:hover {
-  background: #1f2937;
+.chat-avatar-mini {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
-.nav-item.active {
-  background: #2563eb;
-  color: white;
+.avatar-placeholder {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: #fff;
 }
 
+.chat-meta { min-width: 0; }
+.chat-name-mini { font-size: 13px; font-weight: 600; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-type-pill { font-size: 10px; color: #6b7280; background: #1f2937; padding: 1px 6px; border-radius: 10px; margin-top: 2px; display: inline-block; }
+
+.close-btn {
+  background: none; border: none; color: #6b7280; cursor: pointer;
+  font-size: 16px; padding: 4px; border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+.close-btn:hover { color: #e2e8f0; background: #1f2937; }
+
+.sidebar-nav { padding: 8px; overflow-y: auto; flex: 1; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px;
+  background: none; border: none; cursor: pointer;
+  color: #9ca3af; border-radius: 8px;
+  transition: all 0.15s; text-align: left;
+  font-size: 13px;
+}
+.nav-item:hover { background: #1f2937; color: #e2e8f0; }
+.nav-item.active { background: rgba(59,130,246,0.15); color: #3b82f6; font-weight: 500; }
+.nav-icon { font-size: 16px; flex-shrink: 0; }
+.nav-label { flex: 1; }
+
+/* ── Content ── */
 .settings-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 0;
+  min-width: 0;
 }
 
 .loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 0.75rem;
-  color: #9ca3af;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 12px; color: #6b7280;
 }
 
 .spinner {
-  width: 2rem;
-  height: 2rem;
-  border: 2px solid #3b82f6;
-  border-top-color: transparent;
+  width: 32px; height: 32px;
+  border: 3px solid #1f2937;
+  border-top-color: #3b82f6;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.settings-section { padding: 24px; }
+
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-header h2 { font-size: 18px; font-weight: 600; color: #e2e8f0; margin: 0; }
+
+/* ── Cards ── */
+.settings-group-card {
+  background: #1a2332;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.sgc-title {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: #6b7280; margin-bottom: 12px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* ── Fields ── */
+.field-group { margin-bottom: 14px; }
+.field-label { display: block; font-size: 12px; color: #9ca3af; margin-bottom: 6px; }
+.field-hint { font-size: 11px; color: #6b7280; margin-top: 4px; }
+.mt-3 { margin-top: 12px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.color-row { display: flex; align-items: center; gap: 8px; }
+.color-picker-wide {
+  width: 40px; height: 32px;
+  padding: 2px; border: 1px solid #374151;
+  border-radius: 8px; background: #1f2937; cursor: pointer;
+}
+.color-hex-input {
+  flex: 1; background: #1f2937; border: 1px solid #374151;
+  border-radius: 8px; padding: 6px 10px; color: #e2e8f0;
+  font-size: 13px; font-family: monospace;
+}
+.color-hex-input:focus { outline: none; border-color: #3b82f6; }
+
+.color-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.swatch {
+  width: 28px; height: 28px; border-radius: 6px;
+  border: 2px solid transparent; cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.swatch:hover { transform: scale(1.1); }
+.swatch--active { border-color: #3b82f6; transform: scale(1.1); }
+
+.range-slider {
+  width: 100%; accent-color: #3b82f6;
+  cursor: pointer; height: 4px;
 }
 
-.section {
-  max-width: 48rem;
-  margin: 0 auto;
+/* ── Type tabs ── */
+.type-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.type-tab {
+  padding: 6px 14px; background: #1f2937;
+  border: 1px solid #374151; border-radius: 8px;
+  color: #9ca3af; font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
 }
+.type-tab:hover { border-color: #4b5563; color: #e2e8f0; }
+.type-tab.active { background: rgba(59,130,246,0.2); border-color: #3b82f6; color: #3b82f6; }
 
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
-}
-
-/* Wallpaper */
-.wallpaper-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-}
-
-.wallpaper-item {
+/* ── Wallpaper preview ── */
+.wallpaper-preview {
   position: relative;
-  aspect-ratio: 16/9;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  border: 2px solid transparent;
-  transition: all 0.2s;
+  min-height: 110px; border-radius: 10px;
+  padding: 12px; margin-bottom: 16px;
+  display: flex; flex-direction: column; gap: 6px;
   overflow: hidden;
+  transition: all 0.3s;
+}
+.wp-msg { display: flex; }
+.wp-msg--mine { justify-content: flex-end; }
+.wp-msg--other { justify-content: flex-start; }
+.wp-bubble { padding: 6px 12px; font-size: 13px; line-height: 1.4; }
+
+/* ── Gradient presets ── */
+.angle-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.angle-btn {
+  padding: 4px 8px; background: #1f2937;
+  border: 1px solid #374151; border-radius: 6px;
+  color: #9ca3af; font-size: 11px; cursor: pointer;
+}
+.angle-btn.active { border-color: #3b82f6; color: #3b82f6; }
+
+.gradient-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.gradient-swatch {
+  width: 48px; height: 32px; border-radius: 8px;
+  border: 2px solid transparent; cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.gradient-swatch:hover { transform: scale(1.1); border-color: rgba(255,255,255,0.3); }
+
+/* ── Pattern ── */
+.pattern-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.pattern-btn {
+  padding: 6px 12px; background: #1f2937;
+  border: 1px solid #374151; border-radius: 8px;
+  color: #9ca3af; font-size: 12px; cursor: pointer;
+}
+.pattern-btn.active { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.1); }
+
+/* ── Upload ── */
+.upload-zone {
+  border: 2px dashed #374151; border-radius: 10px;
+  cursor: pointer; transition: border-color 0.2s;
+  overflow: hidden; min-height: 100px;
+}
+.upload-zone:hover { border-color: #4b5563; }
+.upload-placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 24px; gap: 6px; color: #6b7280;
+}
+.upload-icon-big { font-size: 32px; }
+.upload-hint { font-size: 11px; }
+.upload-preview { position: relative; }
+.upload-preview-img { width: 100%; max-height: 180px; object-fit: cover; display: block; }
+.clear-btn {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(0,0,0,0.7); border: none; color: white;
+  border-radius: 50%; width: 24px; height: 24px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
 }
 
-.wallpaper-item:hover {
-  border-color: #3b82f6;
+/* ── Wallpaper presets ── */
+.wallpaper-presets-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.wp-preset {
+  aspect-ratio: 16/9; border-radius: 8px; border: 2px solid transparent;
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: border-color 0.2s, transform 0.15s;
+}
+.wp-preset:hover { border-color: rgba(255,255,255,0.3); transform: scale(1.02); }
+.wp-preset-name {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.6); color: white; font-size: 9px;
+  padding: 2px 4px; text-align: center;
 }
 
-.wallpaper-item.active {
-  border-color: #3b82f6;
+/* ── Theme preview ── */
+.theme-preview-wrap { margin-bottom: 16px; }
+.theme-preview-chat {
+  border-radius: 10px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: background 0.3s;
+}
+.tp-header {
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
+  color: #e2e8f0; transition: background 0.3s;
+}
+.tp-messages { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.tp-row { display: flex; }
+.tp-row--mine { justify-content: flex-end; }
+.tp-row--other { justify-content: flex-start; }
+.tp-bubble { padding: 6px 12px; font-size: 13px; line-height: 1.4; max-width: 70%; }
+.tp-input {
+  padding: 10px 14px; font-size: 13px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.3s;
 }
 
-.preset-label {
+/* ── Theme presets ── */
+.theme-presets-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.theme-preset-btn {
+  background: #1f2937; border: 2px solid #374151;
+  border-radius: 10px; padding: 10px 8px;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.theme-preset-btn:hover { border-color: #4b5563; }
+.theme-preset-btn.active { border-color: #3b82f6; }
+.tpb-preview { width: 100%; height: 32px; border-radius: 6px; overflow: hidden; display: flex; gap: 2px; }
+.tpb-mine, .tpb-other { flex: 1; height: 100%; }
+.tpb-bg { width: 20px; flex-shrink: 0; }
+.tpb-name { font-size: 10px; color: #9ca3af; text-align: center; }
+
+/* ── Bubble style ── */
+.bubble-style-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.bsp-item {
+  background: #1f2937; border: 1px solid #374151; border-radius: 8px;
+  padding: 10px; cursor: pointer; display: flex; flex-direction: column;
+  align-items: center; gap: 6px; min-width: 70px; transition: all 0.15s;
+}
+.bsp-item:hover { border-color: #4b5563; }
+.bsp-item.active { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+.bsp-demo { width: 48px; height: 20px; background: #3b82f6; }
+.bsp-item span { font-size: 10px; color: #9ca3af; }
+
+/* ── Font family ── */
+.font-family-list { display: flex; gap: 6px; flex-wrap: wrap; }
+.ff-btn {
+  padding: 6px 12px; background: #1f2937; border: 1px solid #374151;
+  border-radius: 8px; color: #9ca3af; cursor: pointer; font-size: 13px;
+  transition: all 0.15s;
+}
+.ff-btn:hover { border-color: #4b5563; color: #e2e8f0; }
+.ff-btn.active { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.1); }
+
+/* ── Font size ── */
+.font-size-picker { display: flex; gap: 6px; }
+.fs-btn {
+  padding: 6px 12px; background: #1f2937; border: 1px solid #374151;
+  border-radius: 8px; color: #9ca3af; cursor: pointer; transition: all 0.15s;
+}
+.fs-btn:hover { border-color: #4b5563; color: #e2e8f0; }
+.fs-btn.active { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.1); }
+
+/* ── Interface colors ── */
+.interface-colors-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ic-field .field-label { font-size: 11px; }
+
+/* ── Toggle ── */
+.toggle-list { display: flex; flex-direction: column; gap: 2px; }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+.tr-info { display: flex; flex-direction: column; gap: 2px; }
+.tr-label { font-size: 13px; color: #e2e8f0; }
+.tr-desc { font-size: 11px; color: #6b7280; }
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.switch input {
   position: absolute;
-  bottom: 0.5rem;
-  left: 0.5rem;
-  font-size: 0.75rem;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-}
-
-.check-icon {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  color: white;
-  background: #3b82f6;
-  border-radius: 50%;
-  padding: 0.125rem;
-}
-
-.custom-wallpaper {
-  border-top: 1px solid #374151;
-  padding-top: 1.5rem;
-}
-
-.custom-wallpaper h4 {
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
-}
-
-.wallpaper-type-select {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.wallpaper-type-select button {
-  flex: 1;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  border: 1px solid #4b5563;
-  transition: all 0.2s;
-  font-size: 0.875rem;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-}
-
-.wallpaper-type-select button.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-}
-
-.color-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.color-picker label,
-.color-picker span {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.color-picker input[type="color"] {
-  width: 100%;
-  height: 3rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  border: none;
-}
-
-.gradient-picker {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.image-upload .upload-btn {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px dashed #4b5563;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.2s;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-}
-
-.image-upload .upload-btn:hover {
-  border-color: #3b82f6;
-  background: #1f2937;
-}
-
-.image-upload .preview {
-  margin-top: 1rem;
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-
-.image-upload .preview img {
-  width: 100%;
-  height: 10rem;
-  object-fit: cover;
-}
-
-.wallpaper-settings {
-  margin-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.slider-setting {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.slider-setting label {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.slider-setting input[type="range"] {
-  width: 100%;
-  accent-color: #3b82f6;
-}
-
-.apply-btn,
-.save-btn {
-  width: 100%;
-  padding: 0.75rem;
-  background: #3b82f6;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-  margin-top: 1rem;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.apply-btn:hover,
-.save-btn:hover {
-  background: #2563eb;
-}
-
-.apply-btn:disabled,
-.save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Theme */
-.theme-options {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.option-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.option-group > label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #9ca3af;
-}
-
-.theme-select,
-.bubble-styles,
-.font-sizes,
-.time-formats,
-.emoji-sets,
-.delay-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.theme-select button,
-.bubble-styles button,
-.font-sizes button,
-.time-formats button,
-.emoji-sets button,
-.delay-options button {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #4b5563;
-  transition: all 0.2s;
-  font-size: 0.875rem;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-}
-
-.theme-select button.active,
-.bubble-styles button.active,
-.font-sizes button.active,
-.time-formats button.active,
-.emoji-sets button.active,
-.delay-options button.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-}
-
-.color-options {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.animation-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* Notifications */
-.notification-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.setting-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid #374151;
-}
-
-.setting-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.setting-name {
-  font-weight: 500;
-}
-
-.setting-desc {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.mute-select {
-  padding: 0.5rem 1rem;
-  background: #1f2937;
-  border: 1px solid #4b5563;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: white;
-}
-
-/* Tags */
-.current-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.tag-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 9999px;
-  border: 1px solid;
-  font-size: 0.875rem;
-}
-
-.remove-tag {
-  padding: 0.125rem;
-  border-radius: 0.25rem;
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.remove-tag:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.empty-tags {
-  color: #9ca3af;
-  font-size: 0.875rem;
-}
-
-.add-tag {
-  margin-bottom: 1.5rem;
-}
-
-.add-tag h4 {
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
-}
-
-.tag-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.tag-input {
-  flex: 1;
-  min-width: 12rem;
-  padding: 0.5rem 0.75rem;
-  background: #1f2937;
-  border: 1px solid #4b5563;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: white;
-}
-
-.tag-colors {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.color-btn {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  transition: transform 0.2s;
-  cursor: pointer;
-}
-
-.color-btn.active {
-  border-color: white;
-  transform: scale(1.1);
-}
-
-.emoji-input {
-  width: 4rem;
-  padding: 0.5rem 0.75rem;
-  background: #1f2937;
-  border: 1px solid #4b5563;
-  border-radius: 0.5rem;
-  text-align: center;
-  font-size: 0.875rem;
-  color: white;
-}
-
-.create-tag-btn {
-  padding: 0.5rem 1rem;
-  background: #3b82f6;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s;
-  font-size: 0.875rem;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.create-tag-btn:hover {
-  background: #2563eb;
-}
-
-.create-tag-btn:disabled {
-  opacity: 0.5;
-}
-
-.your-tags h4 {
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
-}
-
-.tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.tag-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  font-size: 0.875rem;
-}
-
-.tag-item:hover {
-  background: #1f2937;
-}
-
-/* Slow Mode */
-.slowmode-config {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: #1f2937;
-  border-radius: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-/* Anti-spam */
-.antispam-rules {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.rule-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background: #1f2937;
-  border-radius: 0.5rem;
-}
-
-.rule-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex: 1;
-}
-
-.rule-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.rule-name {
-  font-weight: 500;
-}
-
-.rule-desc {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.rule-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.edit-btn,
-.delete-btn {
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: all 0.2s;
-  background: transparent;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.edit-btn:hover,
-.delete-btn:hover {
-  background: #374151;
-}
-
-.delete-btn:hover {
-  color: #ef4444;
-}
-
-.add-rule-btn {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px dashed #4b5563;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.2s;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-}
-
-.add-rule-btn:hover {
-  border-color: #3b82f6;
-  background: #1f2937;
-}
-
-/* Scheduled */
-.scheduled-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.scheduled-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background: #1f2937;
-  border-radius: 0.5rem;
-}
-
-.scheduled-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.scheduled-text {
-  font-weight: 500;
-}
-
-.scheduled-time {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.scheduled-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.send-btn {
-  padding: 0.375rem 0.75rem;
-  background: #16a34a;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  transition: background-color 0.2s;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.send-btn:hover {
-  background: #15803d;
-}
-
-.cancel-btn {
-  padding: 0.375rem 0.75rem;
-  background: #dc2626;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  transition: background-color 0.2s;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.cancel-btn:hover {
-  background: #b91c1c;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: #9ca3af;
-}
-
-.add-scheduled-btn {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px dashed #4b5563;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.2s;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-}
-
-.add-scheduled-btn:hover {
-  border-color: #3b82f6;
-  background: #1f2937;
-}
-
-/* Backups */
-.backups-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.backup-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background: #1f2937;
-  border-radius: 0.5rem;
-}
-
-.backup-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.backup-date {
-  font-weight: 500;
-}
-
-.backup-stats {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.backup-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.download-btn {
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s;
-  background: transparent;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.download-btn:hover {
-  background: #374151;
-}
-
-.restore-btn {
-  padding: 0.375rem 0.75rem;
-  background: #3b82f6;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  transition: background-color 0.2s;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.restore-btn:hover {
-  background: #2563eb;
-}
-
-.create-backup-btn {
-  width: 100%;
-  padding: 0.75rem;
-  background: #3b82f6;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: background-color 0.2s;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.create-backup-btn:hover {
-  background: #2563eb;
-}
-
-.create-backup-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Danger Zone */
-.danger-zone {
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-}
-
-.danger-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.danger-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid #374151;
-}
-
-.danger-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.danger-name {
-  font-weight: 500;
-  color: #f87171;
-}
-
-.danger-desc {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.danger-btn {
-  padding: 0.5rem 1rem;
-  background: #dc2626;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s;
-  font-size: 0.875rem;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.danger-btn:hover {
-  background: #b91c1c;
-}
-
-.danger-btn.critical {
-  background: #b91c1c;
-  font-weight: 500;
-}
-
-.danger-btn.critical:hover {
-  background: #991b1b;
-}
-
-/* Toast */
-.toast {
-  position: fixed;
-  bottom: 1rem;
-  right: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  z-index: 10001;
-}
-
-.toast.success {
-  background: #16a34a;
-  color: white;
-}
-
-.toast.error {
-  background: #dc2626;
-  color: white;
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-
-.toast-enter-from,
-.toast-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  cursor: pointer;
+  margin: 0;
+}
+.switch-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #4b5563;
+  border-radius: 22px;
+  transition: background 0.2s ease;
+  pointer-events: none;
+}
+.switch-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.switch input:checked + .switch-slider {
+  background: #3b82f6;
+}
+.switch input:checked + .switch-slider::before {
+  transform: translateX(18px);
+}
+.switch:hover .switch-slider {
+  background: #6b7280;
+}
+.switch input:checked:hover + .switch-slider {
+  background: #2563eb;
+}
+
+/* ── CSS textarea ── */
+.css-textarea {
+  width: 100%; background: #0d1117; border: 1px solid #374151;
+  border-radius: 8px; padding: 10px; color: #e2e8f0;
+  font-family: 'Fira Code', monospace; font-size: 12px;
+  resize: vertical; min-height: 80px; box-sizing: border-box;
+}
+.css-textarea:focus { outline: none; border-color: #3b82f6; }
+
+/* ── Select ── */
+.select-field {
+  width: 100%; background: #1f2937; border: 1px solid #374151;
+  border-radius: 8px; padding: 8px 12px; color: #e2e8f0;
+  font-size: 13px; cursor: pointer;
+}
+.select-field:focus { outline: none; border-color: #3b82f6; }
+
+/* ── Text field ── */
+.text-field {
+  width: 100%; background: #1f2937; border: 1px solid #374151;
+  border-radius: 8px; padding: 8px 12px; color: #e2e8f0;
+  font-size: 13px; box-sizing: border-box;
+}
+.text-field:focus { outline: none; border-color: #3b82f6; }
+
+/* ── Mute ── */
+.mute-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.mute-btn {
+  padding: 6px 14px; background: #1f2937; border: 1px solid #374151;
+  border-radius: 8px; color: #9ca3af; cursor: pointer; font-size: 12px;
+  transition: all 0.15s;
+}
+.mute-btn:hover { border-color: #4b5563; color: #e2e8f0; }
+.mute-btn.active { background: rgba(59,130,246,0.2); border-color: #3b82f6; color: #3b82f6; }
+.mute-status { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #9ca3af; }
+.btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
+.btn-link:hover { color: #60a5fa; }
+
+/* ── Slow mode presets ── */
+.slow-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.slow-preset-btn {
+  padding: 4px 10px; background: #1f2937; border: 1px solid #374151;
+  border-radius: 6px; color: #9ca3af; font-size: 11px; cursor: pointer;
+}
+.slow-preset-btn.active { border-color: #3b82f6; color: #3b82f6; }
+
+/* ── Danger ── */
+.danger-card { border-color: rgba(239,68,68,0.2); }
+.danger-list { display: flex; flex-direction: column; gap: 10px; }
+.danger-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.danger-row:last-child { border-bottom: none; }
+.dr-info { display: flex; flex-direction: column; gap: 2px; }
+.dr-title { font-size: 13px; color: #e2e8f0; }
+.dr-desc { font-size: 11px; color: #6b7280; }
+.danger-btn {
+  padding: 6px 14px; background: #7f1d1d; border: 1px solid #991b1b;
+  color: #fca5a5; border-radius: 8px; cursor: pointer; font-size: 12px;
+  transition: all 0.15s; white-space: nowrap;
+}
+.danger-btn:hover { background: #991b1b; }
+.danger-btn--critical { background: #dc2626; border-color: #b91c1c; color: white; font-weight: 600; }
+.danger-btn--critical:hover { background: #b91c1c; }
+
+/* ── Buttons ── */
+.section-actions { margin-top: 20px; }
+.btn-primary {
+  padding: 10px 20px; background: #3b82f6; border: none;
+  color: white; border-radius: 10px; cursor: pointer; font-size: 14px;
+  font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.2s;
+}
+.btn-primary:hover { background: #2563eb; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-secondary {
+  padding: 8px 16px; background: #1f2937; border: 1px solid #374151;
+  color: #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 13px;
+  transition: all 0.15s;
+}
+.btn-secondary:hover { border-color: #4b5563; }
+.btn-ghost-sm {
+  padding: 6px 12px; background: none; border: 1px solid #374151;
+  color: #9ca3af; border-radius: 8px; cursor: pointer; font-size: 12px;
+  transition: all 0.15s;
+}
+.btn-ghost-sm:hover { border-color: #4b5563; color: #e2e8f0; }
+
+.btn-spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+
+/* ── Toast ── */
+.global-toast {
+  position: fixed; bottom: 20px; right: 20px;
+  padding: 12px 18px; border-radius: 10px;
+  font-size: 14px; font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  z-index: 9999;
+}
+.toast-success { background: #166534; color: #bbf7d0; border: 1px solid #15803d; }
+.toast-error { background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
+
+.toast-anim-enter-active, .toast-anim-leave-active { transition: all 0.3s ease; }
+.toast-anim-enter-from, .toast-anim-leave-to { opacity: 0; transform: translateY(12px); }
+
+/* ── Scrollbar ── */
+.settings-content::-webkit-scrollbar { width: 4px; }
+.settings-content::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+.settings-content::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .chat-settings-modal { flex-direction: column; width: 100vw; height: 100vh; border-radius: 0; }
+  .settings-sidebar { width: 100%; min-width: 0; flex-direction: row; overflow-x: auto; }
+  .sidebar-header { display: none; }
+  .sidebar-nav { display: flex; padding: 8px; gap: 4px; flex-direction: row; }
+  .nav-item { flex-direction: column; min-width: 60px; padding: 8px 6px; font-size: 10px; }
+  .nav-label { font-size: 10px; }
+  .two-col { grid-template-columns: 1fr; }
+  .interface-colors-grid { grid-template-columns: 1fr; }
 }
 </style>

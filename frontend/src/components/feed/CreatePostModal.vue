@@ -88,11 +88,29 @@
         <!-- Spoiler / Comments toggles -->
         <div class="toggles-row">
           <label class="toggle-label">
-            <input type="checkbox" v-model="isSpoiler"> Спойлер
+            <span class="toggle-switch" :class="{ active: isSpoiler }">
+              <span class="toggle-slider"></span>
+            </span>
+            <input type="checkbox" v-model="isSpoiler" class="toggle-input">
+            <span class="toggle-text">Спойлер</span>
           </label>
           <label class="toggle-label">
-            <input type="checkbox" v-model="allowComments"> Разрешить комментарии
+            <span class="toggle-switch" :class="{ active: allowComments }">
+              <span class="toggle-slider"></span>
+            </span>
+            <input type="checkbox" v-model="allowComments" class="toggle-input">
+            <span class="toggle-text">Комментарии</span>
           </label>
+        </div>
+
+        <!-- Spoiler description -->
+        <div v-if="isSpoiler" class="spoiler-settings">
+          <input
+            v-model="spoilerFor"
+            type="text"
+            placeholder="О чём спойлер? (например: Конец Наруто)"
+            class="spoiler-for-input"
+          >
         </div>
       </div>
 
@@ -244,6 +262,7 @@ const text = ref('')
 const visibility = ref('public')
 const allowComments = ref(true)
 const isSpoiler = ref(false)
+const spoilerFor = ref('')
 const showVisibilityMenu = ref(false)
 const submitting = ref(false)
 const textArea = ref<HTMLTextAreaElement | null>(null)
@@ -464,6 +483,9 @@ const submitPost = async () => {
     fd.append('visibility', visibility.value)
     fd.append('allow_comments', String(allowComments.value))
     fd.append('is_spoiler', String(isSpoiler.value))
+    if (isSpoiler.value && spoilerFor.value.trim()) {
+      fd.append('spoiler_for', spoilerFor.value.trim())
+    }
 
     // Аниме (первый — основной)
     if (attachedAnimes.value.length > 0) {
@@ -595,8 +617,55 @@ onMounted(async () => {
 .remove-btn:hover { color: #ef4444; }
 
 .toggles-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
-.toggle-label { display: flex; align-items: center; gap: 0.4rem; color: #888; font-size: 0.85rem; cursor: pointer; }
-.toggle-label input[type="checkbox"] { accent-color: #667eea; }
+.toggle-label { 
+  display: flex; align-items: center; gap: 0.5rem; 
+  color: #aaa; font-size: 0.85rem; cursor: pointer; 
+  user-select: none;
+  transition: color 0.2s;
+}
+.toggle-label:hover { color: #ddd; }
+.toggle-input { display: none; }
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 20px;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+}
+.toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #555;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+}
+.toggle-switch.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+.toggle-switch.active .toggle-slider {
+  left: 18px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+}
+.toggle-text { line-height: 1; }
+
+.spoiler-settings { margin-top: 0.5rem; }
+.spoiler-for-input {
+  width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a;
+  color: #ddd; padding: 0.5rem 0.75rem; border-radius: 8px;
+  font-size: 0.875rem; box-sizing: border-box;
+}
+.spoiler-for-input:focus { outline: none; border-color: #fbbf24; }
+.spoiler-for-input::placeholder { color: #555; }
 
 .attachment-buttons {
   display: flex; align-items: center; justify-content: center; gap: 0.5rem;

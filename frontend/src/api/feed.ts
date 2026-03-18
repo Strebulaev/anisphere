@@ -32,6 +32,8 @@ export interface FeedPost {
   is_pinned: boolean
   is_deleted: boolean
   is_spoiler: boolean
+  spoiler_for?: string | null  // Описание спойлера
+  spoiler_description?: string | null  // Альтернативное поле
   allow_comments: boolean
   created_at: string
   updated_at: string
@@ -75,6 +77,8 @@ export interface PlaylistCard {
   anime_count: number
   items_count?: number  // Альтернативное поле
   description?: string
+  poster_url?: string | null  // URL постера
+  cover_image?: string | null  // URL обложки
   anime?: (AnimeCard & { poster?: string | null })[]
 }
 

@@ -31,7 +31,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
             is_deleted=False,
             visibility='public'
         ).select_related(
-            'author', 'anime', 'group', 'playlist', 'reactor_post'
+            'author', 'anime', 'group', 'playlist', 'reactor_post', 'playlist__cover_image'
         ).prefetch_related('media_files').annotate(
             playlist_items_count=Count('playlist__items')
         ).order_by('-created_at')

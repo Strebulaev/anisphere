@@ -1119,9 +1119,9 @@ const toggleBookmark = async (post: any) => {
   } catch (error) { console.error('Error toggling bookmark:', error) }
 }
 
-const sharePost = async (post: any) => {
-  try { await navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`) }
-  catch (error) { console.error('Error sharing post:', error) }
+const sharePost = (post: any) => {
+  selectedPost.value = post
+  showRepost.value = true
 }
 
 const editPost = (_post: any) => { showMenu.value = false }

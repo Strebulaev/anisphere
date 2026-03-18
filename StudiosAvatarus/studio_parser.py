@@ -275,25 +275,7 @@ if __name__ == "__main__":
     
     # Список студий
     STUDIOS = [
-        "Kyoto Animation",
-        "Lay-duce", "Lerche", "Liden Films",
-        "Madhouse", "Magic Bus (студия)", "MAPPA", "Mushi Production",
-        "NAZ (студия)", "Nexus (анимационная студия)", "Nippon Animation", "NUT",
-        "OLM, Inc.", "Ordet",
-        "P.A. Works", "Passione", "Pony Canyon", "Production I.G", "Project No.9",
-        "Robot Communications",
-        "Sanzigen", "Satelight", "Science Saru", "Seven (анимационная студия)",
-        "Seven Arcs", "Shaft (компания)", "Shin-Ei Animation", "Shuka", "Silver Link",
-        "Studio 4°C", "Studio A-Cat", "Studio Bind", "Studio Comet", "Studio Deen",
-        "Studio Ghibli", "Studio Gokumi", "Studio Hibari", "Studio Khara", "Studio Pierrot",
-        "Studio Ponoc", "Studio VOLN",
-        "Tatsunoko Production", "Tear Studio", "Tezuka Productions", "TMS Entertainment",
-        "TNK", "Toei Animation", "Toho", "Trigger (компания)", "TROYCA",
-        "Tsuchida Production", "TYO Animations", "Type-Moon", "Typhoon Graphics",
-        "Ufotable", "Ultra Super Pictures",
-        "VAP", "Victor Entertainment",
-        "White Fox", "Wit Studio",
-        "Zero-G", "Zexcs"
+        # "Zero-G", "Zexcs" ...
     ]
     
     # Создаем и запускаем коллектор

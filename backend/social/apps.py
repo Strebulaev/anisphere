@@ -5,5 +5,5 @@ class SocialConfig(AppConfig):
     name = 'social'
 
     def ready(self):
-        # Импортируем сигналы для автоматического создания системных постов
-        import social.signals  # noqa
+        import social.signals       # noqa — сигналы ленты
+        import social.signals_chat  # noqa — сигналы чатов (кэш, счётчики)

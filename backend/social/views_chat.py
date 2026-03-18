@@ -1,18 +1,18 @@
 """
-Views для системы чатов согласно документации CHAT_SETTINGS.md
+Views для системы настроек чатов: обои, темы, роли, модерация, папки.
+Объединяет функциональность views.py и views_chat.py.
 """
 
-from rest_framework import viewsets, status, permissions, serializers
+from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q, Count
 from django.db import transaction
-from django.utils.text import slugify
 from django.core.cache import cache
 
 from .models import (
@@ -23,747 +23,597 @@ from .models_chat import (
     ChatInviteLink, ChatWallpaper, ChatTheme, MessageReaction,
     ChatBan, ChatRestriction, ChatSlowMode, ChatJoinRequest,
     ChatTag, ChatTagAssignment, AntiSpamRule, ChatBackup, ScheduledMessage,
-    SecurityLog, GroupChatSettings,
-    PrivateChatSettings, MessagePin
+    SecurityLog, GroupChatSettings, PrivateChatSettings, MessagePin,
+    GroupMemberSettings,
 )
-from .serializers_chat import (
-    ChatInviteLinkSerializer, ChatInviteLinkCreateSerializer,
-    ChatWallpaperSerializer, ChatWallpaperPresetSerializer,
-    ChatThemeSerializer,
-    MessageReactionSerializer, MessageReactionCreateSerializer, GroupedReactionsSerializer,
-    ChatBanSerializer, ChatBanCreateSerializer,
-    ChatRestrictionSerializer, ChatRestrictionCreateSerializer,
-    ChatSlowModeSerializer,
-    ChatJoinRequestSerializer, ChatJoinRequestCreateSerializer,
-    ChatTagSerializer, ChatTagAssignmentSerializer,
-    AntiSpamRuleSerializer,
-    ChatBackupSerializer,
-    ScheduledMessageSerializer, ScheduledMessageCreateSerializer,
-    GroupChatExtendedSerializer, PrivateChatExtendedSerializer,
-    ChatFolderSerializer, ChatFolderCreateSerializer,
-    SecurityLogSerializer, GroupChatSettingsSerializer,
-    PrivateChatSettingsSerializer, MessagePinSerializer,
-)
-from .serializers import ChatRoleSerializer, MessageSerializer
-from .services.chat_services import (
-    PermissionChecker, SettingsCache, AntiSpamService,
-    RateLimiter, SmartNotifications, ChatAnalytics,
-    ChatBackupService, SettingsExport, NotificationService,
-    permission_required, rate_limit, log_admin_action,
-    settings_cache, rate_limiter, smart_notifications,
+from .services.chat_settings_service import (
+    ChatSettingsService, PermissionChecker, SettingsCache,
+    NotificationService, RateLimiter, AntiSpamService,
+    SettingsExport, SettingsVersioning, PermissionResult,
 )
 from users.models import User
+
+
+# ==================== НАСТРОЙКИ ЧАТА (ОБОИ + ТЕМА) ====================
+
+class ChatCustomizationViewSet(viewsets.ViewSet):
+    """API для кастомизации чата: обои, тема, шрифты, цвета"""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def _check_chat_access(self, request, chat_type: str, chat_id: int):
+        """Проверить доступ к чату"""
+        if chat_type == 'group':
+            chat = get_object_or_404(GroupChat, id=chat_id)
+            if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
+                raise PermissionDenied("Вы не участник этого чата")
+            return chat
+        else:
+            chat = PrivateChat.objects.filter(
+                id=chat_id
+            ).filter(Q(user1=request.user) | Q(user2=request.user)).first()
+            if not chat:
+                raise PermissionDenied("Чат не найден или нет доступа")
+            return chat
+
+    # ==================== ОБОИ ====================
+
+    @action(detail=False, methods=['get'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/wallpaper')
+    def get_wallpaper(self, request, chat_type=None, chat_id=None):
+        """Получить обои чата"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        data = ChatSettingsService.get_wallpaper_for_chat(request.user, chat_type, int(chat_id))
+        if not data:
+            return Response({'wallpaper': None})
+        return Response({'wallpaper': data})
+
+    @action(detail=False, methods=['put', 'post'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/wallpaper/set')
+    def set_wallpaper(self, request, chat_type=None, chat_id=None):
+        """Установить обои для чата"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+
+        # Загрузка изображения
+        if 'wallpaper_image' in request.FILES:
+            file = request.FILES['wallpaper_image']
+            if file.size > 5 * 1024 * 1024:
+                return Response({'error': 'Файл слишком большой (максимум 5MB)'}, status=400)
+
+            from .models_chat import ChatWallpaper as WP
+            defaults = {
+                'wallpaper_type': 'image',
+                'wallpaper_image': file,
+                'wallpaper_blur': request.data.get('wallpaper_blur', 0),
+                'wallpaper_intensity': request.data.get('wallpaper_intensity', 100),
+                'wallpaper_color': '#000000',
+            }
+            if chat_type == 'group':
+                wp, _ = WP.objects.update_or_create(user=request.user, chat_id=chat_id, defaults=defaults)
+            else:
+                wp, _ = WP.objects.update_or_create(user=request.user, private_chat_id=chat_id, defaults=defaults)
+
+            SettingsCache.invalidate(request.user.id, chat_type, int(chat_id))
+            return Response({
+                'wallpaper': ChatSettingsService._wallpaper_to_dict(wp),
+                'message': 'Обои установлены'
+            })
+
+        # Цвет/градиент/паттерн
+        data = ChatSettingsService.set_wallpaper_for_chat(request.user, chat_type, int(chat_id), request.data)
+        SettingsVersioning.increment_version(request.user.id)
+        return Response({'wallpaper': data, 'message': 'Обои установлены'})
+
+    @action(detail=False, methods=['delete'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/wallpaper/reset')
+    def reset_wallpaper(self, request, chat_type=None, chat_id=None):
+        """Сбросить обои"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        ChatSettingsService.reset_wallpaper(request.user, chat_type, int(chat_id))
+        return Response({'message': 'Обои сброшены'})
+
+    @action(detail=False, methods=['post'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/wallpaper/preset')
+    def apply_wallpaper_preset(self, request, chat_type=None, chat_id=None):
+        """Применить предустановленные обои"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        preset_id = request.data.get('preset_id')
+        if not preset_id:
+            return Response({'error': 'preset_id required'}, status=400)
+        data = ChatSettingsService.apply_preset_wallpaper(request.user, chat_type, int(chat_id), preset_id)
+        if not data:
+            return Response({'error': 'Пресет не найден'}, status=404)
+        SettingsVersioning.increment_version(request.user.id)
+        return Response({'wallpaper': data, 'message': 'Обои применены'})
+
+    @action(detail=False, methods=['get'], url_path='wallpapers/presets')
+    def wallpaper_presets(self, request):
+        """Список предустановленных обоев"""
+        presets = ChatSettingsService.PRESET_WALLPAPERS
+        # Группируем по категориям
+        categories = {}
+        for p in presets:
+            cat = p.get('preset_category') or p.get('category', 'other')
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(p)
+        return Response({'presets': presets, 'categories': categories})
+
+    # ==================== ТЕМЫ ====================
+
+    @action(detail=False, methods=['get'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/theme')
+    def get_theme(self, request, chat_type=None, chat_id=None):
+        """Получить тему чата"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        data = ChatSettingsService.get_theme_for_chat(request.user, chat_type, int(chat_id))
+        return Response({'theme': data or ChatSettingsService._default_theme()})
+
+    @action(detail=False, methods=['put', 'post'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/theme/set')
+    def set_theme(self, request, chat_type=None, chat_id=None):
+        """Установить тему чата"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        data = ChatSettingsService.set_theme_for_chat(request.user, chat_type, int(chat_id), request.data)
+        SettingsVersioning.increment_version(request.user.id)
+        return Response({'theme': data, 'message': 'Тема применена'})
+
+    @action(detail=False, methods=['post'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/theme/preset')
+    def apply_theme_preset(self, request, chat_type=None, chat_id=None):
+        """Применить предустановленную тему"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        preset_id = request.data.get('preset_id')
+        if not preset_id:
+            return Response({'error': 'preset_id required'}, status=400)
+        data = ChatSettingsService.apply_preset_theme(request.user, chat_type, int(chat_id), preset_id)
+        if not data:
+            return Response({'error': 'Тема не найдена'}, status=404)
+        SettingsVersioning.increment_version(request.user.id)
+        return Response({'theme': data, 'message': 'Тема применена'})
+
+    @action(detail=False, methods=['get'], url_path='themes/presets')
+    def theme_presets(self, request):
+        """Список предустановленных тем"""
+        return Response({'presets': ChatSettingsService.PRESET_THEMES})
+
+    @action(detail=False, methods=['delete'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/theme/reset')
+    def reset_theme(self, request, chat_type=None, chat_id=None):
+        """Сбросить тему к дефолтной"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        from .models_chat import ChatTheme as CT
+        if chat_type == 'group':
+            CT.objects.filter(user=request.user, chat_id=chat_id).delete()
+        else:
+            CT.objects.filter(user=request.user, private_chat_id=chat_id).delete()
+        SettingsCache.invalidate(request.user.id, chat_type, int(chat_id))
+        return Response({'message': 'Тема сброшена', 'theme': ChatSettingsService._default_theme()})
+
+    # ==================== ВСЕ НАСТРОЙКИ СРАЗУ ====================
+
+    @action(detail=False, methods=['get'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/all')
+    def get_all_settings(self, request, chat_type=None, chat_id=None):
+        """Получить все настройки чата сразу (обои + тема + CSS переменные)"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        data = ChatSettingsService.get_all_settings_for_chat(request.user, chat_type, int(chat_id))
+        return Response(data)
+
+    @action(detail=False, methods=['post'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/bulk-update')
+    def bulk_update_settings(self, request, chat_type=None, chat_id=None):
+        """Массовое обновление настроек (обои + тема за один запрос)"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+
+        result = {}
+
+        if 'wallpaper' in request.data:
+            wp_data = request.data['wallpaper']
+            if wp_data:
+                result['wallpaper'] = ChatSettingsService.set_wallpaper_for_chat(
+                    request.user, chat_type, int(chat_id), wp_data
+                )
+
+        if 'theme' in request.data:
+            theme_data = request.data['theme']
+            if theme_data:
+                result['theme'] = ChatSettingsService.set_theme_for_chat(
+                    request.user, chat_type, int(chat_id), theme_data
+                )
+
+        SettingsVersioning.increment_version(request.user.id)
+        SettingsCache.invalidate(request.user.id, chat_type, int(chat_id))
+        result['css_vars'] = ChatSettingsService._build_css_vars(
+            result.get('wallpaper'),
+            result.get('theme')
+        )
+        return Response({'settings': result, 'message': 'Настройки сохранены'})
+
+    # ==================== CSS ПЕРЕМЕННЫЕ ====================
+
+    @action(detail=False, methods=['get'], url_path='(?P<chat_type>group|private)/(?P<chat_id>[0-9]+)/css-vars')
+    def get_css_vars(self, request, chat_type=None, chat_id=None):
+        """Получить CSS-переменные для применения в браузере"""
+        self._check_chat_access(request, chat_type, int(chat_id))
+        wallpaper = ChatSettingsService.get_wallpaper_for_chat(request.user, chat_type, int(chat_id))
+        theme = ChatSettingsService.get_theme_for_chat(request.user, chat_type, int(chat_id))
+        css_vars = ChatSettingsService._build_css_vars(wallpaper, theme)
+
+        # Генерируем CSS строку
+        css_string = ':root {\n' + '\n'.join(f'  {k}: {v};' for k, v in css_vars.items()) + '\n}'
+        return Response({'css_vars': css_vars, 'css_string': css_string})
+
+
+# ==================== НАСТРОЙКИ ЛИЧНОГО ЧАТА ====================
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def private_chat_user_settings(request, chat_id):
+    """Получить/обновить персональные настройки личного чата"""
+    chat = get_object_or_404(PrivateChat, id=chat_id)
+
+    if request.user not in [chat.user1, chat.user2]:
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    settings_obj, created = PrivateChatSettings.objects.get_or_create(
+        chat=chat, user=request.user
+    )
+
+    if request.method == 'GET':
+        return Response(_serialize_private_settings(settings_obj, request))
+
+    # PUT/PATCH — обновление
+    data = request.data
+    updatable = [
+        'custom_name', 'notifications_enabled', 'sound_enabled',
+        'notification_sound', 'vibration_enabled', 'show_preview',
+        'show_popup', 'muted_until', 'is_archived', 'is_pinned',
+        'is_hidden', 'auto_delete_enabled', 'auto_delete_after',
+        'folder_id', 'tags',
+    ]
+    for field in updatable:
+        if field in data:
+            setattr(settings_obj, field, data[field])
+
+    # Блокировка
+    if 'is_blocked' in data:
+        settings_obj.is_blocked = data['is_blocked']
+        if data['is_blocked']:
+            settings_obj.blocked_at = timezone.now()
+
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'private', chat_id)
+    SettingsVersioning.increment_version(request.user.id)
+
+    return Response({
+        'settings': _serialize_private_settings(settings_obj, request),
+        'message': 'Настройки сохранены'
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mute_private_chat(request, chat_id):
+    """Заглушить личный чат"""
+    chat = get_object_or_404(PrivateChat, id=chat_id)
+    if request.user not in [chat.user1, chat.user2]:
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    duration = request.data.get('duration')  # минуты, None = навсегда
+    settings_obj, _ = PrivateChatSettings.objects.get_or_create(chat=chat, user=request.user)
+
+    if duration is None:
+        settings_obj.muted_until = None  # навсегда
+        settings_obj.notifications_enabled = False
+    else:
+        settings_obj.muted_until = timezone.now() + timezone.timedelta(minutes=int(duration))
+
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'private', chat_id)
+
+    return Response({'message': 'Чат заглушен', 'muted_until': settings_obj.muted_until})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unmute_private_chat(request, chat_id):
+    """Включить уведомления в личном чате"""
+    chat = get_object_or_404(PrivateChat, id=chat_id)
+    if request.user not in [chat.user1, chat.user2]:
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    settings_obj, _ = PrivateChatSettings.objects.get_or_create(chat=chat, user=request.user)
+    settings_obj.muted_until = None
+    settings_obj.notifications_enabled = True
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'private', chat_id)
+    return Response({'message': 'Уведомления включены'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def block_user_in_private_chat(request, chat_id):
+    """Заблокировать пользователя в личном чате"""
+    chat = get_object_or_404(PrivateChat, id=chat_id)
+    if request.user not in [chat.user1, chat.user2]:
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    settings_obj, _ = PrivateChatSettings.objects.get_or_create(chat=chat, user=request.user)
+    settings_obj.is_blocked = True
+    settings_obj.blocked_at = timezone.now()
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'private', chat_id)
+    return Response({'message': 'Пользователь заблокирован'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unblock_user_in_private_chat(request, chat_id):
+    """Разблокировать пользователя в личном чате"""
+    chat = get_object_or_404(PrivateChat, id=chat_id)
+    if request.user not in [chat.user1, chat.user2]:
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    settings_obj, _ = PrivateChatSettings.objects.get_or_create(chat=chat, user=request.user)
+    settings_obj.is_blocked = False
+    settings_obj.blocked_at = None
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'private', chat_id)
+    return Response({'message': 'Пользователь разблокирован'})
+
+
+def _serialize_private_settings(settings_obj, request) -> dict:
+    return {
+        'id': settings_obj.id,
+        'chat_id': settings_obj.chat_id,
+        'custom_name': settings_obj.custom_name,
+        'custom_avatar_url': request.build_absolute_uri(settings_obj.custom_avatar.url) if settings_obj.custom_avatar else None,
+        'notifications_enabled': settings_obj.notifications_enabled,
+        'sound_enabled': settings_obj.sound_enabled,
+        'notification_sound': settings_obj.notification_sound,
+        'vibration_enabled': settings_obj.vibration_enabled,
+        'show_preview': settings_obj.show_preview,
+        'show_popup': settings_obj.show_popup,
+        'muted_until': settings_obj.muted_until,
+        'is_muted': settings_obj.is_muted,
+        'is_archived': settings_obj.is_archived,
+        'is_pinned': settings_obj.is_pinned,
+        'is_hidden': settings_obj.is_hidden,
+        'is_blocked': settings_obj.is_blocked,
+        'blocked_at': settings_obj.blocked_at,
+        'auto_delete_enabled': settings_obj.auto_delete_enabled,
+        'auto_delete_after': settings_obj.auto_delete_after,
+        'folder_id': settings_obj.folder_id,
+        'tags': settings_obj.tags,
+        'updated_at': settings_obj.updated_at,
+    }
+
+
+# ==================== НАСТРОЙКИ УЧАСТНИКА ГРУППЫ ====================
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def group_member_settings(request, chat_id):
+    """Персональные настройки участника группового чата"""
+    chat = get_object_or_404(GroupChat, id=chat_id)
+    member = ChatMember.objects.filter(chat=chat, user=request.user).first()
+    if not member:
+        return Response({'error': 'Вы не участник'}, status=403)
+
+    settings_obj, _ = GroupMemberSettings.objects.get_or_create(membership=member)
+
+    if request.method == 'GET':
+        return Response({
+            'notifications_enabled': settings_obj.notifications_enabled,
+            'mentions_only': settings_obj.mentions_only,
+            'sound_enabled': settings_obj.sound_enabled,
+            'show_preview': settings_obj.show_preview,
+            'muted_until': settings_obj.muted_until,
+            'is_muted': settings_obj.is_muted,
+            'is_pinned': settings_obj.is_pinned,
+            'is_archived': settings_obj.is_archived,
+            'tags': settings_obj.tags,
+        })
+
+    updatable = [
+        'notifications_enabled', 'mentions_only', 'sound_enabled',
+        'show_preview', 'muted_until', 'is_pinned', 'is_archived', 'tags'
+    ]
+    for field in updatable:
+        if field in request.data:
+            setattr(settings_obj, field, request.data[field])
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'group', chat_id)
+
+    return Response({'message': 'Настройки сохранены'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mute_group_chat(request, chat_id):
+    """Заглушить группу"""
+    chat = get_object_or_404(GroupChat, id=chat_id)
+    member = ChatMember.objects.filter(chat=chat, user=request.user).first()
+    if not member:
+        return Response({'error': 'Вы не участник'}, status=403)
+
+    settings_obj, _ = GroupMemberSettings.objects.get_or_create(membership=member)
+    duration = request.data.get('duration')
+
+    if duration is None:
+        settings_obj.notifications_enabled = False
+        settings_obj.muted_until = None
+    else:
+        settings_obj.muted_until = timezone.now() + timezone.timedelta(minutes=int(duration))
+
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'group', chat_id)
+    return Response({'message': 'Группа заглушена'})
 
 
 # ==================== ССЫЛКИ-ПРИГЛАШЕНИЯ ====================
 
 class ChatInviteLinkViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления ссылками-приглашениями"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return ChatInviteLink.objects.filter(
-            Q(chat__members__user=self.request.user)
-        ).select_related('chat', 'creator', 'auto_assign_role').distinct()
-    
+            chat__members__user=self.request.user
+        ).select_related('chat', 'creator').distinct()
+
     def get_serializer_class(self):
+        from .serializers_chat import ChatInviteLinkSerializer, ChatInviteLinkCreateSerializer
         if self.action in ['create', 'update', 'partial_update']:
             return ChatInviteLinkCreateSerializer
         return ChatInviteLinkSerializer
-    
+
     def perform_create(self, serializer):
         chat = serializer.validated_data.get('chat')
-        
-        # Проверяем права
         try:
             member = ChatMember.objects.get(chat=chat, user=self.request.user)
             if not member.is_owner and not member.is_admin:
                 if not member.effective_permissions.get('can_invite_users', False):
-                    raise PermissionDenied('У вас нет прав на создание приглашений')
+                    raise PermissionDenied('Нет прав на создание приглашений')
         except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
+            raise PermissionDenied('Вы не участник чата')
         serializer.save(creator=self.request.user)
-    
+
     @action(detail=True, methods=['post'])
     def revoke(self, request, pk=None):
-        """Отозвать ссылку-приглашение"""
-        invite_link = self.get_object()
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=invite_link.chat, user=request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_invite_users', False):
-                    raise PermissionDenied('У вас нет прав на отзыв приглашений')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        invite_link.is_revoked = True
-        invite_link.save(update_fields=['is_revoked'])
-        
-        # Логируем
+        invite = self.get_object()
+        invite.is_revoked = True
+        invite.save(update_fields=['is_revoked'])
         ChatAdminLog.objects.create(
-            chat=invite_link.chat,
-            user=request.user,
+            chat=invite.chat, user=request.user,
             action='invite_link_revoked',
-            details={'invite_link': invite_link.invite_link}
+            details={'invite_link': invite.invite_link}
         )
-        
         return Response({'status': 'revoked'})
-    
-    @action(detail=False, methods=['get'])
-    def for_chat(self, request):
-        """Получить все ссылки для конкретного чата"""
-        chat_id = request.query_params.get('chat_id')
-        if not chat_id:
-            return Response({'error': 'chat_id required'}, status=400)
-        
-        links = self.get_queryset().filter(chat_id=chat_id, is_revoked=False)
-        serializer = self.get_serializer(links, many=True)
-        return Response(serializer.data)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def join_chat_by_invite(request, token):
-    """Присоединиться к чату по ссылке-приглашению"""
+    """Присоединиться к чату по ссылке"""
     try:
-        invite_link = ChatInviteLink.objects.select_related('chat').get(invite_link=token)
+        invite = ChatInviteLink.objects.select_related('chat').get(invite_link=token)
     except ChatInviteLink.DoesNotExist:
         return Response({'error': 'Ссылка не найдена'}, status=404)
-    
-    # Проверяем валидность
-    if not invite_link.is_valid:
+
+    if not invite.is_valid:
         return Response({'error': 'Ссылка недействительна'}, status=400)
-    
-    chat = invite_link.chat
-    
-    # Проверяем, не является ли пользователь уже участником
+
+    chat = invite.chat
     if ChatMember.objects.filter(chat=chat, user=request.user).exists():
-        return Response({'error': 'Вы уже участник этого чата', 'chat_id': chat.id}, status=400)
-    
-    # Проверяем лимит участников
+        return Response({'error': 'Вы уже участник', 'chat_id': chat.id}, status=400)
+
     if chat.members.count() >= chat.max_members:
         return Response({'error': 'Чат переполнен'}, status=400)
-    
-    # Создаём участника
-    member = ChatMember.objects.create(
+
+    ChatMember.objects.create(
         user=request.user,
         chat=chat,
-        role=invite_link.auto_assign_role,
-        can_send_messages=chat.can_send_media,
-        can_send_media=chat.can_send_media
+        role=invite.auto_assign_role
     )
-    
-    # Увеличиваем счётчик использований
-    invite_link.increment_usage()
-    
-    # Логируем
+    invite.increment_usage()
+
     ChatAdminLog.objects.create(
-        chat=chat,
-        user=request.user,
+        chat=chat, user=request.user,
         action='member_joined',
-        details={'invite_link': invite_link.invite_link}
+        details={'invite_link': invite.invite_link}
     )
-    
-    return Response({
-        'chat_id': chat.id,
-        'chat_name': chat.name
-    })
 
-
-# ==================== ОБОИ ЧАТОВ ====================
-
-class ChatWallpaperViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления обоями чатов"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = ChatWallpaperSerializer
-    
-    def get_queryset(self):
-        queryset = ChatWallpaper.objects.filter(
-            Q(user=self.request.user) | Q(is_preset=True)
-        )
-        
-        chat_id = self.request.query_params.get('chat_id')
-        if chat_id:
-            queryset = queryset.filter(chat_id=chat_id)
-        
-        return queryset
-    
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-    
-    @action(detail=False, methods=['get'])
-    def presets(self, request):
-        """Получить предустановленные обои"""
-        presets = ChatWallpaper.objects.filter(is_preset=True)
-        serializer = self.get_serializer(presets, many=True)
-        return Response(serializer.data)
-
-
-@api_view(['PUT', 'POST'])
-@permission_classes([IsAuthenticated])
-def set_chat_wallpaper(request, chat_id):
-    """Установить обои для чата"""
-    chat_type = request.query_params.get('type', request.data.get('type', 'group'))  # group или private
-    
-    wallpaper_data = {
-        'wallpaper_type': request.data.get('wallpaper_type', 'solid'),
-        'wallpaper_color': request.data.get('wallpaper_color', '#1a1a1a'),
-        'wallpaper_color2': request.data.get('wallpaper_color2', ''),
-        'wallpaper_intensity': request.data.get('wallpaper_intensity', 100),
-        'wallpaper_blur': request.data.get('wallpaper_blur', 0),
-        'wallpaper_motion': request.data.get('wallpaper_motion', 'none'),
-    }
-    
-    if chat_type == 'group':
-        try:
-            chat = GroupChat.objects.get(id=chat_id)
-            
-            # Проверяем права
-            if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
-                return Response({'error': 'Вы не участник этого чата'}, status=403)
-            
-            wallpaper, created = ChatWallpaper.objects.update_or_create(
-                user=request.user,
-                chat=chat,
-                defaults=wallpaper_data
-            )
-        except GroupChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=404)
-    
-    else:  # private
-        try:
-            chat = PrivateChat.objects.get(
-                Q(id=chat_id) & (Q(user1=request.user) | Q(user2=request.user))
-            )
-            
-            wallpaper, created = ChatWallpaper.objects.update_or_create(
-                user=request.user,
-                private_chat=chat,
-                defaults=wallpaper_data
-            )
-        except PrivateChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=404)
-    
-    return Response(ChatWallpaperSerializer(wallpaper, context={'request': request}).data)
-
-
-# ==================== ТЕМЫ ОФОРМЛЕНИЯ ====================
-
-class ChatThemeViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления темами оформления"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = ChatThemeSerializer
-    
-    def get_queryset(self):
-        return ChatTheme.objects.filter(user=self.request.user)
-    
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-
-# ==================== РЕАКЦИИ НА СООБЩЕНИЯ ====================
-
-class MessageReactionViewSet(viewsets.ModelViewSet):
-    """ViewSet для реакций на сообщения"""
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        return MessageReaction.objects.filter(
-            Q(message__chat__members__user=self.request.user) |
-            Q(message__private_chat__user1=self.request.user) |
-            Q(message__private_chat__user2=self.request.user)
-        ).distinct()
-    
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return MessageReactionCreateSerializer
-        return MessageReactionSerializer
-    
-    def perform_create(self, serializer):
-        message = serializer.validated_data['message']
-        
-        # Проверяем доступ к сообщению
-        if message.chat:
-            if not ChatMember.objects.filter(chat=message.chat, user=self.request.user).exists():
-                raise PermissionDenied('Нет доступа к этому сообщению')
-        elif message.private_chat:
-            if message.private_chat.user1 != self.request.user and message.private_chat.user2 != self.request.user:
-                raise PermissionDenied('Нет доступа к этому сообщению')
-        
-        result = serializer.save()
-        if result is None:
-            # Реакция была удалена (toggle)
-            return Response({'status': 'removed'}, status=200)
-    
-    @action(detail=False, methods=['get'])
-    def for_message(self, request):
-        """Получить сгруппированные реакции для сообщения"""
-        message_id = request.query_params.get('message_id')
-        if not message_id:
-            return Response({'error': 'message_id required'}, status=400)
-        
-        reactions = MessageReaction.objects.filter(
-            message_id=message_id
-        ).select_related('user')
-        
-        # Группируем реакции
-        grouped = {}
-        for reaction in reactions:
-            emoji = reaction.emoji
-            if emoji not in grouped:
-                grouped[emoji] = {
-                    'emoji': emoji,
-                    'count': 0,
-                    'users': [],
-                    'is_mine': False
-                }
-            grouped[emoji]['count'] += 1
-            grouped[emoji]['users'].append({
-                'id': reaction.user.id,
-                'username': reaction.user.username
-            })
-            if reaction.user == request.user:
-                grouped[emoji]['is_mine'] = True
-        
-        return Response(list(grouped.values()))
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def toggle_reaction(request, message_id):
-    """Добавить/удалить реакцию на сообщение"""
-    emoji = request.data.get('emoji')
-    if not emoji:
-        return Response({'error': 'emoji required'}, status=400)
-    
-    try:
-        message = Message.objects.get(id=message_id)
-    except Message.DoesNotExist:
-        return Response({'error': 'Сообщение не найдено'}, status=404)
-    
-    # Проверяем доступ
-    if message.chat:
-        if not ChatMember.objects.filter(chat=message.chat, user=request.user).exists():
-            return Response({'error': 'Нет доступа'}, status=403)
-    elif message.private_chat:
-        if message.private_chat.user1 != request.user and message.private_chat.user2 != request.user:
-            return Response({'error': 'Нет доступа'}, status=403)
-    
-    # Toggle реакции
-    reaction, created = MessageReaction.objects.get_or_create(
-        message=message,
-        user=request.user,
-        emoji=emoji
-    )
-    
-    if not created:
-        reaction.delete()
-        return Response({'status': 'removed', 'emoji': emoji})
-    
-    return Response({'status': 'added', 'emoji': emoji})
+    return Response({'chat_id': chat.id, 'chat_name': chat.name})
 
 
 # ==================== БЛОКИРОВКИ И ОГРАНИЧЕНИЯ ====================
 
 class ChatBanViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления блокировками"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return ChatBan.objects.filter(
-            Q(chat__members__user=self.request.user)
+            chat__members__user=self.request.user
         ).select_related('chat', 'user', 'banned_by').distinct()
-    
+
     def get_serializer_class(self):
-        if self.action == 'create':
-            return ChatBanCreateSerializer
-        return ChatBanSerializer
-    
+        from .serializers_chat import ChatBanSerializer, ChatBanCreateSerializer
+        return ChatBanCreateSerializer if self.action == 'create' else ChatBanSerializer
+
     def perform_create(self, serializer):
         serializer.save(banned_by=self.request.user)
-    
+
     @action(detail=True, methods=['post'])
     def unban(self, request, pk=None):
-        """Разблокировать пользователя"""
         ban = self.get_object()
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=ban.chat, user=request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_ban_users', False):
-                    raise PermissionDenied('У вас нет прав на разблокировку')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
+        member = ChatMember.objects.filter(chat=ban.chat, user=request.user).first()
+        if not member or (not member.is_owner and not member.is_admin):
+            raise PermissionDenied('Нет прав на разблокировку')
         ban.delete()
-        
-        # Логируем
         ChatAdminLog.objects.create(
-            chat=ban.chat,
-            user=request.user,
-            action='member_unbanned',
-            target_user=ban.user,
+            chat=ban.chat, user=request.user,
+            action='member_unbanned', target_user=ban.user,
             details={'reason': 'Manual unban'}
         )
-        
         return Response({'status': 'unbanned'})
 
 
 class ChatRestrictionViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления ограничениями"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return ChatRestriction.objects.filter(
-            Q(chat__members__user=self.request.user)
+            chat__members__user=self.request.user
         ).select_related('chat', 'user', 'restricted_by').distinct()
-    
+
     def get_serializer_class(self):
-        if self.action == 'create':
-            return ChatRestrictionCreateSerializer
-        return ChatRestrictionSerializer
-    
+        from .serializers_chat import ChatRestrictionSerializer, ChatRestrictionCreateSerializer
+        return ChatRestrictionCreateSerializer if self.action == 'create' else ChatRestrictionSerializer
+
     def perform_create(self, serializer):
         serializer.save(restricted_by=self.request.user)
-    
+
     @action(detail=True, methods=['post'])
     def lift(self, request, pk=None):
-        """Снять ограничение"""
         restriction = self.get_object()
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=restriction.chat, user=request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_restrict_members', False):
-                    raise PermissionDenied('У вас нет прав на снятие ограничений')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
+        member = ChatMember.objects.filter(chat=restriction.chat, user=request.user).first()
+        if not member or (not member.is_owner and not member.is_admin):
+            raise PermissionDenied('Нет прав на снятие ограничений')
         restriction.delete()
         return Response({'status': 'lifted'})
 
 
-# ==================== МЕДЛЕННЫЙ РЕЖИМ ====================
-
-class ChatSlowModeViewSet(viewsets.ModelViewSet):
-    """ViewSet для медленного режима"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = ChatSlowModeSerializer
-    
-    def get_queryset(self):
-        return ChatSlowMode.objects.filter(
-            chat__members__user=self.request.user
-        )
-    
-    def perform_update(self, serializer):
-        slow_mode = self.get_object()
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=slow_mode.chat, user=self.request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_manage_chat', False):
-                    raise PermissionDenied('У вас нет прав на изменение настроек')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        serializer.save()
-
-
-# ==================== ЗАПРОСЫ НА ВСТУПЛЕНИЕ ====================
-
-class ChatJoinRequestViewSet(viewsets.ModelViewSet):
-    """ViewSet для запросов на вступление"""
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        return ChatJoinRequest.objects.filter(
-            Q(user=self.request.user) | Q(chat__members__user=self.request.user)
-        ).distinct()
-    
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return ChatJoinRequestCreateSerializer
-        return ChatJoinRequestSerializer
-    
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-    
-    @action(detail=True, methods=['post'])
-    def approve(self, request, pk=None):
-        """Одобрить запрос"""
-        join_request = self.get_object()
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=join_request.chat, user=request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_invite_users', False):
-                    raise PermissionDenied('У вас нет прав на одобрение запросов')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        # Добавляем участника
-        ChatMember.objects.create(
-            user=join_request.user,
-            chat=join_request.chat
-        )
-        
-        # Обновляем статус запроса
-        join_request.status = 'approved'
-        join_request.reviewed_by = request.user
-        join_request.reviewed_at = timezone.now()
-        join_request.save()
-        
-        # Логируем
-        ChatAdminLog.objects.create(
-            chat=join_request.chat,
-            user=request.user,
-            action='member_joined',
-            target_user=join_request.user,
-            details={'method': 'join_request_approval'}
-        )
-        
-        return Response({'status': 'approved'})
-    
-    @action(detail=True, methods=['post'])
-    def reject(self, request, pk=None):
-        """Отклонить запрос"""
-        join_request = self.get_object()
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=join_request.chat, user=request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_invite_users', False):
-                    raise PermissionDenied('У вас нет прав на отклонение запросов')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        join_request.status = 'rejected'
-        join_request.reviewed_by = request.user
-        join_request.reviewed_at = timezone.now()
-        join_request.save()
-        
-        return Response({'status': 'rejected'})
-
-
-# ==================== ТЕГИ ЧАТОВ ====================
-
-class ChatTagViewSet(viewsets.ModelViewSet):
-    """ViewSet для тегов чатов"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = ChatTagSerializer
-    
-    def get_queryset(self):
-        return ChatTag.objects.filter(user=self.request.user)
-    
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-
-class ChatTagAssignmentViewSet(viewsets.ModelViewSet):
-    """ViewSet для привязки тегов"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = ChatTagAssignmentSerializer
-    
-    def get_queryset(self):
-        return ChatTagAssignment.objects.filter(tag__user=self.request.user)
-
-
-# ==================== АНТИ-СПАМ ====================
-
-class AntiSpamRuleViewSet(viewsets.ModelViewSet):
-    """ViewSet для правил анти-спама"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = AntiSpamRuleSerializer
-    
-    def get_queryset(self):
-        return AntiSpamRule.objects.filter(
-            chat__members__user=self.request.user
-        )
-    
-    def perform_create(self, serializer):
-        chat = serializer.validated_data.get('chat')
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=chat, user=self.request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_manage_chat', False):
-                    raise PermissionDenied('У вас нет прав на создание правил')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        serializer.save()
-
-
-# ==================== РЕЗЕРВНЫЕ КОПИИ ====================
-
-class ChatBackupViewSet(viewsets.ModelViewSet):
-    """ViewSet для резервных копий чатов"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = ChatBackupSerializer
-    
-    def get_queryset(self):
-        return ChatBackup.objects.filter(
-            Q(chat__members__user=self.request.user) | Q(created_by=self.request.user)
-        ).distinct()
-    
-    def perform_create(self, serializer):
-        chat = serializer.validated_data.get('chat')
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=chat, user=self.request.user)
-            if not member.is_owner and not member.is_admin:
-                raise PermissionDenied('Только администраторы могут создавать бэкапы')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        serializer.save(created_by=self.request.user)
-    
-    @action(detail=True, methods=['post'])
-    def restore(self, request, pk=None):
-        """Восстановить чат из резервной копии"""
-        backup = self.get_object()
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=backup.chat, user=request.user)
-            if not member.is_owner:
-                raise PermissionDenied('Только владелец может восстанавливать бэкапы')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        # TODO: Реализовать логику восстановления
-        return Response({'status': 'restoration_started'})
-
-
-# ==================== ЗАПЛАНИРОВАННЫЕ СООБЩЕНИЯ ====================
-
-class ScheduledMessageViewSet(viewsets.ModelViewSet):
-    """ViewSet для запланированных сообщений"""
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        return ScheduledMessage.objects.filter(sender=self.request.user)
-    
-    def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
-            return ScheduledMessageCreateSerializer
-        return ScheduledMessageSerializer
-    
-    def perform_create(self, serializer):
-        serializer.save(sender=self.request.user)
-    
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        """Отменить запланированное сообщение"""
-        message = self.get_object()
-        
-        if message.status != 'scheduled':
-            return Response({'error': 'Можно отменить только запланированные сообщения'}, status=400)
-        
-        message.status = 'cancelled'
-        message.save(update_fields=['status'])
-        
-        return Response({'status': 'cancelled'})
-    
-    @action(detail=True, methods=['post'])
-    def send_now(self, request, pk=None):
-        """Отправить запланированное сообщение сейчас"""
-        message = self.get_object()
-        
-        if message.status != 'scheduled':
-            return Response({'error': 'Можно отправить только запланированные сообщения'}, status=400)
-        
-        # TODO: Реализовать отправку сообщения
-        message.status = 'sent'
-        message.sent_at = timezone.now()
-        message.save(update_fields=['status', 'sent_at'])
-        
-        return Response({'status': 'sent'})
-
-
-# ==================== РОЛИ В ЧАТАХ ====================
-
-class ChatRoleViewSet(viewsets.ModelViewSet):
-    """ViewSet для ролей в чатах"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = ChatRoleSerializer
-    
-    def get_queryset(self):
-        return ChatRole.objects.filter(
-            chat__members__user=self.request.user
-        )
-    
-    def perform_create(self, serializer):
-        chat_id = self.kwargs.get('chat_pk')
-        chat = get_object_or_404(GroupChat, id=chat_id)
-        
-        # Проверяем права
-        try:
-            member = ChatMember.objects.get(chat=chat, user=self.request.user)
-            if not member.is_owner and not member.is_admin:
-                if not member.effective_permissions.get('can_add_new_admins', False):
-                    raise PermissionDenied('У вас нет прав на создание ролей')
-        except ChatMember.DoesNotExist:
-            raise PermissionDenied('Вы не участник этого чата')
-        
-        serializer.save(chat=chat, created_by=self.request.user)
-
-
-# ==================== ДОПОЛНИТЕЛЬНЫЕ ДЕЙСТВИЯ ====================
+# ==================== РОЛИ ====================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def set_member_role(request, chat_id, user_id):
-    """Назначить роль участнику чата"""
+    """Назначить роль участнику"""
     try:
         chat = GroupChat.objects.get(id=chat_id)
         target_member = ChatMember.objects.get(chat=chat, user_id=user_id)
         request_member = ChatMember.objects.get(chat=chat, user=request.user)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат или участник не найдены'}, status=404)
-    
-    # Нельзя менять роль владельца
+        return Response({'error': 'Не найдено'}, status=404)
+
     if target_member.is_owner:
         return Response({'error': 'Нельзя изменить роль владельца'}, status=400)
-    
-    # Проверяем права
+
     if not request_member.is_owner and not request_member.is_admin:
-        if not request_member.effective_permissions.get('can_promote_members', False):
-            return Response({'error': 'У вас нет прав на изменение ролей'}, status=403)
-    
-    # Нельзя повысить выше своего уровня
+        checker = PermissionChecker(request.user, chat)
+        result = checker.has_permission('can_promote_members')
+        if not result.allowed:
+            return Response({'error': result.reason}, status=403)
+
     role_id = request.data.get('role_id')
     if role_id:
         try:
             role = ChatRole.objects.get(id=role_id, chat=chat)
-            if request_member.role and role.level >= request_member.role.level:
-                if not request_member.is_owner:
-                    return Response({'error': 'Нельзя назначить роль уровня выше или равного вашему'}, status=400)
         except ChatRole.DoesNotExist:
             return Response({'error': 'Роль не найдена'}, status=404)
-    
-    target_member.role_id = role_id
-    target_member.save(update_fields=['role_id'])
-    
-    # Логируем
+        target_member.role = role
+    else:
+        target_member.role = None
+
+    target_member.save(update_fields=['role'])
+
     ChatAdminLog.objects.create(
-        chat=chat,
-        user=request.user,
+        chat=chat, user=request.user,
         action='member_promoted' if role_id else 'member_demoted',
         target_user=target_member.user,
         details={'new_role_id': role_id}
     )
-    
     return Response({'status': 'role_updated'})
 
 
@@ -774,289 +624,213 @@ def transfer_ownership(request, chat_id):
     new_owner_id = request.data.get('user_id')
     if not new_owner_id:
         return Response({'error': 'user_id required'}, status=400)
-    
+
     try:
         chat = GroupChat.objects.get(id=chat_id)
-        current_owner_member = ChatMember.objects.get(chat=chat, user=request.user)
-        new_owner_member = ChatMember.objects.get(chat=chat, user_id=new_owner_id)
+        current_member = ChatMember.objects.get(chat=chat, user=request.user)
+        new_member = ChatMember.objects.get(chat=chat, user_id=new_owner_id)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат или участник не найдены'}, status=404)
-    
-    # Только владелец может передать владение
-    if not current_owner_member.is_owner:
+        return Response({'error': 'Не найдено'}, status=404)
+
+    if not current_member.is_owner:
         return Response({'error': 'Только владелец может передать владение'}, status=403)
-    
+
     with transaction.atomic():
-        # Снимаем владельца
-        chat.created_by = new_owner_member.user
+        chat.created_by = new_member.user
         chat.save(update_fields=['created_by'])
-        
-        # Обновляем роли
-        current_owner_member.is_admin = True
-        current_owner_member.save(update_fields=['is_admin'])
-        
-        new_owner_member.is_admin = True
-        new_owner_member.save(update_fields=['is_admin'])
-        
-        # Логируем
+        current_member.is_admin = True
+        current_member.save(update_fields=['is_admin'])
+        new_member.is_admin = True
+        new_member.save(update_fields=['is_admin'])
+
         ChatAdminLog.objects.create(
-            chat=chat,
-            user=request.user,
-            action='chat_updated',
-            target_user=new_owner_member.user,
+            chat=chat, user=request.user,
+            action='chat_updated', target_user=new_member.user,
             details={'action': 'ownership_transferred'}
         )
-    
+
     return Response({'status': 'ownership_transferred'})
 
+
+# ==================== ЗАБАНЕННЫЕ И ОГРАНИЧЕННЫЕ ====================
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_banned_users(request, chat_id):
-    """Получить список заблокированных пользователей"""
     try:
         chat = GroupChat.objects.get(id=chat_id)
         member = ChatMember.objects.get(chat=chat, user=request.user)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Проверяем права
+        return Response({'error': 'Не найдено'}, status=404)
+
     if not member.is_owner and not member.is_admin:
-        if not member.effective_permissions.get('can_ban_users', False):
-            return Response({'error': 'Нет доступа'}, status=403)
-    
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    from .serializers_chat import ChatBanSerializer
     bans = ChatBan.objects.filter(chat=chat).select_related('user', 'banned_by')
-    serializer = ChatBanSerializer(bans, many=True)
-    return Response(serializer.data)
+    return Response(ChatBanSerializer(bans, many=True).data)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_restricted_users(request, chat_id):
-    """Получить список ограниченных пользователей"""
     try:
         chat = GroupChat.objects.get(id=chat_id)
         member = ChatMember.objects.get(chat=chat, user=request.user)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Проверяем права
+        return Response({'error': 'Не найдено'}, status=404)
+
     if not member.is_owner and not member.is_admin:
-        if not member.effective_permissions.get('can_restrict_members', False):
-            return Response({'error': 'Нет доступа'}, status=403)
-    
-    restrictions = ChatRestriction.objects.filter(
-        chat=chat
-    ).filter(
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    from .serializers_chat import ChatRestrictionSerializer
+    restrictions = ChatRestriction.objects.filter(chat=chat).filter(
         Q(until_date__isnull=True) | Q(until_date__gt=timezone.now())
     ).select_related('user', 'restricted_by')
-    
-    serializer = ChatRestrictionSerializer(restrictions, many=True)
-    return Response(serializer.data)
+    return Response(ChatRestrictionSerializer(restrictions, many=True).data)
+
+
+# ==================== РЕАКЦИИ ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggle_reaction(request, message_id):
+    """Добавить/убрать реакцию"""
+    emoji = request.data.get('emoji')
+    if not emoji:
+        return Response({'error': 'emoji required'}, status=400)
+
+    try:
+        message = Message.objects.get(id=message_id)
+    except Message.DoesNotExist:
+        return Response({'error': 'Сообщение не найдено'}, status=404)
+
+    if message.chat:
+        if not ChatMember.objects.filter(chat=message.chat, user=request.user).exists():
+            return Response({'error': 'Нет доступа'}, status=403)
+    elif message.private_chat:
+        if request.user not in [message.private_chat.user1, message.private_chat.user2]:
+            return Response({'error': 'Нет доступа'}, status=403)
+
+    reaction, created = MessageReaction.objects.get_or_create(
+        message=message, user=request.user, emoji=emoji
+    )
+    if not created:
+        reaction.delete()
+        return Response({'status': 'removed', 'emoji': emoji})
+    return Response({'status': 'added', 'emoji': emoji})
 
 
 # ==================== ПАПКИ ЧАТОВ ====================
 
 class ChatFolderViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления папками чатов"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
-        return ChatFolder.objects.filter(user=self.request.user).prefetch_related('chats')
-    
+        return ChatFolder.objects.filter(user=self.request.user)
+
     def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
-            return ChatFolderCreateSerializer
-        return ChatFolderSerializer
-    
+        from .serializers_chat import ChatFolderSerializer, ChatFolderCreateSerializer
+        return ChatFolderCreateSerializer if self.action in ['create', 'update', 'partial_update'] else ChatFolderSerializer
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-    
+
     @action(detail=False, methods=['post'])
     def reorder(self, request):
-        """Изменить порядок папок"""
         folder_ids = request.data.get('folder_ids', [])
-        
-        if not folder_ids:
-            return Response({'error': 'folder_ids required'}, status=400)
-        
         with transaction.atomic():
-            for index, folder_id in enumerate(folder_ids):
-                ChatFolder.objects.filter(
-                    id=folder_id,
-                    user=request.user
-                ).update(order=index)
-        
+            for i, fid in enumerate(folder_ids):
+                ChatFolder.objects.filter(id=fid, user=request.user).update(order=i)
         return Response({'status': 'reordered'})
-    
+
     @action(detail=True, methods=['post'])
     def add_chat(self, request, pk=None):
-        """Добавить чат в папку"""
         folder = self.get_object()
         chat_id = request.data.get('chat_id')
         chat_type = request.data.get('chat_type', 'group')
-        
         if not chat_id:
             return Response({'error': 'chat_id required'}, status=400)
-        
         if chat_type == 'group':
-            try:
-                chat = GroupChat.objects.get(id=chat_id)
-                ChatFolderChat.objects.get_or_create(
-                    folder=folder,
-                    group_chat=chat
-                )
-            except GroupChat.DoesNotExist:
-                return Response({'error': 'Чат не найден'}, status=404)
+            ChatFolderChat.objects.get_or_create(folder=folder, group_chat_id=chat_id)
         else:
-            try:
-                chat = PrivateChat.objects.filter(
-                    id=chat_id
-                ).filter(
-                    Q(user1=request.user) | Q(user2=request.user)
-                ).first()
-                if not chat:
-                    return Response({'error': 'Чат не найден'}, status=404)
-                ChatFolderChat.objects.get_or_create(
-                    folder=folder,
-                    private_chat=chat
-                )
-            except Exception:
-                return Response({'error': 'Чат не найден'}, status=404)
-        
+            ChatFolderChat.objects.get_or_create(folder=folder, private_chat_id=chat_id)
         return Response({'status': 'added'})
-    
+
     @action(detail=True, methods=['post'])
     def remove_chat(self, request, pk=None):
-        """Удалить чат из папки"""
         folder = self.get_object()
         chat_id = request.data.get('chat_id')
         chat_type = request.data.get('chat_type', 'group')
-        
-        if not chat_id:
-            return Response({'error': 'chat_id required'}, status=400)
-        
         if chat_type == 'group':
-            ChatFolderChat.objects.filter(
-                folder=folder,
-                group_chat_id=chat_id
-            ).delete()
+            ChatFolderChat.objects.filter(folder=folder, group_chat_id=chat_id).delete()
         else:
-            ChatFolderChat.objects.filter(
-                folder=folder,
-                private_chat_id=chat_id
-            ).delete()
-        
+            ChatFolderChat.objects.filter(folder=folder, private_chat_id=chat_id).delete()
         return Response({'status': 'removed'})
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_folder_chats(request, folder_id):
-    """Получить чаты в папке"""
-    try:
-        folder = ChatFolder.objects.get(id=folder_id, user=request.user)
-    except ChatFolder.DoesNotExist:
-        return Response({'error': 'Папка не найдена'}, status=404)
-    
+    folder = get_object_or_404(ChatFolder, id=folder_id, user=request.user)
     chats_data = []
-    
-    # Получаем явно добавленные чаты
-    for chat_in_folder in folder.chats.all():
-        if chat_in_folder.group_chat:
-            chat = chat_in_folder.group_chat
+    for item in folder.chats.all():
+        if item.group_chat:
+            c = item.group_chat
             chats_data.append({
-                'id': chat.id,
-                'type': 'group',
-                'name': chat.name,
-                'avatar_url': chat.avatar.url if chat.avatar else None,
+                'id': c.id, 'type': 'group', 'name': c.name,
+                'avatar_url': c.avatar.url if c.avatar else None
             })
-        elif chat_in_folder.private_chat:
-            chat = chat_in_folder.private_chat
-            other = chat.other_user(request.user)
+        elif item.private_chat:
+            c = item.private_chat
+            other = c.other_user(request.user)
             chats_data.append({
-                'id': chat.id,
-                'type': 'private',
-                'name': other.display_name or other.username,
-                'avatar_url': other.avatar.url if other.avatar else None,
+                'id': c.id, 'type': 'private', 'name': other.display_name or other.username,
+                'avatar_url': other.avatar.url if other.avatar else None
             })
-    
-    # Применяем автоматические правила если включены
-    if folder.include_private or folder.include_groups:
-        # TODO: Реализовать автоматическое добавление по правилам
-        pass
-    
     return Response(chats_data)
 
 
-# ==================== ЖУРНАЛ БЕЗОПАСНОСТИ ====================
-
-class SecurityLogViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet для просмотра журнала безопасности"""
-    permission_classes = [IsAuthenticated]
-    serializer_class = SecurityLogSerializer
-    
-    def get_queryset(self):
-        queryset = SecurityLog.objects.filter(user=self.request.user)
-        
-        action = self.request.query_params.get('action')
-        if action:
-            queryset = queryset.filter(action=action)
-        
-        is_suspicious = self.request.query_params.get('is_suspicious')
-        if is_suspicious:
-            queryset = queryset.filter(is_suspicious=is_suspicious.lower() == 'true')
-        
-        return queryset.order_by('-created_at')
-
-
-# ==================== АНАЛИТИКА ЧАТА ====================
+# ==================== АНАЛИТИКА ====================
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_chat_analytics(request, chat_id):
-    """Получить аналитику чата"""
     try:
         chat = GroupChat.objects.get(id=chat_id)
         member = ChatMember.objects.get(chat=chat, user=request.user)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Только админы могут видеть аналитику
+        return Response({'error': 'Не найдено'}, status=404)
+
     if not member.is_owner and not member.is_admin:
         return Response({'error': 'Нет доступа'}, status=403)
-    
-    analytics = ChatAnalytics(chat)
+
+    analytics = AntiSpamService(chat)
+    from .services.chat_settings_service import ChatAnalytics as CA
+    ca = CA(chat)
     days = int(request.query_params.get('days', 7))
-    
-    data = {
-        'activity': analytics.get_activity_stats(days),
-        'members': analytics.get_member_stats(),
-        'content': analytics.get_content_stats(days),
-        'engagement_score': analytics.get_engagement_score(),
-    }
-    
-    return Response(data)
+    return Response({
+        'activity': ca.get_activity_stats(days),
+        'members': ca.get_member_stats(),
+        'content': ca.get_content_stats(days),
+        'engagement_score': ca.get_engagement_score(),
+    })
 
 
-# ==================== ЭКСПОРТ/ИМПОРТ НАСТРОЕК ====================
+# ==================== ЭКСПОРТ/ИМПОРТ ====================
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def export_settings(request):
-    """Экспорт настроек пользователя"""
     exporter = SettingsExport()
-    data = exporter.export_user_settings(request.user)
-    return Response(data)
+    return Response(exporter.export_user_settings(request.user))
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def import_settings(request):
-    """Импорт настроек пользователя"""
     importer = SettingsExport()
-    result = importer.import_user_settings(request.user, request.data)
-    return Response(result)
+    return Response(importer.import_user_settings(request.user, request.data))
 
 
 # ==================== МАССОВЫЕ ОПЕРАЦИИ ====================
@@ -1064,343 +838,317 @@ def import_settings(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_delete_messages(request, chat_id):
-    """Массовое удаление сообщений"""
     try:
         chat = GroupChat.objects.get(id=chat_id)
         member = ChatMember.objects.get(chat=chat, user=request.user)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Проверяем права
+        return Response({'error': 'Не найдено'}, status=404)
+
     checker = PermissionChecker(request.user, chat)
-    result = checker.has_permission('can_delete_messages')
-    if not result.allowed:
-        return Response({'error': result.reason}, status=403)
-    
-    message_ids = request.data.get('message_ids', [])
-    if not message_ids:
-        return Response({'error': 'message_ids required'}, status=400)
-    
-    # Удаляем сообщения
-    deleted_count = Message.objects.filter(
-        id__in=message_ids,
-        chat=chat
-    ).update(
-        is_deleted=True,
-        deleted_at=timezone.now(),
-        deleted_by=request.user
+    r = checker.has_permission('can_delete_messages')
+    if not r.allowed:
+        return Response({'error': r.reason}, status=403)
+
+    ids = request.data.get('message_ids', [])
+    count = Message.objects.filter(id__in=ids, chat=chat).update(
+        is_deleted=True, deleted_at=timezone.now(), deleted_by=request.user
     )
-    
-    # Логируем
-    ChatAdminLog.objects.create(
-        chat=chat,
-        user=request.user,
-        action='message_deleted',
-        details={'count': deleted_count, 'message_ids': message_ids[:10]}
-    )
-    
-    return Response({'deleted_count': deleted_count})
+    return Response({'deleted_count': count})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_add_members(request, chat_id):
-    """Массовое добавление участников"""
     try:
         chat = GroupChat.objects.get(id=chat_id)
         member = ChatMember.objects.get(chat=chat, user=request.user)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Проверяем права
+        return Response({'error': 'Не найдено'}, status=404)
+
     checker = PermissionChecker(request.user, chat)
-    result = checker.has_permission('can_invite_users')
-    if not result.allowed:
-        return Response({'error': result.reason}, status=403)
-    
+    r = checker.has_permission('can_invite_users')
+    if not r.allowed:
+        return Response({'error': r.reason}, status=403)
+
     user_ids = request.data.get('user_ids', [])
-    if not user_ids:
-        return Response({'error': 'user_ids required'}, status=400)
-    
-    # Проверяем лимит участников
-    current_count = chat.members.count()
-    if current_count + len(user_ids) > chat.max_members:
-        return Response({'error': 'Превышен лимит участников'}, status=400)
-    
-    # Добавляем участников
-    added_count = 0
-    for user_id in user_ids:
+    added = 0
+    for uid in user_ids:
         try:
-            user = User.objects.get(id=user_id)
-            # Проверяем, не является ли уже участником
-            if not ChatMember.objects.filter(chat=chat, user=user).exists():
-                ChatMember.objects.create(
-                    user=user,
-                    chat=chat,
-                    can_send_messages=chat.can_send_media,
-                    can_send_media=chat.can_send_media
-                )
-                added_count += 1
+            u = User.objects.get(id=uid)
+            if not ChatMember.objects.filter(chat=chat, user=u).exists():
+                ChatMember.objects.create(user=u, chat=chat)
+                added += 1
         except User.DoesNotExist:
             continue
-    
-    # Логируем
-    ChatAdminLog.objects.create(
-        chat=chat,
-        user=request.user,
-        action='member_joined',
-        details={'count': added_count, 'method': 'bulk_add'}
-    )
-    
-    return Response({'added_count': added_count})
+    return Response({'added_count': added})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_remove_members(request, chat_id):
-    """Массовое удаление участников"""
     try:
         chat = GroupChat.objects.get(id=chat_id)
         member = ChatMember.objects.get(chat=chat, user=request.user)
     except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Проверяем права
+        return Response({'error': 'Не найдено'}, status=404)
+
     checker = PermissionChecker(request.user, chat)
-    result = checker.has_permission('can_manage_chat')
-    if not result.allowed:
-        return Response({'error': result.reason}, status=403)
-    
-    user_ids = request.data.get('user_ids', [])
-    if not user_ids:
-        return Response({'error': 'user_ids required'}, status=400)
-    
-    # Нельзя удалить владельца
-    if chat.created_by_id in user_ids:
+    r = checker.has_permission('can_manage_chat')
+    if not r.allowed:
+        return Response({'error': r.reason}, status=403)
+
+    ids = request.data.get('user_ids', [])
+    if chat.created_by_id in ids:
         return Response({'error': 'Нельзя удалить владельца'}, status=400)
-    
-    # Удаляем участников
-    removed_count = ChatMember.objects.filter(
-        chat=chat,
-        user_id__in=user_ids
-    ).delete()[0]
-    
-    # Логируем
-    ChatAdminLog.objects.create(
-        chat=chat,
-        user=request.user,
-        action='member_left',
-        details={'count': removed_count, 'method': 'bulk_remove'}
-    )
-    
-    return Response({'removed_count': removed_count})
+    count = ChatMember.objects.filter(chat=chat, user_id__in=ids).delete()[0]
+    return Response({'removed_count': count})
 
 
-# ==================== УПРАВЛЕНИЕ СООБЩЕНИЯМИ ====================
+# ==================== ЗАКРЕПЛЕНИЕ СООБЩЕНИЙ ====================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def pin_message_new(request, message_id):
-    """Закрепить сообщение (новая реализация)"""
     try:
         message = Message.objects.get(id=message_id)
     except Message.DoesNotExist:
         return Response({'error': 'Сообщение не найдено'}, status=404)
-    
-    # Определяем чат
-    chat = message.chat or message.private_chat
-    if not chat:
-        return Response({'error': 'Сообщение не привязано к чату'}, status=400)
-    
-    # Проверяем права
+
     if message.chat:
         checker = PermissionChecker(request.user, message.chat)
-        result = checker.has_permission('can_pin_messages')
-        if not result.allowed:
-            return Response({'error': result.reason}, status=403)
-    
-    # Проверяем, не закреплено ли уже
-    if hasattr(message, 'pin_info'):
-        return Response({'error': 'Сообщение уже закреплено'}, status=400)
-    
-    # Закрепляем
-    pin = MessagePin.objects.create(
+        r = checker.has_permission('can_pin_messages')
+        if not r.allowed:
+            return Response({'error': r.reason}, status=403)
+
+    MessagePin.objects.get_or_create(
         chat=message.chat,
         private_chat=message.private_chat,
         message=message,
-        pinned_by=request.user
+        defaults={'pinned_by': request.user}
     )
-    
-    # Обновляем флаг в сообщении
     message.is_pinned = True
     message.pinned_by = request.user
     message.pinned_at = timezone.now()
     message.save(update_fields=['is_pinned', 'pinned_by', 'pinned_at'])
-    
-    # Логируем для группового чата
+
     if message.chat:
         ChatAdminLog.objects.create(
-            chat=message.chat,
-            user=request.user,
-            action='message_pinned',
-            message=message
+            chat=message.chat, user=request.user,
+            action='message_pinned', message=message
         )
-    
-    return Response(MessagePinSerializer(pin).data)
+    return Response({'status': 'pinned'})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def unpin_message_new(request, message_id):
-    """Открепить сообщение (новая реализация)"""
     try:
         message = Message.objects.get(id=message_id)
     except Message.DoesNotExist:
         return Response({'error': 'Сообщение не найдено'}, status=404)
-    
-    # Проверяем права
+
     if message.chat:
         checker = PermissionChecker(request.user, message.chat)
-        result = checker.has_permission('can_pin_messages')
-        if not result.allowed:
-            return Response({'error': result.reason}, status=403)
-    
-    # Удаляем запись о закреплении
+        r = checker.has_permission('can_pin_messages')
+        if not r.allowed:
+            return Response({'error': r.reason}, status=403)
+
     MessagePin.objects.filter(message=message).delete()
-    
-    # Обновляем флаг в сообщении
     message.is_pinned = False
     message.pinned_by = None
     message.pinned_at = None
     message.save(update_fields=['is_pinned', 'pinned_by', 'pinned_at'])
-    
-    # Логируем для группового чата
-    if message.chat:
-        ChatAdminLog.objects.create(
-            chat=message.chat,
-            user=request.user,
-            action='message_unpinned',
-            message=message
-        )
-    
     return Response({'status': 'unpinned'})
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_pinned_messages_new(request, chat_id):
-    """Получить закреплённые сообщения чата"""
     chat_type = request.query_params.get('type', 'group')
-    
     if chat_type == 'group':
-        try:
-            chat = GroupChat.objects.get(id=chat_id)
-            if not chat.members.filter(user=request.user).exists():
-                return Response({'error': 'Нет доступа'}, status=403)
-        except GroupChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=404)
-        
+        chat = get_object_or_404(GroupChat, id=chat_id)
+        if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
+            return Response({'error': 'Нет доступа'}, status=403)
         pins = MessagePin.objects.filter(chat=chat).select_related('message', 'pinned_by')
     else:
-        try:
-            chat = PrivateChat.objects.filter(
-                id=chat_id
-            ).filter(
-                Q(user1=request.user) | Q(user2=request.user)
-            ).first()
-            if not chat:
-                return Response({'error': 'Чат не найден'}, status=404)
-        except Exception:
-            return Response({'error': 'Чат не найден'}, status=404)
-        
+        chat = get_object_or_404(PrivateChat, id=chat_id)
+        if request.user not in [chat.user1, chat.user2]:
+            return Response({'error': 'Нет доступа'}, status=403)
         pins = MessagePin.objects.filter(private_chat=chat).select_related('message', 'pinned_by')
-    
-    serializer = MessagePinSerializer(pins, many=True)
-    return Response(serializer.data)
+
+    data = [{'id': p.id, 'message_id': p.message_id, 'pinned_by': p.pinned_by.username, 'created_at': p.created_at} for p in pins]
+    return Response(data)
 
 
-# ==================== АНТИ-СПАМ ПРОВЕРКА ====================
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def check_message_spam(request, chat_id):
-    """Проверить сообщение на спам (для превью)"""
-    try:
-        chat = GroupChat.objects.get(id=chat_id)
-    except GroupChat.DoesNotExist:
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Создаём временный объект сообщения для проверки
-    text = request.data.get('text', '')
-    media = request.data.get('media')
-    
-    temp_message = Message(
-        chat=chat,
-        sender=request.user,
-        text=text,
-        media=media
-    )
-    
-    # Проверяем
-    anti_spam = AntiSpamService(chat)
-    result = anti_spam.check_message(temp_message)
-    
-    return Response(result)
-
-
-# ==================== ОЧИСТКА ЧАТА ====================
+# ==================== ОЧИСТКА ИСТОРИИ ====================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def clear_chat_history(request, chat_id):
-    """Очистить историю чата (только для себя в личных чатах)"""
     chat_type = request.query_params.get('type', 'private')
-    
     if chat_type == 'private':
-        try:
-            chat = PrivateChat.objects.filter(
-                id=chat_id
-            ).filter(
-                Q(user1=request.user) | Q(user2=request.user)
-            ).first()
-            if not chat:
-                return Response({'error': 'Чат не найден'}, status=404)
-        except Exception:
-            return Response({'error': 'Чат не найден'}, status=404)
-        
-        # В личных чатах просто удаляем статус прочтения
-        # Сообщения остаются, но пользователь их не видит
-        MessageReadStatus.objects.filter(
-            message__private_chat=chat,
-            user=request.user
-        ).delete()
-        
+        chat = get_object_or_404(PrivateChat, id=chat_id)
+        if request.user not in [chat.user1, chat.user2]:
+            return Response({'error': 'Нет доступа'}, status=403)
+        # Личный чат: очищаем только для себя
+        MessageReadStatus.objects.filter(message__private_chat=chat, user=request.user).delete()
         return Response({'status': 'cleared'})
-    
     else:
-        # Для групповых чатов - только владелец может очистить
-        try:
-            chat = GroupChat.objects.get(id=chat_id)
-            member = ChatMember.objects.get(chat=chat, user=request.user)
-        except (GroupChat.DoesNotExist, ChatMember.DoesNotExist):
-            return Response({'error': 'Чат не найден'}, status=404)
-        
-        if not member.is_owner:
+        chat = get_object_or_404(GroupChat, id=chat_id)
+        member = ChatMember.objects.filter(chat=chat, user=request.user).first()
+        if not member or not member.is_owner:
             return Response({'error': 'Только владелец может очистить чат'}, status=403)
-        
-        # Удаляем все сообщения
-        deleted_count = Message.objects.filter(chat=chat).update(
-            is_deleted=True,
-            deleted_at=timezone.now(),
-            deleted_by=request.user
+        count = Message.objects.filter(chat=chat).update(
+            is_deleted=True, deleted_at=timezone.now(), deleted_by=request.user
         )
-        
-        # Логируем
-        ChatAdminLog.objects.create(
-            chat=chat,
-            user=request.user,
-            action='chat_updated',
-            details={'action': 'clear_history', 'deleted_count': deleted_count}
-        )
-        
-        return Response({'status': 'cleared', 'deleted_count': deleted_count})
+        return Response({'status': 'cleared', 'deleted_count': count})
+
+
+# ==================== ЖУРНАЛ БЕЗОПАСНОСТИ ====================
+
+class SecurityLogViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = SecurityLog.objects.filter(user=self.request.user)
+        action = self.request.query_params.get('action')
+        if action:
+            qs = qs.filter(action=action)
+        return qs.order_by('-created_at')
+
+    def get_serializer_class(self):
+        from .serializers_chat import SecurityLogSerializer
+        return SecurityLogSerializer
+
+
+# ==================== ЗАПРОСЫ НА ВСТУПЛЕНИЕ ====================
+
+class ChatJoinRequestViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ChatJoinRequest.objects.filter(
+            Q(user=self.request.user) | Q(chat__members__user=self.request.user)
+        ).distinct()
+
+    def get_serializer_class(self):
+        from .serializers_chat import ChatJoinRequestSerializer, ChatJoinRequestCreateSerializer
+        return ChatJoinRequestCreateSerializer if self.action == 'create' else ChatJoinRequestSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        jr = self.get_object()
+        member = ChatMember.objects.filter(chat=jr.chat, user=request.user).first()
+        if not member or (not member.is_owner and not member.is_admin):
+            raise PermissionDenied('Нет прав')
+        ChatMember.objects.create(user=jr.user, chat=jr.chat)
+        jr.status = 'approved'
+        jr.reviewed_by = request.user
+        jr.reviewed_at = timezone.now()
+        jr.save()
+        return Response({'status': 'approved'})
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        jr = self.get_object()
+        member = ChatMember.objects.filter(chat=jr.chat, user=request.user).first()
+        if not member or (not member.is_owner and not member.is_admin):
+            raise PermissionDenied('Нет прав')
+        jr.status = 'rejected'
+        jr.reviewed_by = request.user
+        jr.reviewed_at = timezone.now()
+        jr.save()
+        return Response({'status': 'rejected'})
+
+
+# ==================== ТЕГИ ====================
+
+class ChatTagViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ChatTag.objects.filter(user=self.request.user)
+
+    def get_serializer_class(self):
+        from .serializers_chat import ChatTagSerializer
+        return ChatTagSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+# ==================== АНТИ-СПАМ ====================
+
+class AntiSpamRuleViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return AntiSpamRule.objects.filter(chat__members__user=self.request.user)
+
+    def get_serializer_class(self):
+        from .serializers_chat import AntiSpamRuleSerializer
+        return AntiSpamRuleSerializer
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_message_spam(request, chat_id):
+    try:
+        chat = GroupChat.objects.get(id=chat_id)
+    except GroupChat.DoesNotExist:
+        return Response({'error': 'Чат не найден'}, status=404)
+
+    text = request.data.get('text', '')
+    temp = Message(chat=chat, sender=request.user, text=text)
+    service = AntiSpamService(chat)
+    return Response(service.check_message(temp))
+
+
+# ==================== ЗАПЛАНИРОВАННЫЕ СООБЩЕНИЯ ====================
+
+class ScheduledMessageViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ScheduledMessage.objects.filter(sender=self.request.user)
+
+    def get_serializer_class(self):
+        from .serializers_chat import ScheduledMessageSerializer, ScheduledMessageCreateSerializer
+        return ScheduledMessageCreateSerializer if self.action in ['create', 'update', 'partial_update'] else ScheduledMessageSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        msg = self.get_object()
+        if msg.status != 'scheduled':
+            return Response({'error': 'Можно отменить только запланированные'}, status=400)
+        msg.status = 'cancelled'
+        msg.save(update_fields=['status'])
+        return Response({'status': 'cancelled'})
+
+
+# ==================== РЕЗЕРВНЫЕ КОПИИ ====================
+
+class ChatBackupViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ChatBackup.objects.filter(
+            Q(chat__members__user=self.request.user) | Q(created_by=self.request.user)
+        ).distinct()
+
+    def get_serializer_class(self):
+        from .serializers_chat import ChatBackupSerializer
+        return ChatBackupSerializer
+
+    def perform_create(self, serializer):
+        chat = serializer.validated_data.get('chat')
+        member = ChatMember.objects.filter(chat=chat, user=self.request.user).first()
+        if not member or (not member.is_owner and not member.is_admin):
+            raise PermissionDenied('Только администраторы')
+        serializer.save(created_by=self.request.user)

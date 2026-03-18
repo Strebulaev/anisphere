@@ -27,84 +27,106 @@
     <div class="post-content">
       <h3 v-if="post.title" class="post-title">{{ post.title }}</h3>
 
-      <!-- Text с возможностью разворачивания (без модального) -->
-      <div v-if="post.text" class="post-text-wrap">
-        <div
-          class="post-text"
-          :class="{ 'is-collapsed': isCollapsed && isLong }"
-          v-html="formattedText"
-        ></div>
-        <button v-if="isLong" class="expand-btn" @click.stop="isCollapsed = !isCollapsed">
-          {{ isCollapsed ? '▼ Показать полностью' : '▲ Свернуть' }}
+      <!-- Spoiler Warning - показываем ПЕРЕД контентом если is_spoiler -->
+      <div v-if="post.is_spoiler && !spoilerRevealed" class="spoiler-warning">
+        <div class="spoiler-info">
+          <span class="spoiler-icon">⚠️</span>
+          <div class="spoiler-text">
+            <span class="spoiler-label">Спойлер</span>
+            <span v-if="post.spoiler_for" class="spoiler-for">{{ post.spoiler_for }}</span>
+          </div>
+        </div>
+        <button class="spoiler-reveal-btn" @click.stop="spoilerRevealed = true">
+          👁️ Показать
         </button>
       </div>
 
-      <!-- Hashtags -->
-      <div v-if="post.hashtags?.length" class="hashtags">
-        <span v-for="tag in post.hashtags" :key="tag" class="hashtag" @click.stop="$router.push('/search?tag='+tag)">#{{ tag }}</span>
-      </div>
-
-      <!-- Media Gallery -->
-      <div v-if="hasMedia" class="media-gallery" :class="'grid-' + Math.min(displayMedia.length, 4)">
-        <div v-for="(m, i) in displayMedia" :key="i" class="media-item" @click.stop="openMedia(i)">
-          <img v-if="m.type === 'image'" :src="m.url" :alt="m.caption || ''">
-          <video v-else :src="m.url" :poster="m.thumbnail" controls preload="metadata"></video>
+      <!-- Spoiler Content - скрыт если is_spoiler и не раскрыт -->
+      <div v-if="!post.is_spoiler || spoilerRevealed" class="spoiler-content" :class="{ 'is-revealed': spoilerRevealed && post.is_spoiler }">
+        <!-- Text с возможностью разворачивания (без модального) -->
+        <div v-if="post.text" class="post-text-wrap">
+          <div
+            class="post-text"
+            :class="{ 'is-collapsed': isCollapsed && isLong }"
+            v-html="formattedText"
+          ></div>
+          <button v-if="isLong" class="expand-btn" @click.stop="isCollapsed = !isCollapsed">
+            {{ isCollapsed ? '▼ Показать полностью' : '▲ Свернуть' }}
+          </button>
         </div>
-      </div>
-      <div v-else-if="post.image_url" class="single-media"><img :src="post.image_url" @click.stop></div>
-      <div v-else-if="post.video_url" class="single-media"><video :src="post.video_url" controls preload="metadata"></video></div>
 
-      <!-- Anime Card -->
-      <div v-if="post.anime" class="anime-card" @click.stop="$router.push('/anime/'+post.anime.id)">
-        <div class="anime-poster-wrap">
-          <img 
-            v-if="getPosterUrl(post.anime)"
-            :src="getPosterUrl(post.anime) || post.anime.poster_url"
-            class="anime-poster" 
-            alt="poster"
-            loading="lazy"
-            decoding="async"
-            @error="onPosterError($event, post.anime)"
-          >
-          <div v-else class="anime-poster-placeholder">🎬</div>
+        <!-- Hashtags -->
+        <div v-if="post.hashtags?.length" class="hashtags">
+          <span v-for="tag in post.hashtags" :key="tag" class="hashtag" @click.stop="$router.push('/search?tag='+tag)">#{{ tag }}</span>
         </div>
-        <div class="anime-info">
-          <span class="anime-title">{{ post.anime.title_ru || post.anime.title_en || 'Аниме' }}</span>
-          <span v-if="shouldShowEnglishTitle(post.anime)" class="anime-title-en">{{ post.anime.title_en }}</span>
-          <span v-if="post.anime_rating" class="anime-rating">⭐ {{ post.anime_rating }}/10</span>
-        </div>
-      </div>
 
-      <!-- Playlist Card -->
-      <div v-if="post.playlist" class="playlist-card" @click.stop="$router.push('/playlist/'+post.playlist.id)">
-        <span class="playlist-icon">📁</span>
-        <div class="playlist-info">
-          <span class="playlist-title">{{ post.playlist.title || 'Плейлист' }}</span>
-          <span class="playlist-count">{{ post.playlist.anime_count || post.playlist.items_count || 0 }} аниме</span>
+        <!-- Media Gallery -->
+        <div v-if="hasMedia" class="media-gallery" :class="'grid-' + Math.min(displayMedia.length, 4)">
+          <div v-for="(m, i) in displayMedia" :key="i" class="media-item" @click.stop="openMedia(i)">
+            <img v-if="m.type === 'image'" :src="m.url" :alt="m.caption || ''">
+            <video v-else :src="m.url" :poster="m.thumbnail" controls preload="metadata"></video>
+          </div>
         </div>
-        <span class="playlist-arrow">›</span>
-      </div>
+        <div v-else-if="post.image_url" class="single-media"><img :src="post.image_url" @click.stop></div>
+        <div v-else-if="post.video_url" class="single-media"><video :src="post.video_url" controls preload="metadata"></video></div>
 
-      <!-- Reactor/Shorts Card -->
-      <div v-if="post.reactor_post" class="shorts-card" @click.stop="$router.push('/reactor/post/'+post.reactor_post.id)">
-        <div class="shorts-thumb">
-          <video :src="post.reactor_post.video_url" muted></video>
+        <!-- Anime Card -->
+        <div v-if="post.anime" class="anime-card" @click.stop="$router.push('/anime/'+post.anime.id)">
+          <div class="anime-poster-wrap">
+            <img 
+              v-if="getPosterUrl(post.anime)"
+              :src="getPosterUrl(post.anime) || post.anime.poster_url"
+              class="anime-poster" 
+              alt="poster"
+              loading="lazy"
+              decoding="async"
+              @error="onPosterError($event, post.anime)"
+            >
+            <div v-else class="anime-poster-placeholder">🎬</div>
+          </div>
+          <div class="anime-info">
+            <span class="anime-title">{{ post.anime.title_ru || post.anime.title_en || 'Аниме' }}</span>
+            <span v-if="shouldShowEnglishTitle(post.anime)" class="anime-title-en">{{ post.anime.title_en }}</span>
+            <span v-if="post.anime_rating" class="anime-rating">⭐ {{ post.anime_rating }}/10</span>
+          </div>
         </div>
-        <div class="shorts-info">
-          <span class="shorts-title">{{ post.reactor_post.title }}</span>
-          <span class="shorts-author">@{{ post.reactor_post.user?.username }}</span>
+
+        <!-- Playlist Card -->
+        <div v-if="post.playlist" class="playlist-card" @click.stop="$router.push('/playlist/'+post.playlist.id)">
+          <div class="playlist-poster-wrap">
+            <img
+              v-if="getPosterUrl(post.playlist)"
+              :src="getPosterUrl(post.playlist)"
+              class="playlist-poster"
+              alt="poster"
+              loading="lazy"
+              decoding="async"
+              @error="onPlaylistPosterError($event)"
+            >
+            <div v-else class="playlist-poster-placeholder">📁</div>
+          </div>
+          <div class="playlist-info">
+            <span class="playlist-title">{{ post.playlist.title || 'Плейлист' }}</span>
+            <span class="playlist-count">{{ post.playlist.anime_count || post.playlist.items_count || 0 }} аниме</span>
+          </div>
+          <span class="playlist-arrow">›</span>
         </div>
-      </div>
 
-      <!-- Repost -->
-      <div v-if="post.post_type === 'repost' && post.original_post" class="repost-wrap">
-        <PostCard :post="(post.original_post as any)" :is-repost="true" @menu="$emit('menu', $event)" />
-      </div>
+        <!-- Reactor/Shorts Card -->
+        <div v-if="post.reactor_post" class="shorts-card" @click.stop="$router.push('/reactor/post/'+post.reactor_post.id)">
+          <div class="shorts-thumb">
+            <video :src="post.reactor_post.video_url" muted></video>
+          </div>
+          <div class="shorts-info">
+            <span class="shorts-title">{{ post.reactor_post.title }}</span>
+            <span class="shorts-author">@{{ post.reactor_post.user?.username }}</span>
+          </div>
+        </div>
 
-      <!-- Spoiler -->
-      <div v-if="post.is_spoiler && !spoilerRevealed" class="spoiler-warning">
-        <span>⚠️ Спойлер</span>
-        <button @click.stop="spoilerRevealed = true">Показать</button>
+        <!-- Repost -->
+        <div v-if="post.post_type === 'repost' && post.original_post" class="repost-wrap">
+          <PostCard :post="(post.original_post as any)" :is-repost="true" @menu="$emit('menu', $event)" />
+        </div>
       </div>
 
     <!-- Actions -->
@@ -253,11 +275,15 @@ const visibilityIcon = (v?: string) => {
 const goToProfile = () => router.push(`/profile/${props.post.author_username}`)
 
 // ── Anime Poster Helper ───────────────────────────────
-const getPosterUrl = (anime: any): string | null => {
-  if (!anime) return null
+const getPosterUrl = (item: any): string | undefined => {
+  if (!item) return undefined
+  // Для плейлиста проверяем cover_image или первый аниме
+  if (item.cover_image) {
+    return getMediaUrl(item.cover_image) ?? undefined
+  }
   // Используем getMediaUrl как в AnimeCard.vue
-  const url = getMediaUrl(anime.poster_url || anime.poster)
-  return url || null
+  const url = getMediaUrl(item.poster_url || item.poster)
+  return url ?? undefined
 }
 
 // Проверяем, нужно ли показывать английское название
@@ -287,6 +313,19 @@ const onPosterError = (event: Event, anime: any) => {
       placeholder.textContent = '🎬'
       parent.appendChild(placeholder)
     }
+  }
+}
+
+const onPlaylistPosterError = (event: Event) => {
+  // Если постер плейлиста не загрузился, показываем placeholder
+  const img = event.target as HTMLImageElement
+  img.style.display = 'none'
+  const parent = img.parentElement
+  if (parent && !parent.querySelector('.playlist-poster-placeholder')) {
+    const placeholder = document.createElement('div')
+    placeholder.className = 'playlist-poster-placeholder'
+    placeholder.textContent = '📁'
+    parent.appendChild(placeholder)
   }
 }
 
@@ -425,6 +464,29 @@ const onReplyAdded = (reply: any) => {
 
 .playlist-card { display: flex; align-items: center; gap: 0.75rem; background: #1a1a1a; border-radius: 8px; padding: 0.75rem 1rem; cursor: pointer; margin-bottom: 0.5rem; transition: background 0.2s; }
 .playlist-card:hover { background: #222; }
+.playlist-poster-wrap { 
+  width: 45px; 
+  height: 60px; 
+  flex-shrink: 0; 
+  border-radius: 5px; 
+  overflow: hidden; 
+  background: #2a2a2a; 
+}
+.playlist-poster { 
+  width: 45px; 
+  height: 60px;
+  object-fit: cover; 
+  display: block;
+}
+.playlist-poster-placeholder { 
+  width: 45px;
+  height: 60px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  font-size: 1.2rem; 
+  opacity: 0.5; 
+}
 .playlist-icon { font-size: 1.4rem; }
 .playlist-info { flex: 1; display: flex; flex-direction: column; }
 .playlist-title { color: #fff; font-weight: 600; font-size: 0.875rem; }
@@ -439,9 +501,77 @@ const onReplyAdded = (reply: any) => {
 .shorts-author { color: #666; font-size: 0.78rem; }
 
 .repost-wrap { border: 1px solid #2a2a2a; border-radius: 8px; overflow: hidden; margin-bottom: 0.5rem; }
-.spoiler-warning { display: flex; justify-content: space-between; align-items: center; background: #2a2a1a; border: 1px solid #665500; border-radius: 8px; padding: 0.75rem; }
-.spoiler-warning span { color: #fbbf24; }
-.spoiler-warning button { background: #665500; color: #fff; border: none; padding: 0.3rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+
+/* Spoiler Styles */
+.spoiler-warning {
+  display: flex; 
+  justify-content: space-between;
+  align-items: center; 
+  background: linear-gradient(135deg, #2a2a1a 0%, #1a1a0a 100%);
+  border: 1px solid #665500;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.spoiler-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.spoiler-icon {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+}
+.spoiler-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.spoiler-label {
+  color: #fbbf24;
+  font-weight: 600; 
+  font-size: 0.95rem;
+}
+.spoiler-for {
+  color: #888; 
+  font-size: 0.8rem; 
+}
+.spoiler-reveal-btn {
+  background: linear-gradient(135deg, #665500 0%, #443300 100%);
+  color: #fbbf24;
+  border: 1px solid #886600;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer; 
+  font-size: 0.85rem;
+  font-weight: 500; 
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.spoiler-reveal-btn:hover {
+  background: linear-gradient(135deg, #886600 0%, #665500 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+}
+
+.spoiler-content {
+  transition: opacity 0.3s ease;
+}
+.spoiler-content.is-revealed {
+  animation: spoiler-reveal 0.5s ease-out;
+}
+@keyframes spoiler-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .post-actions { display: flex; justify-content: space-between; padding-top: 0.6rem; border-top: 1px solid #1a1a1a; }
 .action-group { display: flex; gap: 0.2rem; }

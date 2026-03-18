@@ -490,7 +490,8 @@ watch(() => props.itemsCount, () => {
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  z-index: 10;
+  z-index: 100;
+  pointer-events: auto;
   opacity: 0;
   transition: opacity 0.2s, background-color 0.2s;
 }

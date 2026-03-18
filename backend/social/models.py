@@ -214,6 +214,7 @@ class Post(models.Model):
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
     is_spoiler = models.BooleanField(default=False)
+    spoiler_description = models.CharField(max_length=255, blank=True)  # Текстовое описание спойлера
     spoiler_for = models.ForeignKey('anime.Anime', on_delete=models.SET_NULL, null=True, blank=True, related_name='spoiler_posts')
 
     # Настройки

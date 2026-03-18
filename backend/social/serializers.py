@@ -143,7 +143,7 @@ class PostSerializer(serializers.ModelSerializer):
             'likes_count', 'dislikes_count', 'comments_count', 'reposts_count', 'views_count', 'shares_count',
             'is_liked', 'is_disliked', 'is_favorited', 'is_bookmarked', 'is_following',
             'is_pinned', 'is_deleted', 'allow_comments', 'status', 'visibility',
-            'is_spoiler', 'spoiler_for',
+            'is_spoiler', 'spoiler_for', 'spoiler_description',
             'media_files', 'attachments_data', 'content_preview',
             'media_url', 'hashtags',
             'created_at', 'updated_at', 'edited_at', 'edited_at_display', 'published_at',
@@ -200,12 +200,44 @@ class PostSerializer(serializers.ModelSerializer):
             anime_count = getattr(obj, 'playlist_items_count', None)
             if anime_count is None:
                 anime_count = obj.playlist.items.count()
+            
+            # Если всё ещё 0, пробуем посчитать напрямую
+            if anime_count == 0:
+                anime_count = obj.playlist.items.filter(anime__isnull=False).count()
+            
+            # Получаем URL обложки
+            cover_image_url = None
+            if obj.playlist.cover_image and hasattr(obj.playlist.cover_image, 'url'):
+                cover_image_url = obj.playlist.cover_image.url
+                if cover_image_url.startswith('/media/media/'):
+                    cover_image_url = cover_image_url.replace('/media/media/', '/media/')
+                request = self.context.get('request')
+                if request and cover_image_url and not cover_image_url.startswith('http'):
+                    cover_image_url = request.build_absolute_uri(cover_image_url)
+            
+            # Если нет cover_image, берём постер первого аниме
+            poster_url = cover_image_url
+            if not poster_url:
+                first_item = obj.playlist.items.select_related('anime').filter(anime__isnull=False).first()
+                if first_item and first_item.anime:
+                    if first_item.anime.poster and hasattr(first_item.anime.poster, 'url'):
+                        poster_url = first_item.anime.poster.url
+                        if poster_url.startswith('/media/media/'):
+                            poster_url = poster_url.replace('/media/media/', '/media/')
+                        request = self.context.get('request')
+                        if request and poster_url and not poster_url.startswith('http'):
+                            poster_url = request.build_absolute_uri(poster_url)
+                    elif first_item.anime.poster_url:
+                        poster_url = first_item.anime.poster_url
+            
             return {
                 'id': obj.playlist.id,
                 'title': obj.playlist.title,
                 'anime_count': anime_count,
                 'items_count': anime_count,
                 'description': obj.playlist.description,
+                'cover_image': cover_image_url,
+                'poster_url': poster_url,
             }
         return None
 
@@ -327,7 +359,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
             'title', 'text', 'image_url', 'image_file', 'video_url', 'video_file',
             'anime', 'anime_rating', 'group', 'playlist', 'reactor_post',
             'post_type', 'original_post', 'repost_comment',
-            'visibility', 'allow_comments', 'is_spoiler', 'spoiler_for'
+            'visibility', 'allow_comments', 'is_spoiler', 'spoiler_description', 'spoiler_for'
         ]
 
 

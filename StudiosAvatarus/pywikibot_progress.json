@@ -77,7 +77,20 @@
     "Ultra Super Pictures",
     "VAP",
     "Victor Entertainment",
-    "Wit Studio"
+    "Wit Studio",
+    "Robot Communications",
+    "Science Saru",
+    "Seven (анимационная студия)",
+    "Seven Arcs",
+    "Shin-Ei Animation",
+    "Studio 4°C",
+    "Studio A-Cat",
+    "Studio Bind",
+    "Studio Comet",
+    "Studio Hibari",
+    "White Fox",
+    "Zero-G",
+    "Zexcs"
   ],
   "failed": [
     {
@@ -323,6 +336,14 @@
     {
       "name": "White Fox",
       "reason": "429 Client Error: Too many requests - please contact noc@wikimedia.org to discuss a less disruptive approach or instead use thumbnail images in sizes listed on https://w.wiki/GHai. (0c640b1) for url: https://upload.wikimedia.org/wikipedia/commons/c/cc/White_Fox_Logo.png"
+    },
+    {
+      "name": "Zero-G",
+      "reason": "429 Client Error: Too many requests - please contact noc@wikimedia.org to discuss a less disruptive approach or instead use thumbnail images in sizes listed on https://w.wiki/GHai. (0c640b1) for url: https://upload.wikimedia.org/wikipedia/commons/d/d5/ZERO-G_logo.svg"
+    },
+    {
+      "name": "Zexcs",
+      "reason": "429 Client Error: Too many requests - please contact noc@wikimedia.org to discuss a less disruptive approach or instead use thumbnail images in sizes listed on https://w.wiki/GHai. (0c640b1) for url: https://upload.wikimedia.org/wikipedia/commons/9/94/Zexcs_Logo.gif"
     },
     {
       "name": "Zero-G",

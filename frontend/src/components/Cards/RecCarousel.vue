@@ -231,7 +231,7 @@ const toCardAnime = (a: AnimeItem) => ({
   top: 0;
   bottom: 4px;
   width: 48px;
-  z-index: 2;
+  z-index: 1;
   pointer-events: none;
 }
 .rc-carousel-wrap::before {
@@ -265,7 +265,7 @@ const toCardAnime = (a: AnimeItem) => ({
   position: absolute;
   top: 50%;
   transform: translateY(calc(-50% - 2px));
-  z-index: 3;
+  z-index: 100;
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -276,6 +276,7 @@ const toCardAnime = (a: AnimeItem) => ({
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  pointer-events: auto;
   opacity: 0;
   transition: opacity var(--duration-base) var(--ease-out),
               background-color var(--duration-base) var(--ease-out),
