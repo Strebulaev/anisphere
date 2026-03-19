@@ -17,7 +17,7 @@ from .models import (
     Follow, Post, PostLike, PostDislike, Bookmark, Report,
     PostComment, PostCommentLike, PostCommentDislike, Repost,
     Achievement, UserAchievement, Group, GroupMembership,
-    Message, PrivateChat, GroupChat, ChatSettings,
+    Message, PrivateChat, GroupChat, ChatSettings, ChatMember,
     ChatFolder, ChatInvite, ChatRole, Reaction, Attachment,
     EmailLog, FeedView, UserPostHidden, UserNotInterested, Hashtag, PostMedia,
     PostAttachment, UserMention, PostHashtag, Comment
@@ -313,27 +313,106 @@ def get_bookmarks_folders(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def repost_post(request, post_id):
-    """Сделать репост"""
+    """Сделать репост или выполнить действие с репостом"""
     original_post = get_object_or_404(Post, id=post_id)
     
-    if original_post.post_type == 'system':
-        return Response({'error': 'Нельзя репостнуть системный пост'}, status=400)
+    # Проверяем действие
+    action = request.data.get('action', 'repost')  # repost, unrepost, forward
     
-    if original_post.visibility == 'private':
-        return Response({'error': 'Нельзя репостнуть приватный пост'}, status=400)
+    if action == 'unrepost':
+        # Удалить репост
+        deleted = Repost.objects.filter(
+            original_post=original_post,
+            user=request.user
+        ).delete()[0]
+        
+        if deleted:
+            original_post.reposts_count = max(0, original_post.reposts_count - 1)
+            original_post.save(update_fields=['reposts_count'])
+        
+        return Response({'success': True, 'removed': deleted > 0, 'action': 'unrepost'})
     
-    comment = request.data.get('comment', '')
+    elif action == 'forward':
+        # Переслать в чат
+        chat_id = request.data.get('chat_id')
+        chat_type = request.data.get('chat_type', 'private')
+        message_text = request.data.get('message', '')
+        
+        if not chat_id:
+            return Response({'error': 'Требуется chat_id'}, status=400)
+        
+        # Проверяем доступ к чату
+        if chat_type == 'group':
+            chat = get_object_or_404(GroupChat, id=chat_id)
+            if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
+                return Response({'error': 'Нет доступа к чату'}, status=403)
+        else:
+            chat = get_object_or_404(PrivateChat, id=chat_id)
+            if request.user not in [chat.user1, chat.user2]:
+                return Response({'error': 'Нет доступа к чату'}, status=403)
+        
+        # Создаём сообщение с постом
+        message = Message.objects.create(
+            sender=request.user,
+            text=message_text,
+            shared_post=original_post
+        )
+        
+        if chat_type == 'group':
+            message.chat = chat
+        else:
+            message.private_chat = chat
+        
+        message.save()
+        
+        # Обновляем счётчик
+        original_post.shares_count += 1
+        original_post.save(update_fields=['shares_count'])
+        
+        return Response({
+            'success': True,
+            'message_id': message.id,
+            'action': 'forward'
+        })
     
-    repost = Repost.objects.create(
-        original_post=original_post,
-        user=request.user,
-        comment=comment
-    )
-    
-    original_post.reposts_count += 1
-    original_post.save(update_fields=['reposts_count'])
-    
-    return Response({'success': True, 'repost_id': repost.id})
+    else:
+        # Обычный репост
+        if original_post.post_type == 'system':
+            return Response({'error': 'Нельзя репостнуть системный пост'}, status=400)
+        
+        if original_post.visibility == 'private':
+            return Response({'error': 'Нельзя репостнуть приватный пост'}, status=400)
+        
+        # Проверяем, не делал ли пользователь уже репост
+        existing_repost = Repost.objects.filter(
+            original_post=original_post,
+            user=request.user
+        ).first()
+        
+        if existing_repost:
+            return Response({
+                'success': True,
+                'repost_id': existing_repost.id,
+                'already_reposted': True,
+                'action': 'repost'
+            })
+        
+        comment = request.data.get('comment', '')
+        
+        repost = Repost.objects.create(
+            original_post=original_post,
+            user=request.user,
+            comment=comment
+        )
+        
+        original_post.reposts_count += 1
+        original_post.save(update_fields=['reposts_count'])
+        
+        return Response({
+            'success': True,
+            'repost_id': repost.id,
+            'action': 'repost'
+        })
 
 
 @api_view(['POST'])
@@ -1960,3 +2039,304 @@ class ModerationReportViewSet(viewsets.ViewSet):
             'status': report.status,
             'action': action_type,
         })
+
+
+# ==================== ANIME DISCUSSION GROUP ====================
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_franchise_discussions(request):
+    """Получить список всех обсуждений франшиз"""
+    from anime.models import Franchise
+    from .models import GroupChat, ChatMember, ChatTopic
+    
+    # Получаем все группы обсуждений франшиз
+    franchise_groups = GroupChat.objects.filter(
+        discussion_type='franchise'
+    ).select_related('created_by').prefetch_related('members')
+    
+    result = []
+    for group in franchise_groups:
+        # Получаем топики
+        topics = ChatTopic.objects.filter(chat=group).order_by('order')[:10]
+        
+        # Считаем участников
+        members_count = group.members.count()
+        
+        result.append({
+            'id': group.id,
+            'name': group.name,
+            'franchise_id': group.franchise_id,
+            'members_count': members_count,
+            'topics_count': topics.count(),
+            'avatar_url': group.avatar.url if group.avatar else None,
+            'created_at': group.created_at,
+        })
+    
+    return Response({
+        'discussions': result,
+        'total': len(result)
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_anime_discussion_group(request, anime_id):
+    """Получить или создать группу обсуждения для аниме"""
+    from anime.models import Anime, Franchise
+    from .models import GroupChat, ChatMember, ChatTopic
+    
+    try:
+        anime = Anime.objects.select_related('franchise').get(id=anime_id)
+    except Anime.DoesNotExist:
+        return Response({'error': 'Аниме не найдено'}, status=404)
+    
+    # Проверяем, есть ли у аниме франшиза
+    if anime.franchise:
+        # Для франшизы - возвращаем главную группу с топиками
+        franchise = anime.franchise
+        
+        # Находим или создаём главную группу обсуждения франшизы
+        main_group, created = GroupChat.objects.get_or_create(
+            franchise_id=franchise.id,
+            defaults={
+                'name': franchise.name,
+                'created_by': request.user,
+                'is_public': True,
+                'discussion_type': 'franchise',
+                'folder_type': 'discussions',
+            }
+        )
+        
+        # Автодобавляем пользователя
+        ChatMember.objects.get_or_create(chat=main_group, user=request.user)
+        
+        # Обновляем счётчик участников
+        main_group.members_count = main_group.members.count()
+        main_group.save(update_fields=['members_count'])
+        
+        # Получаем все аниме франшизы
+        franchise_animes = list(Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'id'))
+        
+        # Создаём топики
+        topics = []
+        
+        # Общий топик - используем anime=None вместо anime__isnull=True
+        general_topic, _ = ChatTopic.objects.get_or_create(
+            chat=main_group,
+            anime=None,
+            defaults={'title': f'О франшизе «{franchise.name}»', 'order': 0}
+        )
+        topics.append({
+            'id': general_topic.id,
+            'title': general_topic.title,
+            'anime_id': None,
+            'is_general': True
+        })
+        
+        # Топики для каждого аниме франшизы
+        for idx, fa in enumerate(franchise_animes):
+            topic_title = fa.title_ru or fa.title_en or f'Часть #{fa.id}'
+            topic, _ = ChatTopic.objects.get_or_create(
+                chat=main_group,
+                anime_id=fa.id,
+                defaults={'title': topic_title, 'order': idx + 1}
+            )
+            topics.append({
+                'id': topic.id,
+                'title': topic.title,
+                'anime_id': fa.id,
+                'is_general': False,
+                'is_current': fa.id == anime.id
+            })
+        
+        return Response({
+            'type': 'franchise',
+            'group': {
+                'id': main_group.id,
+                'name': main_group.name,
+                'avatar_url': main_group.avatar.url if main_group.avatar else None,
+                'members_count': main_group.members.count(),
+                'discussion_type': 'franchise',
+            },
+            'franchise': {
+                'id': franchise.id,
+                'name': franchise.name,
+            },
+            'topics': topics,
+            'current_topic_id': next((t['id'] for t in topics if t.get('is_current')), topics[0]['id'] if topics else None),
+        })
+
+    else:
+        # Для одиночного аниме - создаём простую группу
+        # Сначала ищем существующую группу
+        group = GroupChat.objects.filter(
+            anime_id=anime.id,
+            franchise_id__isnull=True
+        ).first()
+        
+        if not group:
+            # Создаём новую группу
+            group = GroupChat.objects.create(
+                name=f'Обсуждение: {anime.title_ru or anime.title_en or f"Аниме #{anime.id}"}',
+                anime_id=anime.id,
+                created_by=request.user,
+                is_public=True,
+                discussion_type='anime',
+                folder_type='discussions',
+            )
+        
+        # Автодобавляем пользователя
+        ChatMember.objects.get_or_create(chat=group, user=request.user)
+        
+        # Обновляем счётчик участников
+        group.members_count = group.members.count()
+        group.save(update_fields=['members_count'])
+        
+        return Response({
+            'type': 'anime',
+            'group': {
+                'id': group.id,
+                'name': group.name,
+                'avatar_url': group.avatar.url if group.avatar else (anime.poster.url if anime.poster else None),
+                'members_count': group.members.count(),
+                'discussion_type': 'anime',
+            },
+            'anime': {
+                'id': anime.id,
+                'title': anime.title_ru or anime.title_en,
+            },
+        })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_anime_discussion_group(request, anime_id):
+    """Создать группу обсуждения для аниме"""
+    return get_anime_discussion_group(request, anime_id)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def join_anime_discussion_group(request, anime_id):
+    """Присоединиться к группе обсуждения аниме"""
+    from anime.models import Anime
+    from .models import GroupChat, ChatMember
+    
+    try:
+        anime = Anime.objects.get(id=anime_id)
+    except Anime.DoesNotExist:
+        return Response({'error': 'Аниме не найдено'}, status=404)
+    
+    # Находим группу
+    if anime.franchise:
+        group = GroupChat.objects.filter(franchise_id=anime.franchise.id).first()
+    else:
+        group = GroupChat.objects.filter(anime_id=anime.id, franchise_id__isnull=True).first()
+    
+    if not group:
+        # Создаём группу
+        return get_anime_discussion_group(request, anime_id)
+    
+    # Добавляем пользователя
+    member, created = ChatMember.objects.get_or_create(chat=group, user=request.user)
+    
+    return Response({
+        'joined': True,
+        'group_id': group.id,
+        'was_member': not created
+    })
+
+
+# ==================== FRANCHISE DISCUSSION ====================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_franchise_discussion_group(request, franchise_id):
+    """Получить или создать группу обсуждения для франшизы"""
+    from anime.models import Anime, Franchise
+    from .models import GroupChat, ChatMember, ChatTopic
+    
+    try:
+        franchise = Franchise.objects.get(id=franchise_id)
+    except Franchise.DoesNotExist:
+        return Response({'error': 'Франшиза не найдена'}, status=404)
+    
+    # Находим или создаём главную группу обсуждения франшизы
+    main_group, created = GroupChat.objects.get_or_create(
+        franchise_id=franchise.id,
+        defaults={
+            'name': franchise.name,
+            'created_by': request.user,
+            'is_public': True,
+            'discussion_type': 'franchise',
+            'folder_type': 'discussions',
+        }
+    )
+    
+    # Автодобавляем пользователя
+    ChatMember.objects.get_or_create(chat=main_group, user=request.user)
+    
+    # Обновляем счётчик участников
+    main_group.members_count = main_group.members.count()
+    main_group.save(update_fields=['members_count'])
+    
+    # Получаем все аниме франшизы
+    franchise_animes = list(Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'id'))
+    
+    # Создаём топики
+    topics = []
+    
+    # Общий топик
+    general_topic, _ = ChatTopic.objects.get_or_create(
+        chat=main_group,
+        anime=None,
+        defaults={'title': f'О франшизе «{franchise.name}»', 'order': 0}
+    )
+    topics.append({
+        'id': general_topic.id,
+        'title': general_topic.title,
+        'anime_id': None,
+        'is_general': True
+    })
+    
+    # Топики для каждого аниме франшизы
+    for idx, fa in enumerate(franchise_animes):
+        topic_title = fa.title_ru or fa.title_en or f'Часть #{fa.id}'
+        topic, _ = ChatTopic.objects.get_or_create(
+            chat=main_group,
+            anime_id=fa.id,
+            defaults={'title': topic_title, 'order': idx + 1}
+        )
+        topics.append({
+            'id': topic.id,
+            'title': topic.title,
+            'anime_id': fa.id,
+            'is_general': False,
+        })
+    
+    return Response({
+        'type': 'franchise',
+        'id': main_group.id,
+        'group': {
+            'id': main_group.id,
+            'name': main_group.name,
+            'avatar_url': main_group.avatar.url if main_group.avatar else None,
+            'members_count': main_group.members.count(),
+            'discussion_type': 'franchise',
+            'user_joined': True,
+        },
+        'franchise': {
+            'id': franchise.id,
+            'name': franchise.name,
+        },
+        'topics': topics,
+        'current_topic_id': topics[0]['id'] if topics else None,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def join_franchise_discussion_group(request, franchise_id):
+    """Присоединиться к группе обсуждения франшизы"""
+    return get_franchise_discussion_group(request, franchise_id)

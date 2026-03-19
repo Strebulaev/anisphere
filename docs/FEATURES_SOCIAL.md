@@ -6,13 +6,52 @@
 - **Personal** — auto-created on first message
 - **Group** — 3+ participants, admin-managed
 - **Community chat** — extended for large groups
+- **Franchise Discussion** — one group-chat per franchise (not per individual title); contains topics (threads) for each franchise entry plus a general topic
 
 ### Group Chat Creation
 Fields: name (required), avatar, description, participants search, access type (public/private/by-link), anime attachment (optional)
 
+### Franchise Discussion Chats
+
+For every franchise (a set of related anime titles grouped under one parent) the platform auto-creates **one** discussion group. Individual franchise entries do **not** get their own standalone discussion groups.
+
+**Structure:**
+- Each franchise discussion contains **topics** (similar to Telegram forum topics / supergroup topics).
+- One topic per franchise entry (e.g. for the Frieren franchise: "Провожающая в последний путь Фрирен: Магия ●●", "Фрирен [ТВ-1]", "Фрирен [ТВ-2]").
+- A mandatory **«Общее»** topic is always present for franchise-wide discussion.
+- Topics are ordered: «Общее» first, then entries in release order.
+
+**Navigation:**
+- The "Обсуждение" button on a **franchise page** → opens the franchise discussion group (lands on «Общее» topic).
+- The "Обсуждение" button on an **individual anime entry page** → redirects into the franchise discussion group and automatically opens the topic corresponding to that entry.
+- If an anime does not belong to any franchise, its "Обсуждение" button creates/opens a standalone discussion group for that single title (legacy behaviour).
+
+**Chat list placement:**
+- Franchise discussion groups appear under the **«Обсуждения»** folder, **not** under «Группы».
+
+**Topic model fields (ChatTopic):**
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `chat` | FK → Chat | parent franchise discussion |
+| `anime` | FK → Anime \| null | null for the «Общее» topic |
+| `title` | CharField | display name |
+| `order` | IntegerField | sort order |
+| `created_at` | DateTimeField | auto |
+
+**API endpoints:**
+```
+GET  /api/social/franchise-discussions/{franchise_id}/          # Get or auto-create
+GET  /api/social/franchise-discussions/{franchise_id}/topics/   # List topics
+GET  /api/social/franchise-discussions/{franchise_id}/topics/{topic_id}/messages/
+POST /api/social/franchise-discussions/{franchise_id}/topics/{topic_id}/messages/
+```
+
 ### Chat UI Elements
 
 **Header:** avatar(s), name, online status / member count, search in chat, settings, leave
+
+**Franchise discussion header extras:** topic selector bar (horizontal pill tabs or dropdown list of topics); active topic name shown in sub-header.
 
 **Message Input supports:** text · images · video · documents · voice messages · geolocation · post · anime card · emoji
 
@@ -52,6 +91,59 @@ Fields: name (required), avatar, description, participants search, access type (
 **Personal:** notifications, sound, theme color, chat background, block user, clear history, delete chat
 
 **Group:** name/avatar/description, member management (add/remove/assign roles), permissions (who can write/add), invite link (generate/reset), notifications, delete group
+
+### Chat List Context Menu Actions
+
+Right-clicking (or long-pressing on mobile) any chat row in `/messages` shows a context menu. All actions below must work correctly:
+
+| Action | Behaviour |
+|---|---|
+| **Закрепить / Открепить** | Toggles `pinned` flag in user's chat settings; pinned chats float to top of list (max 5); UI updates instantly via optimistic update |
+| **Архивировать / Разархивировать** | Moves chat to/from the «Архив» folder; archived chats are hidden from main list; badge still shown if unread |
+| **Заглушить уведомления** | Opens mute duration picker (15 мин / 1 час / 8 часов / 2 дня / 1 неделю / Навсегда / До даты…); stores `muted_until` in user's chat settings |
+| **Отметить как прочитанное** | Sets `last_read_message_id` to the latest message id in that chat; clears unread counter; persisted to backend |
+| **Удалить чат** | Confirmation dialog; for personal chats deletes only for the current user; for group chats performs "leave group" |
+
+All five actions send the corresponding API calls and update the local Pinia store optimistically.
+
+### Global Chat Style Settings (gear icon above chat list)
+
+The ⚙️ gear icon above the chat search bar opens **Global Chat Style Settings** — a modal/panel with style-only options that apply as defaults across all chats. These settings are overridden on a per-chat basis by individual chat settings.
+
+**Scope:** style/visual only — no notification or permission settings here.
+
+**Available global style options:**
+| Option | Values |
+|---|---|
+| Default wallpaper | solid / gradient / pattern / image (same picker as per-chat) |
+| Default message bubble style | modern / classic / rounded |
+| Default accent color | color palette picker |
+| Default font size | small / medium / large |
+| Message animation | slide / fade / pop / none |
+| Emoji set | default / twitter / google / samsung / аниме |
+| Time format | 12h / 24h |
+
+**Priority rule:** per-chat settings always override global settings. If a chat has no explicit setting for a given option, the global default is used.
+
+**Storage:** saved in `UserGlobalChatStyle` model (one row per user). Applied client-side: when rendering a chat, merge global defaults → per-chat overrides.
+
+**UserGlobalChatStyle model fields:**
+| Field | Type | Default |
+|---|---|---|
+| `user` | OneToOne FK → User | — |
+| `wallpaper` | FK → ChatWallpaper \| null | null |
+| `bubble_style` | CharField | `modern` |
+| `accent_color` | CharField (hex) | `#6C5CE7` |
+| `font_size` | CharField | `medium` |
+| `message_animation` | CharField | `slide` |
+| `emoji_set` | CharField | `default` |
+| `time_format` | CharField | `24h` |
+
+**API:**
+```
+GET  /api/social/chat-settings/global/    # Fetch current global style
+PUT  /api/social/chat-settings/global/    # Save global style
+```
 
 ### Media Tab
 Tabs: images · video · documents · voice · anime  

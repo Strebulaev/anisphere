@@ -764,3 +764,67 @@ class GroupChatSettings(models.Model):
         last = Message.objects.filter(chat=self.chat).order_by('-created_at').first()
         self.last_message_at = last.created_at if last else None
         self.save()
+
+
+# ==================== FRANCHISE DISCUSSION TOPICS ====================
+
+class ChatTopic(models.Model):
+    """Топик (forum thread) внутри franchise discussion чата.
+    anime=None — общая тема «О франшизе».
+    """
+    chat = models.ForeignKey(
+        'social.GroupChat',
+        on_delete=models.CASCADE,
+        related_name='topics',
+        verbose_name='Чат'
+    )
+    anime = models.ForeignKey(
+        'anime.Anime',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='discussion_topics',
+        verbose_name='Аниме'
+    )
+    title = models.CharField(max_length=255, verbose_name='Название')
+    order = models.IntegerField(default=0, verbose_name='Порядок')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Тема обсуждения'
+        verbose_name_plural = 'Темы обсуждений'
+        ordering = ['order']
+        unique_together = [('chat', 'anime')]
+
+    def __str__(self):
+        return f'{self.chat.name} — {self.title}'
+
+
+# ==================== GLOBAL CHAT STYLE ====================
+
+class UserGlobalChatStyle(models.Model):
+    """Глобальные стилевые настройки чатов пользователя.
+    Per-chat настройки имеют приоритет над этими.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='global_chat_style',
+        verbose_name='Пользователь'
+    )
+    wallpaper_type  = models.CharField(max_length=20, default='solid')
+    wallpaper_color = models.CharField(max_length=7,  default='#0f0f0f')
+    wallpaper_color2 = models.CharField(max_length=7, default='#1a1a2e')
+    bubble_style      = models.CharField(max_length=20, default='modern')
+    accent_color      = models.CharField(max_length=7,  default='#6C5CE7')
+    font_size         = models.CharField(max_length=20, default='medium')
+    message_animation = models.CharField(max_length=20, default='slide')
+    emoji_set         = models.CharField(max_length=30, default='default')
+    time_format       = models.CharField(max_length=4,  default='24h')
+    updated_at        = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Глобальные настройки чата'
+        verbose_name_plural = 'Глобальные настройки чатов'
+
+    def __str__(self):
+        return f'GlobalChatStyle for {self.user}'

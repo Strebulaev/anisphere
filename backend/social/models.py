@@ -339,6 +339,19 @@ class GroupChat(models.Model):
     # Связь с аниме (опционально)
     anime = models.ForeignKey('anime.Anime', on_delete=models.SET_NULL, null=True, blank=True, related_name='chats')
 
+    # Франшиза (franchise discussion)
+    franchise_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='ИД франшизы')
+    discussion_type = models.CharField(
+        max_length=30, blank=True, default='',
+        choices=[('', 'Обычный'), ('anime', 'Обсуждение аниме'), ('franchise', 'Обсуждение франшизы')],
+        verbose_name='Тип обсуждения'
+    )
+    folder_type = models.CharField(
+        max_length=30, blank=True, default='groups',
+        choices=[('groups', 'Группы'), ('discussions', 'Обсуждения')],
+        verbose_name='Папка чатов'
+    )
+
     # Настройки чата
     slow_mode_delay = models.IntegerField(default=0)  # в секундах, 0 = отключен
     history_visible = models.BooleanField(default=True)
@@ -349,6 +362,9 @@ class GroupChat(models.Model):
     can_change_info = models.BooleanField(default=True)
     can_pin_messages = models.BooleanField(default=True)
     can_invite_users = models.BooleanField(default=True)
+
+    # Статистика
+    members_count = models.IntegerField(default=0)
 
     class Meta:
         ordering = ['-created_at']
@@ -361,9 +377,10 @@ class GroupChat(models.Model):
     def __str__(self):
         return f"Группа: {self.name}"
 
-    @property
-    def members_count(self):
-        return self.members.count()
+    def update_members_count(self):
+        """Обновить счётчик участников"""
+        self.members_count = self.members.count()
+        self.save(update_fields=['members_count'])
 
 
 class ChatRole(models.Model):
@@ -456,7 +473,7 @@ class ChatMember(models.Model):
     @property
     def is_owner(self):
         """Проверка, является ли пользователь владельцем"""
-        return self.chat.created_by == self.user
+        return self.chat.created_by_id == self.user_id if self.chat.created_by_id else False
 
     @property
     def effective_permissions(self):
@@ -1691,5 +1708,6 @@ class UserNotInterested(models.Model):
 from .models_chat import (
     ChatInviteLink, ChatWallpaper, ChatTheme, MessageReaction,
     ChatBan, ChatRestriction, ChatSlowMode, ChatJoinRequest,
-    ChatTag, ChatTagAssignment, AntiSpamRule, ChatBackup, ScheduledMessage
+    ChatTag, ChatTagAssignment, AntiSpamRule, ChatBackup, ScheduledMessage,
+    ChatTopic, UserGlobalChatStyle
 )

@@ -71,8 +71,18 @@
         </div>
         <div class="summary-divider"></div>
         <div class="summary-item">
-          <span class="summary-val">{{ Math.round(stats.episodes_watched * 24 / 60) }}</span>
-          <span class="summary-key">часов просмотра</span>
+          <span class="summary-val">{{ stats.hours_watched?.toFixed(1) ?? Math.round(stats.episodes_watched * 24 / 60) }}</span>
+          <span class="summary-key">часов просмотрено</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-item">
+          <span class="summary-val">{{ stats.hours_remaining?.toFixed(1) ?? '—' }}</span>
+          <span class="summary-key">часов осталось</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-item">
+          <span class="summary-val">{{ stats.avg_rating?.toFixed(1) ?? '—' }}</span>
+          <span class="summary-key">средняя оценка</span>
         </div>
       </div>
       <div class="summary-bar">

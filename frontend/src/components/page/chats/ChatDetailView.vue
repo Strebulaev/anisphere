@@ -1,5 +1,17 @@
 <template>
   <div class="chat-detail-view">
+    <!-- Франшизное обсуждение — отдельный рендер -->
+    <FranchiseDiscussionChat
+      v-if="isFranchiseDiscussion && franchiseParts.length > 0"
+      :franchise-id="chat?.franchise_id || chat?.id"
+      :franchise-name="chat?.franchise_name || chat?.anime_title || chat?.name"
+      :franchise-poster="chat?.anime_poster || chat?.avatar_url || ''"
+      :parts="franchiseParts"
+      :highlight-anime-id="highlightAnimeId"
+    />
+
+    <!-- Обычный чат -->
+    <template v-else>
     <div class="chat-header">
       <div class="chat-info">
         <button @click="showSettings = true" title="Настройки чата">
@@ -234,6 +246,7 @@
         </button>
       </div>
     </div>
+    </template><!-- end v-else ordinary chat -->
   </div>
 </template>
 
@@ -246,6 +259,7 @@ import { usePrivateChatStore } from '@/stores/privateChat'
 import { useGroupChatStore } from '@/stores/groupChat'
 import { useAvatar } from '@/composables/useAvatar'
 import ChatSettingsModal from '@/components/Chats/ChatSettingsModal.vue'
+import FranchiseDiscussionChat from '@/components/Chats/FranchiseDiscussionChat.vue'
 import MessageSearchModal from '@/components/modal/chats/MessageSearchModal.vue'
 import ForwardMessageModal from '@/components/modal/chats/ForwardMessageModal.vue'
 import ChatInviteModal from '@/components/modal/chats/ChatInviteModal.vue'
@@ -363,6 +377,27 @@ const chatAvatar = computed(() => {
 })
 
 const isGroup = computed(() => chat.value?.type === 'group')
+
+// Франшизное обсуждение — групповой чат с аниме-привязкой
+const isFranchiseDiscussion = computed(() =>
+  chat.value?.type === 'group' && (chat.value?.franchise_id || chat.value?.anime_id)
+)
+
+const franchiseParts = ref<any[]>([])  // части франшизы для FranchiseDiscussionChat
+const highlightAnimeId = ref<number | undefined>(undefined)
+
+// Загружаем части франшизы если это franchise discussion
+const loadFranchiseParts = async () => {
+  if (!isFranchiseDiscussion.value) return
+  const franchiseId = chat.value?.franchise_id
+  if (!franchiseId) return
+  try {
+    const { data } = await apiClient.get(`/anime/franchises/${franchiseId}/parts/`)
+    franchiseParts.value = data.results || data || []
+  } catch {
+    franchiseParts.value = []
+  }
+}
 
 const canManageChat = computed(() => {
   if (!authStore.user || !isGroup.value) return false
@@ -1125,6 +1160,7 @@ onMounted(async () => {
   const chatId = currentChatId.value
   if (chatId) {
     await loadChat()
+    await loadFranchiseParts()
     connectWebSocket()
     
     try {

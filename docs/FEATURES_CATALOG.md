@@ -50,12 +50,60 @@
 | Like | Toggle; notify author on first like only |
 | Dislike | Toggle; no notification |
 | Comment | Create, reply, edit (10 min window), delete |
-| Repost | Choose destination (feed / group / DM) + optional comment |
-| Bookmark | Saved to "Сохранённое" |
+| Repost | See **Repost Flow** below |
+| Bookmark | Saved to "Избранное" tab |
 | Report | Reason picker → sent to moderators |
 | Edit | Author only, 5 min window; adds "отредактировано" label |
 | Delete | Author + moderators; replaces text with "[сообщение удалено]" |
 | Pin | Author only, on own profile |
+| Not interested | Hides post; added to "Не интересно" tab |
+
+### Repost Flow
+
+Clicking the repost button opens a **Repost Modal** with three destination options and an optional comment field.
+
+| Destination | Behaviour |
+|---|---|
+| **Моя лента** | Creates a new `kind=repost` post for the current user; appears in followers' feeds |
+| **Группа** | Group picker (groups where user is member); posts as repost in group feed |
+| **Сообщение** | Chat/user search; sends the post as a **Post card** message into a personal or group chat |
+
+Repost post structure: `kind=repost`, `original_post` FK, `content` = optional comment. Rendered as reposter comment + embedded original post card.
+`repost_count` on the original post increments for all destinations.
+
+**API:**
+```
+POST /api/social/posts/{id}/repost/
+  body: { destination: 'feed' | 'group' | 'chat', target_id?: uuid, comment?: string }
+```
+
+### Feed Tabs
+
+The `/feed` page has a tab bar:
+
+| Tab | Content |
+|---|---|
+| Для вас | Default algorithmic feed |
+| Подписки | Posts only from followed users and groups |
+| Избранное | Bookmarked posts, sorted by bookmark date newest-first; keyword search bar; empty state: "Вы ещё не сохранили ни одного поста" |
+| Закреплённые посты | Posts pinned by the current user on their profile; sorted by pin order; each post can be unpinned from here; empty state: "У вас нет закреплённых постов" |
+| Не интересно | Posts hidden from feed; sorted by hide date newest-first; each entry has "Восстановить" button to undo; empty state: "Здесь появятся посты, которые вы отметили неинтересными" |
+
+**Supporting models:**
+- `PostBookmark`: `user` FK, `post` FK, `created_at`
+- `PostPin`: `user` FK, `post` FK, `order` IntegerField
+- `PostHide`: `user` FK, `post` FK, `created_at`
+
+**API:**
+```
+GET  /api/social/feed/?tab=bookmarks
+GET  /api/social/feed/?tab=pinned
+GET  /api/social/feed/?tab=hidden
+POST /api/social/posts/{id}/bookmark/     # Toggle
+POST /api/social/posts/{id}/pin/          # Toggle
+POST /api/social/posts/{id}/hide/         # Mark not interested
+DELETE /api/social/posts/{id}/hide/       # Undo
+```
 
 ### Feed Algorithm
 - Subscriptions 70% / user's groups 15% / recommended 10% / promoted 5%
@@ -162,7 +210,7 @@ Prequels · Sequels · Spin-offs · Alternative versions · Summaries
 `В процессе` | `Просмотрено` | `Запланировано` | `Отложено` | `Брошено` | `Любимое`
 
 ### Per-Anime Display
-Status · Progress (for in-progress) · Score (for completed) · Date added · Note (if any)  
+Status · Progress (for in-progress) · Score (for completed) · Date added · Note (if any)
 Actions: change status / rate / delete
 
 ### Add to Collection Modal
@@ -172,3 +220,63 @@ Fields: status picker, current episode (for in-progress), score (for completed),
 - Clicking a watch link adds anime to "В процессе" if not already tracked
 - Episode watch updates progress count
 - Reaching final episode moves to "Просмотрено"
+
+### Statistics Panel
+
+The `/collection` page includes a **Statistics** section with the following data, all computed from the user's `UserCollection` and `WatchProgress` records.
+
+#### Watch Time
+
+| Metric | Calculation |
+|---|---|
+| Всего просмотрено часов | Sum of `(episodes_watched × avg_episode_duration)` across all anime with status `completed` or `in_progress` |
+| Осталось досмотреть (часов) | Sum of `(remaining_episodes × avg_episode_duration)` for anime with status `in_progress` |
+| Среднее в день (за последние 30 дней) | Hours watched in last 30 days ÷ 30 |
+
+`avg_episode_duration` is taken from the `Anime` model field `episode_duration` (minutes); falls back to 24 min if null.
+
+**Display format:** "X ч Y мин" (e.g. "142 ч 35 мин"); for large values also show days ("5 д 22 ч").
+
+#### Episodes
+
+| Metric | Value |
+|---|---|
+| Серий просмотрено | Sum of `progress` (episodes watched) across all statuses |
+| Серий осталось | Sum of `(episodes_total − progress)` for `in_progress` anime |
+| Серий запланировано | Sum of `episodes_total` for `planned` anime |
+
+Episode counts must use the anime's actual `episodes` field (total planned) and `episodes_aired` for ongoing titles, never show 0/0 or null — display "?" when unknown.
+
+#### Collection Breakdown
+
+Counts per status with percentage of total:
+
+| Status | Count | % of total |
+|---|---|---|
+| В процессе | N | X% |
+| Просмотрено | N | X% |
+| Запланировано | N | X% |
+| Отложено | N | X% |
+| Брошено | N | X% |
+| Любимое | N | X% |
+| **Всего** | **N** | 100% |
+
+Displayed as a horizontal segmented bar chart + table below it.
+
+#### Drop Rate
+`(Брошено ÷ (Просмотрено + Брошено)) × 100%` — shown as "X% аниме заброшено".
+
+#### Score Distribution
+Histogram of user scores (1–10) across rated anime; shows count per score value.
+
+#### Average Score
+Mean of all non-zero scores the user has given, rounded to one decimal.
+
+#### Genre Coverage
+Top-5 genres by anime count in collection + "other" bucket.
+
+#### API
+```
+GET /api/users/me/collection/stats/
+```
+Returns: `{ watch_hours, remaining_hours, episodes_watched, episodes_remaining, by_status: {...}, avg_score, score_histogram, top_genres, drop_rate }`

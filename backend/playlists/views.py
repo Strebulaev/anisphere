@@ -251,7 +251,9 @@ class PlaylistViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def add_item(self, request, pk=None):
-        """Добавить аниме или вложенный плейлист"""
+        """Добавить аниме, вложенный плейлист или франшизу"""
+        from anime.models import Franchise, Anime as AnimeModel
+        
         playlist = self.get_object()
         if playlist.user != request.user:
             return Response({'error': 'Нет прав'}, status=status.HTTP_403_FORBIDDEN)
@@ -259,8 +261,33 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             anime_id = serializer.validated_data.get('anime_id')
             nested_playlist_id = serializer.validated_data.get('nested_playlist_id')
+            franchise_id = serializer.validated_data.get('franchise_id')
             
-            # Проверяем дубликаты
+            # Если добавляем франшизу - добавляем все её аниме
+            if franchise_id:
+                try:
+                    franchise = Franchise.objects.get(id=franchise_id)
+                    anime_list = AnimeModel.objects.filter(franchise=franchise).order_by('franchise_order')
+                    
+                    added_count = 0
+                    for anime in anime_list:
+                        # Проверяем дубликаты
+                        if not PlaylistItem.objects.filter(playlist=playlist, anime=anime).exists():
+                            PlaylistItem.objects.create(
+                                playlist=playlist,
+                                anime=anime,
+                                notes=f"Из франшизы: {franchise.name}"
+                            )
+                            added_count += 1
+                    
+                    return Response({
+                        'message': f'Добавлено {added_count} аниме из франшизы {franchise.name}',
+                        'added_count': added_count
+                    }, status=status.HTTP_201_CREATED)
+                except Franchise.DoesNotExist:
+                    return Response({'error': 'Франшиза не найдена'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Проверяем дубликаты для обычного добавления
             if anime_id and PlaylistItem.objects.filter(playlist=playlist, anime_id=anime_id).exists():
                 return Response({'error': 'Аниме уже есть в плейлисте'}, status=status.HTTP_400_BAD_REQUEST)
             if nested_playlist_id:

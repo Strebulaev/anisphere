@@ -3,9 +3,10 @@ from .models import Playlist, PlaylistItem, FavoriteAnime, FavoritePlaylist, Pla
 
 class PlaylistItemInline(admin.TabularInline):
     model = PlaylistItem
+    fk_name = 'playlist'  # Указываем, какой ForeignKey использовать
     extra = 0
     readonly_fields = ['created_at']
-    fields = ['anime', 'position', 'notes']
+    fields = ['anime', 'nested_playlist', 'position', 'notes']
 
 @admin.register(Playlist)
 class PlaylistAdmin(admin.ModelAdmin):

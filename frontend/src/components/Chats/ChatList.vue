@@ -26,7 +26,7 @@
           >
             <PlusIcon class="w-5 h-5" />
           </button>
-          <button class="p-2 rounded-full hover:bg-gray-100">
+          <button class="p-2 rounded-full hover:bg-gray-100" @click="showGlobalStyle = true" title="Настройки стиля чатов">
             <Cog6ToothIcon class="w-5 h-5" />
           </button>
         </div>
@@ -133,6 +133,17 @@
       @close="showNewChat = false"
       @created="handleChatCreated"
     />
+
+    <MuteChatModal
+      v-if="showMuteModal"
+      @close="showMuteModal = false"
+      @muted="handleMuteDuration"
+    />
+
+    <GlobalChatStyleModal
+      v-if="showGlobalStyle"
+      @close="showGlobalStyle = false"
+    />
   </div>
 </template>
 
@@ -149,6 +160,8 @@ import {
 } from '@heroicons/vue/24/outline'
 import ChatListItem from './ChatListItem.vue'
 import ContextMenu from './ContextMenu.vue'
+import MuteChatModal from './MuteChatModal.vue'
+import GlobalChatStyleModal from './GlobalChatStyleModal.vue'
 import NewChatModal from '@/components/modal/chats/NewChatModalReal.vue'
 import ChatFoldersBar from './ChatFoldersBar.vue'
 import { useGroupChatStore } from '@/stores/groupChat'
@@ -203,6 +216,9 @@ const { getAvatarUrl } = useAvatar()
 // State
 const showSearch = ref(false)
 const showNewChat = ref(false)
+const showMuteModal = ref(false)
+const showGlobalStyle = ref(false)
+let pendingMuteChat: LocalChat | null = null
 const searchQuery = ref('')
 const showArchived = ref(false)
 const groupChatsList = ref<any[]>([])
@@ -419,8 +435,11 @@ const filteredChats = computed(() => {
     // Личные чаты
     chats = chats.filter(chat => chat.type === 'private')
   } else if (activeFolderId === -2) {
-    // Группы
-    chats = chats.filter(chat => chat.type === 'group')
+    // Группы — только обычные группы, без франшизных обсуждений
+    chats = chats.filter(chat => chat.type === 'group' && !chat.anime_id && !chat.anime_title)
+  } else if (activeFolderId === -4) {
+    // Обсуждения — чаты с привязкой к аниме/франшизе
+    chats = chats.filter(chat => chat.type === 'group' && (chat.anime_id || chat.anime_title))
   }
 
   // Apply folder rules from store
@@ -639,30 +658,32 @@ const toggleArchive = async (chat: LocalChat) => {
   }
 }
 
-const muteChat = async (chat: LocalChat) => {
+const muteChat = (chat: LocalChat) => {
+  pendingMuteChat = chat
+  showMuteModal.value = true
+}
+
+const handleMuteDuration = async (until: string | null) => {
+  const chat = pendingMuteChat
+  pendingMuteChat = null
+  if (!chat) return
+  // null = навсегда (передаём далёкую дату)
+  const mutedUntil = until ?? new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString()
   try {
     if (chat.type === 'private') {
-      const settings: any = {
-        muted_until: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Mute for 24 hours
-      }
-      await privateChatStore.updateSettings(chat.id, settings)
+      await privateChatStore.updateSettings(chat.id, { muted_until: mutedUntil })
     } else {
-      const mutedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       await apiClient.patch(`/social/group-chats/${chat.id}/update_member_settings/`, {
         is_muted: true,
         muted_until: mutedUntil
       })
       const groupChat = groupChatsList.value.find(gc => gc.id === chat.id)
-      if (groupChat && groupChat.user_member_settings) {
+      if (groupChat?.user_member_settings) {
         groupChat.user_member_settings.is_muted = true
         groupChat.user_member_settings.muted_until = mutedUntil
       }
     }
-    // Обновить данные
-    await Promise.all([
-      privateChatStore.loadChats(),
-      loadGroupChats()
-    ])
+    await Promise.all([privateChatStore.loadChats(), loadGroupChats()])
   } catch (error) {
     console.error('Error muting chat:', error)
   }

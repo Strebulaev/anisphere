@@ -577,29 +577,29 @@ const saveNewPlaylist = async () => {
 
 const handleDiscuss = async () => {
   try {
-    // Для франшизы берём первое аниме для обсуждения
-    const firstEntry = props.franchise.entries?.[0]
-    if (!firstEntry) {
-      toast.error('Нет аниме для обсуждения')
-      return
-    }
-
+    // Для франшизы используем отдельный API
+    const franchiseId = props.franchise.id
+    
     let discussionGroup
     try {
-      discussionGroup = await animeDiscussionsApi.getDiscussionGroup(firstEntry.id)
+      discussionGroup = await animeDiscussionsApi.getFranchiseDiscussion(franchiseId)
     } catch (error: any) {
       if (error.response?.status === 404) {
-        discussionGroup = await animeDiscussionsApi.createDiscussionGroup(firstEntry.id)
+        discussionGroup = await animeDiscussionsApi.joinFranchiseDiscussion(franchiseId)
       } else {
         throw error
       }
     }
 
-    if (!discussionGroup.user_joined) {
-      discussionGroup = await animeDiscussionsApi.joinDiscussionGroup(firstEntry.id)
+    // Переходим к чату
+    const chatId = discussionGroup.group?.id || discussionGroup.id
+    const topicId = discussionGroup.current_topic_id
+    
+    if (topicId) {
+      router.push(`/chats/${chatId}?topic=${topicId}`)
+    } else {
+      router.push(`/chats/${chatId}`)
     }
-
-    router.push(`/chats/${discussionGroup.id}`)
   } catch (error: any) {
     console.error('Error handling discuss:', error)
     toast.error(error.response?.data?.detail || 'Не удалось открыть обсуждение')

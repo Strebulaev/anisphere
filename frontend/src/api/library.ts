@@ -37,6 +37,10 @@ export interface LibraryStats {
   planned: number
   favorites: number
   episodes_watched: number
+  hours_watched: number
+  hours_remaining: number
+  avg_rating: number
+  total_rewatches: number
 }
 
 export const libraryApi = {

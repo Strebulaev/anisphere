@@ -100,7 +100,8 @@ const goToChat = (chatId: number) => {
   router.push(`/chats/${chatId}`)
 }
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string | undefined) => {
+  if (!dateString) return ''
   const date = new Date(dateString)
   return date.toLocaleDateString('ru-RU', {
     day: 'numeric',
@@ -109,7 +110,8 @@ const formatDate = (dateString: string) => {
   })
 }
 
-const formatRelativeDate = (dateString: string) => {
+const formatRelativeDate = (dateString: string | undefined) => {
+  if (!dateString) return ''
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()

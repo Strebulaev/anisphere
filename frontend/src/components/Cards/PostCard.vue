@@ -263,13 +263,27 @@ const repostPost = () => {
 
 const confirmRepost = async (chat: any) => {
   try {
-    const response = await api.post(`/social/posts/${props.post.id}/repost/`, {
-      comment: repostComment.value
-    })
-    props.post.reposts_count++
-    showRepostModal.value = false
-    repostComment.value = ''
-    emit('repost', response.data)
+    // Если выбран чат, делаем репост в чат
+    if (chat && chat.id) {
+      const response = await api.post(`/social/posts/${props.post.id}/repost/action/`, {
+        comment: repostComment.value,
+        chat_id: chat.id,
+        type: 'chat'
+      })
+      showRepostModal.value = false
+      repostComment.value = ''
+      emit('repost', response.data)
+    } else {
+      // Обычный репост в ленту
+      const response = await api.post(`/social/posts/${props.post.id}/repost/action/`, {
+        comment: repostComment.value,
+        type: 'feed'
+      })
+      props.post.reposts_count++
+      showRepostModal.value = false
+      repostComment.value = ''
+      emit('repost', response.data)
+    }
   } catch (error) {
     console.error('Ошибка репоста:', error)
   }

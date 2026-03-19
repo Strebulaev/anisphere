@@ -198,7 +198,81 @@
             </div>
           </div>
 
-          <!-- NOT INTERESTED TAB - Shows hidden profiles/posts with sub-tabs -->
+          <!-- BOOKMARKS TAB — Избранные посты -->
+          <div v-else-if="activeTab === 'bookmarks'" class="bookmarks-tab">
+            <div class="tab-header">
+              <input
+                v-model="bookmarkSearch"
+                placeholder="Поиск в сохранённых..."
+                class="search-input"
+              >
+            </div>
+            <div v-if="loadingBookmarks" class="loading-state">
+              <div class="skeleton-post" v-for="i in 4" :key="i">
+                <div class="skeleton-header">
+                  <div class="skeleton-avatar"></div>
+                  <div class="skeleton-info">
+                    <div class="skeleton-line short"></div>
+                    <div class="skeleton-line"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="filteredBookmarks.length === 0" class="empty-state">
+              <div class="empty-icon">★</div>
+              <h3>Нет избранных постов</h3>
+              <p>Добавляйте посты в избранное, чтобы они появились здесь</p>
+            </div>
+            <div v-else class="posts-list">
+              <PostCard
+                v-for="post in filteredBookmarks"
+                :key="post.id"
+                :post="post"
+                @like="handleLike"
+                @dislike="handleDislike"
+                @bookmark="toggleBookmark"
+                @menu="openPostMenu"
+                @repost="openRepostModal"
+                @comment="openComments"
+              />
+            </div>
+          </div>
+
+          <!-- PINNED TAB — Закреплённые посты -->
+          <div v-else-if="activeTab === 'pinned'" class="pinned-tab">
+            <div v-if="loadingPinned" class="loading-state">
+              <div class="skeleton-post" v-for="i in 3" :key="i">
+                <div class="skeleton-header">
+                  <div class="skeleton-avatar"></div>
+                  <div class="skeleton-info">
+                    <div class="skeleton-line short"></div>
+                    <div class="skeleton-line"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="pinnedPosts.length === 0" class="empty-state">
+              <div class="empty-icon">📌</div>
+              <h3>Нет закреплённых постов</h3>
+              <p>Закрепляйте посты через меню поста, чтобы они появились здесь</p>
+            </div>
+            <div v-else class="posts-list">
+              <div v-for="post in pinnedPosts" :key="post.id" class="pinned-post-wrapper">
+                <PostCard
+                  :post="post"
+                  @like="handleLike"
+                  @dislike="handleDislike"
+                  @bookmark="toggleBookmark"
+                  @menu="openPostMenu"
+                  @repost="openRepostModal"
+                  @comment="openComments"
+                />
+                <button class="btn-unpin" @click="unpinPostFromTab(post)">📌 Открепить</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- NOT INTERESTED TAB -->
           <div v-else-if="activeTab === 'not_interested'" class="not-interested-tab">
             <!-- Sub-tabs -->
             <div class="sub-tabs">
@@ -206,13 +280,13 @@
                 :class="['sub-tab-btn', { active: notInterestedSubTab === 'profiles' }]"
                 @click="notInterestedSubTab = 'profiles'"
               >
-                👤 Профили
+                👤 Скрытые профили
               </button>
               <button
                 :class="['sub-tab-btn', { active: notInterestedSubTab === 'posts' }]"
                 @click="notInterestedSubTab = 'posts'; loadHiddenPosts()"
               >
-                📝 Посты
+                📝 Скрытые посты
               </button>
             </div>
 
@@ -619,6 +693,15 @@ const subscriptionsSubTab = ref<'profiles' | 'favorites'>('profiles')
 const favoritePosts = ref<Post[]>([])
 const loadingFavoritePosts = ref(false)
 
+// Bookmarks tab state (Избранное)
+const bookmarkedPosts = ref<Post[]>([])
+const loadingBookmarks = ref(false)
+const bookmarkSearch = ref('')
+
+// Pinned posts tab state
+const pinnedPosts = ref<Post[]>([])
+const loadingPinned = ref(false)
+
 // Not Interested tab state
 const notInterestedUsers = ref<any[]>([])
 const loadingNotInterested = ref(false)
@@ -661,12 +744,13 @@ const defaultAvatar = '/img/default-avatar.svg'
 // Feed tabs
 const feedTabs = computed(() => {
   const tabs = [
-    { id: 'feed', label: 'Лента' },
-    { id: 'popular', label: 'Популярное' },
+    { id: 'feed',        label: 'Лента' },
+    { id: 'popular',     label: 'Популярное' },
     { id: 'subscriptions', label: 'Подписки' },
+    { id: 'bookmarks',   label: '★ Избранное' },
+    { id: 'pinned',      label: 'Пины' },
     { id: 'not_interested', label: 'Не интересно' }
   ]
-  // Add reports tab for moderators
   if (currentUser.value?.is_moderator || currentUser.value?.is_staff) {
     tabs.push({ id: 'reports', label: 'Жалобы' })
   }
@@ -763,11 +847,65 @@ const switchTab = async (tabId: string) => {
     await loadPopularPosts()
   } else if (tabId === 'subscriptions') {
     await loadSubscriptions()
+  } else if (tabId === 'bookmarks') {
+    await loadBookmarks()
+  } else if (tabId === 'pinned') {
+    await loadPinnedPosts()
   } else if (tabId === 'not_interested') {
     await loadNotInterested()
   } else if (tabId === 'reports') {
     await loadReports()
   }
+}
+
+// ── Избранные посты ────────────────────────────────────────
+const loadBookmarks = async () => {
+  loadingBookmarks.value = true
+  try {
+    const { data } = await bookmarksApi.getPosts()
+    bookmarkedPosts.value = (data.results || []).map(normalizePost)
+  } catch (e) {
+    console.error('Error loading bookmarks:', e)
+    bookmarkedPosts.value = []
+  } finally {
+    loadingBookmarks.value = false
+  }
+}
+
+const filteredBookmarks = computed(() => {
+  if (!bookmarkSearch.value.trim()) return bookmarkedPosts.value
+  const q = bookmarkSearch.value.toLowerCase()
+  return bookmarkedPosts.value.filter(p =>
+    (p.text || '').toLowerCase().includes(q) ||
+    (p.title || '').toLowerCase().includes(q)
+  )
+})
+
+// ── Закреплённые посты ───────────────────────────────────────
+const loadPinnedPosts = async () => {
+  loadingPinned.value = true
+  try {
+    const { data } = await apiClient.get('/social/posts/', { params: { pinned: true, my_pins: true } })
+    pinnedPosts.value = (data.results || []).map(normalizePost)
+  } catch (e) {
+    // fallback: ищем пины среди постов текущего пользователя
+    try {
+      const { data: me } = await apiClient.get('/users/me/')
+      const { data: userPosts } = await apiClient.get('/social/posts/', { params: { author: me.id, is_pinned: true } })
+      pinnedPosts.value = (userPosts.results || []).map(normalizePost)
+    } catch {
+      pinnedPosts.value = []
+    }
+  } finally {
+    loadingPinned.value = false
+  }
+}
+
+const unpinPostFromTab = async (post: any) => {
+  try {
+    await apiClient.post(`/social/posts/${post.id}/unpin/`)
+    pinnedPosts.value = pinnedPosts.value.filter(p => p.id !== post.id)
+  } catch (e) { console.error('Error unpinning:', e) }
 }
 
 // Popular posts methods
@@ -1357,4 +1495,26 @@ onUnmounted(() => { window.removeEventListener('scroll', handleScroll) })
   0% { box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.8); }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
+
+/* Bookmarks & Pinned tabs */
+.bookmarks-tab, .pinned-tab { padding: 1rem 0; }
+.pinned-post-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.btn-unpin {
+  align-self: flex-end;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #888;
+  padding: 4px 12px;
+  border-radius: 0 0 8px 8px;
+  cursor: pointer;
+  font-size: .8rem;
+  margin-top: -4px;
+  transition: background .2s, color .2s;
+}
+.btn-unpin:hover { background: #252525; color: #fff; }
 </style>

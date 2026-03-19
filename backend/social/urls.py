@@ -13,48 +13,67 @@ from .views import (
     get_chat_detail,
     PrivateChatSettingsView, GroupChatSettingsView,
     FollowViewSet, get_post_likers,
-    get_anime_discussion_group, create_anime_discussion_group, join_anime_discussion_group,
     get_unread_count, get_unread_chats, mark_chat_read, mark_private_chat_read, mark_group_chat_read,
 )
 from .views_all_actions import (
-    BookmarkViewSet,
-    PostMediaViewSet,
-    PostAttachmentViewSet,
+    AchievementViewSet,
+    AttachmentViewSet,
+    ChatInviteViewSet,
+    EmailLogViewSet,
+    FavoriteViewSet,
     ReportViewSet,
+    RepostViewSet,
+    UploadedFileViewSet,
+    UserAchievementViewSet,
+    get_chats_for_forward, forward_post_to_chat,
+    get_extended_feed,
+    get_anime_discussion_group, create_anime_discussion_group,
+    get_post_comment_replies, join_anime_discussion_group,
+    get_franchise_discussions,
+    GroupSearchView,
+    get_hashtag_posts, search_hashtags, search_messages, reindex_messages,
+    pin_post, unpin_post, report_post, add_bookmark, remove_bookmark, toggle_bookmark_view,
+    get_bookmarks_folders, hide_post_from_feed, mark_post_not_interested, edit_post,
+    get_user_posts, get_group_posts, hide_author_from_feed, get_hidden_posts, restore_hidden_post,
+    get_bookmarked_posts, get_feed_statistics, get_popular_posts,
+    get_user_notification_settings, update_user_notification_settings,
+    toggle_comment_like, toggle_comment_dislike, get_comment_replies, report_comment, edit_comment,
+    toggle_follow, toggle_post_like, toggle_post_dislike, get_post_likes,
+    get_post_dislikers, create_repost, delete_repost, repost_post, unrepost_post, track_post_view,
+    get_post_viewers, upload_file, get_online_users,
+    join_chat_by_invite, toggle_reaction, pin_message, unpin_message, forward_message,
+    get_pinned_messages, upload_attachment,
+    BookmarkViewSet,
     SubscriptionViewSet,
     NotInterestedViewSet,
     ModerationReportViewSet,
-    toggle_follow,
-    toggle_post_like, toggle_post_dislike, get_post_likes, get_post_dislikers,
-    toggle_comment_like, toggle_comment_dislike,
-    pin_post, unpin_post, report_post, add_bookmark, remove_bookmark, toggle_bookmark_view,
-    get_bookmarks_folders, repost_post, unrepost_post, create_repost, delete_repost,
-    track_post_view, get_post_viewers,
-    get_comment_replies, get_post_comment_replies, report_comment,
-    edit_post, edit_comment,
-    hide_post_from_feed, mark_post_not_interested, hide_author_from_feed,
-    get_hidden_posts, restore_hidden_post, get_bookmarked_posts,
-    get_feed_statistics, get_popular_posts, get_user_posts, get_group_posts,
-    get_hashtag_posts, search_hashtags,
-    get_user_notification_settings, update_user_notification_settings,
-    AchievementViewSet, UserAchievementViewSet,
-    UploadedFileViewSet, upload_file,
-    FavoriteViewSet,
-    get_online_users, GroupSearchView,
-    ChatInviteViewSet, join_chat_by_invite,
-    ReactionViewSet, toggle_reaction,
-    AttachmentViewSet, upload_attachment,
-    pin_message, unpin_message, forward_message, get_pinned_messages,
+    ReactionViewSet,
+)
+from .views_all_actions import (
+    AchievementViewSet,
+    AttachmentViewSet,
+    BookmarkViewSet,
+    ChatInviteViewSet,
     EmailLogViewSet,
-    search_messages, reindex_messages,
-    ChatFolderViewSet as OldChatFolderViewSet, get_folder_chats as old_get_folder_chats,
+    FavoriteViewSet,
+    PostAttachmentViewSet,
+    PostMediaViewSet,
+    ReactionViewSet,
+    ReportViewSet,
     RepostViewSet,
+    UploadedFileViewSet,
+    UserAchievementViewSet,
     get_chats_for_forward, forward_post_to_chat,
     get_extended_feed,
+    get_anime_discussion_group, create_anime_discussion_group, join_anime_discussion_group,
+    get_franchise_discussion_group, join_franchise_discussion_group,
+    get_franchise_discussions,
 )
 
 # Новые views для системы чатов
 from .views_chat import (
+    init_franchise_discussion,
+    global_chat_style,
     ChatCustomizationViewSet,
     ChatInviteLinkViewSet, join_chat_by_invite as join_invite_new,
     ChatBanViewSet, ChatRestrictionViewSet,
@@ -93,8 +112,6 @@ router = DefaultRouter()
 router.register(r'groups', GroupViewSet)
 router.register(r'posts', PostViewSet)
 router.register(r'feed', FeedViewSet, basename='feed')
-router.register(r'post-media', PostMediaViewSet, basename='post-media')
-router.register(r'post-attachments', PostAttachmentViewSet, basename='post-attachment')
 router.register(r'bookmarks', BookmarkViewSet, basename='bookmark')
 router.register(r'reports', ReportViewSet, basename='report')
 router.register(r'group-chats', GroupChatViewSet)
@@ -403,9 +420,18 @@ urlpatterns = [
     path('chats/for-forward/', get_chats_for_forward, name='chats-for-forward'),
     path('chats/<int:chat_id>/forward/', forward_post_to_chat, name='forward-post'),
 
-    # ==================== АНИМЕ ОБСУЖДЕНИЯ ====================
-    path('anime/<int:anime_id>/discussion-group/', get_anime_discussion_group, name='anime-discussion-group'),
-    path('anime/<int:anime_id>/discussion-group/create/', create_anime_discussion_group, name='anime-discussion-group-create'),
-    path('anime/<int:anime_id>/discussion-group/join/', join_anime_discussion_group, name='anime-discussion-group-join'),
+      # ==================== АНИМЕ ОБСУЖДЕНИЯ ====================
+      path('anime/<int:anime_id>/discussion-group/', get_anime_discussion_group, name='anime-discussion-group'),
+      path('anime/<int:anime_id>/discussion-group/create/', create_anime_discussion_group, name='anime-discussion-group-create'),
+      path('anime/<int:anime_id>/discussion-group/join/', join_anime_discussion_group, name='anime-discussion-group-join'),
+      
+      # ==================== FRANCHISE DISCUSSION ====================
+      path('franchise/<int:franchise_id>/discussion/', get_franchise_discussion_group, name='franchise-discussion'),
+      path('franchise/<int:franchise_id>/discussion/join/', join_franchise_discussion_group, name='franchise-discussion-join'),
+    path('franchise-discussion/init/', init_franchise_discussion, name='franchise-discussion-init'),
+    path('franchise-discussion/list/', get_franchise_discussions, name='franchise-discussion-list'),
+
+    # ==================== GLOBAL CHAT STYLE ====================
+    path('chat-settings/global/', global_chat_style, name='global-chat-style'),
 
 ] + router.urls

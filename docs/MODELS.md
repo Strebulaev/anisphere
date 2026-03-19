@@ -10,6 +10,14 @@ All models use:
 
 ## anime app
 
+### Franchise
+`name` · `slug` · `description` · `cover` ImageField
+
+A franchise groups related anime titles (sequels, prequels, spin-offs) under one parent entity.
+
+### AnimeFranchise (M2M through table)
+`franchise` FK · `anime` FK · `order` IntegerField (release order within franchise)
+
 ### Anime
 | Field | Type | Notes |
 |---|---|---|
@@ -101,6 +109,15 @@ M2M through tables with `anime` + `genre/studio`
 ### Post
 `author` FK · `group` FK nullable · `kind` (text/images/video/playlist/anime/shorts/repost/system) · `title` · `content` · `is_spoiler` · `original_post` FK nullable (for reposts) · `like_count` · `dislike_count` · `comment_count` · `repost_count`
 
+### PostBookmark
+`user` FK · `post` FK · `created_at` auto · unique_together(user, post)
+
+### PostPin
+`user` FK · `post` FK · `order` IntegerField · unique_together(user, post)
+
+### PostHide
+`user` FK · `post` FK · `created_at` auto · unique_together(user, post)  — “Не интересно”
+
 ### PostMedia
 `post` FK · `file` FileField · `media_type` (image/video) · `order`
 
@@ -145,7 +162,13 @@ M2M through tables with `anime` + `genre/studio`
 ## Chat / Message (social app)
 
 ### Chat
-`kind` (personal/group/community) · `name` · `avatar` · `description` · `access` (public/private/link) · `linked_anime` FK nullable · `invite_link` · `message_count`
+`kind` (personal/group/community/franchise_discussion) · `name` · `avatar` · `description` · `access` (public/private/link) · `linked_anime` FK nullable · `linked_franchise` FK → Franchise nullable · `invite_link` · `message_count` · `folder_type` CharField default `groups` — for franchise discussions set to `discussions`
+
+### ChatTopic
+`chat` FK → Chat · `anime` FK → Anime nullable (null = «Общее» topic) · `title` CharField · `order` IntegerField · `created_at` auto
+
+### UserGlobalChatStyle
+`user` OneToOne FK → User · `wallpaper` FK → ChatWallpaper nullable · `bubble_style` CharField default `modern` · `accent_color` CharField(hex) default `#6C5CE7` · `font_size` CharField default `medium` · `message_animation` CharField default `slide` · `emoji_set` CharField default `default` · `time_format` CharField default `24h`
 
 ### ChatMember
 `chat` FK · `user` FK · `role` (owner/admin/moderator/member) · `joined_at` · `notifications_enabled`

@@ -251,22 +251,27 @@ class PlaylistUpdateSerializer(serializers.ModelSerializer):
 class PlaylistItemCreateSerializer(serializers.ModelSerializer):
     anime_id = serializers.IntegerField(required=False)
     nested_playlist_id = serializers.IntegerField(required=False)
+    franchise_id = serializers.IntegerField(required=False)
 
     class Meta:
         model = PlaylistItem
-        fields = ['anime_id', 'nested_playlist_id', 'notes']
+        fields = ['anime_id', 'nested_playlist_id', 'franchise_id', 'notes']
 
     def validate(self, data):
         anime_id = data.get('anime_id')
         nested_playlist_id = data.get('nested_playlist_id')
+        franchise_id = data.get('franchise_id')
         
-        if anime_id and nested_playlist_id:
+        # Подсчитываем количество переданных ID
+        ids_provided = sum(1 for x in [anime_id, nested_playlist_id, franchise_id] if x)
+        
+        if ids_provided > 1:
             raise serializers.ValidationError(
-                "Нельзя добавить одновременно аниме и плейлист"
+                "Нельзя добавить одновременно аниме, плейлист и франшизу"
             )
-        if not anime_id and not nested_playlist_id:
+        if ids_provided == 0:
             raise serializers.ValidationError(
-                "Необходимо указать anime_id или nested_playlist_id"
+                "Необходимо указать anime_id, nested_playlist_id или franchise_id"
             )
         
         # Проверяем существование аниме
@@ -275,6 +280,14 @@ class PlaylistItemCreateSerializer(serializers.ModelSerializer):
                 Anime.objects.get(id=anime_id)
             except Anime.DoesNotExist:
                 raise serializers.ValidationError("Аниме не найдено")
+        
+        # Проверяем существование франшизы
+        if franchise_id:
+            try:
+                from anime.models import Franchise
+                Franchise.objects.get(id=franchise_id)
+            except:
+                raise serializers.ValidationError("Франшиза не найдена")
         
         # Проверяем существование плейлиста
         if nested_playlist_id:

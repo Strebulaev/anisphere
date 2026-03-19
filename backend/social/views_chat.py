@@ -24,7 +24,7 @@ from .models_chat import (
     ChatBan, ChatRestriction, ChatSlowMode, ChatJoinRequest,
     ChatTag, ChatTagAssignment, AntiSpamRule, ChatBackup, ScheduledMessage,
     SecurityLog, GroupChatSettings, PrivateChatSettings, MessagePin,
-    GroupMemberSettings,
+    GroupMemberSettings, ChatTopic, UserGlobalChatStyle,
 )
 from .services.chat_settings_service import (
     ChatSettingsService, PermissionChecker, SettingsCache,
@@ -1002,6 +1002,118 @@ def clear_chat_history(request, chat_id):
             is_deleted=True, deleted_at=timezone.now(), deleted_by=request.user
         )
         return Response({'status': 'cleared', 'deleted_count': count})
+
+
+# ==================== FRANCHISE DISCUSSION ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def init_franchise_discussion(request):
+    """Инициализация franchise discussion: группа + топикив
+
+    POST /social/franchise-discussion/init/
+    { franchise_id, anime_ids: [1, 2, 3] }
+    Returns { group_map: { 'general': <id>, '<anime_id>': <id>, ... } }
+    """
+    franchise_id = request.data.get('franchise_id')
+    anime_ids = request.data.get('anime_ids', [])
+
+    if not franchise_id:
+        return Response({'error': 'franchise_id required'}, status=400)
+
+    group_map = {}
+
+    # Находим или создаём общую группу франшизы
+    try:
+        from anime.models import Franchise
+        franchise = Franchise.objects.get(id=franchise_id)
+        franchise_name = franchise.name
+        franchise_poster = franchise.cover.url if franchise.cover else None
+    except Exception:
+        franchise_name = f'\u0424раншиза #{franchise_id}'
+        franchise_poster = None
+
+    # Основная группа обсуждения
+    main_group, created = GroupChat.objects.get_or_create(
+        franchise_id=franchise_id,
+        defaults={
+            'name': franchise_name,
+            'created_by': request.user,
+            'is_public': True,
+            'discussion_type': 'franchise',
+            'folder_type': 'discussions',
+        }
+    )
+
+    # Автодобавляем текущего пользователя в группу
+    ChatMember.objects.get_or_create(chat=main_group, user=request.user)
+
+    # Тема «Общее»
+    general_topic, _ = ChatTopic.objects.get_or_create(
+        chat=main_group,
+        anime=None,
+        defaults={'title': f'О франшизе «{franchise_name}»', 'order': 0}
+    )
+    group_map['general'] = general_topic.id
+
+    # Темы по частям
+    for idx, anime_id in enumerate(anime_ids):
+        try:
+            from anime.models import Anime
+            anime = Anime.objects.get(id=anime_id)
+            title = anime.title_ru or anime.title_en or f'\u0427асть #{anime_id}'
+        except Exception:
+            title = f'\u0427асть #{anime_id}'
+            anime = None
+
+        topic, _ = ChatTopic.objects.get_or_create(
+            chat=main_group,
+            anime_id=anime_id,
+            defaults={'title': title, 'order': idx + 1}
+        )
+        group_map[str(anime_id)] = topic.id
+
+    return Response({
+        'group_id': main_group.id,
+        'group_map': group_map,
+        'franchise_name': franchise_name,
+        'franchise_poster': franchise_poster,
+    })
+
+
+# ==================== GLOBAL CHAT STYLE ====================
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def global_chat_style(request):
+    """Глобальные стилевые настройки чатов (GET или PUT)"""
+    from .models_chat import UserGlobalChatStyle
+    obj, _ = UserGlobalChatStyle.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        return Response({
+            'wallpaper_type':    obj.wallpaper_type,
+            'wallpaper_color':   obj.wallpaper_color,
+            'wallpaper_color2':  obj.wallpaper_color2,
+            'bubble_style':      obj.bubble_style,
+            'accent_color':      obj.accent_color,
+            'font_size':         obj.font_size,
+            'message_animation': obj.message_animation,
+            'emoji_set':         obj.emoji_set,
+            'time_format':       obj.time_format,
+        })
+
+    # PUT — обновляем
+    fields = [
+        'wallpaper_type', 'wallpaper_color', 'wallpaper_color2',
+        'bubble_style', 'accent_color', 'font_size',
+        'message_animation', 'emoji_set', 'time_format',
+    ]
+    for f in fields:
+        if f in request.data:
+            setattr(obj, f, request.data[f])
+    obj.save()
+    return Response({'status': 'saved'})
 
 
 # ==================== ЖУРНАЛ БЕЗОПАСНОСТИ ====================
