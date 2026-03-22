@@ -19,6 +19,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { normalizeKodikPlayerLink } from '../../config/kodik'
 
 interface Props {
   link: string
@@ -58,7 +59,8 @@ const loading = ref(true)
 const isReady = ref(false)
 
 const playerUrl = computed(() => {
-  let url = props.link
+  // Нормализуем домен на случай если ссылка сохранена со старым доменом (kodik.cc/kodik.info)
+  let url = normalizeKodikPlayerLink(props.link)
   const params: string[] = []
 
   if (props.autoplay) params.push('autoplay=1')

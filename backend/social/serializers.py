@@ -12,6 +12,26 @@ from .models import (
 from users.models import User
 
 
+# ==================== REPORT SERIALIZER ====================
+
+class ReportSerializer(serializers.ModelSerializer):
+    """Serializer для жалоб"""
+    reporter_username = serializers.CharField(source='reporter.username', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+
+    class Meta:
+        model = Report
+        fields = [
+            'id', 'reporter', 'reporter_username',
+            'content_type', 'content_id',
+            'reason', 'reason_display', 'comment',
+            'status', 'status_display',
+            'created_at', 'resolved_at', 'resolved_by'
+        ]
+        read_only_fields = ['id', 'reporter', 'created_at', 'resolved_at', 'resolved_by']
+
+
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
     author_avatar = serializers.ImageField(source='author.avatar', read_only=True)
@@ -1897,3 +1917,13 @@ class FeedPostSerializer(serializers.ModelSerializer):
 
     def get_content_preview(self, obj):
         return obj.get_content_preview(500)
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    """Сериализатор для избранного"""
+    content_type_name = serializers.CharField(source='content_type.model', read_only=True)
+
+    class Meta:
+        model = Favorite
+        fields = ['id', 'user', 'content_type', 'content_type_name', 'object_id', 'folder', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']

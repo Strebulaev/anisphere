@@ -34,6 +34,7 @@ import { useAuthStore } from '@/stores/auth'
 import { initGlobalWebSocket } from '@/composables/useGlobalWebSocket'
 import { useNotificationStore } from '@/stores/notifications'
 import { useReminderNotifier } from '@/composables/useReminderNotifier'
+import { usePresence } from '@/composables/usePresence'
 
 const { isCollapsed } = useSidebar()
 const authStore = useAuthStore()
@@ -43,6 +44,10 @@ const notifStore = useNotificationStore()
 if (authStore.isAuthenticated) {
   useReminderNotifier()
 }
+
+// Запускаем постоянный heartbeat онлайн-статуса
+// Пингует /api/users/heartbeat/ каждые 2 минуты
+usePresence()
 
 onMounted(() => {
   if (authStore.isAuthenticated) {

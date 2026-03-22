@@ -32,8 +32,12 @@ export interface FeedPost {
   is_pinned: boolean
   is_deleted: boolean
   is_spoiler: boolean
-  spoiler_for?: string | null  // Описание спойлера
-  spoiler_description?: string | null  // Альтернативное поле
+  spoiler_for?: {
+    id: number
+    title_ru?: string
+    title_en?: string
+  } | string | null
+  spoiler_description?: string | null
   allow_comments: boolean
   created_at: string
   updated_at: string

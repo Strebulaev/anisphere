@@ -1,4 +1,4 @@
-<template>
+  <template>
   <div class="col-card" :class="statusClass">
 
     <!-- Постер -->
@@ -18,7 +18,7 @@
       </div>
 
       <!-- Бейдж статуса -->
-      <div class="status-badge" :style="{ background: statusColor }">
+      <div class="status-badge" :class="{ completed: item.status === 'completed' }" :style="{ background: statusColor }">
         {{ statusIcon }}
       </div>
 
@@ -93,7 +93,7 @@
       <!-- Прогресс (только для started / on_hold) -->
       <div v-if="showProgress" class="episode-info">
         <span class="ep-text">
-          {{ item.current_episode }} / {{ item.anime_episodes_count || '?' }} эп.
+          {{ item.current_episode }} / {{ totalEpisodes || '?' }} эп.
         </span>
         <span class="ep-pct">{{ item.progress_percentage }}%</span>
       </div>
@@ -120,7 +120,7 @@
         <button class="qa-btn primary" @click.stop="primaryAction" :title="primaryLabel">
           {{ primaryLabel }}
         </button>
-        <button v-if="item.status === 'started'" class="qa-btn" @click.stop="markCompleted" title="Просмотрено">
+        <button v-if="item.status === 'started' || item.status === 'on_hold'" class="qa-btn" @click.stop="markCompleted" title="Просмотрено">
           ✓
         </button>
         <button class="qa-btn menu" @click.stop="openMenu" title="Ещё">
@@ -253,13 +253,26 @@ const playlists = ref<any[]>([])
 const playlistsLoading = ref(false)
 
 // Объект аниме для модалок
-const animeForModal = computed(() => ({
-  id: props.item.anime,
-  title_ru: props.item.anime_title_ru,
-  title_en: props.item.anime_title_en || '',
-  poster_url: props.item.anime_poster || null,
-  poster_image_url: props.item.anime_poster || null,
-} as any))
+const animeForModal = computed(() => {
+  return {
+    id: animeId.value,
+    title_ru: props.item.anime_title_ru,
+    title_en: props.item.anime_title_en || '',
+    poster_url: props.item.anime_poster || null,
+    poster_image_url: props.item.anime_poster || null,
+  } as any
+})
+
+// ID аниме для навигации — приоритет anime_id, затем anime как число или объект
+const animeId = computed(() => {
+  // Сначала проверяем anime_id (всегда число)
+  if (props.item.anime_id) return props.item.anime_id
+  // Затем anime как число
+  if (typeof props.item.anime === 'number') return props.item.anime
+  // Затем anime как объект с полем id
+  if (typeof props.item.anime === 'object' && props.item.anime?.id) return props.item.anime.id
+  return null
+})
 
 watch(showPlaylistModal, async (v) => {
   if (!v) return
@@ -273,16 +286,20 @@ watch(showPlaylistModal, async (v) => {
 })
 
 const handleDiscuss = async () => {
+  if (!animeId.value) {
+    toast.error('Не удалось определить ID аниме')
+    return
+  }
   try {
     let group
     try {
-      group = await animeDiscussionsApi.getDiscussionGroup(props.item.anime)
+      group = await animeDiscussionsApi.getDiscussionGroup(animeId.value)
     } catch (e: any) {
       if (e.response?.status === 404) {
-        group = await animeDiscussionsApi.createDiscussionGroup(props.item.anime)
+        group = await animeDiscussionsApi.createDiscussionGroup(animeId.value)
       } else throw e
     }
-    if (!group.user_joined) group = await animeDiscussionsApi.joinDiscussionGroup(props.item.anime)
+    if (!group.user_joined) group = await animeDiscussionsApi.joinDiscussionGroup(animeId.value)
     router.push(`/chats/${group.id}`)
   } catch (e: any) {
     toast.error(e.response?.data?.detail || 'Не удалось открыть обсуждение')
@@ -290,9 +307,13 @@ const handleDiscuss = async () => {
 }
 
 const handleReminderSave = async (data: any) => {
+  if (!animeId.value) {
+    toast.error('Не удалось определить ID аниме')
+    return
+  }
   try {
     await remindersApi.createReminder({
-      anime_id: props.item.anime,
+      anime_id: animeId.value,
       reminder_time: new Date(data.reminderTime).toISOString(),
       repeat_weekly: data.repeatWeekly || false,
       comment: data.comment || ''
@@ -334,8 +355,17 @@ const saveNewPlaylist = async () => {
 
 // ── Постер ────────────────────────────────────────────────────
 const posterUrl = computed(() => {
-  if (posterError.value || !props.item.anime_poster) return null
-  return getMediaUrl(props.item.anime_poster)
+  if (posterError.value) return null
+  // anime_poster может быть строкой или объектом
+  const poster = props.item.anime_poster
+  if (!poster) return null
+  if (typeof poster === 'string') return getMediaUrl(poster)
+  // Если это объект с полем url
+  if (typeof poster === 'object') {
+    const posterObj = poster as { url?: string }
+    if (posterObj.url) return getMediaUrl(posterObj.url)
+  }
+  return null
 })
 
 // ── Статусы ───────────────────────────────────────────────────
@@ -356,6 +386,14 @@ const showProgress = computed(() =>
   props.item.status === 'started' || props.item.status === 'on_hold'
 )
 
+// Количество эпизодов аниме
+const totalEpisodes = computed(() => {
+  // Может приходить в разных полях
+  return props.item.anime_episodes_count || 
+         (typeof props.item.anime === 'object' ? props.item.anime?.episodes_count : 0) ||
+         0
+})
+
 // ── Первичное действие ────────────────────────────────────────
 const primaryLabel = computed(() => {
   if (props.item.status === 'planned')   return 'Начать'
@@ -364,8 +402,12 @@ const primaryLabel = computed(() => {
 })
 
 const primaryAction = () => {
+  if (!animeId.value) {
+    toast.error('Не удалось определить ID аниме')
+    return
+  }
   const ep = props.item.status === 'completed' ? 1 : (props.item.current_episode || 1)
-  router.push(`/anime/${props.item.anime}/watch?episode=${ep}`)
+  router.push(`/anime/${animeId.value}/watch?episode=${ep}`)
 }
 
 const watchNow = () => {
@@ -414,11 +456,23 @@ const openMenu = (e: MouseEvent) => {
 }
 
 // ── Действия ─────────────────────────────────────────────────
-const goToAnime = () => router.push(`/anime/${props.item.anime}`)
+const goToAnime = () => {
+  if (!animeId.value) {
+    console.error('CollectionCard: animeId is null', props.item)
+    return
+  }
+  router.push(`/anime/${animeId.value}`)
+}
 
 const markCompleted = async () => {
   try {
-    await libraryApi.updateLibraryItem(props.item.id, { status: 'completed' })
+    // При отметке "просмотрено" обновляем статус и прогресс
+    const episodes = totalEpisodes.value || 1
+    await libraryApi.updateLibraryItem(props.item.id, { 
+      status: 'completed',
+      episodes_watched: episodes,
+      current_episode: episodes
+    })
     emit('statusChanged')
   } catch (e) { console.error(e) }
 }
@@ -510,6 +564,12 @@ const openEdit = () => {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.status-badge.completed {
+  background: #22c55e !important;
+  box-shadow: 0 2px 12px rgba(34, 197, 94, 0.5);
 }
 
 /* ── Кнопки действий (сверху справа) ──────────────────────── */

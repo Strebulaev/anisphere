@@ -341,18 +341,26 @@ const createPlaylist = async () => {
     const playlistId = playlistRes.data.id
 
     // Добавляем аниме по очереди
+    let addedCount = 0
+    let failedCount = 0
     for (const anime of selectedAnime.value) {
       try {
         await playlistsApi.addItemToPlaylist(playlistId, {
           anime: anime.id,
           notes: animeNotes.value[anime.id] || ''
         })
-      } catch (err) {
+        addedCount++
+      } catch (err: any) {
         console.warn(`Не удалось добавить аниме ${anime.id}:`, err)
+        failedCount++
       }
     }
 
-    showToast('Плейлист успешно создан! 🎉')
+    if (failedCount > 0) {
+      showToast(`Плейлист создан, но ${failedCount} аниме не удалось добавить`)
+    } else {
+      showToast(`Плейлист успешно создан! Добавлено ${addedCount} аниме 🎉`)
+    }
     setTimeout(() => router.push(`/playlist/${playlistId}`), 800)
 
   } catch (err: any) {

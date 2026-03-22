@@ -58,6 +58,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { KODIK_API_BASE, KODIK_API_TOKEN } from '../../config/kodik'
 
 interface KodikGenre { title: string; count: number }
 
@@ -102,8 +103,8 @@ const clearAll = () => {
 
 onMounted(async () => {
   try {
-    const url = new URL('https://kodikapi.com/genres')
-    url.searchParams.set('token', '74ecb013335271e4344ebc994956dd75')
+    const url = new URL(`${KODIK_API_BASE}/genres`)
+    url.searchParams.set('token', KODIK_API_TOKEN)
     url.searchParams.set('types', 'anime-serial')
     url.searchParams.set('sort', 'count')
     const res  = await fetch(url.toString())

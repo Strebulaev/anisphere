@@ -1,30 +1,30 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Заблокированные пользователи</h2>
+    <h2>Р—Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРЅС‹Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»Рё</h2>
 
     <div class="settings-group">
-      <h3>🔍 Поиск пользователя</h3>
+      <h3>рџ”Ќ РџРѕРёСЃРє РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ</h3>
       <div class="search-section">
         <div class="search-input">
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Введите имя пользователя или ID..."
+            placeholder="Р’РІРµРґРёС‚Рµ РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РёР»Рё ID..."
             class="text-input"
             @keyup.enter="searchUser"
           />
-          <button @click="searchUser" class="search-btn">🔍</button>
+          <button @click="searchUser" class="search-btn">рџ”Ќ</button>
         </div>
         <div v-if="searchResults.length > 0" class="search-results">
           <div v-for="user in searchResults" :key="user.id" class="search-result-item">
             <img v-if="user.avatar" :src="user.avatar" class="user-avatar" />
-            <div v-else class="user-avatar placeholder">👤</div>
+            <div v-else class="user-avatar placeholder">рџ‘¤</div>
             <div class="user-info">
               <div class="user-name">{{ user.display_name || user.username }}</div>
               <div class="user-username">@{{ user.username }}</div>
             </div>
             <button @click="blockUser(user)" class="block-btn">
-              🚫 Заблокировать
+              рџљ« Р—Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ
             </button>
           </div>
         </div>
@@ -33,57 +33,57 @@
     </div>
 
     <div class="settings-group">
-      <h3>🚫 Список заблокированных ({{ blockedUsers.length }})</h3>
+      <h3>рџљ« РЎРїРёСЃРѕРє Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРЅС‹С… ({{ blockedUsers.length }})</h3>
       
       <div v-if="blockedUsers.length === 0" class="empty-state">
-        <div class="empty-icon">🔓</div>
-        <p>У вас нет заблокированных пользователей</p>
+        <div class="empty-icon">рџ”“</div>
+        <p>РЈ РІР°СЃ РЅРµС‚ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№</p>
       </div>
 
       <div v-else class="blocked-list">
         <div v-for="user in blockedUsers" :key="user.id" class="blocked-item">
           <img v-if="user.avatar" :src="user.avatar" class="user-avatar" />
-          <div v-else class="user-avatar placeholder">👤</div>
+          <div v-else class="user-avatar placeholder">рџ‘¤</div>
           <div class="user-info">
             <div class="user-name">{{ user.display_name || user.username }}</div>
             <div class="user-username">@{{ user.username }}</div>
-            <div class="block-date">Заблокирован: {{ formatDate(user.blocked_at) }}</div>
+            <div class="block-date">Р—Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ: {{ formatDate(user.blocked_at) }}</div>
           </div>
           <button @click="unblockUser(user)" class="unblock-btn">
-            🔓 Разблокировать
+            рџ”“ Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ
           </button>
         </div>
       </div>
 
       <div v-if="blockedUsers.length > 0" class="bulk-actions">
         <button @click="showUnblockAllConfirm = true" class="unblock-all-btn">
-          🔓 Разблокировать всех
+          рџ”“ Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РІСЃРµС…
         </button>
       </div>
     </div>
 
     <div class="settings-group info-group">
-      <h3>ℹ️ Что происходит при блокировке?</h3>
+      <h3>в„№пёЏ Р§С‚Рѕ РїСЂРѕРёСЃС…РѕРґРёС‚ РїСЂРё Р±Р»РѕРєРёСЂРѕРІРєРµ?</h3>
       <div class="info-list">
         <div class="info-item">
-          <span class="info-icon">💬</span>
-          <span>Пользователь не может писать вам в личные сообщения</span>
+          <span class="info-icon">рџ’¬</span>
+          <span>РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РјРѕР¶РµС‚ РїРёСЃР°С‚СЊ РІР°Рј РІ Р»РёС‡РЅС‹Рµ СЃРѕРѕР±С‰РµРЅРёСЏ</span>
         </div>
         <div class="info-item">
-          <span class="info-icon">💭</span>
-          <span>Пользователь не может комментировать ваш контент</span>
+          <span class="info-icon">рџ’­</span>
+          <span>РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РјРѕР¶РµС‚ РєРѕРјРјРµРЅС‚РёСЂРѕРІР°С‚СЊ РІР°С€ РєРѕРЅС‚РµРЅС‚</span>
         </div>
         <div class="info-item">
-          <span class="info-icon">👁️</span>
-          <span>Пользователь не видит ваш онлайн-статус</span>
+          <span class="info-icon">рџ‘ЃпёЏ</span>
+          <span>РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РІРёРґРёС‚ РІР°С€ РѕРЅР»Р°Р№РЅ-СЃС‚Р°С‚СѓСЃ</span>
         </div>
         <div class="info-item">
-          <span class="info-icon">📵</span>
-          <span>Вы не видите посты и комментарии заблокированного</span>
+          <span class="info-icon">рџ“µ</span>
+          <span>Р’С‹ РЅРµ РІРёРґРёС‚Рµ РїРѕСЃС‚С‹ Рё РєРѕРјРјРµРЅС‚Р°СЂРёРё Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРЅРѕРіРѕ</span>
         </div>
         <div class="info-item">
-          <span class="info-icon">🔕</span>
-          <span>Вы не будете получать уведомления о его активности</span>
+          <span class="info-icon">рџ”•</span>
+          <span>Р’С‹ РЅРµ Р±СѓРґРµС‚Рµ РїРѕР»СѓС‡Р°С‚СЊ СѓРІРµРґРѕРјР»РµРЅРёСЏ Рѕ РµРіРѕ Р°РєС‚РёРІРЅРѕСЃС‚Рё</span>
         </div>
       </div>
     </div>
@@ -91,13 +91,13 @@
     <!-- Unblock All Confirmation Modal -->
     <div v-if="showUnblockAllConfirm" class="modal-overlay" @click="showUnblockAllConfirm = false">
       <div class="modal" @click.stop>
-        <h3>🔓 Разблокировать всех?</h3>
-        <p>Вы уверены, что хотите разблокировать всех пользователей ({{ blockedUsers.length }})?</p>
-        <p class="warning">Это действие нельзя отменить.</p>
+        <h3>рџ”“ Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РІСЃРµС…?</h3>
+        <p>Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РІСЃРµС… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ ({{ blockedUsers.length }})?</p>
+        <p class="warning">Р­С‚Рѕ РґРµР№СЃС‚РІРёРµ РЅРµР»СЊР·СЏ РѕС‚РјРµРЅРёС‚СЊ.</p>
         
         <div class="modal-actions">
-          <button @click="showUnblockAllConfirm = false" class="cancel-btn">Отмена</button>
-          <button @click="unblockAllUsers" class="confirm-btn">Разблокировать всех</button>
+          <button @click="showUnblockAllConfirm = false" class="cancel-btn">РћС‚РјРµРЅР°</button>
+          <button @click="unblockAllUsers" class="confirm-btn">Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РІСЃРµС…</button>
         </div>
       </div>
     </div>
@@ -105,20 +105,20 @@
     <!-- Block Confirmation Modal -->
     <div v-if="showBlockConfirm" class="modal-overlay" @click="showBlockConfirm = false">
       <div class="modal" @click.stop>
-        <h3>🚫 Заблокировать пользователя?</h3>
+        <h3>рџљ« Р—Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ?</h3>
         <div v-if="userToBlock" class="user-preview">
           <img v-if="userToBlock.avatar" :src="userToBlock.avatar" class="preview-avatar" />
-          <div v-else class="preview-avatar placeholder">👤</div>
+          <div v-else class="preview-avatar placeholder">рџ‘¤</div>
           <div class="preview-info">
             <div class="preview-name">{{ userToBlock.display_name || userToBlock.username }}</div>
             <div class="preview-username">@{{ userToBlock.username }}</div>
           </div>
         </div>
-        <p class="warning">Вы больше не будете видеть контент этого пользователя.</p>
+        <p class="warning">Р’С‹ Р±РѕР»СЊС€Рµ РЅРµ Р±СѓРґРµС‚Рµ РІРёРґРµС‚СЊ РєРѕРЅС‚РµРЅС‚ СЌС‚РѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.</p>
         
         <div class="modal-actions">
-          <button @click="showBlockConfirm = false" class="cancel-btn">Отмена</button>
-          <button @click="confirmBlock" class="danger-btn">Заблокировать</button>
+          <button @click="showBlockConfirm = false" class="cancel-btn">РћС‚РјРµРЅР°</button>
+          <button @click="confirmBlock" class="danger-btn">Р—Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ</button>
         </div>
       </div>
     </div>
@@ -126,6 +126,8 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, onMounted } from 'vue'
 import * as settingsApi from '@/api/settings'
 
@@ -176,7 +178,7 @@ const searchUser = async () => {
     searchError.value = ''
   } catch (error) {
     console.error('Error searching users:', error)
-    searchError.value = 'Ошибка при поиске'
+    searchError.value = 'РћС€РёР±РєР° РїСЂРё РїРѕРёСЃРєРµ'
     searchResults.value = []
   }
 }
@@ -204,7 +206,7 @@ const confirmBlock = async () => {
     userToBlock.value = null
   } catch (error) {
     console.error('Error blocking user:', error)
-    alert('Ошибка при блокировке пользователя')
+    showToast('РћС€РёР±РєР° РїСЂРё Р±Р»РѕРєРёСЂРѕРІРєРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')
   }
 }
 
@@ -214,13 +216,13 @@ const unblockUser = async (user: BlockedUser) => {
     blockedUsers.value = blockedUsers.value.filter(u => u.id !== user.id)
   } catch (error) {
     console.error('Error unblocking user:', error)
-    alert('Ошибка при разблокировке пользователя')
+    showToast('РћС€РёР±РєР° РїСЂРё СЂР°Р·Р±Р»РѕРєРёСЂРѕРІРєРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')
   }
 }
 
 const unblockAllUsers = async () => {
   try {
-    // Разблокируем всех пользователей
+    // Р Р°Р·Р±Р»РѕРєРёСЂСѓРµРј РІСЃРµС… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
     for (const user of blockedUsers.value) {
       await settingsApi.unblockUser(user.id)
     }
@@ -228,7 +230,7 @@ const unblockAllUsers = async () => {
     showUnblockAllConfirm.value = false
   } catch (error) {
     console.error('Error unblocking all users:', error)
-    alert('Ошибка при разблокировке пользователей')
+    showToast('РћС€РёР±РєР° РїСЂРё СЂР°Р·Р±Р»РѕРєРёСЂРѕРІРєРµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№')
   }
 }
 

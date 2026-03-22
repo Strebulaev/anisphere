@@ -204,7 +204,14 @@ const playlistsApi = {
     source_url?: string
     notes?: string
   }): Promise<AxiosResponse<PlaylistItem>> => {
-    return apiClient.post<PlaylistItem>(`/playlists/playlists/${playlistId}/add_item/`, data)
+    // Преобразуем anime в anime_id для бэкенда
+    const payload = {
+      anime_id: data.anime,
+      episode_number: data.episode_number,
+      source_url: data.source_url,
+      notes: data.notes
+    }
+    return apiClient.post<PlaylistItem>(`/playlists/playlists/${playlistId}/add_item/`, payload)
   },
 
   addItemByLink: (playlistId: number, data: {

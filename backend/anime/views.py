@@ -561,6 +561,44 @@ class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
         ).data
         return Response(data)
 
+    @action(detail=True, methods=['get'])
+    def parts(self, request, pk=None):
+        """Получить список аниме во франшизе"""
+        try:
+            franchise = self.get_object()
+            from .serializers import FranchiseEntrySerializer
+            
+            entries = franchise.entries.all().order_by('franchise_order', 'year')
+            parts_data = []
+            
+            for entry in entries:
+                anime = entry.anime
+                if anime:
+                    parts_data.append({
+                        'id': anime.id,
+                        'title_ru': anime.title_ru,
+                        'title_en': anime.title_en,
+                        'title_jp': anime.title_jp,
+                        'year': anime.year,
+                        'kind': anime.kind,
+                        'episodes': anime.episodes,
+                        'status': anime.status,
+                        'score': anime.score,
+                        'poster_url': anime.poster_url,
+                        'franchise_order': entry.franchise_order,
+                    })
+            
+            return Response({
+                'franchise_id': franchise.id,
+                'franchise_name': franchise.name,
+                'parts': parts_data,
+                'total': len(parts_data)
+            })
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+
 
 class SearchAPIView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -2097,7 +2135,6 @@ class KodikClipDownloadView(APIView):
             traceback.print_exc()
             return Response({'error': str(e)}, status=500)
 
-
 class EpisodeProgressUndoView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -2111,4 +2148,3 @@ class EpisodeProgressUndoView(APIView):
             return Response({'episode_number': episode_number, 'status': 'in_progress', 'undone': True})
         except UserEpisodeProgress.DoesNotExist:
             return Response({'error': 'Запись не найдена'}, status=404)
-

@@ -1,7 +1,5 @@
 import apiClient from './client'
-
-const KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
-const KODIK_API_BASE = 'https://kodikapi.com'
+import { KODIK_API_TOKEN, KODIK_API_BASE, normalizeKodikPlayerLink } from '../config/kodik'
 
 interface MaterialData {
   title: string
@@ -285,7 +283,7 @@ export const kodikApi = {
       poster_url: materialData.poster_url || materialData.anime_poster_url || '',
       genres: materialData.anime_genres || materialData.genres || [],
       studios: materialData.anime_studios || [],
-      kodik_link: anime.link,
+      kodik_link: normalizeKodikPlayerLink(anime.link),
       kodik_id: anime.id,
       quality: anime.quality,
       screenshots: anime.screenshots || [],

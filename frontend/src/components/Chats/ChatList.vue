@@ -192,6 +192,7 @@ type LocalChat = {
   unreadCount: number
   isPinned: boolean
   isArchived: boolean
+  isMuted: boolean
   status?: string
   membersCount?: number
   onlineCount?: number
@@ -298,6 +299,7 @@ const allChats = computed((): LocalChat[] => {
       unreadCount: (privateChat as any).unread_count || 0,
       isPinned: settings.pinned,
       isArchived: settings.archived,
+      isMuted: !!settings.muted_until,
       status: userData?.is_online ? 'online' : 'offline',
     })
   })
@@ -329,6 +331,7 @@ const allChats = computed((): LocalChat[] => {
       unreadCount: groupChat.unread_count || 0,
       isPinned: groupChat.user_member_settings?.is_pinned || false,
       isArchived: groupChat.user_member_settings?.is_archived || false,
+      isMuted: groupChat.user_member_settings?.is_muted || false,
       membersCount: groupChat.members_count,
       onlineCount: groupChat.online_count,
     })
@@ -365,6 +368,7 @@ const allChats = computed((): LocalChat[] => {
           unreadCount: folderChat.unread_count || 0,
           isPinned: false,
           isArchived: false,
+          isMuted: false,
           membersCount: folderChat.members_count,
         })
       }
@@ -601,9 +605,8 @@ const togglePin = async (chat: LocalChat) => {
       await privateChatStore.updateSettings(chat.id, settings)
     } else {
       const currentPinned = chat.isPinned
-      await apiClient.patch(`/social/group-chats/${chat.id}/update_member_settings/`, {
-        is_pinned: !currentPinned
-      })
+      // Используем правильный эндпойнт
+      await apiClient.put(`/social/group-chats/${chat.id}/member-settings/`, { is_pinned: !currentPinned })
       const groupChat = groupChatsList.value.find(gc => gc.id === chat.id)
       if (groupChat && groupChat.user_member_settings) {
         groupChat.user_member_settings.is_pinned = !currentPinned
@@ -636,7 +639,8 @@ const toggleArchive = async (chat: LocalChat) => {
       await privateChatStore.updateSettings(chat.id, settings)
     } else {
       const currentArchived = chat.isArchived
-      await apiClient.patch(`/social/group-chats/${chat.id}/update_member_settings/`, {
+      // Используем правильный эндпойнт архивации
+      await apiClient.post(`/social/group-chats/${chat.id}/archive/`, {
         is_archived: !currentArchived
       })
       const groupChat = groupChatsList.value.find(gc => gc.id === chat.id)
@@ -673,10 +677,11 @@ const handleMuteDuration = async (until: string | null) => {
     if (chat.type === 'private') {
       await privateChatStore.updateSettings(chat.id, { muted_until: mutedUntil })
     } else {
-      await apiClient.patch(`/social/group-chats/${chat.id}/update_member_settings/`, {
-        is_muted: true,
-        muted_until: mutedUntil
-      })
+      // Используем правильный эндпойнт заглушения
+      const durationMinutes = until
+        ? Math.round((new Date(until).getTime() - Date.now()) / 60000)
+        : null  // null = навсегда
+      await apiClient.post(`/social/group-chats/${chat.id}/mute/`, { duration: durationMinutes })
       const groupChat = groupChatsList.value.find(gc => gc.id === chat.id)
       if (groupChat?.user_member_settings) {
         groupChat.user_member_settings.is_muted = true

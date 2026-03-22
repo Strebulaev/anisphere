@@ -118,7 +118,8 @@ const filteredAnime = computed(() => {
 // Преобразуем элемент из старого API в формат LibraryItem для CollectionCard
 const toLibraryItem = (item: any) => ({
   id: item.id,
-  anime: item.anime?.id ?? item.anime_id,
+  anime: item.anime?.id ?? item.anime_id ?? item.id,
+  anime_id: item.anime?.id ?? item.anime_id ?? item.id,
   anime_title_ru:       item.anime?.title_ru   ?? item.anime_title_ru   ?? '',
   anime_title_en:       item.anime?.title_en   ?? item.anime_title_en   ?? '',
   anime_poster:         item.anime?.poster     ?? item.anime?.poster_image_url ?? item.anime_poster ?? null,

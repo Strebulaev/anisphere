@@ -1,4 +1,4 @@
-import apiClient from './client'
+﻿import apiClient from './client'
 import type { HomeData } from '@/types'
 
 export interface Anime {
@@ -259,7 +259,7 @@ export const animeApi = {
   getAnnouncementsFromKodik: async (): Promise<Anime[]> => {
     const KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
     const all: any[] = []
-    let nextPage: string | null = `https://kodikapi.com/list?token=${KODIK_TOKEN}&types=anime-serial,anime&anime_status=anons&with_material_data=true&limit=100`
+    let nextPage: string | null = `https://kodik-api.com/list?token=${KODIK_TOKEN}&types=anime-serial,anime&anime_status=anons&with_material_data=true&limit=100`
     let iterations = 0
     while (nextPage && iterations < 10) {
       iterations++

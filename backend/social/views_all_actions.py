@@ -25,7 +25,7 @@ from .models import (
 from users.models import User
 from .serializers import (
     ChatFolderCreateSerializer, ChatFolderSerializer, PostCommentSerializer, PostCommentCreateSerializer,
-    ReportSerializer, ReportCreateSerializer,
+    ReportSerializer,
     PostAttachmentSerializer, FeedPostSerializer, UserSimpleSerializer
 )
 
@@ -914,12 +914,85 @@ def upload_file(request):
 
 # ==================== FAVORITES ====================
 
+from django.contrib.contenttypes.models import ContentType
+from .models import Favorite
+from .serializers import FavoriteSerializer
+
+
 class FavoriteViewSet(viewsets.ModelViewSet):
     """Избранное"""
     permission_classes = [IsAuthenticated]
+    serializer_class = FavoriteSerializer
     
     def get_queryset(self):
-        return []  # Заглушка
+        return Favorite.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def check(self, request):
+        """Проверить, добавлен ли объект в избранное"""
+        content_type_str = request.query_params.get('content_type')
+        object_id = request.query_params.get('object_id')
+
+        if not content_type_str or not object_id:
+            return Response({'error': 'content_type и object_id обязательны'}, status=400)
+
+        try:
+            content_type = ContentType.objects.get(model=content_type_str)
+        except ContentType.DoesNotExist:
+            return Response({'error': 'Неверный content_type'}, status=400)
+
+        is_favorited = Favorite.objects.filter(
+            user=request.user,
+            content_type=content_type,
+            object_id=object_id
+        ).exists()
+
+        return Response({
+            'is_favorited': is_favorited,
+            'content_type': content_type_str,
+            'object_id': object_id
+        })
+
+    def create(self, request, *args, **kwargs):
+        """Добавить в избранное"""
+        content_type_str = request.data.get('content_type')
+        object_id = request.data.get('object_id')
+
+        if not content_type_str or not object_id:
+            return Response({'error': 'content_type и object_id обязательны'}, status=400)
+
+        try:
+            content_type = ContentType.objects.get(model=content_type_str)
+        except ContentType.DoesNotExist:
+            return Response({'error': 'Неверный content_type'}, status=400)
+
+        # Проверяем, не добавлено ли уже
+        existing = Favorite.objects.filter(
+            user=request.user,
+            content_type=content_type,
+            object_id=object_id
+        ).first()
+        
+        if existing:
+            return Response({'success': True, 'is_favorited': True, 'id': existing.id})
+
+        favorite = Favorite.objects.create(
+            user=request.user,
+            content_type=content_type,
+            object_id=object_id
+        )
+
+        return Response({
+            'success': True,
+            'is_favorited': True,
+            'id': favorite.id
+        }, status=201)
+
+    def destroy(self, request, *args, **kwargs):
+        """Удалить из избранного"""
+        instance = self.get_object()
+        instance.delete()
+        return Response({'success': True, 'is_favorited': False}, status=204)
 
 
 # ==================== GROUPS ====================
@@ -1282,20 +1355,129 @@ class BookmarkViewSet(viewsets.ModelViewSet):
 
 
 class ReportViewSet(viewsets.ModelViewSet):
-    """Жалобы"""
+    """ViewSet для жалоб"""
     permission_classes = [IsAuthenticated]
     serializer_class = ReportSerializer
-    
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return ReportCreateSerializer
-        return ReportSerializer
     
     def get_queryset(self):
         return Report.objects.filter(reporter=self.request.user)
     
-    def perform_create(self, serializer):
-        serializer.save(reporter=self.request.user)
+    def create(self, request, *args, **kwargs):
+        """Создать жалобу"""
+        # Логируем входящие данные для отладки
+        logger.info(f"Report create request data: {request.data}")
+        
+        # Поддерживаем разные форматы запроса
+        content_type = request.data.get('content_type')
+        content_id = request.data.get('content_id')
+        reason = request.data.get('reason', 'other')
+        comment = request.data.get('comment', '')
+        
+        # Альтернативные имена полей (для совместимости с фронтендом)
+        if not content_type:
+            content_type = request.data.get('type')
+        if not content_id:
+            content_id = request.data.get('object_id') or request.data.get('id') or request.data.get('post_id') or request.data.get('comment_id') or request.data.get('user_id')
+        
+        # Если content_type не указан, пытаемся определить по наличию полей
+        if not content_type:
+            if request.data.get('post_id'):
+                content_type = 'post'
+                content_id = request.data.get('post_id')
+            elif request.data.get('comment_id'):
+                content_type = 'comment'
+                content_id = request.data.get('comment_id')
+            elif request.data.get('user_id'):
+                content_type = 'user'
+                content_id = request.data.get('user_id')
+        
+        # Проверка обязательных полей
+        if not content_type:
+            logger.warning(f"Report missing content_type: {request.data}")
+            return Response({
+                'error': 'Поле content_type обязательно',
+                'valid_types': ['post', 'comment', 'user'],
+                'received_data': request.data
+            }, status=400)
+        
+        if not content_id:
+            logger.warning(f"Report missing content_id: {request.data}")
+            return Response({
+                'error': 'Поле content_id обязательно',
+                'received_data': request.data
+            }, status=400)
+        
+        # Нормализация content_type
+        content_type = str(content_type).lower()
+        if content_type not in ['post', 'comment', 'user']:
+            logger.warning(f"Report invalid content_type: {content_type}")
+            return Response({
+                'error': f'Недопустимый content_type: {content_type}',
+                'valid_types': ['post', 'comment', 'user']
+            }, status=400)
+        
+        # Конвертация content_id в int
+        try:
+            content_id = int(content_id)
+        except (ValueError, TypeError):
+            logger.warning(f"Report invalid content_id: {content_id}")
+            return Response({
+                'error': f'Неверный формат content_id: {content_id}'
+            }, status=400)
+        
+        # Проверка существования контента
+        if content_type == 'post':
+            if not Post.objects.filter(id=content_id).exists():
+                return Response({
+                    'error': 'Пост не найден'
+                }, status=404)
+        elif content_type == 'comment':
+            if not PostComment.objects.filter(id=content_id).exists():
+                return Response({
+                    'error': 'Комментарий не найден'
+                }, status=404)
+        elif content_type == 'user':
+            if not User.objects.filter(id=content_id).exists():
+                return Response({
+                    'error': 'Пользователь не найден'
+                }, status=404)
+            # Нельзя жаловаться на самого себя
+            if content_id == request.user.id:
+                return Response({
+                    'error': 'Нельзя пожаловаться на самого себя'
+                }, status=400)
+        
+        # Проверка на дубликат жалобы
+        existing = Report.objects.filter(
+            reporter=request.user,
+            content_type=content_type,
+            content_id=content_id,
+            status='pending'
+        ).first()
+        
+        if existing:
+            return Response({
+                'error': 'Вы уже отправили жалобу на этот контент',
+                'existing_id': existing.id
+            }, status=400)
+        
+        # Создание жалобы
+        report = Report.objects.create(
+            reporter=request.user,
+            content_type=content_type,
+            content_id=content_id,
+            reason=reason,
+            comment=comment,
+            status='pending'
+        )
+        
+        logger.info(f"Report created: id={report.id}, type={content_type}, content_id={content_id}")
+        
+        return Response({
+            'success': True,
+            'id': report.id,
+            'message': 'Жалоба отправлена'
+        }, status=201)
 
 
 class PostMediaViewSet(viewsets.ModelViewSet):
@@ -1475,7 +1657,7 @@ def get_chats_for_forward(request):
             models.Q(user1__display_name__icontains=search, user2=user) |
             models.Q(user2__display_name__icontains=search, user1=user)
         )
-    
+
     for chat in private_chats[:20]:
         other = chat.other_user(user)
         if other:
@@ -2467,3 +2649,4 @@ def get_online_users(request):
         result.append(d)
 
     return Response({'users': result, 'total': len(result)})
+

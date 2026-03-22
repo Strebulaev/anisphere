@@ -1,41 +1,41 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Звуки и вибрация</h2>
+    <h2>Р—РІСѓРєРё Рё РІРёР±СЂР°С†РёСЏ</h2>
 
     <div class="settings-group">
-      <h3>🎵 Профиль звуков</h3>
+      <h3>рџЋµ РџСЂРѕС„РёР»СЊ Р·РІСѓРєРѕРІ</h3>
       <div class="profile-selector">
         <select v-model="soundProfile" class="profile-select">
-          <option value="classic">🔔 Классический</option>
-          <option value="quiet">🤫 Тихий (только важные)</option>
-          <option value="silent">🔇 Без звука</option>
-          <option value="anime">Аниме-коллекция</option>
+          <option value="classic">рџ”” РљР»Р°СЃСЃРёС‡РµСЃРєРёР№</option>
+          <option value="quiet">рџ¤« РўРёС…РёР№ (С‚РѕР»СЊРєРѕ РІР°Р¶РЅС‹Рµ)</option>
+          <option value="silent">рџ”‡ Р‘РµР· Р·РІСѓРєР°</option>
+          <option value="anime">РђРЅРёРјРµ-РєРѕР»Р»РµРєС†РёСЏ</option>
         </select>
         <button @click="previewProfile" class="preview-btn">
-          ▶️ Протестировать
+          в–¶пёЏ РџСЂРѕС‚РµСЃС‚РёСЂРѕРІР°С‚СЊ
         </button>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>🎚️ Индивидуальные настройки</h3>
+      <h3>рџЋљпёЏ РРЅРґРёРІРёРґСѓР°Р»СЊРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё</h3>
       
       <div class="sound-settings-list">
         <div class="sound-item">
           <div class="sound-info">
-            <span class="sound-icon">💬</span>
-            <span class="sound-name">Сообщение</span>
+            <span class="sound-icon">рџ’¬</span>
+            <span class="sound-name">РЎРѕРѕР±С‰РµРЅРёРµ</span>
           </div>
           <div class="sound-controls">
             <select v-model="sounds.message.sound" class="sound-select">
-              <option value="default">Стандарт</option>
-              <option value="gentle">Мягкий</option>
-              <option value="anime">Аниме</option>
-              <option value="none">Нет</option>
+              <option value="default">РЎС‚Р°РЅРґР°СЂС‚</option>
+              <option value="gentle">РњСЏРіРєРёР№</option>
+              <option value="anime">РђРЅРёРјРµ</option>
+              <option value="none">РќРµС‚</option>
             </select>
             <label class="vibration-toggle">
               <input type="checkbox" v-model="sounds.message.vibration" />
-              <span class="toggle-icon">📳</span>
+              <span class="toggle-icon">рџ“і</span>
             </label>
             <input
               v-model="sounds.message.volume"
@@ -51,17 +51,17 @@
         <div class="sound-item">
           <div class="sound-info">
             <span class="sound-icon">@</span>
-            <span class="sound-name">Упоминание</span>
+            <span class="sound-name">РЈРїРѕРјРёРЅР°РЅРёРµ</span>
           </div>
           <div class="sound-controls">
             <select v-model="sounds.mention.sound" class="sound-select">
-              <option value="default">Стандарт</option>
-              <option value="special">Специальный</option>
-              <option value="none">Нет</option>
+              <option value="default">РЎС‚Р°РЅРґР°СЂС‚</option>
+              <option value="special">РЎРїРµС†РёР°Р»СЊРЅС‹Р№</option>
+              <option value="none">РќРµС‚</option>
             </select>
             <label class="vibration-toggle">
               <input type="checkbox" v-model="sounds.mention.vibration" />
-              <span class="toggle-icon">📳</span>
+              <span class="toggle-icon">рџ“і</span>
             </label>
             <input
               v-model="sounds.mention.volume"
@@ -76,18 +76,18 @@
 
         <div class="sound-item">
           <div class="sound-info">
-            <span class="sound-icon">❤️</span>
-            <span class="sound-name">Лайк</span>
+            <span class="sound-icon">вќ¤пёЏ</span>
+            <span class="sound-name">Р›Р°Р№Рє</span>
           </div>
           <div class="sound-controls">
             <select v-model="sounds.like.sound" class="sound-select">
-              <option value="default">Стандарт</option>
-              <option value="short">Короткий</option>
-              <option value="none">Нет</option>
+              <option value="default">РЎС‚Р°РЅРґР°СЂС‚</option>
+              <option value="short">РљРѕСЂРѕС‚РєРёР№</option>
+              <option value="none">РќРµС‚</option>
             </select>
             <label class="vibration-toggle">
               <input type="checkbox" v-model="sounds.like.vibration" />
-              <span class="toggle-icon">📳</span>
+              <span class="toggle-icon">рџ“і</span>
             </label>
             <input
               v-model="sounds.like.volume"
@@ -102,17 +102,17 @@
 
         <div class="sound-item">
           <div class="sound-info">
-            <span class="sound-icon">👥</span>
-            <span class="sound-name">Новый подписчик</span>
+            <span class="sound-icon">рџ‘Ґ</span>
+            <span class="sound-name">РќРѕРІС‹Р№ РїРѕРґРїРёСЃС‡РёРє</span>
           </div>
           <div class="sound-controls">
             <select v-model="sounds.follower.sound" class="sound-select">
-              <option value="default">Стандарт</option>
-              <option value="none">Нет</option>
+              <option value="default">РЎС‚Р°РЅРґР°СЂС‚</option>
+              <option value="none">РќРµС‚</option>
             </select>
             <label class="vibration-toggle">
               <input type="checkbox" v-model="sounds.follower.vibration" />
-              <span class="toggle-icon">📳</span>
+              <span class="toggle-icon">рџ“і</span>
             </label>
             <input
               v-model="sounds.follower.volume"
@@ -127,17 +127,17 @@
 
         <div class="sound-item">
           <div class="sound-info">
-            <span class="sound-icon">🏆</span>
-            <span class="sound-name">Начало конкурса</span>
+            <span class="sound-icon">рџЏ†</span>
+            <span class="sound-name">РќР°С‡Р°Р»Рѕ РєРѕРЅРєСѓСЂСЃР°</span>
           </div>
           <div class="sound-controls">
             <select v-model="sounds.contest_start.sound" class="sound-select">
-              <option value="default">Стандарт</option>
-              <option value="none">Нет</option>
+              <option value="default">РЎС‚Р°РЅРґР°СЂС‚</option>
+              <option value="none">РќРµС‚</option>
             </select>
             <label class="vibration-toggle">
               <input type="checkbox" v-model="sounds.contest_start.vibration" />
-              <span class="toggle-icon">📳</span>
+              <span class="toggle-icon">рџ“і</span>
             </label>
             <input
               v-model="sounds.contest_start.volume"
@@ -152,19 +152,19 @@
 
         <div class="sound-item important">
           <div class="sound-info">
-            <span class="sound-icon">🎉</span>
-            <span class="sound-name">Победа в конкурсе!</span>
-            <span class="always-on">ВСЕГДА ВКЛ</span>
+            <span class="sound-icon">рџЋ‰</span>
+            <span class="sound-name">РџРѕР±РµРґР° РІ РєРѕРЅРєСѓСЂСЃРµ!</span>
+            <span class="always-on">Р’РЎР•Р“Р”Рђ Р’РљР›</span>
           </div>
           <div class="sound-controls">
             <select v-model="sounds.contest_win.sound" class="sound-select">
-              <option value="fanfare">Фанфары</option>
-              <option value="anime">Аниме</option>
-              <option value="none">Нет</option>
+              <option value="fanfare">Р¤Р°РЅС„Р°СЂС‹</option>
+              <option value="anime">РђРЅРёРјРµ</option>
+              <option value="none">РќРµС‚</option>
             </select>
             <label class="vibration-toggle">
               <input type="checkbox" v-model="sounds.contest_win.vibration" disabled />
-              <span class="toggle-icon">📳</span>
+              <span class="toggle-icon">рџ“і</span>
             </label>
             <input
               v-model="sounds.contest_win.volume"
@@ -180,31 +180,31 @@
     </div>
 
     <div class="settings-group">
-      <h3>🌙 Режимы</h3>
+      <h3>рџЊ™ Р РµР¶РёРјС‹</h3>
       
       <div class="mode-settings">
         <label class="mode-option">
           <input type="checkbox" v-model="headphoneSound" />
-          <span>🎧 Звук в наушниках</span>
+          <span>рџЋ§ Р—РІСѓРє РІ РЅР°СѓС€РЅРёРєР°С…</span>
         </label>
         <label class="mode-option">
           <input type="checkbox" v-model="silentVibration" />
-          <span>📳 Вибрация в беззвучном режиме</span>
+          <span>рџ“і Р’РёР±СЂР°С†РёСЏ РІ Р±РµР·Р·РІСѓС‡РЅРѕРј СЂРµР¶РёРјРµ</span>
         </label>
         <label class="mode-option">
           <input type="checkbox" v-model="doNotDisturb" />
-          <span>🌙 Не беспокоить ({{ dndStart }} - {{ dndEnd }})</span>
+          <span>рџЊ™ РќРµ Р±РµСЃРїРѕРєРѕРёС‚СЊ ({{ dndStart }} - {{ dndEnd }})</span>
         </label>
       </div>
 
       <div v-if="doNotDisturb" class="dnd-time-settings">
         <div class="time-inputs">
           <div class="time-input">
-            <label>С:</label>
+            <label>РЎ:</label>
             <input v-model="dndStart" type="time" class="time-picker" />
           </div>
           <div class="time-input">
-            <label>До:</label>
+            <label>Р”Рѕ:</label>
             <input v-model="dndEnd" type="time" class="time-picker" />
           </div>
         </div>
@@ -212,9 +212,9 @@
     </div>
 
     <div class="settings-group">
-      <h3>🔊 Глобальная громкость</h3>
+      <h3>рџ”Љ Р“Р»РѕР±Р°Р»СЊРЅР°СЏ РіСЂРѕРјРєРѕСЃС‚СЊ</h3>
       <div class="global-volume">
-        <span>🔇</span>
+        <span>рџ”‡</span>
         <input
           v-model="globalVolume"
           type="range"
@@ -222,17 +222,17 @@
           max="100"
           class="global-slider"
         />
-        <span>🔊</span>
+        <span>рџ”Љ</span>
         <span class="global-value">{{ globalVolume }}%</span>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>🧪 Тестовый плеер</h3>
-      <p class="info-text">Проигрывается демо-последовательность звуков</p>
+      <h3>рџ§Є РўРµСЃС‚РѕРІС‹Р№ РїР»РµРµСЂ</h3>
+      <p class="info-text">РџСЂРѕРёРіСЂС‹РІР°РµС‚СЃСЏ РґРµРјРѕ-РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕСЃС‚СЊ Р·РІСѓРєРѕРІ</p>
       
       <button @click="playDemoSequence" :disabled="isPlayingDemo" class="demo-btn">
-        {{ isPlayingDemo ? '▶️ Воспроизведение...' : '▶️ Протестировать настройки' }}
+        {{ isPlayingDemo ? 'в–¶пёЏ Р’РѕСЃРїСЂРѕРёР·РІРµРґРµРЅРёРµ...' : 'в–¶пёЏ РџСЂРѕС‚РµСЃС‚РёСЂРѕРІР°С‚СЊ РЅР°СЃС‚СЂРѕР№РєРё' }}
       </button>
 
       <div v-if="demoProgress" class="demo-progress">
@@ -245,16 +245,18 @@
 
     <div class="settings-actions">
       <button @click="saveSettings" :disabled="!hasChanges" class="save-btn">
-        💾 Сохранить настройки
+        рџ’ѕ РЎРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё
       </button>
       <button @click="resetToDefaults" class="reset-btn">
-        ↻ Сбросить по умолчанию
+        в†» РЎР±СЂРѕСЃРёС‚СЊ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/api/client'
 
@@ -323,10 +325,10 @@ const saveSettings = async () => {
       dnd_end: dndEnd.value
     })
     originalSettings.value = JSON.parse(JSON.stringify(sounds.value))
-    alert('Настройки сохранены!')
+    showToast('РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅРµРЅС‹!')
   } catch (error) {
     console.error('Error saving sound settings:', error)
-    alert('Ошибка при сохранении настроек')
+    showToast('РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё РЅР°СЃС‚СЂРѕРµРє')
   }
 }
 
@@ -356,12 +358,12 @@ const playDemoSequence = async () => {
   demoProgress.value = 0
   
   const demoSteps = [
-    { sound: 'message', status: '💬 Сообщение' },
-    { sound: 'mention', status: '@ Упоминание' },
-    { sound: 'like', status: '❤️ Лайк' },
-    { sound: 'follower', status: '👥 Новый подписчик' },
-    { sound: 'contest_start', status: '🏆 Начало конкурса' },
-    { sound: 'contest_win', status: '🎉 Победа!' }
+    { sound: 'message', status: 'рџ’¬ РЎРѕРѕР±С‰РµРЅРёРµ' },
+    { sound: 'mention', status: '@ РЈРїРѕРјРёРЅР°РЅРёРµ' },
+    { sound: 'like', status: 'вќ¤пёЏ Р›Р°Р№Рє' },
+    { sound: 'follower', status: 'рџ‘Ґ РќРѕРІС‹Р№ РїРѕРґРїРёСЃС‡РёРє' },
+    { sound: 'contest_start', status: 'рџЏ† РќР°С‡Р°Р»Рѕ РєРѕРЅРєСѓСЂСЃР°' },
+    { sound: 'contest_win', status: 'рџЋ‰ РџРѕР±РµРґР°!' }
   ]
   
   if (demoSteps) {
@@ -375,7 +377,7 @@ const playDemoSequence = async () => {
   }
   
   isPlayingDemo.value = false
-  demoStatus.value = '✅ Завершено'
+  demoStatus.value = 'вњ… Р—Р°РІРµСЂС€РµРЅРѕ'
   setTimeout(() => {
     demoProgress.value = 0
     demoStatus.value = ''

@@ -44,14 +44,13 @@
           </div>
 
           <div class="user-info">
-            <h1>{{ user.display_name || user.username }}</h1>
-            <p class="username">@{{ user.username }}</p>
-            <p v-if="user.nickname" class="nickname">🏷️ {{ user.nickname }}</p>
+            <h1>{{ user.display_name || user.nickname || user.username }}</h1>
+            <p class="username">@{{ user.nickname || user.username }}</p>
             <p class="bio">{{ user.bio || 'Пользователь пока ничего не написал о себе' }}</p>
 
             <div class="user-meta">
               <span v-if="user.experience" class="exp-badge">✨ {{ user.experience }} опыта</span>
-              <span v-if="user.created_at">📅 На сайте с {{ formatDate(user.created_at) }}</span>
+              <span v-if="user.created_at">🗓 На сайте с {{ formatDate(user.created_at) }}</span>
             </div>
           </div>
 
@@ -83,7 +82,7 @@
             </button>
           </div>
 
-          <!-- Статистика -->
+          <!-- Статистика
           <div class="stats">
             <div class="stat-item">
               <span class="stat-value">{{ stats.followers }}</span>
@@ -105,12 +104,12 @@
               <span class="stat-value">{{ stats.achievements }}</span>
               <span class="stat-label">достижений</span>
             </div>
-          </div>
+          </div> -->
         </div>
       </div>
 
       <!-- Вкладки -->
-      <div class="profile-tabs">
+      <!-- <div class="profile-tabs">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -119,45 +118,38 @@
         >
           {{ tab.name }}
         </button>
-      </div>
+      </div> -->
 
       <!-- Контент вкладок -->
-      <div class="tab-content-container">
-        <!-- Лента -->
+      <!-- <div class="tab-content-container">
         <div v-if="activeTab === 'feed'" class="tab-content">
           <UserFeed :user-id="userId" />
         </div>
 
-        <!-- Аниме (коллекция) -->
         <div v-if="activeTab === 'anime'" class="tab-content">
           <UserAnimeCollection :user-id="userId" />
         </div>
 
-        <!-- Плейлисты -->
         <div v-if="activeTab === 'playlists'" class="tab-content">
           <UserPublicPlaylists :user-id="userId" />
         </div>
 
-        <!-- Shorts -->
         <div v-if="activeTab === 'shorts'" class="tab-content">
           <UserShorts :user-id="userId" />
         </div>
 
-        <!-- Достижения -->
         <div v-if="activeTab === 'achievements'" class="tab-content">
           <AchievementsView :username="user.username" />
         </div>
 
-        <!-- Избранное -->
         <div v-if="activeTab === 'favorites'" class="tab-content">
           <UserFavorites :user-id="userId" />
         </div>
 
-        <!-- О себе -->
         <div v-if="activeTab === 'about'" class="tab-content">
           <ProfileAbout :user="user" />
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
@@ -181,12 +173,18 @@ import ProfileAbout from '@/components/Profile/ProfileAbout.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import api from '@/api'
 
+const props = defineProps({
+  id: { type: [String, Number], default: null },
+  nickname: { type: String, default: null },
+})
+
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
 // route.params.id может быть username (строка) или числовой id
-const routeId = route.params.id
+// Приоритет: prop nickname > prop id > route.params.id
+const routeId = props.id ?? route.params.id
 const userId = ref(NaN)  // будет заполнен после загрузки профиля
 const user = ref({})
 const stats = ref({})
@@ -226,9 +224,21 @@ const coverImageStyle = computed(() => {
 const loadProfile = async () => {
   loading.value = true
   try {
+    let response
+
+    // Если передан prop nickname (маршрут /@nickname) — ищем по никнейму
+    if (props.nickname) {
+      const nick = props.nickname.replace(/^@/, '')
+      const resp = await api.get(`/users/by-nickname/@${nick}/`)
+      user.value = resp.data
+      userId.value = resp.data.id
+      isOnline.value = resp.data.is_online
+      loading.value = false
+      return
+    }
+
     // Пробуем по username (строка), затем по числовому id
     const isNumericId = /^\d+$/.test(String(routeId))
-    let response
     if (isNumericId) {
       response = await api.get(`/users/profile/${routeId}/`)
     } else {

@@ -413,6 +413,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
+import { normalizeKodikPlayerLink } from '@/config/kodik'
 import KodikPlayer from '@/components/Players/KodikPlayer.vue'
 import CustomVideoPlayer from '@/components/Players/CustomVideoPlayer.vue'
 import AddCustomDubModal from '@/components/modal/anime/AddCustomDubModal.vue'
@@ -421,6 +422,7 @@ import EpisodeList from '@/components/Cards/EpisodeList.vue'
 import { getTranslationAvatarUrl } from '@/utils/translationAvatars'
 import { useEpisodeProgress } from '@/composables/useEpisodeProgress'
 import { useToast } from '@/composables/useToast'
+import { useAnimeTab } from '@/composables/useAnimeTab'
 import { useThemeDownloader } from '@/composables/useThemeDownloader'
 import type { CustomSegmentOpts } from '@/composables/useThemeDownloader'
 import { getMediaUrl } from '@/api/client'
@@ -429,6 +431,14 @@ const route = useRoute()
 const authStore = useAuthStore()
 const toast = useToast()
 const { openingState, endingState, customState, downloadTheme, downloadSegment } = useThemeDownloader()
+
+// ── Трекер активной вкладки («Сейчас смотрят») ──
+// animeId может быть недоступен при первом рендере, поэтому берём из роута
+const _routeAnimeId = Number(route.params.id) || 0
+let animeTab: ReturnType<typeof useAnimeTab> | null = null
+if (_routeAnimeId) {
+  animeTab = useAnimeTab(_routeAnimeId)
+}
 
 // Состояние скачивания серии целиком
 const episodeDownloadState = ref({ loading: false, progress: 0, error: '', done: false })
@@ -822,7 +832,7 @@ const loadTranslations = async () => {
       const saved = loadSelectedTranslation()
       selectedTranslation.value = saved || translations.value[0]
       if (!selectedTranslation.value.is_custom && selectedTranslation.value.kodik_link) {
-        kodikLink.value = selectedTranslation.value.kodik_link
+        kodikLink.value = normalizeKodikPlayerLink(selectedTranslation.value.kodik_link)
       }
     }
   } catch {
@@ -836,7 +846,7 @@ const loadKodikPlayer = async () => {
   if (!anime.value?.id || kodikLink.value) return
   try {
     const response = await apiClient.get(`/anime/${anime.value.id}/kodik_player/`)
-    kodikLink.value = response.data.kodik_link
+    kodikLink.value = normalizeKodikPlayerLink(response.data.kodik_link)
     if (response.data.last_episode) currentEpisode.value = 1
   } catch (err: any) {
     if (err.response?.status === 404) error.value = 'Видео для этого аниме не найдено'
@@ -857,7 +867,7 @@ const selectTranslation = async (translation: any) => {
   } else {
     useCustomPlayer.value = false
     customVideoUrl.value = ''
-    if (translation.kodik_link) kodikLink.value = translation.kodik_link
+    if (translation.kodik_link) kodikLink.value = normalizeKodikPlayerLink(translation.kodik_link)
   }
 }
 
@@ -938,8 +948,14 @@ const onPlayerReady = () => {
 }
 
 const onVideoStarted = () => { setTimeout(syncPosterHeight, 200) }
-const onPlay  = () => { isPlaying.value = true }
-const onPause = () => { isPlaying.value = false }
+const onPlay  = () => {
+  isPlaying.value = true
+  animeTab?.setPlayerActive(true, currentEpisode.value)
+}
+const onPause = () => {
+  isPlaying.value = false
+  animeTab?.setPlayerActive(false, currentEpisode.value)
+}
 
 const triggerLibraryAdd = () => {
   if (addedToLibrary.value || isInLibrary.value) return
@@ -997,6 +1013,8 @@ const onCurrentEpisode = (data: any) => {
     endingStartTime.value  = null
     episodeMarkedWatched.value = false
     addedToLibrary.value = isInLibrary.value
+    // Уведомляем трекер о смене серии
+    animeTab?.setEpisode(data.episode)
   }
   if (data.season) currentSeason.value = data.season
 }
@@ -1157,7 +1175,7 @@ onUnmounted(() => {
 
 watch(() => route.params.id, () => { loadAnime() })
 watch(selectedTranslation, (v) => {
-  if (v && !v.is_custom && v.kodik_link) kodikLink.value = v.kodik_link
+  if (v && !v.is_custom && v.kodik_link) kodikLink.value = normalizeKodikPlayerLink(v.kodik_link)
 })
 </script>
 

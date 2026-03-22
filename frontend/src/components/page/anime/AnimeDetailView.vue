@@ -321,6 +321,40 @@
           </div>
         </div>
 
+        <!-- Обсуждение (встроенное чат) -->
+        <div class="discussion-section">
+          <div class="discussion-header" @click="showDiscussion = !showDiscussion">
+            <h3 class="discussion-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              {{ franchise ? franchise.name : (anime.title_ru || anime.title_en) }}
+            </h3>
+            <span class="discussion-toggle">
+              {{ showDiscussion ? '▲ Скрыть' : '▼ Обсуждение' }}
+            </span>
+          </div>
+          <div v-if="showDiscussion" class="discussion-body">
+            <!-- Франшизное обсуждение с топиками -->
+            <FranchiseDiscussionChat
+              v-if="franchise"
+              :franchise-id="franchise.id"
+              :franchise-name="franchise.name"
+              :franchise-poster="franchisePosterUrl"
+              :parts="franchise.entries"
+              :highlight-anime-id="anime.id"
+            />
+            <!-- Обычное обсуждение для одиночного аниме -->
+            <FranchiseDiscussionChat
+              v-else
+              :franchise-id="anime.id"
+              :franchise-name="anime.title_ru || anime.title_en"
+              :franchise-poster="anime.poster_url || ''"
+              :parts="[]"
+            />
+          </div>
+        </div>
+
         <!-- Франшиза: другие части -->
         <div v-if="franchise" class="franchise-section">
           <h3 class="franchise-section-title">
@@ -453,6 +487,8 @@
   import { getTranslationAvatarUrl } from '@/utils/translationAvatars'
   import { animeDiscussionsApi } from '@/api/animeDiscussions'
   import { useToast } from '@/composables/useToast'
+  import FranchiseDiscussionChat from '@/components/Chats/FranchiseDiscussionChat.vue'
+  import { useAnimeTab } from '@/composables/useAnimeTab'
   
   interface Genre {
     id: number
@@ -523,12 +559,35 @@
   const franchise = ref<FranchiseDetail | null>(null)
   const translations = ref<Translation[]>([])
 
+  // Обсуждение
+  const showDiscussion = ref(false)
   const showPlaylistModal = ref(false)
   const showCreateModal = ref(false)
   const newPlaylistTitle = ref('')
   const newPlaylistPublic = ref(false)
   const creatingPlaylist = ref(false)
   const discussLoading = ref(false)
+
+  // ── Трекер вкладки для «Сейчас смотрят» (activity_type='watching') ──
+  // Инициализируем сразу, так как ID есть в URL
+  const _detailAnimeId = Number(route.params.id) || 0
+  if (_detailAnimeId) useAnimeTab(_detailAnimeId)
+
+  // Постер франшизы — берём у первой части или из franchise.poster_url
+  const franchisePosterUrl = computed(() => {
+    if (!franchise.value) return anime.value?.poster_url || ''
+    const entries = franchise.value.entries || []
+    const sorted = [...entries].sort(
+      (a, b) => (a.franchise_order || 0) - (b.franchise_order || 0)
+    )
+    const first = sorted[0]
+    return (
+      getMediaUrl((franchise.value as any).poster_image_url) ||
+      getMediaUrl((franchise.value as any).poster_url) ||
+      (first && (getMediaUrl(first.poster_image_url) || getMediaUrl(first.poster_url))) ||
+      ''
+    )
+  })
   const showLightbox = ref(false)
   const lightboxImages = ref<string[]>([])
   const lightboxInitialIndex = ref(0)
@@ -1639,5 +1698,49 @@
   .detail-label { min-width: auto; }
   .screenshots-grid { grid-template-columns: 1fr; }
   .action-buttons .btn { flex: 1; justify-content: center; }
+}
+
+/* ── Секция обсуждения ─────────────────────────────────── */
+.discussion-section {
+  border-radius: var(--radius-xl, 14px);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle, #2a2a2a);
+  background: var(--surface-2, #111);
+  margin-bottom: 1.5rem;
+}
+
+.discussion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.discussion-header:hover {
+  background: var(--surface-3, #1a1a1a);
+}
+
+.discussion-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.discussion-toggle {
+  font-size: 0.8rem;
+  color: var(--text-tertiary, #666);
+  white-space: nowrap;
+}
+
+.discussion-body {
+  border-top: 1px solid var(--border-subtle, #2a2a2a);
+  height: 500px;
+  overflow: hidden;
 }
 </style>

@@ -143,7 +143,7 @@
           <button :class="{ active: attachTab === 'media' }" @click="attachTab = 'media'">📷 Фото/Видео</button>
           <button :class="{ active: attachTab === 'anime' }" @click="attachTab = 'anime'">🎬 Аниме</button>
           <button :class="{ active: attachTab === 'playlist' }" @click="switchToPlaylist">📁 Плейлист</button>
-          <button :class="{ active: attachTab === 'shorts' }" @click="attachTab = 'shorts'; loadShorts()">⚡ Shorts</button>
+          <!-- <button :class="{ active: attachTab === 'shorts' }" @click="attachTab = 'shorts'; loadShorts()">⚡ Shorts</button> -->
         </div>
 
         <!-- ФОТО/ВИДЕО -->

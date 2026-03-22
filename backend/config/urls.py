@@ -140,4 +140,6 @@ urlpatterns = [
     path('api/notifications/', include('notifications.urls')), # Notifications API
     path('api/studios/', include('studios.urls')),  # Studios API
     path('api/roulette/', include('roulette.urls')),  # Roulette API
+    # Алиас для чатов (фронтенд использует /api/chats/)
+    path('api/chats/', include('social.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

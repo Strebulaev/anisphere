@@ -1,128 +1,128 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Экспорт данных</h2>
+    <h2>Р­РєСЃРїРѕСЂС‚ РґР°РЅРЅС‹С…</h2>
 
     <div class="settings-group info-group">
-      <h3>📤 Экспорт всех данных</h3>
+      <h3>рџ“¤ Р­РєСЃРїРѕСЂС‚ РІСЃРµС… РґР°РЅРЅС‹С…</h3>
       
       <div class="info-content">
         <p>
-          Вы можете экспортировать все свои данные в машиночитаемом формате. 
-          Это позволяет создать резервную копию или перенести данные в другой сервис.
+          Р’С‹ РјРѕР¶РµС‚Рµ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°С‚СЊ РІСЃРµ СЃРІРѕРё РґР°РЅРЅС‹Рµ РІ РјР°С€РёРЅРѕС‡РёС‚Р°РµРјРѕРј С„РѕСЂРјР°С‚Рµ. 
+          Р­С‚Рѕ РїРѕР·РІРѕР»СЏРµС‚ СЃРѕР·РґР°С‚СЊ СЂРµР·РµСЂРІРЅСѓСЋ РєРѕРїРёСЋ РёР»Рё РїРµСЂРµРЅРµСЃС‚Рё РґР°РЅРЅС‹Рµ РІ РґСЂСѓРіРѕР№ СЃРµСЂРІРёСЃ.
         </p>
         
         <div class="info-points">
           <div class="info-point">
-            <span class="point-icon">⏱️</span>
-            <span>Процесс может занять до 24 часов</span>
+            <span class="point-icon">вЏ±пёЏ</span>
+            <span>РџСЂРѕС†РµСЃСЃ РјРѕР¶РµС‚ Р·Р°РЅСЏС‚СЊ РґРѕ 24 С‡Р°СЃРѕРІ</span>
           </div>
           <div class="info-point">
-            <span class="point-icon">📧</span>
-            <span>Ссылка будет отправлена на ваш email</span>
+            <span class="point-icon">рџ“§</span>
+            <span>РЎСЃС‹Р»РєР° Р±СѓРґРµС‚ РѕС‚РїСЂР°РІР»РµРЅР° РЅР° РІР°С€ email</span>
           </div>
           <div class="info-point">
-            <span class="point-icon">🔗</span>
-            <span>Ссылка действительна 7 дней</span>
+            <span class="point-icon">рџ”—</span>
+            <span>РЎСЃС‹Р»РєР° РґРµР№СЃС‚РІРёС‚РµР»СЊРЅР° 7 РґРЅРµР№</span>
           </div>
           <div class="info-point">
-            <span class="point-icon">📦</span>
-            <span>Данные будут упакованы в архив</span>
+            <span class="point-icon">рџ“¦</span>
+            <span>Р”Р°РЅРЅС‹Рµ Р±СѓРґСѓС‚ СѓРїР°РєРѕРІР°РЅС‹ РІ Р°СЂС…РёРІ</span>
           </div>
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>☑️ Выберите, что экспортировать</h3>
+      <h3>в‘пёЏ Р’С‹Р±РµСЂРёС‚Рµ, С‡С‚Рѕ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°С‚СЊ</h3>
       
       <div class="export-items">
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.profile" />
-          <span class="export-icon">👤</span>
+          <span class="export-icon">рџ‘¤</span>
           <span class="export-info">
-            <span class="export-name">Профиль</span>
-            <span class="export-desc">Ник, био, аватар</span>
+            <span class="export-name">РџСЂРѕС„РёР»СЊ</span>
+            <span class="export-desc">РќРёРє, Р±РёРѕ, Р°РІР°С‚Р°СЂ</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.playlists" />
-          <span class="export-icon">📋</span>
+          <span class="export-icon">рџ“‹</span>
           <span class="export-info">
-            <span class="export-name">Плейлисты</span>
-            <span class="export-desc">Все плейлисты и их содержимое</span>
+            <span class="export-name">РџР»РµР№Р»РёСЃС‚С‹</span>
+            <span class="export-desc">Р’СЃРµ РїР»РµР№Р»РёСЃС‚С‹ Рё РёС… СЃРѕРґРµСЂР¶РёРјРѕРµ</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.shorts" />
-          <span class="export-icon">🎬</span>
+          <span class="export-icon">рџЋ¬</span>
           <span class="export-info">
             <span class="export-name">Shorts</span>
-            <span class="export-desc">Ссылки на ваши видео</span>
+            <span class="export-desc">РЎСЃС‹Р»РєРё РЅР° РІР°С€Рё РІРёРґРµРѕ</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.comments" />
-          <span class="export-icon">💬</span>
+          <span class="export-icon">рџ’¬</span>
           <span class="export-info">
-            <span class="export-name">Комментарии</span>
-            <span class="export-desc">Все ваши комментарии</span>
+            <span class="export-name">РљРѕРјРјРµРЅС‚Р°СЂРёРё</span>
+            <span class="export-desc">Р’СЃРµ РІР°С€Рё РєРѕРјРјРµРЅС‚Р°СЂРёРё</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.reviews" />
-          <span class="export-icon">⭐</span>
+          <span class="export-icon">в­ђ</span>
           <span class="export-info">
-            <span class="export-name">Отзывы</span>
-            <span class="export-desc">Отзывы на аниме</span>
+            <span class="export-name">РћС‚Р·С‹РІС‹</span>
+            <span class="export-desc">РћС‚Р·С‹РІС‹ РЅР° Р°РЅРёРјРµ</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.messages" />
-          <span class="export-icon">📩</span>
+          <span class="export-icon">рџ“©</span>
           <span class="export-info">
-            <span class="export-name">Сообщения</span>
-            <span class="export-desc">Личные и групповые чаты</span>
+            <span class="export-name">РЎРѕРѕР±С‰РµРЅРёСЏ</span>
+            <span class="export-desc">Р›РёС‡РЅС‹Рµ Рё РіСЂСѓРїРїРѕРІС‹Рµ С‡Р°С‚С‹</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.history" />
-          <span class="export-icon">📺</span>
+          <span class="export-icon">рџ“є</span>
           <span class="export-info">
-            <span class="export-name">История просмотров</span>
-            <span class="export-desc">Что вы смотрели</span>
+            <span class="export-name">РСЃС‚РѕСЂРёСЏ РїСЂРѕСЃРјРѕС‚СЂРѕРІ</span>
+            <span class="export-desc">Р§С‚Рѕ РІС‹ СЃРјРѕС‚СЂРµР»Рё</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.favorites" />
-          <span class="export-icon">❤️</span>
+          <span class="export-icon">вќ¤пёЏ</span>
           <span class="export-info">
-            <span class="export-name">Избранное</span>
-            <span class="export-desc">Любимые аниме и моменты</span>
+            <span class="export-name">РР·Р±СЂР°РЅРЅРѕРµ</span>
+            <span class="export-desc">Р›СЋР±РёРјС‹Рµ Р°РЅРёРјРµ Рё РјРѕРјРµРЅС‚С‹</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.settings" />
-          <span class="export-icon">⚙️</span>
+          <span class="export-icon">вљ™пёЏ</span>
           <span class="export-info">
-            <span class="export-name">Настройки</span>
-            <span class="export-desc">Все ваши настройки</span>
+            <span class="export-name">РќР°СЃС‚СЂРѕР№РєРё</span>
+            <span class="export-desc">Р’СЃРµ РІР°С€Рё РЅР°СЃС‚СЂРѕР№РєРё</span>
           </span>
         </label>
 
         <label class="export-item">
           <input type="checkbox" v-model="exportOptions.activity" />
-          <span class="export-icon">📊</span>
+          <span class="export-icon">рџ“Љ</span>
           <span class="export-info">
-            <span class="export-name">Статистика активности</span>
-            <span class="export-desc">Лайки, просмотры, подписчики</span>
+            <span class="export-name">РЎС‚Р°С‚РёСЃС‚РёРєР° Р°РєС‚РёРІРЅРѕСЃС‚Рё</span>
+            <span class="export-desc">Р›Р°Р№РєРё, РїСЂРѕСЃРјРѕС‚СЂС‹, РїРѕРґРїРёСЃС‡РёРєРё</span>
           </span>
         </label>
       </div>
@@ -130,21 +130,21 @@
       <div class="select-all-section">
         <label class="select-all-label">
           <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
-          <span>Выбрать всё</span>
+          <span>Р’С‹Р±СЂР°С‚СЊ РІСЃС‘</span>
         </label>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📁 Формат экспорта</h3>
+      <h3>рџ“Ѓ Р¤РѕСЂРјР°С‚ СЌРєСЃРїРѕСЂС‚Р°</h3>
       
       <div class="format-options">
         <label class="format-option" :class="{ active: exportFormat === 'json' }">
           <input type="radio" v-model="exportFormat" value="json" />
           <div class="format-info">
             <span class="format-name">JSON</span>
-            <span class="format-desc">Машиночитаемый формат</span>
-            <span class="format-badge">Рекомендуется</span>
+            <span class="format-desc">РњР°С€РёРЅРѕС‡РёС‚Р°РµРјС‹Р№ С„РѕСЂРјР°С‚</span>
+            <span class="format-badge">Р РµРєРѕРјРµРЅРґСѓРµС‚СЃСЏ</span>
           </div>
         </label>
 
@@ -152,7 +152,7 @@
           <input type="radio" v-model="exportFormat" value="csv" />
           <div class="format-info">
             <span class="format-name">CSV</span>
-            <span class="format-desc">Для Excel и таблиц</span>
+            <span class="format-desc">Р”Р»СЏ Excel Рё С‚Р°Р±Р»РёС†</span>
           </div>
         </label>
 
@@ -160,14 +160,14 @@
           <input type="radio" v-model="exportFormat" value="html" />
           <div class="format-info">
             <span class="format-name">HTML</span>
-            <span class="format-desc">Для просмотра в браузере</span>
+            <span class="format-desc">Р”Р»СЏ РїСЂРѕСЃРјРѕС‚СЂР° РІ Р±СЂР°СѓР·РµСЂРµ</span>
           </div>
         </label>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📊 Оценка размера</h3>
+      <h3>рџ“Љ РћС†РµРЅРєР° СЂР°Р·РјРµСЂР°</h3>
       
       <div class="size-estimate">
         <div class="estimate-chart">
@@ -181,21 +181,21 @@
         
         <div class="estimate-details">
           <div class="estimate-total">
-            <span class="estimate-label">Предполагаемый размер:</span>
+            <span class="estimate-label">РџСЂРµРґРїРѕР»Р°РіР°РµРјС‹Р№ СЂР°Р·РјРµСЂ:</span>
             <span class="estimate-value">{{ estimatedSize }}</span>
           </div>
           
           <div class="estimate-breakdown">
             <div class="breakdown-item">
-              <span class="breakdown-label">Текстовые данные:</span>
+              <span class="breakdown-label">РўРµРєСЃС‚РѕРІС‹Рµ РґР°РЅРЅС‹Рµ:</span>
               <span class="breakdown-value">~{{ textSize }}</span>
             </div>
             <div class="breakdown-item">
-              <span class="breakdown-label">Медиа файлы:</span>
+              <span class="breakdown-label">РњРµРґРёР° С„Р°Р№Р»С‹:</span>
               <span class="breakdown-value">~{{ mediaSize }}</span>
             </div>
             <div class="breakdown-item">
-              <span class="breakdown-label">Архивирование:</span>
+              <span class="breakdown-label">РђСЂС…РёРІРёСЂРѕРІР°РЅРёРµ:</span>
               <span class="breakdown-value">-{{ compressionSize }}</span>
             </div>
           </div>
@@ -204,7 +204,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📋 Предыдущие экспорты</h3>
+      <h3>рџ“‹ РџСЂРµРґС‹РґСѓС‰РёРµ СЌРєСЃРїРѕСЂС‚С‹</h3>
       
       <div v-if="previousExports.length > 0" class="exports-list">
         <div v-for="exp in previousExports" :key="exp.id" class="export-item">
@@ -215,22 +215,22 @@
           </div>
           <div class="export-status">
             <span v-if="exp.status === 'ready'" class="status-ready">
-              <button @click="downloadExport(exp)" class="download-btn">📥 Скачать</button>
-              <span class="expiry">Истекает через {{ getExpiryDays(exp.created_at) }} дней</span>
+              <button @click="downloadExport(exp)" class="download-btn">рџ“Ґ РЎРєР°С‡Р°С‚СЊ</button>
+              <span class="expiry">РСЃС‚РµРєР°РµС‚ С‡РµСЂРµР· {{ getExpiryDays(exp.created_at) }} РґРЅРµР№</span>
             </span>
             <span v-else-if="exp.status === 'processing'" class="status-processing">
-              🔄 Обработка...
+              рџ”„ РћР±СЂР°Р±РѕС‚РєР°...
             </span>
             <span v-else class="status-expired">
-              ⏰ Истёк
+              вЏ° РСЃС‚С‘Рє
             </span>
           </div>
         </div>
       </div>
 
       <div v-else class="no-exports">
-        <div class="no-exports-icon">📭</div>
-        <p>У вас пока нет запросов на экспорт</p>
+        <div class="no-exports-icon">рџ“­</div>
+        <p>РЈ РІР°СЃ РїРѕРєР° РЅРµС‚ Р·Р°РїСЂРѕСЃРѕРІ РЅР° СЌРєСЃРїРѕСЂС‚</p>
       </div>
     </div>
 
@@ -240,41 +240,41 @@
         :disabled="!canRequestExport || isRequesting"
         class="export-btn"
       >
-        {{ isRequesting ? '⏳ Обработка...' : '📨 Запросить экспорт' }}
+        {{ isRequesting ? 'вЏі РћР±СЂР°Р±РѕС‚РєР°...' : 'рџ“Ё Р—Р°РїСЂРѕСЃРёС‚СЊ СЌРєСЃРїРѕСЂС‚' }}
       </button>
     </div>
 
     <!-- Export Confirmation Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click="showConfirmModal = false">
       <div class="modal" @click.stop>
-        <h3>Подтвердить экспорт данных?</h3>
+        <h3>РџРѕРґС‚РІРµСЂРґРёС‚СЊ СЌРєСЃРїРѕСЂС‚ РґР°РЅРЅС‹С…?</h3>
         
         <div class="modal-content">
-          <p>Вы собираетесь экспортировать следующие данные:</p>
+          <p>Р’С‹ СЃРѕР±РёСЂР°РµС‚РµСЃСЊ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°С‚СЊ СЃР»РµРґСѓСЋС‰РёРµ РґР°РЅРЅС‹Рµ:</p>
           
           <div class="modal-export-list">
             <div v-for="(item, key) in exportOptions" :key="key">
-              <span v-if="item" class="modal-export-item">✓ {{ getExportItemName(key) }}</span>
+              <span v-if="item" class="modal-export-item">вњ“ {{ getExportItemName(key) }}</span>
             </div>
           </div>
 
           <div class="modal-format">
-            <strong>Формат:</strong> {{ exportFormat.toUpperCase() }}
+            <strong>Р¤РѕСЂРјР°С‚:</strong> {{ exportFormat.toUpperCase() }}
           </div>
 
           <div class="modal-warning">
-            <strong>⚠️ Важно:</strong>
+            <strong>вљ пёЏ Р’Р°Р¶РЅРѕ:</strong>
             <ul>
-              <li>Экспортированные данные содержат персональную информацию</li>
-              <li>Храните архив в безопасном месте</li>
-              <li>Не передавайте его третьим лицам</li>
+              <li>Р­РєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ СЃРѕРґРµСЂР¶Р°С‚ РїРµСЂСЃРѕРЅР°Р»СЊРЅСѓСЋ РёРЅС„РѕСЂРјР°С†РёСЋ</li>
+              <li>РҐСЂР°РЅРёС‚Рµ Р°СЂС…РёРІ РІ Р±РµР·РѕРїР°СЃРЅРѕРј РјРµСЃС‚Рµ</li>
+              <li>РќРµ РїРµСЂРµРґР°РІР°Р№С‚Рµ РµРіРѕ С‚СЂРµС‚СЊРёРј Р»РёС†Р°Рј</li>
             </ul>
           </div>
         </div>
 
         <div class="modal-actions">
-          <button @click="showConfirmModal = false" class="cancel-btn">Отмена</button>
-          <button @click="confirmExport" class="confirm-btn">Подтвердить</button>
+          <button @click="showConfirmModal = false" class="cancel-btn">РћС‚РјРµРЅР°</button>
+          <button @click="confirmExport" class="confirm-btn">РџРѕРґС‚РІРµСЂРґРёС‚СЊ</button>
         </div>
       </div>
     </div>
@@ -282,6 +282,8 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, computed, onMounted } from 'vue'
 import * as settingsApi from '@/api/settings'
 
@@ -337,16 +339,16 @@ const toggleSelectAll = () => {
 
 const getExportItemName = (key: string) => {
   const names: Record<string, string> = {
-    profile: 'Профиль',
-    playlists: 'Плейлисты',
+    profile: 'РџСЂРѕС„РёР»СЊ',
+    playlists: 'РџР»РµР№Р»РёСЃС‚С‹',
     shorts: 'Shorts',
-    comments: 'Комментарии',
-    reviews: 'Отзывы',
-    messages: 'Сообщения',
-    history: 'История просмотров',
-    favorites: 'Избранное',
-    settings: 'Настройки',
-    activity: 'Статистика активности'
+    comments: 'РљРѕРјРјРµРЅС‚Р°СЂРёРё',
+    reviews: 'РћС‚Р·С‹РІС‹',
+    messages: 'РЎРѕРѕР±С‰РµРЅРёСЏ',
+    history: 'РСЃС‚РѕСЂРёСЏ РїСЂРѕСЃРјРѕС‚СЂРѕРІ',
+    favorites: 'РР·Р±СЂР°РЅРЅРѕРµ',
+    settings: 'РќР°СЃС‚СЂРѕР№РєРё',
+    activity: 'РЎС‚Р°С‚РёСЃС‚РёРєР° Р°РєС‚РёРІРЅРѕСЃС‚Рё'
   }
   return names[key] || key
 }
@@ -369,11 +371,11 @@ const confirmExport = async () => {
       format: exportFormat.value
     })
 
-    alert('Запрос на экспорт отправлен! Ссылка будет отправлена на ваш email.')
+    showToast('Р—Р°РїСЂРѕСЃ РЅР° СЌРєСЃРїРѕСЂС‚ РѕС‚РїСЂР°РІР»РµРЅ! РЎСЃС‹Р»РєР° Р±СѓРґРµС‚ РѕС‚РїСЂР°РІР»РµРЅР° РЅР° РІР°С€ email.')
     await fetchExports()
   } catch (error) {
     console.error('Error requesting export:', error)
-    alert('Ошибка при запросе экспорта')
+    showToast('РћС€РёР±РєР° РїСЂРё Р·Р°РїСЂРѕСЃРµ СЌРєСЃРїРѕСЂС‚Р°')
   } finally {
     isRequesting.value = false
   }
@@ -391,7 +393,7 @@ const downloadExport = async (exp: PreviousExport) => {
     link.remove()
   } catch (error) {
     console.error('Error downloading export:', error)
-    alert('Ошибка при скачивании')
+    showToast('РћС€РёР±РєР° РїСЂРё СЃРєР°С‡РёРІР°РЅРёРё')
   }
 }
 

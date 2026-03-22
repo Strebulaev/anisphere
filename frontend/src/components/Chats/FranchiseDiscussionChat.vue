@@ -2,14 +2,66 @@
   <div class="franchise-chat">
     <!-- Шапка -->
     <div class="fc-header">
-      <img :src="franchisePoster" class="fc-poster" :alt="franchiseName" />
+      <img
+        v-if="franchisePosterResolved"
+        :src="franchisePosterResolved"
+        class="fc-poster"
+        :alt="franchiseName"
+        @error="posterError = true"
+      />
+      <div v-else class="fc-poster fc-poster-placeholder">🎬</div>
       <div class="fc-header-info">
         <h2 class="fc-title">{{ franchiseName }}</h2>
-        <span class="fc-subtitle">Обсуждение франшизы</span>
+        <span class="fc-subtitle">{{ topics.length }} {{ topicsWord(topics.length) }}</span>
+      </div>
+      <!-- Действия чата -->
+      <div class="fc-header-actions">
+        <!-- Уведомления -->
+        <button
+          :class="['fc-action-btn', { muted: isMuted }]"
+          :title="isMuted ? 'Уведомления заглушены — нажмите чтобы включить' : 'Заглушить уведомления'"
+          @click="toggleNotifications"
+        >
+          <svg v-if="!isMuted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
+            <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
+            <path d="M18 8a6 6 0 0 0-9.33-5"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        </button>
+        <!-- Архивация -->
+        <button
+          :class="['fc-action-btn', { archived: isArchived }]"
+          :title="isArchived ? 'Разархивировать' : 'Архивировать'"
+          @click="toggleArchive"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="21 8 21 21 3 21 3 8"/>
+            <rect x="1" y="3" width="22" height="5"/>
+            <line x1="10" y1="12" x2="14" y2="12"/>
+          </svg>
+        </button>
       </div>
     </div>
 
-    <!-- Темы (топики) -->
+    <!-- Баннер если заглушено -->
+    <div v-if="isMuted" class="fc-muted-banner">
+      🔕 Уведомления заглушены
+      <button class="fc-unmute-btn" @click="toggleNotifications">Включить</button>
+    </div>
+
+    <!-- Баннер если архивирован -->
+    <div v-if="isArchived" class="fc-archived-banner">
+      📦 Чат в архиве
+      <button class="fc-unarchive-btn" @click="toggleArchive">Разархивировать</button>
+    </div>
+
+    <!-- Темы (топики) с постерами -->
     <div class="fc-topics">
       <button
         v-for="topic in topics"
@@ -17,7 +69,19 @@
         :class="['fc-topic-btn', { active: activeTopic?.id === topic.id }]"
         @click="selectTopic(topic)"
       >
-        <span class="topic-icon">{{ topic.icon }}</span>
+        <!-- Постер топика -->
+        <div class="topic-poster-wrap">
+          <img
+            v-if="topic.poster_url && !topicPosterErrors[topic.id]"
+            :src="topic.poster_url"
+            class="topic-poster"
+            :alt="topic.name"
+            @error="topicPosterErrors[topic.id] = true"
+          />
+          <div v-else class="topic-poster topic-poster-fallback">
+            {{ topic.animeId ? '📺' : '💬' }}
+          </div>
+        </div>
         <span class="topic-name">{{ topic.name }}</span>
         <span v-if="topic.unread > 0" class="topic-badge">{{ topic.unread }}</span>
       </button>
@@ -63,14 +127,21 @@
         </button>
       </div>
     </div>
+
+    <!-- Модалка заглушения -->
+    <MuteChatModal
+      v-if="showMuteModal"
+      @close="showMuteModal = false"
+      @muted="onMuted"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, reactive } from 'vue'
 import apiClient from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import { getMediaUrl } from '@/api/client'
+import MuteChatModal from './MuteChatModal.vue'
 
 interface FranchisePart {
   id: number
@@ -80,10 +151,10 @@ interface FranchisePart {
 }
 
 interface Topic {
-  id: number          // chat group id в бэкенде
+  id: number
   name: string
-  icon: string
-  animeId: number | null  // null = общая тема
+  poster_url: string | null
+  animeId: number | null
   unread: number
 }
 
@@ -99,9 +170,9 @@ interface Message {
 const props = defineProps<{
   franchiseId: number
   franchiseName: string
-  franchisePoster: string
-  parts: FranchisePart[]        // части франшизы
-  highlightAnimeId?: number     // открыть тему для конкретной части
+  franchisePoster?: string
+  parts: FranchisePart[]
+  highlightAnimeId?: number
 }>()
 
 const authStore = useAuthStore()
@@ -114,53 +185,141 @@ const messages = ref<Message[]>([])
 const loadingMessages = ref(false)
 const newMessage = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
+const posterError = ref(false)
+const topicPosterErrors = reactive<Record<number, boolean>>({})
+
+// Настройки уведомлений и архивации
+const isMuted = ref(false)
+const isArchived = ref(false)
+const showMuteModal = ref(false)
+const chatGroupId = ref<number | null>(null)
 
 let ws: WebSocket | null = null
 
-// ── Build topics ───────────────────────────────────────────
-// Каждая часть + общая тема «О всей франшизе»
-const buildTopics = (groupMap: Record<number | string, number>) => {
+// Постер франшизы (используем из бэкенда или prop)
+const franchisePosterResolved = computed(() => {
+  if (posterError.value) return null
+  return props.franchisePoster || null
+})
+
+// ── Build topics из ответа бэкенда ──────────────────────────
+const buildTopicsFromResponse = (topicsData: any[], groupMap: Record<string, number>) => {
   const list: Topic[] = []
 
-  // Общая тема
-  list.push({
-    id: groupMap['general'] ?? 0,
-    name: `О франшизе «${props.franchiseName}»`,
-    icon: '💬',
-    animeId: null,
-    unread: 0
-  })
-
-  // По частям (отсортированным)
-  const sorted = [...props.parts].sort((a, b) => a.franchise_order - b.franchise_order)
-  for (const part of sorted) {
+  for (const t of topicsData) {
     list.push({
-      id: groupMap[part.id] ?? 0,
-      name: part.title_ru || part.title_en,
-      icon: '📺',
-      animeId: part.id,
-      unread: 0
+      id: t.id,
+      name: t.title,
+      poster_url: t.poster_url || null,
+      animeId: t.anime_id || null,
+      unread: 0,
     })
+  }
+
+  // Если топики не пришли с бэкенда — строим из parts
+  if (list.length === 0) {
+    list.push({
+      id: groupMap['general'] ?? 0,
+      name: props.franchiseName,
+      poster_url: props.franchisePoster || null,
+      animeId: null,
+      unread: 0,
+    })
+    const sorted = [...props.parts].sort((a, b) => a.franchise_order - b.franchise_order)
+    for (const part of sorted) {
+      list.push({
+        id: groupMap[String(part.id)] ?? 0,
+        name: part.title_ru || part.title_en,
+        poster_url: null,
+        animeId: part.id,
+        unread: 0,
+      })
+    }
   }
 
   topics.value = list
 }
 
+// ── Загрузка настроек уведомлений ─────────────────────────
+const loadNotificationSettings = async (groupId: number) => {
+  try {
+    const { data } = await apiClient.get(`/social/group-chats/${groupId}/notification-settings/`)
+    isMuted.value = !data.notifications_enabled || data.is_muted
+    isArchived.value = data.is_archived || false
+  } catch {
+    // Игнорируем ошибки загрузки настроек
+  }
+}
+
 // ── Init groups on backend ─────────────────────────────────
-// Один эндпоинт: /social/franchise-discussion/ POST {franchise_id}
-// Возвращает { group_map: { general: <id>, <anime_id>: <id>, ... } }
 const initFranchiseGroups = async () => {
   try {
     const { data } = await apiClient.post('/social/franchise-discussion/init/', {
       franchise_id: props.franchiseId,
-      anime_ids: props.parts.map(p => p.id)
+      anime_ids: props.parts.map(p => p.id),
     })
-    buildTopics(data.group_map || {})
+
+    chatGroupId.value = data.group_id
+
+    // Строим топики из ответа (с постерами)
+    if (data.topics && data.topics.length > 0) {
+      buildTopicsFromResponse(data.topics, data.group_map || {})
+    } else {
+      buildTopicsFromResponse([], data.group_map || {})
+    }
+
+    // Загружаем настройки уведомлений
+    if (data.group_id) {
+      await loadNotificationSettings(data.group_id)
+    }
   } catch (e) {
-    // fallback: создаём локальные темы с id=0
-    const map: Record<number | string, number> = { general: 0 }
-    props.parts.forEach(p => { map[p.id] = 0 })
-    buildTopics(map)
+    console.error('Failed to init franchise groups:', e)
+    const map: Record<string, number> = { general: 0 }
+    props.parts.forEach(p => { map[String(p.id)] = 0 })
+    buildTopicsFromResponse([], map)
+  }
+}
+
+// ── Уведомления ────────────────────────────────────────────
+const toggleNotifications = async () => {
+  if (!chatGroupId.value) return
+
+  if (isMuted.value) {
+    // Включаем уведомления
+    try {
+      await apiClient.post(`/social/group-chats/${chatGroupId.value}/unmute/`)
+      isMuted.value = false
+    } catch (e) {
+      console.error('Failed to unmute:', e)
+    }
+  } else {
+    // Показываем модалку для выбора длительности
+    showMuteModal.value = true
+  }
+}
+
+const onMuted = async (until: string | null) => {
+  if (!chatGroupId.value) return
+  try {
+    const duration = until
+      ? Math.round((new Date(until).getTime() - Date.now()) / 60000)
+      : null
+    await apiClient.post(`/social/group-chats/${chatGroupId.value}/mute/`, { duration })
+    isMuted.value = true
+  } catch (e) {
+    console.error('Failed to mute:', e)
+  }
+}
+
+// ── Архивация ──────────────────────────────────────────────
+const toggleArchive = async () => {
+  if (!chatGroupId.value) return
+  try {
+    const newVal = !isArchived.value
+    await apiClient.post(`/social/group-chats/${chatGroupId.value}/archive/`, { is_archived: newVal })
+    isArchived.value = newVal
+  } catch (e) {
+    console.error('Failed to archive:', e)
   }
 }
 
@@ -182,7 +341,7 @@ const loadMessages = async (groupId: number) => {
     messages.value = data.results || data || []
     await nextTick()
     scrollToBottom()
-  } catch (e) {
+  } catch {
     messages.value = []
   } finally {
     loadingMessages.value = false
@@ -216,11 +375,10 @@ const sendMessage = async () => {
     ws.send(JSON.stringify({ action: 'send_message', text }))
     newMessage.value = ''
   } else {
-    // fallback HTTP
     try {
       const { data } = await apiClient.post('/social/messages/', {
         text,
-        chat: activeTopic.value.id
+        chat: activeTopic.value.id,
       })
       messages.value.push(data)
       newMessage.value = ''
@@ -238,11 +396,18 @@ const scrollToBottom = () => {
 const formatTime = (dt: string) =>
   new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
+const topicsWord = (n: number) => {
+  if (n % 100 >= 11 && n % 100 <= 19) return 'топиков'
+  const r = n % 10
+  if (r === 1) return 'топик'
+  if (r >= 2 && r <= 4) return 'топика'
+  return 'топиков'
+}
+
 // ── Lifecycle ──────────────────────────────────────────────
 onMounted(async () => {
   await initFranchiseGroups()
 
-  // Если нужно сразу открыть тему для конкретного аниме
   const target = props.highlightAnimeId
     ? topics.value.find(t => t.animeId === props.highlightAnimeId)
     : topics.value[0]
@@ -250,7 +415,6 @@ onMounted(async () => {
   if (target) await selectTopic(target)
 })
 
-// Если извне меняется highlightAnimeId (переход из страницы части)
 watch(() => props.highlightAnimeId, async (newId) => {
   if (newId) {
     const topic = topics.value.find(t => t.animeId === newId)
@@ -274,198 +438,179 @@ onUnmounted(disconnectWs)
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   background: #1a1a1a;
   border-bottom: 1px solid #2a2a2a;
   flex-shrink: 0;
 }
 .fc-poster {
-  width: 42px;
-  height: 60px;
+  width: 40px;
+  height: 56px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 5px;
   flex-shrink: 0;
 }
-.fc-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #e0e0e0;
-  margin: 0;
-  line-height: 1.2;
-}
-.fc-subtitle {
-  font-size: 0.75rem;
-  color: #666;
+.fc-poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a2a;
+  font-size: 1.4rem;
 }
 .fc-header-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: hidden;
 }
+.fc-title {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fc-subtitle { font-size: .7rem; color: #666; }
+
+.fc-header-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.fc-action-btn {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: all .15s;
+}
+.fc-action-btn:hover { background: #222; color: #ccc; }
+.fc-action-btn.muted { color: #f59e0b; border-color: #f59e0b44; background: #f59e0b0a; }
+.fc-action-btn.archived { color: #6366f1; border-color: #6366f144; background: #6366f10a; }
+
+/* Баннеры */
+.fc-muted-banner, .fc-archived-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  font-size: .78rem;
+  flex-shrink: 0;
+}
+.fc-muted-banner { background: #f59e0b1a; color: #f59e0b; border-bottom: 1px solid #f59e0b22; }
+.fc-archived-banner { background: #6366f11a; color: #6366f1; border-bottom: 1px solid #6366f122; }
+.fc-unmute-btn, .fc-unarchive-btn {
+  background: none; border: 1px solid currentColor;
+  border-radius: 5px; color: inherit; cursor: pointer;
+  padding: 2px 10px; font-size: .75rem; transition: background .15s;
+}
+.fc-unmute-btn:hover, .fc-unarchive-btn:hover { background: rgba(255,255,255,.1); }
 
 /* Темы */
 .fc-topics {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 8px;
+  gap: 1px;
+  padding: 6px;
   background: #141414;
   border-bottom: 1px solid #2a2a2a;
   overflow-y: auto;
-  max-height: 220px;
+  max-height: 240px;
   flex-shrink: 0;
 }
 .fc-topic-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 10px;
+  padding: 5px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: #888;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: .83rem;
   text-align: left;
-  transition: background 0.15s, color 0.15s;
+  transition: background .15s, color .15s;
   width: 100%;
 }
-.fc-topic-btn:hover {
-  background: #222;
-  color: #ccc;
+.fc-topic-btn:hover { background: #222; color: #ccc; }
+.fc-topic-btn.active { background: #1e3a5f; color: #60a5fa; font-weight: 600; }
+
+/* Постер топика */
+.topic-poster-wrap {
+  width: 26px; height: 38px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  overflow: hidden;
 }
-.fc-topic-btn.active {
-  background: #1e3a5f;
-  color: #60a5fa;
-  font-weight: 600;
+.topic-poster {
+  width: 100%; height: 100%;
+  object-fit: cover;
 }
-.topic-icon { font-size: 1rem; flex-shrink: 0; }
+.topic-poster-fallback {
+  display: flex; align-items: center; justify-content: center;
+  background: #2a2a2a; font-size: .9rem;
+  width: 100%; height: 100%;
+}
 .topic-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topic-badge {
-  background: #ef4444;
-  color: white;
-  font-size: 0.65rem;
-  font-weight: 700;
-  border-radius: 10px;
-  padding: 1px 5px;
-  flex-shrink: 0;
+  background: #ef4444; color: white;
+  font-size: .6rem; font-weight: 700;
+  border-radius: 10px; padding: 1px 5px; flex-shrink: 0;
 }
 
 /* Сообщения */
 .fc-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex: 1; overflow-y: auto; padding: 10px;
+  display: flex; flex-direction: column; gap: 5px;
 }
 .fc-loading, .fc-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  color: #555;
-  gap: 8px;
-  font-size: 0.9rem;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex: 1; color: #555; gap: 8px; font-size: .9rem;
 }
 .fc-empty span { font-size: 2rem; }
+.fc-messages-list { display: flex; flex-direction: column; gap: 5px; }
 
-.fc-messages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.fc-msg {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-.fc-msg.own {
-  flex-direction: row-reverse;
-}
-.fc-msg-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
+.fc-msg { display: flex; align-items: flex-end; gap: 7px; }
+.fc-msg.own { flex-direction: row-reverse; }
+.fc-msg-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .fc-msg-bubble {
-  display: flex;
-  flex-direction: column;
-  max-width: 70%;
-  padding: 6px 10px;
-  border-radius: 12px;
-  background: #2d2d2d;
-  color: #fff;
-  font-size: 0.85rem;
+  display: flex; flex-direction: column; max-width: 70%;
+  padding: 5px 10px; border-radius: 12px;
+  background: #2d2d2d; color: #fff; font-size: .83rem;
 }
-.fc-msg.own .fc-msg-bubble {
-  background: #1e7cff;
-  align-items: flex-end;
-}
-.fc-msg-author {
-  font-size: 0.7rem;
-  color: #7c4dff;
-  font-weight: 600;
-  margin-bottom: 2px;
-}
+.fc-msg.own .fc-msg-bubble { background: #1e7cff; align-items: flex-end; }
+.fc-msg-author { font-size: .68rem; color: #7c4dff; font-weight: 600; margin-bottom: 2px; }
 .fc-msg.own .fc-msg-author { display: none; }
 .fc-msg-text { line-height: 1.4; word-break: break-word; }
-.fc-msg-time {
-  font-size: 0.65rem;
-  color: rgba(255,255,255,0.5);
-  margin-top: 2px;
-  align-self: flex-end;
-}
+.fc-msg-time { font-size: .6rem; color: rgba(255,255,255,.5); margin-top: 2px; align-self: flex-end; }
 
 /* Ввод */
 .fc-input-area {
-  flex-shrink: 0;
-  padding: 8px 12px 12px;
-  background: #1a1a1a;
-  border-top: 1px solid #2a2a2a;
+  flex-shrink: 0; padding: 7px 10px 10px;
+  background: #1a1a1a; border-top: 1px solid #2a2a2a;
 }
-.fc-topic-label {
-  display: block;
-  font-size: 0.7rem;
-  color: #60a5fa;
-  margin-bottom: 4px;
-  padding-left: 4px;
-}
-.fc-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+.fc-topic-label { display: block; font-size: .68rem; color: #60a5fa; margin-bottom: 4px; padding-left: 2px; }
+.fc-input-row { display: flex; gap: 7px; align-items: center; }
 .fc-input {
-  flex: 1;
-  padding: 8px 14px;
-  border: 1px solid #2a2a2a;
-  border-radius: 20px;
-  background: #0f0f0f;
-  color: #fff;
-  font-size: 0.9rem;
-  outline: none;
+  flex: 1; padding: 7px 13px;
+  border: 1px solid #2a2a2a; border-radius: 18px;
+  background: #0f0f0f; color: #fff; font-size: .88rem; outline: none;
 }
 .fc-input:focus { border-color: #3b82f6; }
 .fc-send-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 50%;
-  background: #3b82f6;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s;
+  width: 34px; height: 34px; border: none; border-radius: 50%;
+  background: #3b82f6; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; transition: background .15s;
 }
 .fc-send-btn:hover { background: #2563eb; }
-.fc-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.fc-send-btn:disabled { opacity: .4; cursor: not-allowed; }
 </style>

@@ -1,95 +1,95 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Синхронизация</h2>
+    <h2>РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ</h2>
 
     <div class="settings-group">
-      <h3>☑️ Что синхронизировать</h3>
+      <h3>в‘пёЏ Р§С‚Рѕ СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ</h3>
       
       <div class="sync-items">
         <label class="sync-item">
           <input type="checkbox" v-model="syncOptions.playlists" />
-          <span class="sync-icon">📋</span>
+          <span class="sync-icon">рџ“‹</span>
           <span class="sync-info">
-            <span class="sync-name">Плейлисты</span>
-            <span class="sync-desc">Все ваши плейлисты и их содержимое</span>
+            <span class="sync-name">РџР»РµР№Р»РёСЃС‚С‹</span>
+            <span class="sync-desc">Р’СЃРµ РІР°С€Рё РїР»РµР№Р»РёСЃС‚С‹ Рё РёС… СЃРѕРґРµСЂР¶РёРјРѕРµ</span>
           </span>
         </label>
 
         <label class="sync-item">
           <input type="checkbox" v-model="syncOptions.settings" />
-          <span class="sync-icon">⚙️</span>
+          <span class="sync-icon">вљ™пёЏ</span>
           <span class="sync-info">
-            <span class="sync-name">Настройки</span>
-            <span class="sync-desc">Тема, уведомления, приватность</span>
+            <span class="sync-name">РќР°СЃС‚СЂРѕР№РєРё</span>
+            <span class="sync-desc">РўРµРјР°, СѓРІРµРґРѕРјР»РµРЅРёСЏ, РїСЂРёРІР°С‚РЅРѕСЃС‚СЊ</span>
           </span>
         </label>
 
         <label class="sync-item">
           <input type="checkbox" v-model="syncOptions.favorites" />
-          <span class="sync-icon">⭐</span>
+          <span class="sync-icon">в­ђ</span>
           <span class="sync-info">
-            <span class="sync-name">Избранное</span>
-            <span class="sync-desc">Любимые аниме и моменты</span>
+            <span class="sync-name">РР·Р±СЂР°РЅРЅРѕРµ</span>
+            <span class="sync-desc">Р›СЋР±РёРјС‹Рµ Р°РЅРёРјРµ Рё РјРѕРјРµРЅС‚С‹</span>
           </span>
         </label>
 
         <label class="sync-item">
           <input type="checkbox" v-model="syncOptions.history" />
-          <span class="sync-icon">📺</span>
+          <span class="sync-icon">рџ“є</span>
           <span class="sync-info">
-            <span class="sync-name">История просмотров</span>
-            <span class="sync-desc">Что вы смотрели и на чём остановились</span>
+            <span class="sync-name">РСЃС‚РѕСЂРёСЏ РїСЂРѕСЃРјРѕС‚СЂРѕРІ</span>
+            <span class="sync-desc">Р§С‚Рѕ РІС‹ СЃРјРѕС‚СЂРµР»Рё Рё РЅР° С‡С‘Рј РѕСЃС‚Р°РЅРѕРІРёР»РёСЃСЊ</span>
           </span>
         </label>
 
         <label class="sync-item">
           <input type="checkbox" v-model="syncOptions.drafts" />
-          <span class="sync-icon">📝</span>
+          <span class="sync-icon">рџ“ќ</span>
           <span class="sync-info">
-            <span class="sync-name">Черновики</span>
-            <span class="sync-desc">Незавершённые посты и комментарии</span>
+            <span class="sync-name">Р§РµСЂРЅРѕРІРёРєРё</span>
+            <span class="sync-desc">РќРµР·Р°РІРµСЂС€С‘РЅРЅС‹Рµ РїРѕСЃС‚С‹ Рё РєРѕРјРјРµРЅС‚Р°СЂРёРё</span>
           </span>
         </label>
 
         <label class="sync-item">
           <input type="checkbox" v-model="syncOptions.watchlist" />
-          <span class="sync-icon">📚</span>
+          <span class="sync-icon">рџ“љ</span>
           <span class="sync-info">
-            <span class="sync-name">Список "Буду смотреть"</span>
-            <span class="sync-desc">Запланированные к просмотру</span>
+            <span class="sync-name">РЎРїРёСЃРѕРє "Р‘СѓРґСѓ СЃРјРѕС‚СЂРµС‚СЊ"</span>
+            <span class="sync-desc">Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅРЅС‹Рµ Рє РїСЂРѕСЃРјРѕС‚СЂСѓ</span>
           </span>
         </label>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📶 Условия синхронизации</h3>
+      <h3>рџ“¶ РЈСЃР»РѕРІРёСЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё</h3>
       
       <div class="sync-conditions">
         <label class="condition-option">
           <input type="radio" v-model="syncCondition" value="auto" />
           <div class="condition-info">
-            <span class="condition-name">Автоматически</span>
-            <span class="condition-desc">При каждом изменении данных</span>
+            <span class="condition-name">РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё</span>
+            <span class="condition-desc">РџСЂРё РєР°Р¶РґРѕРј РёР·РјРµРЅРµРЅРёРё РґР°РЅРЅС‹С…</span>
           </div>
         </label>
 
         <label class="condition-option">
           <input type="radio" v-model="syncCondition" value="manual" />
           <div class="condition-info">
-            <span class="condition-name">Вручную</span>
-            <span class="condition-desc">Только по кнопке ниже</span>
+            <span class="condition-name">Р’СЂСѓС‡РЅСѓСЋ</span>
+            <span class="condition-desc">РўРѕР»СЊРєРѕ РїРѕ РєРЅРѕРїРєРµ РЅРёР¶Рµ</span>
           </div>
         </label>
 
         <label class="condition-option">
           <input type="radio" v-model="syncCondition" value="schedule" />
           <div class="condition-info">
-            <span class="condition-name">По расписанию</span>
+            <span class="condition-name">РџРѕ СЂР°СЃРїРёСЃР°РЅРёСЋ</span>
             <select v-model="syncSchedule" class="schedule-select" :disabled="syncCondition !== 'schedule'">
-              <option value="hourly">Каждый час</option>
-              <option value="daily">Каждый день</option>
-              <option value="weekly">Каждую неделю</option>
+              <option value="hourly">РљР°Р¶РґС‹Р№ С‡Р°СЃ</option>
+              <option value="daily">РљР°Р¶РґС‹Р№ РґРµРЅСЊ</option>
+              <option value="weekly">РљР°Р¶РґСѓСЋ РЅРµРґРµР»СЋ</option>
             </select>
           </div>
         </label>
@@ -98,20 +98,20 @@
       <div class="sync-restrictions">
         <label class="restriction-option">
           <input type="checkbox" v-model="wifiOnly" />
-          <span class="restriction-icon">📶</span>
-          <span>Только по Wi-Fi</span>
+          <span class="restriction-icon">рџ“¶</span>
+          <span>РўРѕР»СЊРєРѕ РїРѕ Wi-Fi</span>
         </label>
 
         <label class="restriction-option">
           <input type="checkbox" v-model="chargingOnly" />
-          <span class="restriction-icon">🔋</span>
-          <span>Только при зарядке</span>
+          <span class="restriction-icon">рџ”‹</span>
+          <span>РўРѕР»СЊРєРѕ РїСЂРё Р·Р°СЂСЏРґРєРµ</span>
         </label>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>🔄 Статус синхронизации</h3>
+      <h3>рџ”„ РЎС‚Р°С‚СѓСЃ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё</h3>
       
       <div class="sync-status" :class="syncStatusClass">
         <div class="status-icon">{{ syncStatusIcon }}</div>
@@ -123,26 +123,26 @@
 
       <div class="sync-details">
         <div class="detail-row">
-          <span class="detail-label">Последняя синхронизация:</span>
-          <span class="detail-value">{{ lastSyncTime || 'Никогда' }}</span>
+          <span class="detail-label">РџРѕСЃР»РµРґРЅСЏСЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ:</span>
+          <span class="detail-value">{{ lastSyncTime || 'РќРёРєРѕРіРґР°' }}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">Следующая синхронизация:</span>
-          <span class="detail-value">{{ nextSyncTime || 'Не запланирована' }}</span>
+          <span class="detail-label">РЎР»РµРґСѓСЋС‰Р°СЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ:</span>
+          <span class="detail-value">{{ nextSyncTime || 'РќРµ Р·Р°РїР»Р°РЅРёСЂРѕРІР°РЅР°' }}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">Синхронизировано устройств:</span>
+          <span class="detail-label">РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ СѓСЃС‚СЂРѕР№СЃС‚РІ:</span>
           <span class="detail-value">{{ syncedDevices }}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">Размер синхронизируемых данных:</span>
+          <span class="detail-label">Р Р°Р·РјРµСЂ СЃРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРјС‹С… РґР°РЅРЅС‹С…:</span>
           <span class="detail-value">{{ syncDataSize }}</span>
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📱 Подключённые устройства</h3>
+      <h3>рџ“± РџРѕРґРєР»СЋС‡С‘РЅРЅС‹Рµ СѓСЃС‚СЂРѕР№СЃС‚РІР°</h3>
       
       <div class="devices-list">
         <div v-for="device in devices" :key="device.id" class="device-item">
@@ -151,28 +151,28 @@
             <div class="device-details">
               <div class="device-name">{{ device.name }}</div>
               <div class="device-meta">
-                {{ device.platform }} • {{ formatDate(device.lastSync) }}
+                {{ device.platform }} вЂў {{ formatDate(device.lastSync) }}
               </div>
             </div>
           </div>
           <div class="device-status">
-            <span v-if="device.current" class="current-badge">Текущее</span>
-            <span v-else class="sync-badge">{{ device.synced ? '✅ Синхронизировано' : '⏳ Ожидает' }}</span>
+            <span v-if="device.current" class="current-badge">РўРµРєСѓС‰РµРµ</span>
+            <span v-else class="sync-badge">{{ device.synced ? 'вњ… РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ' : 'вЏі РћР¶РёРґР°РµС‚' }}</span>
           </div>
         </div>
       </div>
 
       <button class="add-device-btn">
-        ➕ Добавить устройство
+        вћ• Р”РѕР±Р°РІРёС‚СЊ СѓСЃС‚СЂРѕР№СЃС‚РІРѕ
       </button>
     </div>
 
     <div class="settings-group">
-      <h3>⚠️ Конфликты синхронизации</h3>
+      <h3>вљ пёЏ РљРѕРЅС„Р»РёРєС‚С‹ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё</h3>
       
       <div v-if="hasConflicts" class="conflicts-section">
         <p class="conflicts-info">
-          Обнаружены конфликты данных между устройствами. Выберите, какие данные сохранить:
+          РћР±РЅР°СЂСѓР¶РµРЅС‹ РєРѕРЅС„Р»РёРєС‚С‹ РґР°РЅРЅС‹С… РјРµР¶РґСѓ СѓСЃС‚СЂРѕР№СЃС‚РІР°РјРё. Р’С‹Р±РµСЂРёС‚Рµ, РєР°РєРёРµ РґР°РЅРЅС‹Рµ СЃРѕС…СЂР°РЅРёС‚СЊ:
         </p>
 
         <div class="conflicts-list">
@@ -185,14 +185,14 @@
               <label class="conflict-option">
                 <input type="radio" :name="`conflict-${conflict.id}`" value="local" v-model="conflict.resolution" />
                 <div class="conflict-preview local">
-                  <div class="preview-label">Это устройство</div>
+                  <div class="preview-label">Р­С‚Рѕ СѓСЃС‚СЂРѕР№СЃС‚РІРѕ</div>
                   <div class="preview-content">{{ conflict.local }}</div>
                 </div>
               </label>
               <label class="conflict-option">
                 <input type="radio" :name="`conflict-${conflict.id}`" value="remote" v-model="conflict.resolution" />
                 <div class="conflict-preview remote">
-                  <div class="preview-label">Другое устройство</div>
+                  <div class="preview-label">Р”СЂСѓРіРѕРµ СѓСЃС‚СЂРѕР№СЃС‚РІРѕ</div>
                   <div class="preview-content">{{ conflict.remote }}</div>
                 </div>
               </label>
@@ -201,28 +201,30 @@
         </div>
 
         <button @click="resolveConflicts" class="resolve-btn">
-          ✅ Применить выбор
+          вњ… РџСЂРёРјРµРЅРёС‚СЊ РІС‹Р±РѕСЂ
         </button>
       </div>
 
       <div v-else class="no-conflicts">
-        <div class="no-conflicts-icon">✅</div>
-        <p>Конфликтов не обнаружено</p>
+        <div class="no-conflicts-icon">вњ…</div>
+        <p>РљРѕРЅС„Р»РёРєС‚РѕРІ РЅРµ РѕР±РЅР°СЂСѓР¶РµРЅРѕ</p>
       </div>
     </div>
 
     <div class="settings-actions">
       <button @click="syncNow" :disabled="isSyncing" class="sync-btn">
-        {{ isSyncing ? '🔄 Синхронизация...' : '⟲ Синхронизировать сейчас' }}
+        {{ isSyncing ? 'рџ”„ РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ...' : 'вџІ РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ СЃРµР№С‡Р°СЃ' }}
       </button>
       <button @click="saveSettings" :disabled="!hasChanges" class="save-btn">
-        💾 Сохранить настройки
+        рџ’ѕ РЎРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, computed, onMounted } from 'vue'
 import * as settingsApi from '@/api/settings'
 import apiClient from '@/api/client'
@@ -286,28 +288,28 @@ const syncStatusClass = computed(() => {
 
 const syncStatusIcon = computed(() => {
   switch (syncStatus.value) {
-    case 'syncing': return '🔄'
-    case 'synced': return '✅'
-    case 'error': return '❌'
-    default: return '⏳'
+    case 'syncing': return 'рџ”„'
+    case 'synced': return 'вњ…'
+    case 'error': return 'вќЊ'
+    default: return 'вЏі'
   }
 })
 
 const syncStatusTitle = computed(() => {
   switch (syncStatus.value) {
-    case 'syncing': return 'Синхронизация...'
-    case 'synced': return 'Синхронизировано'
-    case 'error': return 'Ошибка синхронизации'
-    default: return 'Ожидает синхронизации'
+    case 'syncing': return 'РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ...'
+    case 'synced': return 'РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ'
+    case 'error': return 'РћС€РёР±РєР° СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё'
+    default: return 'РћР¶РёРґР°РµС‚ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё'
   }
 })
 
 const syncStatusDesc = computed(() => {
   switch (syncStatus.value) {
-    case 'syncing': return 'Идёт обмен данными с сервером'
-    case 'synced': return 'Все данные актуальны'
-    case 'error': return 'Проверьте подключение к интернету'
-    default: return 'Нажмите кнопку для синхронизации'
+    case 'syncing': return 'РРґС‘С‚ РѕР±РјРµРЅ РґР°РЅРЅС‹РјРё СЃ СЃРµСЂРІРµСЂРѕРј'
+    case 'synced': return 'Р’СЃРµ РґР°РЅРЅС‹Рµ Р°РєС‚СѓР°Р»СЊРЅС‹'
+    case 'error': return 'РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє РёРЅС‚РµСЂРЅРµС‚Сѓ'
+    default: return 'РќР°Р¶РјРёС‚Рµ РєРЅРѕРїРєСѓ РґР»СЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё'
   }
 })
 
@@ -359,9 +361,9 @@ const syncNow = async () => {
     lastSyncTime.value = new Date().toLocaleString('ru-RU')
     
     if (syncCondition.value === 'auto') {
-      nextSyncTime.value = 'Автоматически'
+      nextSyncTime.value = 'РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё'
     } else if (syncCondition.value === 'schedule') {
-      nextSyncTime.value = 'По расписанию'
+      nextSyncTime.value = 'РџРѕ СЂР°СЃРїРёСЃР°РЅРёСЋ'
     }
   } catch (error) {
     console.error('Error syncing:', error)
@@ -387,10 +389,10 @@ const saveSettings = async () => {
       wifiOnly: wifiOnly.value,
       chargingOnly: chargingOnly.value
     }
-    alert('Настройки сохранены!')
+    showToast('РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅРµРЅС‹!')
   } catch (error) {
     console.error('Error saving sync settings:', error)
-    alert('Ошибка при сохранении настроек')
+    showToast('РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё РЅР°СЃС‚СЂРѕРµРє')
   }
 }
 
@@ -404,19 +406,19 @@ const resolveConflicts = async () => {
 
     await apiClient.post('/settings/sync/resolve-conflicts/', { resolutions })
     conflicts.value = []
-    alert('Конфликты успешно разрешены!')
+    showToast('РљРѕРЅС„Р»РёРєС‚С‹ СѓСЃРїРµС€РЅРѕ СЂР°Р·СЂРµС€РµРЅС‹!')
   } catch (error) {
     console.error('Error resolving conflicts:', error)
-    alert('Ошибка при разрешении конфликтов')
+    showToast('РћС€РёР±РєР° РїСЂРё СЂР°Р·СЂРµС€РµРЅРёРё РєРѕРЅС„Р»РёРєС‚РѕРІ')
   }
 }
 
 const getDeviceIcon = (type: string) => {
   switch (type) {
-    case 'mobile': return '📱'
-    case 'tablet': return '📱'
-    case 'desktop': return '💻'
-    default: return '🖥️'
+    case 'mobile': return 'рџ“±'
+    case 'tablet': return 'рџ“±'
+    case 'desktop': return 'рџ’»'
+    default: return 'рџ–ҐпёЏ'
   }
 }
 
@@ -427,9 +429,9 @@ const formatDate = (dateString: string) => {
   const diffMins = Math.floor(diffMs / (1000 * 60))
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
   
-  if (diffMins < 1) return 'Только что'
-  if (diffMins < 60) return `${diffMins} мин назад`
-  if (diffHours < 24) return `${diffHours} ч назад`
+  if (diffMins < 1) return 'РўРѕР»СЊРєРѕ С‡С‚Рѕ'
+  if (diffMins < 60) return `${diffMins} РјРёРЅ РЅР°Р·Р°Рґ`
+  if (diffHours < 24) return `${diffHours} С‡ РЅР°Р·Р°Рґ`
   return date.toLocaleDateString('ru-RU')
 }
 

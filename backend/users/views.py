@@ -2098,35 +2098,39 @@ class UserStatsView(APIView):
 
     def get(self, request, pk):
         try:
-            # pk может быть числом (id) или строкой (username)
+            # Пробуем найти по ID
             try:
                 user = User.objects.get(pk=int(pk))
-            except (ValueError, TypeError):
-                user = User.objects.get(username=pk)
+            except (ValueError, User.DoesNotExist):
+                # Пробуем найти по username
+                user = User.objects.get(username=str(pk))
         except User.DoesNotExist:
             return Response({'error': 'Пользователь не найден'}, status=404)
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
 
-        # Считаем подписчиков через social.Follow если доступно
-        followers_count = 0
-        following_count = 0
+        # Безопасное получение значений с fallback
         try:
-            from social.models import Follow
-            followers_count = Follow.objects.filter(following=user).count()
-            following_count = Follow.objects.filter(follower=user).count()
-        except Exception:
-            pass
+            followers_count = user.followers_count
+        except:
+            followers_count = 0
+
+        try:
+            following_count = user.following_count
+        except:
+            following_count = 0
+
+        try:
+            level = user.level
+        except:
+            level = 1
 
         return Response({
             'user_id': user.id,
             'username': user.username,
-            'nickname': user.nickname or '',
-            'posts_count': getattr(user, 'posts_count', 0) or 0,
+            'display_name': user.display_name or user.username,
+            'posts_count': 0,
             'followers_count': followers_count,
             'following_count': following_count,
-            'level': getattr(user, 'level', 1) or 1,
-            'experience': getattr(user, 'experience', 0) or 0,
+            'level': level,
         })
 
 
@@ -2154,6 +2158,68 @@ class UsersListView(APIView):
         users = User.objects.all()[:50]
         data = [{'id': u.id, 'username': u.username, 'is_online': u.is_online} for u in users]
         return Response({'results': data})
+
+
+class OnlineUsersView(APIView):
+    """Пользователи онлайн с фильтрацией"""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from core.online_status import online_status
+        from django.db.models import Q
+
+        # Получаем статус фильтра
+        status_filter = request.query_params.get('status', 'all')  # all, online, offline
+
+        # Получаем всех пользователей
+        users_qs = User.objects.all().order_by('-last_login')
+
+        # Поиск
+        search = request.query_params.get('search', '').strip()
+        if search:
+            users_qs = users_qs.filter(
+                Q(username__icontains=search) |
+                Q(nickname__icontains=search) |
+                Q(display_name__icontains=search)
+            )
+
+        # Формируем результат
+        result = []
+        online_count = 0
+        offline_count = 0
+
+        for user in users_qs[:100]:  # Ограничиваем 100 пользователей
+            # Проверяем онлайн статус через Redis
+            is_online = online_status.is_online(user.id)
+
+            if is_online:
+                online_count += 1
+            else:
+                offline_count += 1
+
+            # Фильтрация по статусу
+            if status_filter == 'online' and not is_online:
+                continue
+            if status_filter == 'offline' and is_online:
+                continue
+
+            result.append({
+                'id': user.id,
+                'username': user.username,
+                'nickname': user.nickname or user.username,
+                'display_name': user.display_name or user.username,
+                'avatar_url': user.avatar.url if user.avatar else None,
+                'is_online': is_online,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+            })
+
+        return Response({
+            'results': result,
+            'total': len(result),
+            'online_count': online_count,
+            'offline_count': offline_count,
+            'all_count': online_count + offline_count,
+        })
 
 
 class UserProfileSettingsViewSet(viewsets.ModelViewSet):

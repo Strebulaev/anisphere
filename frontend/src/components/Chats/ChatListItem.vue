@@ -41,12 +41,30 @@
             {{ formatLastMessage(chat.lastMessage) }}
           </p>
 
-          <!-- Unread count -->
-          <div
-            v-if="chat.unreadCount > 0"
-            class="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[18px] text-center"
-          >
-            {{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}
+          <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+            <!-- Заглушен -->
+            <span v-if="chat.isMuted" title="Уведомления заглушены" class="text-yellow-500 text-xs">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="1" y1="1" x2="23" y2="23"/>
+                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </span>
+            <!-- Архив
+            <span v-if="chat.isArchived" title="Из архива" class="text-indigo-400 text-xs">📦</span>
+            -->
+            <!-- Непрочитанные -->
+            <div
+              v-if="chat.unreadCount > 0"
+              :class="[
+                'text-white text-xs rounded-full px-2 py-0.5 min-w-[18px] text-center',
+                chat.isMuted ? 'bg-gray-600' : 'bg-blue-500'
+              ]"
+            >
+              {{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}
+            </div>
           </div>
         </div>
 
@@ -94,6 +112,7 @@ interface Chat {
   unreadCount: number
   isPinned: boolean
   isArchived: boolean
+  isMuted: boolean
   status?: string
   membersCount?: number
   onlineCount?: number

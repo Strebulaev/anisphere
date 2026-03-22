@@ -59,7 +59,7 @@
         <span>Аниме</span>
       </router-link>
 
-      <router-link 
+      <!-- <router-link 
         to="/reactor" 
         class="nav-item"
         :class="{ active: isActiveRoute('/reactor') }"
@@ -68,7 +68,7 @@
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
         <span>Reactor</span>
-      </router-link>
+      </router-link> -->
 
       <router-link 
         to="/playlists" 
@@ -179,7 +179,7 @@
         <span>Поиск</span>
       </router-link> -->
 
-      <router-link 
+      <!-- <router-link 
         to="/competitions" 
         class="nav-item-secondary"
         :class="{ active: isActiveRoute('/competitions') }"
@@ -193,7 +193,7 @@
           <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
         </svg>
         <span>Квесты</span>
-      </router-link>
+      </router-link> -->
 
       <router-link 
         to="/settings" 
@@ -206,16 +206,38 @@
         </svg>
         <span>Настройки</span>
       </router-link>
+
+      <!-- Админская панель — только для админа -->
+      <router-link
+        v-if="isAdmin"
+        to="/admin"
+        class="nav-item-secondary nav-item-admin"
+        :class="{ active: isActiveRoute('/admin') }"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>🛡️ Админ</span>
+      </router-link>
     </nav>
   </aside>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSidebar } from '@/composables/useSidebar'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const { isCollapsed, toggleSidebar } = useSidebar()
+const authStore = useAuthStore()
+
+const isAdmin = computed(() => {
+  const u = authStore.user
+  if (!u) return false
+  return u.is_admin || u.is_staff || u.username === 'kaiden812'
+})
 
 const isActiveRoute = (path: string) => {
   if (path === '/') {
@@ -419,6 +441,20 @@ const isActiveRoute = (path: string) => {
 .nav-item-secondary.active {
   background-color: var(--accent-subtle);
   color: var(--accent);
+}
+
+.nav-item-admin {
+  color: #ef4444 !important;
+}
+
+.nav-item-admin:hover {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #ef4444 !important;
+}
+
+.nav-item-admin.active {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
 }
 
 .nav-item-secondary svg {

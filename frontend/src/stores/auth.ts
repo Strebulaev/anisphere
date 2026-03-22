@@ -27,6 +27,9 @@ interface User {
   playlists_count?: number
   is_verified?: boolean
   is_premium?: boolean
+  is_admin?: boolean
+  is_staff?: boolean
+  is_superuser?: boolean
   competition_wins?: number
   following?: number[]
   favorite_genres?: number[]

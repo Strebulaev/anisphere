@@ -1,39 +1,39 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Фон чатов</h2>
+    <h2>Р¤РѕРЅ С‡Р°С‚РѕРІ</h2>
 
     <div class="settings-group">
-      <h3>🎨 Общий фон</h3>
+      <h3>рџЋЁ РћР±С‰РёР№ С„РѕРЅ</h3>
       
       <div class="background-types">
         <label class="bg-type-option" :class="{ active: backgroundType === 'default' }">
           <input type="radio" v-model="backgroundType" value="default" />
           <div class="bg-preview default"></div>
-          <span>Системный</span>
+          <span>РЎРёСЃС‚РµРјРЅС‹Р№</span>
         </label>
 
         <label class="bg-type-option" :class="{ active: backgroundType === 'solid' }">
           <input type="radio" v-model="backgroundType" value="solid" />
           <div class="bg-preview solid" :style="{ background: solidColor }"></div>
-          <span>Сплошной цвет</span>
+          <span>РЎРїР»РѕС€РЅРѕР№ С†РІРµС‚</span>
         </label>
 
         <label class="bg-type-option" :class="{ active: backgroundType === 'gradient' }">
           <input type="radio" v-model="backgroundType" value="gradient" />
           <div class="bg-preview gradient" :style="gradientPreviewStyle"></div>
-          <span>Градиент</span>
+          <span>Р“СЂР°РґРёРµРЅС‚</span>
         </label>
 
         <label class="bg-type-option" :class="{ active: backgroundType === 'image' }">
           <input type="radio" v-model="backgroundType" value="image" />
           <div class="bg-preview image" :style="{ backgroundImage: `url(${customImage})` }"></div>
-          <span>Изображение</span>
+          <span>РР·РѕР±СЂР°Р¶РµРЅРёРµ</span>
         </label>
       </div>
 
       <!-- Solid Color Picker -->
       <div v-if="backgroundType === 'solid'" class="color-picker-section">
-        <label>Выберите цвет:</label>
+        <label>Р’С‹Р±РµСЂРёС‚Рµ С†РІРµС‚:</label>
         <div class="color-palette">
           <button
             v-for="color in presetColors"
@@ -43,7 +43,7 @@
             @click="solidColor = color"
           ></button>
           <button class="color-option custom" @click="showCustomColorPicker = true">
-            🌈
+            рџЊ€
           </button>
         </div>
         <div v-if="showCustomColorPicker" class="custom-color-input">
@@ -52,7 +52,7 @@
             type="color"
             class="color-input"
           />
-          <button @click="showCustomColorPicker = false" class="done-btn">Готово</button>
+          <button @click="showCustomColorPicker = false" class="done-btn">Р“РѕС‚РѕРІРѕ</button>
         </div>
       </div>
 
@@ -60,7 +60,7 @@
       <div v-if="backgroundType === 'gradient'" class="gradient-picker-section">
         <div class="gradient-controls">
           <div class="gradient-color">
-            <label>Начальный цвет:</label>
+            <label>РќР°С‡Р°Р»СЊРЅС‹Р№ С†РІРµС‚:</label>
             <input
               v-model="gradientColors.start"
               type="color"
@@ -68,7 +68,7 @@
             />
           </div>
           <div class="gradient-color">
-            <label>Конечный цвет:</label>
+            <label>РљРѕРЅРµС‡РЅС‹Р№ С†РІРµС‚:</label>
             <input
               v-model="gradientColors.end"
               type="color"
@@ -77,7 +77,7 @@
           </div>
         </div>
         <div class="gradient-presets">
-          <label>Пресеты:</label>
+          <label>РџСЂРµСЃРµС‚С‹:</label>
           <div class="preset-grid">
             <button
               v-for="(preset, index) in gradientPresets"
@@ -95,8 +95,8 @@
         <div class="upload-area" :class="{ 'has-image': customImage }">
           <img v-if="customImage" :src="customImage" class="preview-image" />
           <div v-else class="upload-placeholder">
-            <div class="upload-icon">📁</div>
-            <p>Перетащите изображение сюда или</p>
+            <div class="upload-icon">рџ“Ѓ</div>
+            <p>РџРµСЂРµС‚Р°С‰РёС‚Рµ РёР·РѕР±СЂР°Р¶РµРЅРёРµ СЃСЋРґР° РёР»Рё</p>
             <input
               ref="imageInput"
               type="file"
@@ -104,55 +104,55 @@
               @change="handleImageUpload"
               class="hidden-input"
             />
-            <button @click="selectImage" class="upload-btn">Выберите файл</button>
-            <p class="upload-hint">JPG, PNG, WEBP до 10MB</p>
+            <button @click="selectImage" class="upload-btn">Р’С‹Р±РµСЂРёС‚Рµ С„Р°Р№Р»</button>
+            <p class="upload-hint">JPG, PNG, WEBP РґРѕ 10MB</p>
           </div>
-          <button v-if="customImage" @click="removeImage" class="remove-image-btn">🗑️ Удалить</button>
+          <button v-if="customImage" @click="removeImage" class="remove-image-btn">рџ—‘пёЏ РЈРґР°Р»РёС‚СЊ</button>
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>✨ Эффекты для фона (премиум)</h3>
+      <h3>вњЁ Р­С„С„РµРєС‚С‹ РґР»СЏ С„РѕРЅР° (РїСЂРµРјРёСѓРј)</h3>
       
       <div class="effects-list">
         <label class="effect-option">
           <input type="checkbox" v-model="effects.blur" :disabled="!isPremium" />
-          <span class="effect-icon">🌫️</span>
-          <span>Размытие</span>
-          <span v-if="!isPremium" class="premium-badge">👑</span>
+          <span class="effect-icon">рџЊ«пёЏ</span>
+          <span>Р Р°Р·РјС‹С‚РёРµ</span>
+          <span v-if="!isPremium" class="premium-badge">рџ‘‘</span>
         </label>
 
         <label class="effect-option">
           <input type="checkbox" v-model="effects.darken" :disabled="!isPremium" />
-          <span class="effect-icon">🌙</span>
-          <span>Затемнение</span>
-          <span v-if="!isPremium" class="premium-badge">👑</span>
+          <span class="effect-icon">рџЊ™</span>
+          <span>Р—Р°С‚РµРјРЅРµРЅРёРµ</span>
+          <span v-if="!isPremium" class="premium-badge">рџ‘‘</span>
         </label>
 
         <label class="effect-option">
           <input type="checkbox" v-model="effects.animation" :disabled="!isPremium" />
-          <span class="effect-icon">🎬</span>
-          <span>Анимация (медленное движение)</span>
-          <span v-if="!isPremium" class="premium-badge">👑</span>
+          <span class="effect-icon">рџЋ¬</span>
+          <span>РђРЅРёРјР°С†РёСЏ (РјРµРґР»РµРЅРЅРѕРµ РґРІРёР¶РµРЅРёРµ)</span>
+          <span v-if="!isPremium" class="premium-badge">рџ‘‘</span>
         </label>
 
         <label class="effect-option">
           <input type="checkbox" v-model="effects.parallax" :disabled="!isPremium" />
-          <span class="effect-icon">📐</span>
-          <span>Параллакс-эффект</span>
-          <span v-if="!isPremium" class="premium-badge">👑</span>
+          <span class="effect-icon">рџ“ђ</span>
+          <span>РџР°СЂР°Р»Р»Р°РєСЃ-СЌС„С„РµРєС‚</span>
+          <span v-if="!isPremium" class="premium-badge">рџ‘‘</span>
         </label>
       </div>
 
       <div v-if="!isPremium" class="premium-upsell">
-        <p>👑 Разблокируйте все эффекты с Premium!</p>
-        <button class="premium-btn">Подробнее о Premium →</button>
+        <p>рџ‘‘ Р Р°Р·Р±Р»РѕРєРёСЂСѓР№С‚Рµ РІСЃРµ СЌС„С„РµРєС‚С‹ СЃ Premium!</p>
+        <button class="premium-btn">РџРѕРґСЂРѕР±РЅРµРµ Рѕ Premium в†’</button>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>💬 Индивидуальные фоны для чатов</h3>
+      <h3>рџ’¬ РРЅРґРёРІРёРґСѓР°Р»СЊРЅС‹Рµ С„РѕРЅС‹ РґР»СЏ С‡Р°С‚РѕРІ</h3>
       
       <div class="chat-backgrounds-list">
         <div v-for="chat in chatBackgrounds" :key="chat.id" class="chat-bg-item">
@@ -163,50 +163,50 @@
             </div>
             <div class="chat-details">
               <div class="chat-name">{{ chat.name }}</div>
-              <div class="chat-type">{{ chat.type === 'group' ? '👥 Группа' : '👤 Личный чат' }}</div>
+              <div class="chat-type">{{ chat.type === 'group' ? 'рџ‘Ґ Р“СЂСѓРїРїР°' : 'рџ‘¤ Р›РёС‡РЅС‹Р№ С‡Р°С‚' }}</div>
             </div>
           </div>
           <div class="chat-bg-settings">
             <label class="use-shared-label">
               <input type="checkbox" v-model="chat.useShared" />
-              <span>Общий</span>
+              <span>РћР±С‰РёР№</span>
             </label>
             <button @click="openChatBackgroundSettings(chat)" class="custom-bg-btn">
-              {{ chat.useShared ? 'Использует общий' : 'Свой фон' }}
+              {{ chat.useShared ? 'РСЃРїРѕР»СЊР·СѓРµС‚ РѕР±С‰РёР№' : 'РЎРІРѕР№ С„РѕРЅ' }}
             </button>
           </div>
         </div>
       </div>
 
       <button class="add-chat-bg-btn">
-        ➕ Добавить фон для чата
+        вћ• Р”РѕР±Р°РІРёС‚СЊ С„РѕРЅ РґР»СЏ С‡Р°С‚Р°
       </button>
     </div>
 
     <div class="settings-group">
-      <h3>👁️ Предпросмотр</h3>
+      <h3>рџ‘ЃпёЏ РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ</h3>
       
       <div class="preview-container" :style="previewStyle">
         <div class="preview-chat">
           <div class="preview-message other">
-            <div class="msg-avatar">👤</div>
+            <div class="msg-avatar">рџ‘¤</div>
             <div class="msg-content">
               <div class="msg-name">User123</div>
-              <div class="msg-text">Привет! Как дела?</div>
+              <div class="msg-text">РџСЂРёРІРµС‚! РљР°Рє РґРµР»Р°?</div>
             </div>
           </div>
           <div class="preview-message user">
-            <div class="msg-avatar">👤</div>
+            <div class="msg-avatar">рџ‘¤</div>
             <div class="msg-content">
-              <div class="msg-name">Вы</div>
-              <div class="msg-text">Отлично! Спасибо что спросил 😊</div>
+              <div class="msg-name">Р’С‹</div>
+              <div class="msg-text">РћС‚Р»РёС‡РЅРѕ! РЎРїР°СЃРёР±Рѕ С‡С‚Рѕ СЃРїСЂРѕСЃРёР» рџЉ</div>
             </div>
           </div>
           <div class="preview-message other">
-            <div class="msg-avatar">👤</div>
+            <div class="msg-avatar">рџ‘¤</div>
             <div class="msg-content">
               <div class="msg-name">User123</div>
-              <div class="msg-text">Посмотри новое аниме, которое вышло!</div>
+              <div class="msg-text">РџРѕСЃРјРѕС‚СЂРё РЅРѕРІРѕРµ Р°РЅРёРјРµ, РєРѕС‚РѕСЂРѕРµ РІС‹С€Р»Рѕ!</div>
             </div>
           </div>
         </div>
@@ -215,14 +215,14 @@
 
     <div class="settings-actions">
       <button @click="saveSettings" :disabled="!hasChanges" class="save-btn">
-        💾 Сохранить настройки
+        рџ’ѕ РЎРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё
       </button>
       <button @click="resetToDefaults" class="reset-btn">
-        ↻ Сбросить по умолчанию
+        в†» РЎР±СЂРѕСЃРёС‚СЊ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
       </button>
     </div>
 
-    <!-- Модальное окно -->
+    <!-- РњРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ -->
     <ChatBackgroundModal
       :show="showChatBgModal"
       :selected-chat="selectedChat ?? undefined"
@@ -233,6 +233,8 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, computed, onMounted } from 'vue'
 import * as settingsApi from '@/api/settings'
 
@@ -368,7 +370,7 @@ const handleImageUpload = async (event: Event) => {
   
   if (file) {
     if (file.size > 10 * 1024 * 1024) {
-      alert('Размер файла не должен превышать 10MB')
+      showToast('Р Р°Р·РјРµСЂ С„Р°Р№Р»Р° РЅРµ РґРѕР»Р¶РµРЅ РїСЂРµРІС‹С€Р°С‚СЊ 10MB')
       return
     }
 
@@ -377,7 +379,7 @@ const handleImageUpload = async (event: Event) => {
       customImage.value = data.url
     } catch (error) {
       console.error('Error uploading background:', error)
-      alert('Ошибка при загрузке изображения')
+      showToast('РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ')
     }
   }
 }
@@ -388,7 +390,7 @@ const removeImage = async () => {
     customImage.value = ''
   } catch (error) {
     console.error('Error removing background:', error)
-    alert('Ошибка при удалении изображения')
+    showToast('РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё РёР·РѕР±СЂР°Р¶РµРЅРёСЏ')
   }
 }
 
@@ -421,10 +423,10 @@ const saveSettings = async () => {
       customImage: customImage.value,
       effects: { ...effects.value }
     }
-    alert('Настройки сохранены!')
+    showToast('РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅРµРЅС‹!')
   } catch (error) {
     console.error('Error saving background settings:', error)
-    alert('Ошибка при сохранении настроек')
+    showToast('РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё РЅР°СЃС‚СЂРѕРµРє')
   }
 }
 

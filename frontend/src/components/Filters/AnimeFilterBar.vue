@@ -230,6 +230,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { KODIK_API_BASE, KODIK_API_TOKEN } from '../../config/kodik'
 
 interface Props {
   /** Показывать фильтр по статусу */
@@ -387,7 +388,7 @@ onMounted(async () => {
   // Загрузка жанров
   genresLoading.value = true
   try {
-    const res  = await fetch('https://kodikapi.com/genres?token=74ecb013335271e4344ebc994956dd75&types=anime-serial,anime&genres_type=shikimori&sort=count')
+    const res  = await fetch(`${KODIK_API_BASE}/genres?token=${KODIK_API_TOKEN}&types=anime-serial,anime&genres_type=shikimori&sort=count`)
     const data = await res.json()
     allGenres.value = (data.results || []).map((g: any) => String(g.title))
   } catch { allGenres.value = [] }

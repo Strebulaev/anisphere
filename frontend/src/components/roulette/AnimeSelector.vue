@@ -334,8 +334,10 @@ const loadCollection = async () => {
   isLoading.value = true
   try {
     const libraryItems = await libraryApi.getLibrary({})
-    items.value = libraryItems.map((item: LibraryItem) => ({
-      id: item.anime,
+    // API может вернуть массив или объект { results: [], count: N }
+    const libraryData = Array.isArray(libraryItems) ? libraryItems : libraryItems.results || []
+    items.value = libraryData.map((item: LibraryItem) => ({
+      id: typeof item.anime === 'number' ? item.anime : item.anime.id,
       title_ru: item.anime_title_ru,
       title: item.anime_title_en,
       poster: item.anime_poster,
@@ -394,8 +396,10 @@ const loadFavorites = async () => {
   try {
     // Загружаем избранное из library
     const libraryItems = await libraryApi.getLibrary({ is_favorite: true })
-    items.value = libraryItems.map((item: LibraryItem) => ({
-      id: item.anime,
+    // API может вернуть массив или объект { results: [], count: N }
+    const libraryData = Array.isArray(libraryItems) ? libraryItems : libraryItems.results || []
+    items.value = libraryData.map((item: LibraryItem) => ({
+      id: typeof item.anime === 'number' ? item.anime : item.anime.id,
       title_ru: item.anime_title_ru,
       title: item.anime_title_en,
       poster: item.anime_poster,

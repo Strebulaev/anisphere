@@ -537,8 +537,7 @@
             </div>
           </div>
         </main>
-
-        <!-- Right Sidebar -->
+        <!-- 
         <aside class="feed-right-sidebar">
           <div class="sidebar-card trending">
             <h3>🔥 Популярное</h3>
@@ -552,12 +551,13 @@
               </div>
             </div>
           </div>
-        </aside>
+        </aside> -->
       </div>
     </div>
 
     <!-- Modals -->
     <CreatePostModal v-if="showCreatePost" :initial-type="createPostType" @close="showCreatePost = false" @created="onPostCreated" />
+    <EditPostModal v-if="showEditPost && selectedPost" :post="selectedPost" @close="showEditPost = false" @updated="onPostEdited" />
     <CommentsModal v-if="showComments" :post="selectedPost" @close="showComments = false" @comment-added="onCommentAdded" />
     <RepostModal v-if="showRepost" :post="selectedPost" @close="showRepost = false" @reposted="onReposted" />
     <PostMenu v-if="showMenu && selectedPost" :post="selectedPost" @close="showMenu = false" @edit="editPost" @delete="deletePost" @pin="pinPost" @report="openReportModal" @bookmark="toggleBookmark" @hide="hidePost" @hide-author="hidePostByAuthor" @repost="openRepostModal" @forward="openForwardModal" />
@@ -602,6 +602,7 @@ import { useRouter, useRoute } from 'vue-router'
 import apiClient from '@/api/client'
 import PostCard from '@/components/feed/PostCard.vue'
 import CreatePostModal from '@/components/feed/CreatePostModal.vue'
+import EditPostModal from '@/components/feed/EditPostModal.vue'
 import CommentsModal from '@/components/feed/CommentsModal.vue'
 import RepostModal from '@/components/feed/RepostModal.vue'
 import PostMenu from '@/components/feed/PostMenu.vue'
@@ -726,6 +727,7 @@ const moderationComment = ref('')
 
 // UI State
 const showCreatePost = ref(false)
+const showEditPost = ref(false)
 const showComments = ref(false)
 const showRepost = ref(false)
 const showMenu = ref(false)
@@ -1262,7 +1264,20 @@ const sharePost = (post: any) => {
   showRepost.value = true
 }
 
-const editPost = (_post: any) => { showMenu.value = false }
+const editPost = (post: any) => { 
+  selectedPost.value = post
+  showMenu.value = false
+  showEditPost.value = true 
+}
+
+const onPostEdited = (updatedPost: any) => {
+  // Обновляем пост в списке
+  const idx = posts.value.findIndex(p => p.id === updatedPost.id)
+  if (idx !== -1) {
+    posts.value[idx] = normalizePost(updatedPost)
+  }
+  showEditPost.value = false
+}
 const deletePost = async (post: any) => {
   try {
     await apiClient.delete(`/social/posts/${post.id}/`)

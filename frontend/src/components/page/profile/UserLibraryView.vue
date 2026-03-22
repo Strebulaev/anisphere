@@ -96,42 +96,6 @@
             <span class="leg-pct">({{ Math.round(seg.count / stats.total * 100) }}%)</span>
           </span>
         </div>
-
-        <!-- Подробная статистика -->
-        <div class="extra-stats">
-          <!-- Серии -->
-          <div class="es-group">
-            <div class="es-title">🎦 Серии</div>
-            <div class="es-row">
-              <span class="es-label">Просмотрено</span>
-              <span class="es-val">{{ (stats.episodes_watched ?? 0).toLocaleString('ru') }}</span>
-            </div>
-            <div v-if="(stats.episodes_remaining ?? 0) > 0" class="es-row">
-              <span class="es-label">Осталось (в процессе)</span>
-              <span class="es-val es-val--muted">{{ (stats.episodes_remaining ?? 0).toLocaleString('ru') }}</span>
-            </div>
-            <div v-if="(stats.episodes_planned ?? 0) > 0" class="es-row">
-              <span class="es-label">Запланировано</span>
-              <span class="es-val es-val--muted">{{ (stats.episodes_planned ?? 0).toLocaleString('ru') }}</span>
-            </div>
-          </div>
-          <!-- Коллекция -->
-          <div class="es-group">
-            <div class="es-title">📚 Коллекция</div>
-            <div v-for="seg in statusSegments" :key="seg.key + '-es'" class="es-row">
-              <span class="es-label">
-                <span class="es-dot" :style="{ background: seg.color }"></span>
-                {{ seg.label }}
-              </span>
-              <span class="es-val">{{ seg.count }}</span>
-            </div>
-            <div v-if="dropRate !== null" class="es-row es-row--highlight">
-              <span class="es-label">🚫 Доля брошенных</span>
-              <span class="es-val" :class="dropRate > 20 ? 'es-val--warn' : ''">{{ dropRate }}%</span>
-            </div>
-          </div>
-        </div>
-
       </div>
     </Transition>
 

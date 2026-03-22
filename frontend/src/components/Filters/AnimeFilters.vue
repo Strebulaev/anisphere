@@ -357,6 +357,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { KODIK_API_BASE, KODIK_API_TOKEN } from '../../config/kodik'
 import type { AnimeFilters as AnimeFiltersType } from '@/api/anime'
 
 // Расширяем тип локально — studio/country/age_rating уже есть в AnimeFiltersType
@@ -377,8 +378,8 @@ const emit = defineEmits<{
 }>()
 
 // ─── Константы ────────────────────────────────────────────────────────────────
-const KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
-const KODIK_BASE  = 'https://kodikapi.com'
+const KODIK_TOKEN = KODIK_API_TOKEN
+const KODIK_BASE  = KODIK_API_BASE
 const currentYear = new Date().getFullYear()
 
 // created_at — дата добавления записи в БД

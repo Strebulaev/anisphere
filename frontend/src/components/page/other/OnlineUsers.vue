@@ -55,7 +55,7 @@
         @click="openProfile(user.id)"
       >
         <div class="avatar" @click.stop="openProfile(user.id)">
-          <img :src="user.avatar || '/img/default-avatar.svg'" :alt="user.username" />
+          <img :src="user.avatar_url || user.avatar || '/img/default-avatar.svg'" :alt="user.username" />
           <div :class="['status-dot', { online: user.is_online }]"></div>
         </div>
         <div class="user-info" @click.stop="openProfile(user.id)">
@@ -184,8 +184,9 @@ const loadUsers = async () => {
     }
 
     const response = await api.get('/users/online/', { params })
-    users.value = response.data.users
-    total.value = response.data.total
+    // Ответ идёт в формате { results: [...], count: N }
+    users.value = response.data.results || response.data.users || []
+    total.value = response.data.count || response.data.total || users.value.length
   } catch (error) {
     console.error('Ошибка загрузки пользователей:', error)
   } finally {

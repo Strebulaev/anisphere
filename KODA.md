@@ -84,11 +84,6 @@ cd animecore
 
 # Запуск через Docker Compose
 docker-compose up -d
-
-# Доступ после запуска:
-# Frontend: http://localhost:80
-# Backend API: http://localhost:8000/api/
-# Admin: http://localhost:8000/admin/
 ```
 
 ### Ручной запуск Backend

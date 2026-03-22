@@ -284,7 +284,7 @@
       </div>
 
       <!-- Боковая панель: Популярное -->
-      <aside class="feed-sidebar" v-if="activeTab === 'feed'">
+      <!-- <aside class="feed-sidebar" v-if="activeTab === 'feed'">
         <div class="sidebar-title">🔥 Популярное</div>
         <div v-if="popularLoading" class="popular-loading">
           <div class="spinner-sm"></div>
@@ -310,7 +310,7 @@
             </div>
           </div>
         </div>
-      </aside>
+      </aside> -->
     </div>
   </div>
 

@@ -36,7 +36,7 @@
         </div>
 
         <div v-if="user.created_at" class="info-item">
-          <strong>📅 На сайте с:</strong>
+          <strong>🗓 На сайте с:</strong>
           <span>{{ formatDate(user.created_at) }}</span>
         </div>
 

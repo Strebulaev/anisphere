@@ -203,7 +203,19 @@ const getStatCount = (key: string): number => {
   if (!stats.value) return 0
   if (key === '') return stats.value.total
   if (key === 'favorite') return stats.value.favorites
-  return (stats.value as any)[key] ?? 0
+  // Для статусов используем соответствующие поля
+  const statusMap: Record<string, string> = {
+    'started': 'started',
+    'completed': 'completed', 
+    'planned': 'planned',
+    'on_hold': 'on_hold',
+    'dropped': 'dropped',
+  }
+  const field = statusMap[key]
+  if (field && typeof (stats.value as any)[field] === 'number') {
+    return (stats.value as any)[field]
+  }
+  return 0
 }
 
 const emptyMessage = computed(() => {
@@ -240,7 +252,9 @@ const loadItems = async () => {
     if (searchQuery.value.trim()) {
       params.search = searchQuery.value.trim()
     }
-    items.value = await libraryApi.getLibrary(params)
+    const response = await libraryApi.getLibrary(params)
+    // Бэкенд может вернуть { results: [...], count: N } или просто массив
+    items.value = Array.isArray(response) ? response : (response as any).results || []
   } catch (e) {
     console.error(e)
     error.value = true

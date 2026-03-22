@@ -1,5 +1,8 @@
 <template>
   <div class="settings-section">
+    <transition name="toast">
+      <div v-if="toast.visible" :class="['toast-notif', toast.type]">{{ toast.message }}</div>
+    </transition>
     <h2>Тема и оформление</h2>
 
     <div class="settings-group">
@@ -274,6 +277,15 @@ import { ref, onMounted, computed } from 'vue'
 import * as settingsApi from '@/api/settings'
 import { useTheme } from '@/composables/useTheme'
 
+// ── Toast ────────────────────────────────────────────────────────
+const toast = ref({ visible: false, message: '', type: 'success' as 'success' | 'error' })
+let _toastTimer: ReturnType<typeof setTimeout> | null = null
+const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+  if (_toastTimer) clearTimeout(_toastTimer)
+  toast.value = { visible: true, message: msg, type }
+  _toastTimer = setTimeout(() => (toast.value.visible = false), 3000)
+}
+
 const { currentTheme, accentColor, setTheme, setAccentColor } = useTheme()
 
 // Reactive data
@@ -371,6 +383,8 @@ const fetchSettings = async () => {
 const saveSettings = async () => {
   try {
     await settingsApi.updateThemeSettings({
+      theme: currentTheme.value,
+      accent_color: accentColor.value,
       use_shared_background: useSharedBackground.value,
       custom_background: selectedBackground.value,
       smooth_animations: smoothAnimations.value,
@@ -402,10 +416,10 @@ const saveSettings = async () => {
       smallEmojis: smallEmojis.value,
       highContrast: highContrast.value,
     }
-    alert('Настройки сохранены!')
+    showToast('Тема сохранена ✓')
   } catch (error) {
     console.error('Error saving theme settings:', error)
-    alert('Ошибка при сохранении настроек')
+    showToast('Ошибка при сохранении', 'error')
   }
 }
 
@@ -729,4 +743,14 @@ onMounted(() => {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.toast-notif {
+  position: fixed; top: 24px; right: 24px; z-index: 9999;
+  padding: 11px 18px; border-radius: 10px; font-size: 14px; font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,.3); pointer-events: none;
+}
+.toast-notif.success { background: #22c55e; color: #fff; }
+.toast-notif.error   { background: #ef4444; color: #fff; }
+.toast-enter-active, .toast-leave-active { transition: all .25s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-10px); }
 </style>

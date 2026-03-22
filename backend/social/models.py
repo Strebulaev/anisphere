@@ -1524,6 +1524,7 @@ class Report(models.Model):
     CONTENT_TYPE_CHOICES = [
         ('post', 'Пост'),
         ('comment', 'Комментарий'),
+        ('user', 'Пользователь'),
     ]
 
     # Кто жалуется
@@ -1702,6 +1703,31 @@ class UserNotInterested(models.Model):
 
     def __str__(self):
         return f"{self.user.username} not interested in {self.target_user.username}"
+
+
+class Favorite(models.Model):
+    """Избранное (универсальное для любого контента)"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+
+    # Полиморфная связь
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    # Папка для организации (опционально)
+    folder = models.CharField(max_length=100, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'content_type', 'object_id']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} favorited {self.content_type.model}#{self.object_id}"
 
 
 # Импорт дополнительных моделей для системы чатов

@@ -106,6 +106,33 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      // Маршрут /profile/@nickname — переходим на UserProfileView с поиском по никнейму
+      path: '/profile/@:nickname',
+      name: 'user-profile-by-nickname',
+      component: UserProfileView,
+      props: (route) => ({ nickname: route.params.nickname }),
+    },
+    {
+      // Альтернативный URL — короткая запись /@nickname
+      path: '/@:nickname',
+      name: 'user-short-nickname',
+      component: UserProfileView,
+      props: (route) => ({ nickname: route.params.nickname }),
+    },
+    {
+      path: '/admin',
+      name: 'admin',
+      component: () => import('@/components/page/admin/AdminDashboard.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/complaints',
+      name: 'admin-complaints',
+      component: () => import('@/components/page/admin/AdminDashboard.vue'),
+      props: { tab: 'complaints' },
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
       path: '/online',
       name: 'online',
       component: OnlineUsers,
@@ -328,6 +355,16 @@ router.beforeEach(async (to, from, next) => {
   if (to.matched.some(record => record.meta.requiresGuest)) {
     if (authStore.isAuthenticated) {
       next('/anime')
+      return
+    }
+  }
+
+  // Check if route requires admin
+  if (to.matched.some(record => record.meta.requiresAdmin)) {
+    const u = authStore.user
+    const isAdmin = u && (u.is_admin || u.is_staff || u.username === 'kaiden812')
+    if (!isAdmin) {
+      next('/')
       return
     }
   }

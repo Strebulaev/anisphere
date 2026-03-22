@@ -179,6 +179,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import apiClient from '@/api/client'
+import { normalizeKodikPlayerLink } from '@/config/kodik'
 import KodikPlayer from './KodikPlayer.vue'
 
 interface Translation {
@@ -255,7 +256,7 @@ const loadVideo = async () => {
     // Получаем ссылку на Kodik плеер через официальный API
     if (props.anime?.id) {
       const response = await apiClient.get(`/anime/${props.anime.id}/kodik_player/`)
-      const kodikLink = response.data.kodik_link
+      const kodikLink = normalizeKodikPlayerLink(response.data.kodik_link)
 
       if (kodikLink) {
         // Добавляем параметры в URL

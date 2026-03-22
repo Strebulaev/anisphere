@@ -41,6 +41,7 @@ export interface PrivateChat {
   is_pinned: boolean
   is_archived: boolean
   is_muted: boolean
+  isMuted?: boolean  // alias for compatibility
 }
 
 export interface GroupChatMember {
@@ -79,6 +80,7 @@ export interface GroupChat {
   is_public: boolean
   invite_token?: string
   user_member_settings?: MemberSettings
+  isMuted?: boolean  // alias for compatibility
 }
 
 export type Chat = PrivateChat | GroupChat

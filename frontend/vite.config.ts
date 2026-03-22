@@ -13,6 +13,7 @@ export default defineConfig({
     vueDevTools(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'generateSW',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'AnimeCore',
@@ -43,6 +44,7 @@ export default defineConfig({
       workbox: {
         navigateFallback: null,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // НЕ кэшируем API запросы - они должны идти напрямую
         runtimeCaching: [
           {
             // Кэширование изображений по расширению
@@ -59,22 +61,7 @@ export default defineConfig({
               }
             }
           },
-          {
-            // Кэширование API — сначала сеть, потом кэш
-            urlPattern: /\/api\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 1 день
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              },
-              networkTimeoutSeconds: 10
-            }
-          }
+          // Убрали кэширование API - пусть идёт напрямую
         ]
       }
     }),

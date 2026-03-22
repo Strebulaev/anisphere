@@ -1,12 +1,12 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Шрифты и размер</h2>
+    <h2>РЁСЂРёС„С‚С‹ Рё СЂР°Р·РјРµСЂ</h2>
 
     <div class="settings-group">
-      <h3>🔤 Размер текста</h3>
+      <h3>рџ”¤ Р Р°Р·РјРµСЂ С‚РµРєСЃС‚Р°</h3>
       
       <div class="size-control">
-        <span class="size-label small">Мелкий</span>
+        <span class="size-label small">РњРµР»РєРёР№</span>
         <input
           v-model="fontSize"
           type="range"
@@ -15,22 +15,22 @@
           step="1"
           class="size-slider"
         />
-        <span class="size-label large">Крупный</span>
+        <span class="size-label large">РљСЂСѓРїРЅС‹Р№</span>
         <span class="size-value">{{ fontSize }}px</span>
       </div>
 
       <div class="size-preview">
         <div class="preview-text" :style="{ fontSize: fontSize + 'px' }">
-          Пример текста для проверки размера шрифта. anisphere — лучший сервис для любителей аниме!
+          РџСЂРёРјРµСЂ С‚РµРєСЃС‚Р° РґР»СЏ РїСЂРѕРІРµСЂРєРё СЂР°Р·РјРµСЂР° С€СЂРёС„С‚Р°. anisphere вЂ” Р»СѓС‡С€РёР№ СЃРµСЂРІРёСЃ РґР»СЏ Р»СЋР±РёС‚РµР»РµР№ Р°РЅРёРјРµ!
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📏 Масштаб интерфейса</h3>
+      <h3>рџ“Џ РњР°СЃС€С‚Р°Р± РёРЅС‚РµСЂС„РµР№СЃР°</h3>
       
       <div class="scale-control">
-        <span class="scale-label">Уменьшить</span>
+        <span class="scale-label">РЈРјРµРЅСЊС€РёС‚СЊ</span>
         <input
           v-model="interfaceScale"
           type="range"
@@ -39,7 +39,7 @@
           step="5"
           class="scale-slider"
         />
-        <span class="scale-label">Увеличить</span>
+        <span class="scale-label">РЈРІРµР»РёС‡РёС‚СЊ</span>
         <span class="scale-value">{{ interfaceScale }}%</span>
       </div>
 
@@ -56,12 +56,12 @@
     </div>
 
     <div class="settings-group">
-      <h3>🎨 Шрифт</h3>
+      <h3>рџЋЁ РЁСЂРёС„С‚</h3>
       
       <div class="font-selector">
         <label class="font-option" :class="{ active: selectedFont === 'system' }">
           <input type="radio" v-model="selectedFont" value="system" />
-          <span class="font-preview system">Системный</span>
+          <span class="font-preview system">РЎРёСЃС‚РµРјРЅС‹Р№</span>
         </label>
 
         <label class="font-option" :class="{ active: selectedFont === 'Inter' }">
@@ -90,19 +90,19 @@
       </div>
 
       <div class="font-sample" :style="{ fontFamily: getFontFamily(selectedFont) }">
-        <p class="sample-title">Пример текста</p>
+        <p class="sample-title">РџСЂРёРјРµСЂ С‚РµРєСЃС‚Р°</p>
         <p class="sample-text">
-          anisphere — это платформа для любителей аниме, где вы можете смотреть, обсуждать и делиться своими любимыми титулами.
+          anisphere вЂ” СЌС‚Рѕ РїР»Р°С‚С„РѕСЂРјР° РґР»СЏ Р»СЋР±РёС‚РµР»РµР№ Р°РЅРёРјРµ, РіРґРµ РІС‹ РјРѕР¶РµС‚Рµ СЃРјРѕС‚СЂРµС‚СЊ, РѕР±СЃСѓР¶РґР°С‚СЊ Рё РґРµР»РёС‚СЊСЃСЏ СЃРІРѕРёРјРё Р»СЋР±РёРјС‹РјРё С‚РёС‚СѓР»Р°РјРё.
         </p>
-        <p class="sample-subtitle">Подзаголовок H2</p>
+        <p class="sample-subtitle">РџРѕРґР·Р°РіРѕР»РѕРІРѕРє H2</p>
         <p class="sample-body">
-          Обычный текст параграфа для проверки читаемости выбранного шрифта. Хорошо читаемый шрифт важен для комфортного использования приложения.
+          РћР±С‹С‡РЅС‹Р№ С‚РµРєСЃС‚ РїР°СЂР°РіСЂР°С„Р° РґР»СЏ РїСЂРѕРІРµСЂРєРё С‡РёС‚Р°РµРјРѕСЃС‚Рё РІС‹Р±СЂР°РЅРЅРѕРіРѕ С€СЂРёС„С‚Р°. РҐРѕСЂРѕС€Рѕ С‡РёС‚Р°РµРјС‹Р№ С€СЂРёС„С‚ РІР°Р¶РµРЅ РґР»СЏ РєРѕРјС„РѕСЂС‚РЅРѕРіРѕ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ РїСЂРёР»РѕР¶РµРЅРёСЏ.
         </p>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📐 Плотность интерфейса</h3>
+      <h3>рџ“ђ РџР»РѕС‚РЅРѕСЃС‚СЊ РёРЅС‚РµСЂС„РµР№СЃР°</h3>
       
       <div class="density-options">
         <label class="density-option" :class="{ active: density === 'compact' }">
@@ -113,8 +113,8 @@
             <div class="preview-line"></div>
           </div>
           <div class="density-info">
-            <span class="density-name">Компактный</span>
-            <span class="density-desc">Больше контента на экране</span>
+            <span class="density-name">РљРѕРјРїР°РєС‚РЅС‹Р№</span>
+            <span class="density-desc">Р‘РѕР»СЊС€Рµ РєРѕРЅС‚РµРЅС‚Р° РЅР° СЌРєСЂР°РЅРµ</span>
           </div>
         </label>
 
@@ -126,8 +126,8 @@
             <div class="preview-line"></div>
           </div>
           <div class="density-info">
-            <span class="density-name">Удобный</span>
-            <span class="density-desc">По умолчанию</span>
+            <span class="density-name">РЈРґРѕР±РЅС‹Р№</span>
+            <span class="density-desc">РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ</span>
           </div>
         </label>
 
@@ -139,32 +139,32 @@
             <div class="preview-line"></div>
           </div>
           <div class="density-info">
-            <span class="density-name">Просторный</span>
-            <span class="density-desc">Легче читать</span>
+            <span class="density-name">РџСЂРѕСЃС‚РѕСЂРЅС‹Р№</span>
+            <span class="density-desc">Р›РµРіС‡Рµ С‡РёС‚Р°С‚СЊ</span>
           </div>
         </label>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>⚙️ Специальные настройки</h3>
+      <h3>вљ™пёЏ РЎРїРµС†РёР°Р»СЊРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё</h3>
       
       <div class="special-settings">
         <label class="setting-option">
           <input type="checkbox" v-model="boldHeadings" />
           <span class="setting-icon">H</span>
           <span class="setting-text">
-            <span class="setting-name">Жирный шрифт для заголовков</span>
-            <span class="setting-desc">Все заголовки будут жирными</span>
+            <span class="setting-name">Р–РёСЂРЅС‹Р№ С€СЂРёС„С‚ РґР»СЏ Р·Р°РіРѕР»РѕРІРєРѕРІ</span>
+            <span class="setting-desc">Р’СЃРµ Р·Р°РіРѕР»РѕРІРєРё Р±СѓРґСѓС‚ Р¶РёСЂРЅС‹РјРё</span>
           </span>
         </label>
 
         <label class="setting-option">
           <input type="checkbox" v-model="increaseLineHeight" />
-          <span class="setting-icon">¶</span>
+          <span class="setting-icon">В¶</span>
           <span class="setting-text">
-            <span class="setting-name">Увеличить межстрочный интервал</span>
-            <span class="setting-desc">Улучшает читаемость длинных текстов</span>
+            <span class="setting-name">РЈРІРµР»РёС‡РёС‚СЊ РјРµР¶СЃС‚СЂРѕС‡РЅС‹Р№ РёРЅС‚РµСЂРІР°Р»</span>
+            <span class="setting-desc">РЈР»СѓС‡С€Р°РµС‚ С‡РёС‚Р°РµРјРѕСЃС‚СЊ РґР»РёРЅРЅС‹С… С‚РµРєСЃС‚РѕРІ</span>
           </span>
         </label>
 
@@ -172,52 +172,52 @@
           <input type="checkbox" v-model="monospaceCode" />
           <span class="setting-icon">&lt;/&gt;</span>
           <span class="setting-text">
-            <span class="setting-name">Моноширинный шрифт для кода</span>
-            <span class="setting-desc">Код будет отображаться моноширинным шрифтом</span>
+            <span class="setting-name">РњРѕРЅРѕС€РёСЂРёРЅРЅС‹Р№ С€СЂРёС„С‚ РґР»СЏ РєРѕРґР°</span>
+            <span class="setting-desc">РљРѕРґ Р±СѓРґРµС‚ РѕС‚РѕР±СЂР°Р¶Р°С‚СЊСЃСЏ РјРѕРЅРѕС€РёСЂРёРЅРЅС‹Рј С€СЂРёС„С‚РѕРј</span>
           </span>
         </label>
 
         <label class="setting-option">
           <input type="checkbox" v-model="reduceMotion" />
-          <span class="setting-icon">🚫</span>
+          <span class="setting-icon">рџљ«</span>
           <span class="setting-text">
-            <span class="setting-name">Уменьшить анимацию</span>
-            <span class="setting-desc">Отключить плавные переходы и анимации</span>
+            <span class="setting-name">РЈРјРµРЅСЊС€РёС‚СЊ Р°РЅРёРјР°С†РёСЋ</span>
+            <span class="setting-desc">РћС‚РєР»СЋС‡РёС‚СЊ РїР»Р°РІРЅС‹Рµ РїРµСЂРµС…РѕРґС‹ Рё Р°РЅРёРјР°С†РёРё</span>
           </span>
         </label>
 
         <label class="setting-option">
           <input type="checkbox" v-model="highContrastMode" />
-          <span class="setting-icon">◐</span>
+          <span class="setting-icon">в—ђ</span>
           <span class="setting-text">
-            <span class="setting-name">Высокий контраст</span>
-            <span class="setting-desc">Улучшает видимость для слабовидящих</span>
+            <span class="setting-name">Р’С‹СЃРѕРєРёР№ РєРѕРЅС‚СЂР°СЃС‚</span>
+            <span class="setting-desc">РЈР»СѓС‡С€Р°РµС‚ РІРёРґРёРјРѕСЃС‚СЊ РґР»СЏ СЃР»Р°Р±РѕРІРёРґСЏС‰РёС…</span>
           </span>
         </label>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>👁️ Предпросмотр</h3>
+      <h3>рџ‘ЃпёЏ РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ</h3>
       
       <div class="preview-container" :style="previewStyle">
         <div class="preview-content">
-          <h2 class="preview-heading">Заголовок H2</h2>
-          <h3 class="preview-subheading">Подзаголовок H3</h3>
+          <h2 class="preview-heading">Р—Р°РіРѕР»РѕРІРѕРє H2</h2>
+          <h3 class="preview-subheading">РџРѕРґР·Р°РіРѕР»РѕРІРѕРє H3</h3>
           <p class="preview-paragraph">
-            Это пример обычного текста. anisphere — отличный сервис для просмотра аниме онлайн.
-            Здесь вы можете найти множество интересных тайтлов и обсудить их с сообществом.
+            Р­С‚Рѕ РїСЂРёРјРµСЂ РѕР±С‹С‡РЅРѕРіРѕ С‚РµРєСЃС‚Р°. anisphere вЂ” РѕС‚Р»РёС‡РЅС‹Р№ СЃРµСЂРІРёСЃ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР° Р°РЅРёРјРµ РѕРЅР»Р°Р№РЅ.
+            Р—РґРµСЃСЊ РІС‹ РјРѕР¶РµС‚Рµ РЅР°Р№С‚Рё РјРЅРѕР¶РµСЃС‚РІРѕ РёРЅС‚РµСЂРµСЃРЅС‹С… С‚Р°Р№С‚Р»РѕРІ Рё РѕР±СЃСѓРґРёС‚СЊ РёС… СЃ СЃРѕРѕР±С‰РµСЃС‚РІРѕРј.
           </p>
           <div class="preview-buttons">
-            <button class="preview-btn primary">Основная кнопка</button>
-            <button class="preview-btn secondary">Вторичная кнопка</button>
+            <button class="preview-btn primary">РћСЃРЅРѕРІРЅР°СЏ РєРЅРѕРїРєР°</button>
+            <button class="preview-btn secondary">Р’С‚РѕСЂРёС‡РЅР°СЏ РєРЅРѕРїРєР°</button>
           </div>
           <div class="preview-list">
-            <h4>Список:</h4>
+            <h4>РЎРїРёСЃРѕРє:</h4>
             <ul>
-              <li>Первый пункт списка</li>
-              <li>Второй пункт списка</li>
-              <li>Третий пункт списка</li>
+              <li>РџРµСЂРІС‹Р№ РїСѓРЅРєС‚ СЃРїРёСЃРєР°</li>
+              <li>Р’С‚РѕСЂРѕР№ РїСѓРЅРєС‚ СЃРїРёСЃРєР°</li>
+              <li>РўСЂРµС‚РёР№ РїСѓРЅРєС‚ СЃРїРёСЃРєР°</li>
             </ul>
           </div>
         </div>
@@ -226,16 +226,18 @@
 
     <div class="settings-actions">
       <button @click="saveSettings" :disabled="!hasChanges" class="save-btn">
-        💾 Сохранить настройки
+        рџ’ѕ РЎРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё
       </button>
       <button @click="resetToDefaults" class="reset-btn">
-        ↻ Сбросить по умолчанию
+        в†» РЎР±СЂРѕСЃРёС‚СЊ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, computed, onMounted } from 'vue'
 import * as settingsApi from '@/api/settings'
 import { useTheme } from '@/composables/useTheme'
@@ -317,7 +319,7 @@ const fetchFontSettings = async () => {
       highContrastMode: highContrastMode.value
     }
 
-    // Применяем настройки к документу
+    // РџСЂРёРјРµРЅСЏРµРј РЅР°СЃС‚СЂРѕР№РєРё Рє РґРѕРєСѓРјРµРЅС‚Сѓ
     applyFontSettings(data)
   } catch (error) {
     console.error('Error fetching font settings:', error)
@@ -352,13 +354,13 @@ const saveSettings = async () => {
       highContrastMode: highContrastMode.value
     }
     
-    // Применяем настройки к документу
+    // РџСЂРёРјРµРЅСЏРµРј РЅР°СЃС‚СЂРѕР№РєРё Рє РґРѕРєСѓРјРµРЅС‚Сѓ
     applyFontSettings(data)
 
-    alert('Настройки сохранены!')
+    showToast('РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅРµРЅС‹!')
   } catch (error) {
     console.error('Error saving font settings:', error)
-    alert('Ошибка при сохранении настроек')
+    showToast('РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё РЅР°СЃС‚СЂРѕРµРє')
   }
 }
 

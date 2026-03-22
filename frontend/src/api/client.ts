@@ -3,13 +3,9 @@ import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 // Определяем baseURL для API
 let baseURL = import.meta.env.VITE_API_URL
 
-// Если переменная не задана, определяем по окружению
+// Если переменная не задана, используем текущий origin
 if (!baseURL) {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    baseURL = 'https://anisphere.ru/api'
-  } else {
-    baseURL = window.location.origin + '/api'
-  }
+  baseURL = window.location.origin + '/api'
 }
 
 // Убираем возможные дублирования /api
@@ -44,9 +40,8 @@ apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
-  } else {
-    console.log('⚠️ No token found, request will be unauthenticated')
   }
+  // Анонимные запросы нормальны — не логируем
   return config
 })
 
@@ -55,13 +50,11 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    console.log('🔴 Response error:', {
-      url: originalRequest?.url,
-      status: error.response?.status,
-      hasToken: !!localStorage.getItem('access_token'),
-      hasRefreshToken: !!localStorage.getItem('refresh_token'),
-      isRetry: originalRequest?._retry
-    })
+    // Логируем только неожиданные ошибки (5xx, не 401/403/404)
+    const status = error.response?.status
+    if (status && status >= 500) {
+      console.error(`⚠️ API ${status}:`, originalRequest?.url)
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true

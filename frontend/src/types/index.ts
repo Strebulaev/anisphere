@@ -39,6 +39,9 @@ export interface User {
   avatar?: string
   avatar_url?: string
   is_online?: boolean
+  is_admin?: boolean
+  is_staff?: boolean
+  is_superuser?: boolean
   status?: {
     status: string
     last_seen: string

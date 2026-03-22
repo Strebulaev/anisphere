@@ -44,17 +44,18 @@ const options = [
 ]
 
 const calcUntil = (value: string): string | null => {
+  if (value === 'forever') return null  // null = навсегда
   const now = Date.now()
   const map: Record<string, number> = {
-    '15m':    15 * 60 * 1000,
-    '1h':      1 * 60 * 60 * 1000,
-    '8h':      8 * 60 * 60 * 1000,
-    '2d':      2 * 24 * 60 * 60 * 1000,
-    '1w':      7 * 24 * 60 * 60 * 1000,
-    'forever': 0,
+    '15m': 15 * 60 * 1000,
+    '1h':   1 * 60 * 60 * 1000,
+    '8h':   8 * 60 * 60 * 1000,
+    '2d':   2 * 24 * 60 * 60 * 1000,
+    '1w':   7 * 24 * 60 * 60 * 1000,
   }
-  if (value === 'forever' || map != undefined) return null          // null = навсегда
-  return new Date(now + map[value]).toISOString()
+  const ms = map[value]
+  if (ms === undefined) return null
+  return new Date(now + ms).toISOString()
 }
 
 const select = (value: string) => {

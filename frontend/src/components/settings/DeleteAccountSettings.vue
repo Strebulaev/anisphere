@@ -1,117 +1,117 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Удаление аккаунта</h2>
+    <h2>РЈРґР°Р»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р°</h2>
 
     <!-- Step 1: Warning -->
     <div v-if="currentStep === 1" class="settings-group warning-group">
-      <div class="warning-icon">⚠️</div>
-      <h3>ВНИМАНИЕ!</h3>
+      <div class="warning-icon">вљ пёЏ</div>
+      <h3>Р’РќРРњРђРќРР•!</h3>
       <p class="warning-text">
-        Вы собираетесь удалить аккаунт. Это действие <strong>НЕОБРАТИМО</strong>.
-        Все ваши данные будут безвозвратно удалены:
+        Р’С‹ СЃРѕР±РёСЂР°РµС‚РµСЃСЊ СѓРґР°Р»РёС‚СЊ Р°РєРєР°СѓРЅС‚. Р­С‚Рѕ РґРµР№СЃС‚РІРёРµ <strong>РќР•РћР‘Р РђРўРРњРћ</strong>.
+        Р’СЃРµ РІР°С€Рё РґР°РЅРЅС‹Рµ Р±СѓРґСѓС‚ Р±РµР·РІРѕР·РІСЂР°С‚РЅРѕ СѓРґР°Р»РµРЅС‹:
       </p>
 
       <div class="data-summary">
         <div class="summary-item">
-          <span class="summary-icon">📋</span>
-          <span>Плейлисты ({{ accountStats.playlists_count }})</span>
+          <span class="summary-icon">рџ“‹</span>
+          <span>РџР»РµР№Р»РёСЃС‚С‹ ({{ accountStats.playlists_count }})</span>
         </div>
         <div class="summary-item">
-          <span class="summary-icon">🎬</span>
-          <span>Посты ({{ accountStats.posts_count }})</span>
+          <span class="summary-icon">рџЋ¬</span>
+          <span>РџРѕСЃС‚С‹ ({{ accountStats.posts_count }})</span>
         </div>
         <div class="summary-item">
-          <span class="summary-icon">💬</span>
-          <span>Комментарии ({{ accountStats.comments_count }})</span>
+          <span class="summary-icon">рџ’¬</span>
+          <span>РљРѕРјРјРµРЅС‚Р°СЂРёРё ({{ accountStats.comments_count }})</span>
         </div>
         <div class="summary-item">
-          <span class="summary-icon">⭐</span>
-          <span>Лайки получено ({{ accountStats.likes_received }})</span>
+          <span class="summary-icon">в­ђ</span>
+          <span>Р›Р°Р№РєРё РїРѕР»СѓС‡РµРЅРѕ ({{ accountStats.likes_received }})</span>
         </div>
         <div class="summary-item">
-          <span class="summary-icon">📩</span>
-          <span>Сообщения ({{ accountStats.messages_count }})</span>
+          <span class="summary-icon">рџ“©</span>
+          <span>РЎРѕРѕР±С‰РµРЅРёСЏ ({{ accountStats.messages_count }})</span>
         </div>
         <div class="summary-item">
-          <span class="summary-icon">💾</span>
-          <span>Библиотека ({{ accountStats.library_count }})</span>
+          <span class="summary-icon">рџ’ѕ</span>
+          <span>Р‘РёР±Р»РёРѕС‚РµРєР° ({{ accountStats.library_count }})</span>
         </div>
       </div>
 
       <div class="important-note">
-        <strong>❗ Важно:</strong>
+        <strong>вќ— Р’Р°Р¶РЅРѕ:</strong>
         <ul>
-          <li>Имя пользователя освободится для других</li>
-          <li>Анонимные данные (лайки, просмотры) останутся в статистике без привязки</li>
-          <li>Есть 7 дней на восстановление после удаления</li>
+          <li>РРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РѕСЃРІРѕР±РѕРґРёС‚СЃСЏ РґР»СЏ РґСЂСѓРіРёС…</li>
+          <li>РђРЅРѕРЅРёРјРЅС‹Рµ РґР°РЅРЅС‹Рµ (Р»Р°Р№РєРё, РїСЂРѕСЃРјРѕС‚СЂС‹) РѕСЃС‚Р°РЅСѓС‚СЃСЏ РІ СЃС‚Р°С‚РёСЃС‚РёРєРµ Р±РµР· РїСЂРёРІСЏР·РєРё</li>
+          <li>Р•СЃС‚СЊ 7 РґРЅРµР№ РЅР° РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ РїРѕСЃР»Рµ СѓРґР°Р»РµРЅРёСЏ</li>
         </ul>
       </div>
 
       <div class="action-buttons">
         <button @click="goToStep(2)" class="danger-btn">
-          Я понимаю, продолжить →
+          РЇ РїРѕРЅРёРјР°СЋ, РїСЂРѕРґРѕР»Р¶РёС‚СЊ в†’
         </button>
         <button @click="reset" class="cancel-btn">
-          Отмена
+          РћС‚РјРµРЅР°
         </button>
       </div>
     </div>
 
     <!-- Step 2: Reason -->
     <div v-if="currentStep === 2" class="settings-group">
-      <h3>🤔 Почему вы уходите?</h3>
-      <p class="info-text">Помогите нам улучшить сервис (можно выбрать несколько):</p>
+      <h3>рџ¤” РџРѕС‡РµРјСѓ РІС‹ СѓС…РѕРґРёС‚Рµ?</h3>
+      <p class="info-text">РџРѕРјРѕРіРёС‚Рµ РЅР°Рј СѓР»СѓС‡С€РёС‚СЊ СЃРµСЂРІРёСЃ (РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РЅРµСЃРєРѕР»СЊРєРѕ):</p>
 
       <div class="reasons-list">
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="interface" />
-          <span>😕 Неудобный интерфейс</span>
+          <span>рџ• РќРµСѓРґРѕР±РЅС‹Р№ РёРЅС‚РµСЂС„РµР№СЃ</span>
         </label>
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="content" />
-          <span>📺 Мало контента</span>
+          <span>рџ“є РњР°Р»Рѕ РєРѕРЅС‚РµРЅС‚Р°</span>
         </label>
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="community" />
-          <span>👥 Проблемы с сообществом</span>
+          <span>рџ‘Ґ РџСЂРѕР±Р»РµРјС‹ СЃ СЃРѕРѕР±С‰РµСЃС‚РІРѕРј</span>
         </label>
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="alternative" />
-          <span>🔄 Нашёл альтернативу</span>
+          <span>рџ”„ РќР°С€С‘Р» Р°Р»СЊС‚РµСЂРЅР°С‚РёРІСѓ</span>
         </label>
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="privacy" />
-          <span>🔒 Вопросы приватности</span>
+          <span>рџ”’ Р’РѕРїСЂРѕСЃС‹ РїСЂРёРІР°С‚РЅРѕСЃС‚Рё</span>
         </label>
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="performance" />
-          <span>⚡ Проблемы с производительностью</span>
+          <span>вљЎ РџСЂРѕР±Р»РµРјС‹ СЃ РїСЂРѕРёР·РІРѕРґРёС‚РµР»СЊРЅРѕСЃС‚СЊСЋ</span>
         </label>
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="ads" />
-          <span>📢 Слишком много рекламы</span>
+          <span>рџ“ў РЎР»РёС€РєРѕРј РјРЅРѕРіРѕ СЂРµРєР»Р°РјС‹</span>
         </label>
         <label class="reason-option">
           <input type="checkbox" v-model="reasons" value="other" />
-          <span>📝 Другое</span>
+          <span>рџ“ќ Р”СЂСѓРіРѕРµ</span>
         </label>
       </div>
 
       <div v-if="reasons.includes('alternative')" class="input-group">
-        <label>Какую альтернативу вы нашли?</label>
+        <label>РљР°РєСѓСЋ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІСѓ РІС‹ РЅР°С€Р»Рё?</label>
         <input
           v-model="alternativeName"
           type="text"
-          placeholder="Название сервиса"
+          placeholder="РќР°Р·РІР°РЅРёРµ СЃРµСЂРІРёСЃР°"
           class="text-input"
         />
       </div>
 
       <div v-if="reasons.includes('other')" class="input-group">
-        <label>Расскажите подробнее:</label>
+        <label>Р Р°СЃСЃРєР°Р¶РёС‚Рµ РїРѕРґСЂРѕР±РЅРµРµ:</label>
         <textarea
           v-model="otherReason"
-          placeholder="Ваши комментарии..."
+          placeholder="Р’Р°С€Рё РєРѕРјРјРµРЅС‚Р°СЂРёРё..."
           class="textarea-input"
           rows="3"
           maxlength="500"
@@ -121,46 +121,46 @@
 
       <div class="action-buttons">
         <button @click="goToStep(3)" class="proceed-btn">
-          Продолжить →
+          РџСЂРѕРґРѕР»Р¶РёС‚СЊ в†’
         </button>
         <button @click="goToStep(1)" class="back-btn">
-          ← Назад
+          в†ђ РќР°Р·Р°Рґ
         </button>
       </div>
     </div>
 
     <!-- Step 3: Confirmation -->
     <div v-if="currentStep === 3" class="settings-group">
-      <h3>🔐 Подтверждение удаления</h3>
+      <h3>рџ”ђ РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ СѓРґР°Р»РµРЅРёСЏ</h3>
 
       <div class="verification-methods">
         <label class="method-option">
           <input type="radio" v-model="verificationMethod" value="password" />
-          <span>🔑 Пароль</span>
+          <span>рџ”‘ РџР°СЂРѕР»СЊ</span>
         </label>
         <label v-if="accountStats.has_2fa" class="method-option">
           <input type="radio" v-model="verificationMethod" value="2fa" />
-          <span>🔐 Код 2FA</span>
+          <span>рџ”ђ РљРѕРґ 2FA</span>
         </label>
       </div>
 
       <div v-if="verificationMethod === 'password'" class="input-group">
-        <label>Для подтверждения введите ваш пароль:</label>
+        <label>Р”Р»СЏ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РІРІРµРґРёС‚Рµ РІР°С€ РїР°СЂРѕР»СЊ:</label>
         <div class="password-input">
           <input
             v-model="password"
             :type="showPassword ? 'text' : 'password'"
-            placeholder="················"
+            placeholder="В·В·В·В·В·В·В·В·В·В·В·В·В·В·В·В·"
             class="text-input"
           />
           <button @click="showPassword = !showPassword" class="toggle-visibility">
-            {{ showPassword ? '👁️' : '👁️‍🗨️' }}
+            {{ showPassword ? 'рџ‘ЃпёЏ' : 'рџ‘ЃпёЏвЂЌрџ—ЁпёЏ' }}
           </button>
         </div>
       </div>
 
       <div v-if="verificationMethod === '2fa'" class="input-group">
-        <label>Код из приложения-аутентификатора или SMS:</label>
+        <label>РљРѕРґ РёР· РїСЂРёР»РѕР¶РµРЅРёСЏ-Р°СѓС‚РµРЅС‚РёС„РёРєР°С‚РѕСЂР° РёР»Рё SMS:</label>
         <input
           v-model="twoFactorCode"
           type="text"
@@ -173,7 +173,7 @@
       <div class="final-check">
         <label class="checkbox-label">
           <input type="checkbox" v-model="finalConfirmation" />
-          <span>Я подтверждаю, что хочу удалить свой аккаунт и понимаю последствия</span>
+          <span>РЇ РїРѕРґС‚РІРµСЂР¶РґР°СЋ, С‡С‚Рѕ С…РѕС‡Сѓ СѓРґР°Р»РёС‚СЊ СЃРІРѕР№ Р°РєРєР°СѓРЅС‚ Рё РїРѕРЅРёРјР°СЋ РїРѕСЃР»РµРґСЃС‚РІРёСЏ</span>
         </label>
       </div>
 
@@ -183,57 +183,57 @@
           :disabled="!canConfirm || isDeleting"
           class="danger-btn"
         >
-          {{ isDeleting ? 'Подтверждение...' : '🗑️ Удалить аккаунт' }}
+          {{ isDeleting ? 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ...' : 'рџ—‘пёЏ РЈРґР°Р»РёС‚СЊ Р°РєРєР°СѓРЅС‚' }}
         </button>
         <button @click="goToStep(2)" class="back-btn">
-          ← Назад
+          в†ђ РќР°Р·Р°Рґ
         </button>
       </div>
     </div>
 
     <!-- Step 4: Success -->
     <div v-if="currentStep === 4" class="settings-group success-group">
-      <div class="success-icon">✅</div>
-      <h3>Запрос на удаление отправлен</h3>
+      <div class="success-icon">вњ…</div>
+      <h3>Р—Р°РїСЂРѕСЃ РЅР° СѓРґР°Р»РµРЅРёРµ РѕС‚РїСЂР°РІР»РµРЅ</h3>
       
       <div class="success-message">
         <p v-if="accountStats.deletion_date">
-          Ваш аккаунт будет удалён: <strong>{{ formatDate(accountStats.deletion_date) }}</strong>
+          Р’Р°С€ Р°РєРєР°СѓРЅС‚ Р±СѓРґРµС‚ СѓРґР°Р»С‘РЅ: <strong>{{ formatDate(accountStats.deletion_date) }}</strong>
         </p>
         <p v-else>
-          Ваш аккаунт будет удалён через <strong>7 дней</strong>.
+          Р’Р°С€ Р°РєРєР°СѓРЅС‚ Р±СѓРґРµС‚ СѓРґР°Р»С‘РЅ С‡РµСЂРµР· <strong>7 РґРЅРµР№</strong>.
         </p>
-        <p>В течение этого времени вы можете:</p>
+        <p>Р’ С‚РµС‡РµРЅРёРµ СЌС‚РѕРіРѕ РІСЂРµРјРµРЅРё РІС‹ РјРѕР¶РµС‚Рµ:</p>
         <ul>
-          <li>Войти и отменить удаление</li>
-          <li>Восстановить все свои данные</li>
+          <li>Р’РѕР№С‚Рё Рё РѕС‚РјРµРЅРёС‚СЊ СѓРґР°Р»РµРЅРёРµ</li>
+          <li>Р’РѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ РІСЃРµ СЃРІРѕРё РґР°РЅРЅС‹Рµ</li>
         </ul>
       </div>
 
       <div class="email-confirmation">
-        <p>📧 Письмо с подтверждением отправлено на:</p>
+        <p>рџ“§ РџРёСЃСЊРјРѕ СЃ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµРј РѕС‚РїСЂР°РІР»РµРЅРѕ РЅР°:</p>
         <p class="email">{{ accountStats.masked_email }}</p>
       </div>
 
       <div class="info-box">
-        <p>Если вы передумаете, просто войдите в аккаунт в течение 7 дней и нажмите "Отменить удаление".</p>
+        <p>Р•СЃР»Рё РІС‹ РїРµСЂРµРґСѓРјР°РµС‚Рµ, РїСЂРѕСЃС‚Рѕ РІРѕР№РґРёС‚Рµ РІ Р°РєРєР°СѓРЅС‚ РІ С‚РµС‡РµРЅРёРµ 7 РґРЅРµР№ Рё РЅР°Р¶РјРёС‚Рµ "РћС‚РјРµРЅРёС‚СЊ СѓРґР°Р»РµРЅРёРµ".</p>
       </div>
 
       <button @click="reset" class="ok-btn">
-        Понятно
+        РџРѕРЅСЏС‚РЅРѕ
       </button>
     </div>
 
     <!-- Cancel Deletion Modal (shown when user tries to login during grace period) -->
     <div v-if="showCancelModal" class="modal-overlay" @click="showCancelModal = false">
       <div class="modal" @click.stop>
-        <h3>Отменить удаление аккаунта?</h3>
-        <p>Мы заметили, что вы вошли в аккаунт, который находится в процессе удаления.</p>
-        <p>Хотите отменить удаление и восстановить доступ?</p>
+        <h3>РћС‚РјРµРЅРёС‚СЊ СѓРґР°Р»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р°?</h3>
+        <p>РњС‹ Р·Р°РјРµС‚РёР»Рё, С‡С‚Рѕ РІС‹ РІРѕС€Р»Рё РІ Р°РєРєР°СѓРЅС‚, РєРѕС‚РѕСЂС‹Р№ РЅР°С…РѕРґРёС‚СЃСЏ РІ РїСЂРѕС†РµСЃСЃРµ СѓРґР°Р»РµРЅРёСЏ.</p>
+        <p>РҐРѕС‚РёС‚Рµ РѕС‚РјРµРЅРёС‚СЊ СѓРґР°Р»РµРЅРёРµ Рё РІРѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ РґРѕСЃС‚СѓРї?</p>
         
         <div class="modal-actions">
-          <button @click="showCancelModal = false" class="cancel-btn">Нет, продолжить удаление</button>
-          <button @click="cancelDeletion" class="confirm-btn">Да, отменить удаление</button>
+          <button @click="showCancelModal = false" class="cancel-btn">РќРµС‚, РїСЂРѕРґРѕР»Р¶РёС‚СЊ СѓРґР°Р»РµРЅРёРµ</button>
+          <button @click="cancelDeletion" class="confirm-btn">Р”Р°, РѕС‚РјРµРЅРёС‚СЊ СѓРґР°Р»РµРЅРёРµ</button>
         </div>
       </div>
     </div>
@@ -241,6 +241,8 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, computed, onMounted } from 'vue'
 import * as settingsApi from '@/api/settings'
 
@@ -299,7 +301,7 @@ const fetchAccountStats = async () => {
     const data = await settingsApi.getAccountStats()
     accountStats.value = data
 
-    // Если удаление запланировано, пропускаем к шагу 4
+    // Р•СЃР»Рё СѓРґР°Р»РµРЅРёРµ Р·Р°РїР»Р°РЅРёСЂРѕРІР°РЅРѕ, РїСЂРѕРїСѓСЃРєР°РµРј Рє С€Р°РіСѓ 4
     if (data.deletion_scheduled) {
       currentStep.value = 4
     }
@@ -333,7 +335,7 @@ const confirmDeletion = async () => {
     currentStep.value = 4
   } catch (error: any) {
     console.error('Error deleting account:', error)
-    alert(error.response?.data?.error || 'Ошибка при удалении аккаунта. Проверьте правильность пароля или кода.')
+    showToast(error.response?.data?.error || 'РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё Р°РєРєР°СѓРЅС‚Р°. РџСЂРѕРІРµСЂСЊС‚Рµ РїСЂР°РІРёР»СЊРЅРѕСЃС‚СЊ РїР°СЂРѕР»СЏ РёР»Рё РєРѕРґР°.')
   } finally {
     isDeleting.value = false
   }
@@ -345,10 +347,10 @@ const cancelDeletion = async () => {
     showCancelModal.value = false
     await fetchAccountStats()
     currentStep.value = 1
-    alert('Удаление аккаунта отменено!')
+    showToast('РЈРґР°Р»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р° РѕС‚РјРµРЅРµРЅРѕ!')
   } catch (error) {
     console.error('Error canceling deletion:', error)
-    alert('Ошибка при отмене удаления')
+    showToast('РћС€РёР±РєР° РїСЂРё РѕС‚РјРµРЅРµ СѓРґР°Р»РµРЅРёСЏ')
   }
 }
 

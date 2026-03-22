@@ -1,14 +1,14 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Данные и хранилище</h2>
+    <h2>Р”Р°РЅРЅС‹Рµ Рё С…СЂР°РЅРёР»РёС‰Рµ</h2>
 
     <div class="storage-overview">
-      <h3>📊 Использование памяти</h3>
+      <h3>рџ“Љ РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ РїР°РјСЏС‚Рё</h3>
 
       <div class="storage-bars">
         <div class="storage-item">
           <div class="storage-label">
-            <span>💬 Сообщения</span>
+            <span>рџ’¬ РЎРѕРѕР±С‰РµРЅРёСЏ</span>
             <span>{{ formatBytes(storageUsage.messages) }} ({{ getPercentage(storageUsage.messages) }}%)</span>
           </div>
           <div class="progress-bar">
@@ -18,7 +18,7 @@
 
         <div class="storage-item">
           <div class="storage-label">
-            <span>📷 Медиа</span>
+            <span>рџ“· РњРµРґРёР°</span>
             <span>{{ formatBytes(storageUsage.media) }} ({{ getPercentage(storageUsage.media) }}%)</span>
           </div>
           <div class="progress-bar">
@@ -28,7 +28,7 @@
 
         <div class="storage-item">
           <div class="storage-label">
-            <span>📁 Документы</span>
+            <span>рџ“Ѓ Р”РѕРєСѓРјРµРЅС‚С‹</span>
             <span>{{ formatBytes(storageUsage.documents) }} ({{ getPercentage(storageUsage.documents) }}%)</span>
           </div>
           <div class="progress-bar">
@@ -38,7 +38,7 @@
 
         <div class="storage-item">
           <div class="storage-label">
-            <span>🎵 Аудио</span>
+            <span>рџЋµ РђСѓРґРёРѕ</span>
             <span>{{ formatBytes(storageUsage.audio) }} ({{ getPercentage(storageUsage.audio) }}%)</span>
           </div>
           <div class="progress-bar">
@@ -48,7 +48,7 @@
 
         <div class="storage-item">
           <div class="storage-label">
-            <span>🗃️ Кэш</span>
+            <span>рџ—ѓпёЏ РљСЌС€</span>
             <span>{{ formatBytes(storageUsage.cache) }} ({{ getPercentage(storageUsage.cache) }}%)</span>
           </div>
           <div class="progress-bar">
@@ -58,125 +58,127 @@
       </div>
 
       <div class="total-usage">
-        <span>Всего использовано: {{ formatBytes(storageUsage.total) }}</span>
-        <span>Лимит: 2 GB</span>
+        <span>Р’СЃРµРіРѕ РёСЃРїРѕР»СЊР·РѕРІР°РЅРѕ: {{ formatBytes(storageUsage.total) }}</span>
+        <span>Р›РёРјРёС‚: 2 GB</span>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>⚙️ Автоочистка</h3>
+      <h3>вљ™пёЏ РђРІС‚РѕРѕС‡РёСЃС‚РєР°</h3>
 
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="autoClearCache">
-          <span>Автоматически очищать кэш через {{ cacheClearDays }} дней</span>
+          <span>РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё РѕС‡РёС‰Р°С‚СЊ РєСЌС€ С‡РµСЂРµР· {{ cacheClearDays }} РґРЅРµР№</span>
         </label>
       </div>
 
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="autoClearMedia">
-          <span>Удалять просмотренные медиа через {{ mediaClearDays }} дней</span>
+          <span>РЈРґР°Р»СЏС‚СЊ РїСЂРѕСЃРјРѕС‚СЂРµРЅРЅС‹Рµ РјРµРґРёР° С‡РµСЂРµР· {{ mediaClearDays }} РґРЅРµР№</span>
         </label>
       </div>
 
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="autoClearDocuments">
-          <span>Удалять старые документы через {{ documentClearDays }} дней</span>
+          <span>РЈРґР°Р»СЏС‚СЊ СЃС‚Р°СЂС‹Рµ РґРѕРєСѓРјРµРЅС‚С‹ С‡РµСЂРµР· {{ documentClearDays }} РґРЅРµР№</span>
         </label>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>🔄 Синхронизация</h3>
+      <h3>рџ”„ РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ</h3>
 
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="wifiOnlySync">
-          <span>Автосинхронизация при Wi-Fi</span>
+          <span>РђРІС‚РѕСЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РїСЂРё Wi-Fi</span>
         </label>
       </div>
 
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="syncMedia">
-          <span>Синхронизировать медиа</span>
+          <span>РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ РјРµРґРёР°</span>
         </label>
       </div>
 
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="syncMessages">
-          <span>Синхронизировать сообщения</span>
+          <span>РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ СЃРѕРѕР±С‰РµРЅРёСЏ</span>
         </label>
       </div>
 
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="syncContacts">
-          <span>Синхронизировать контакты</span>
+          <span>РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ РєРѕРЅС‚Р°РєС‚С‹</span>
         </label>
       </div>
 
       <div class="setting-item">
-        <label>Лимит синхронизации:</label>
+        <label>Р›РёРјРёС‚ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё:</label>
         <select v-model="syncLimit" class="sync-select">
           <option value="500">500 MB</option>
           <option value="1000">1 GB</option>
           <option value="2000">2 GB</option>
-          <option value="unlimited">Без ограничений</option>
+          <option value="unlimited">Р‘РµР· РѕРіСЂР°РЅРёС‡РµРЅРёР№</option>
         </select>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📤 Экспорт данных</h3>
+      <h3>рџ“¤ Р­РєСЃРїРѕСЂС‚ РґР°РЅРЅС‹С…</h3>
 
       <div class="export-options">
         <button @click="exportMessages" class="export-btn">
-          📝 История сообщений →
+          рџ“ќ РСЃС‚РѕСЂРёСЏ СЃРѕРѕР±С‰РµРЅРёР№ в†’
         </button>
         <button @click="exportMedia" class="export-btn">
-          📷 Медиафайлы →
+          рџ“· РњРµРґРёР°С„Р°Р№Р»С‹ в†’
         </button>
         <button @click="exportContacts" class="export-btn">
-          👥 Контакты →
+          рџ‘Ґ РљРѕРЅС‚Р°РєС‚С‹ в†’
         </button>
         <button @click="exportSettings" class="export-btn">
-          ⚙️ Настройки →
+          вљ™пёЏ РќР°СЃС‚СЂРѕР№РєРё в†’
         </button>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>🗑️ Ручная очистка</h3>
+      <h3>рџ—‘пёЏ Р СѓС‡РЅР°СЏ РѕС‡РёСЃС‚РєР°</h3>
 
       <div class="cleanup-options">
         <button @click="clearMessages" class="cleanup-btn danger">
-          💬 Очистить историю сообщений →
+          рџ’¬ РћС‡РёСЃС‚РёС‚СЊ РёСЃС‚РѕСЂРёСЋ СЃРѕРѕР±С‰РµРЅРёР№ в†’
         </button>
         <button @click="clearMedia" class="cleanup-btn danger">
-          📷 Удалить все медиафайлы →
+          рџ“· РЈРґР°Р»РёС‚СЊ РІСЃРµ РјРµРґРёР°С„Р°Р№Р»С‹ в†’
         </button>
         <button @click="clearCache" class="cleanup-btn">
-          🗃️ Очистить кэш приложения →
+          рџ—ѓпёЏ РћС‡РёСЃС‚РёС‚СЊ РєСЌС€ РїСЂРёР»РѕР¶РµРЅРёСЏ в†’
         </button>
         <button @click="clearDownloads" class="cleanup-btn danger">
-          🚮 Удалить загруженные файлы →
+          рџљ® РЈРґР°Р»РёС‚СЊ Р·Р°РіСЂСѓР¶РµРЅРЅС‹Рµ С„Р°Р№Р»С‹ в†’
         </button>
       </div>
     </div>
 
     <div class="settings-actions">
       <button @click="recalculateUsage" class="recalc-btn">
-        🔄 Пересчитать использование
+        рџ”„ РџРµСЂРµСЃС‡РёС‚Р°С‚СЊ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, onMounted } from 'vue'
 import * as settingsApi from '@/api/settings'
 
@@ -240,10 +242,10 @@ const exportMessages = async () => {
       items: ['messages'],
       format: 'json'
     })
-    alert('Запрос на экспорт сообщений отправлен!')
+    showToast('Р—Р°РїСЂРѕСЃ РЅР° СЌРєСЃРїРѕСЂС‚ СЃРѕРѕР±С‰РµРЅРёР№ РѕС‚РїСЂР°РІР»РµРЅ!')
   } catch (error) {
     console.error('Error exporting messages:', error)
-    alert('Ошибка при экспорте')
+    showToast('РћС€РёР±РєР° РїСЂРё СЌРєСЃРїРѕСЂС‚Рµ')
   }
 }
 
@@ -253,10 +255,10 @@ const exportMedia = async () => {
       items: ['media'],
       format: 'json'
     })
-    alert('Запрос на экспорт медиа отправлен!')
+    showToast('Р—Р°РїСЂРѕСЃ РЅР° СЌРєСЃРїРѕСЂС‚ РјРµРґРёР° РѕС‚РїСЂР°РІР»РµРЅ!')
   } catch (error) {
     console.error('Error exporting media:', error)
-    alert('Ошибка при экспорте')
+    showToast('РћС€РёР±РєР° РїСЂРё СЌРєСЃРїРѕСЂС‚Рµ')
   }
 }
 
@@ -266,10 +268,10 @@ const exportContacts = async () => {
       items: ['contacts'],
       format: 'json'
     })
-    alert('Запрос на экспорт контактов отправлен!')
+    showToast('Р—Р°РїСЂРѕСЃ РЅР° СЌРєСЃРїРѕСЂС‚ РєРѕРЅС‚Р°РєС‚РѕРІ РѕС‚РїСЂР°РІР»РµРЅ!')
   } catch (error) {
     console.error('Error exporting contacts:', error)
-    alert('Ошибка при экспорте')
+    showToast('РћС€РёР±РєР° РїСЂРё СЌРєСЃРїРѕСЂС‚Рµ')
   }
 }
 
@@ -279,35 +281,35 @@ const exportSettings = async () => {
       items: ['settings'],
       format: 'json'
     })
-    alert('Запрос на экспорт настроек отправлен!')
+    showToast('Р—Р°РїСЂРѕСЃ РЅР° СЌРєСЃРїРѕСЂС‚ РЅР°СЃС‚СЂРѕРµРє РѕС‚РїСЂР°РІР»РµРЅ!')
   } catch (error) {
     console.error('Error exporting settings:', error)
-    alert('Ошибка при экспорте')
+    showToast('РћС€РёР±РєР° РїСЂРё СЌРєСЃРїРѕСЂС‚Рµ')
   }
 }
 
 const clearMessages = async () => {
-  if (confirm('Вы уверены, что хотите очистить историю сообщений?')) {
+  if (confirm('Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ РѕС‡РёСЃС‚РёС‚СЊ РёСЃС‚РѕСЂРёСЋ СЃРѕРѕР±С‰РµРЅРёР№?')) {
     try {
       await settingsApi.clearCache(['messages'])
       await fetchStorageUsage()
-      alert('История сообщений очищена!')
+      showToast('РСЃС‚РѕСЂРёСЏ СЃРѕРѕР±С‰РµРЅРёР№ РѕС‡РёС‰РµРЅР°!')
     } catch (error) {
       console.error('Error clearing messages:', error)
-      alert('Ошибка при очистке')
+      showToast('РћС€РёР±РєР° РїСЂРё РѕС‡РёСЃС‚РєРµ')
     }
   }
 }
 
 const clearMedia = async () => {
-  if (confirm('Вы уверены, что хотите удалить все медиафайлы?')) {
+  if (confirm('Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ РІСЃРµ РјРµРґРёР°С„Р°Р№Р»С‹?')) {
     try {
       await settingsApi.clearCache(['media', 'videos', 'images'])
       await fetchStorageUsage()
-      alert('Медиафайлы удалены!')
+      showToast('РњРµРґРёР°С„Р°Р№Р»С‹ СѓРґР°Р»РµРЅС‹!')
     } catch (error) {
       console.error('Error clearing media:', error)
-      alert('Ошибка при удалении')
+      showToast('РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё')
     }
   }
 }
@@ -316,22 +318,22 @@ const clearCache = async () => {
   try {
     await settingsApi.clearCache(['images', 'videos', 'search', 'thumbnails', 'temp'])
     await fetchStorageUsage()
-    alert('Кэш очищен!')
+    showToast('РљСЌС€ РѕС‡РёС‰РµРЅ!')
   } catch (error) {
     console.error('Error clearing cache:', error)
-    alert('Ошибка при очистке')
+    showToast('РћС€РёР±РєР° РїСЂРё РѕС‡РёСЃС‚РєРµ')
   }
 }
 
 const clearDownloads = async () => {
-  if (confirm('Вы уверены, что хотите удалить все загруженные файлы?')) {
+  if (confirm('Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ РІСЃРµ Р·Р°РіСЂСѓР¶РµРЅРЅС‹Рµ С„Р°Р№Р»С‹?')) {
     try {
       await settingsApi.clearCache(['documents', 'temp'])
       await fetchStorageUsage()
-      alert('Загруженные файлы удалены!')
+      showToast('Р—Р°РіСЂСѓР¶РµРЅРЅС‹Рµ С„Р°Р№Р»С‹ СѓРґР°Р»РµРЅС‹!')
     } catch (error) {
       console.error('Error clearing downloads:', error)
-      alert('Ошибка при удалении')
+      showToast('РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё')
     }
   }
 }

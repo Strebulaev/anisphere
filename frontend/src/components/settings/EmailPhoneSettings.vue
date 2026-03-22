@@ -1,80 +1,80 @@
-<template>
+﻿<template>
   <div class="settings-section">
-    <h2>Email и телефон</h2>
+    <h2>Email Рё С‚РµР»РµС„РѕРЅ</h2>
 
     <!-- Email Section -->
     <div class="settings-group">
-      <h3>📧 Email</h3>
+      <h3>рџ“§ Email</h3>
       
       <div class="contact-info">
         <div class="current-info">
-          <div class="info-label">Текущий email:</div>
+          <div class="info-label">РўРµРєСѓС‰РёР№ email:</div>
           <div class="info-value">
             {{ maskedEmail }}
-            <span v-if="emailVerified" class="verified-badge">✅ Подтверждён</span>
-            <span v-else class="unverified-badge">⚠️ Не подтверждён</span>
+            <span v-if="emailVerified" class="verified-badge">вњ… РџРѕРґС‚РІРµСЂР¶РґС‘РЅ</span>
+            <span v-else class="unverified-badge">вљ пёЏ РќРµ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ</span>
           </div>
         </div>
       </div>
 
       <div class="info-benefits">
-        <p>Что даёт подтверждённый email:</p>
+        <p>Р§С‚Рѕ РґР°С‘С‚ РїРѕРґС‚РІРµСЂР¶РґС‘РЅРЅС‹Р№ email:</p>
         <ul>
-          <li>✓ Восстановление пароля</li>
-          <li>✓ Двухфакторная аутентификация</li>
-          <li>✓ Важные уведомления о безопасности</li>
-          <li>✓ Еженедельные дайджесты и отчёты</li>
+          <li>вњ“ Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ РїР°СЂРѕР»СЏ</li>
+          <li>вњ“ Р”РІСѓС…С„Р°РєС‚РѕСЂРЅР°СЏ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёСЏ</li>
+          <li>вњ“ Р’Р°Р¶РЅС‹Рµ СѓРІРµРґРѕРјР»РµРЅРёСЏ Рѕ Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё</li>
+          <li>вњ“ Р•Р¶РµРЅРµРґРµР»СЊРЅС‹Рµ РґР°Р№РґР¶РµСЃС‚С‹ Рё РѕС‚С‡С‘С‚С‹</li>
         </ul>
       </div>
 
       <div class="action-buttons">
         <button v-if="!emailVerified" @click="showVerifyEmailModal = true" class="verify-btn">
-          📧 Подтвердить email
+          рџ“§ РџРѕРґС‚РІРµСЂРґРёС‚СЊ email
         </button>
         <button @click="showChangeEmailModal = true" class="change-btn">
-          ✏️ Изменить email
+          вњЏпёЏ РР·РјРµРЅРёС‚СЊ email
         </button>
       </div>
     </div>
 
     <!-- Phone Section -->
     <div class="settings-group">
-      <h3>📱 Телефон</h3>
+      <h3>рџ“± РўРµР»РµС„РѕРЅ</h3>
       
       <div class="contact-info">
         <div class="current-info">
-          <div class="info-label">Текущий телефон:</div>
+          <div class="info-label">РўРµРєСѓС‰РёР№ С‚РµР»РµС„РѕРЅ:</div>
           <div class="info-value">
-            {{ phone ? maskedPhone : 'Не указан' }}
-            <span v-if="phone && phoneVerified" class="verified-badge">✅ Подтверждён</span>
-            <span v-if="phone && !phoneVerified" class="unverified-badge">⚠️ Не подтверждён</span>
+            {{ phone ? maskedPhone : 'РќРµ СѓРєР°Р·Р°РЅ' }}
+            <span v-if="phone && phoneVerified" class="verified-badge">вњ… РџРѕРґС‚РІРµСЂР¶РґС‘РЅ</span>
+            <span v-if="phone && !phoneVerified" class="unverified-badge">вљ пёЏ РќРµ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ</span>
           </div>
         </div>
       </div>
 
       <div class="info-benefits">
-        <p>Что даёт подтверждённый телефон:</p>
+        <p>Р§С‚Рѕ РґР°С‘С‚ РїРѕРґС‚РІРµСЂР¶РґС‘РЅРЅС‹Р№ С‚РµР»РµС„РѕРЅ:</p>
         <ul>
-          <li>✓ Восстановление аккаунта через SMS</li>
-          <li>✓ SMS-код для 2FA</li>
-          <li>✓ Дополнительная безопасность</li>
-          <li>✓ Уведомления о входе</li>
+          <li>вњ“ Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р° С‡РµСЂРµР· SMS</li>
+          <li>вњ“ SMS-РєРѕРґ РґР»СЏ 2FA</li>
+          <li>вњ“ Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ Р±РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ</li>
+          <li>вњ“ РЈРІРµРґРѕРјР»РµРЅРёСЏ Рѕ РІС…РѕРґРµ</li>
         </ul>
       </div>
 
       <div class="action-buttons">
         <button v-if="!phone" @click="showAddPhoneModal = true" class="add-btn">
-          ➕ Добавить телефон
+          вћ• Р”РѕР±Р°РІРёС‚СЊ С‚РµР»РµС„РѕРЅ
         </button>
         <template v-else>
           <button v-if="!phoneVerified" @click="showVerifyPhoneModal = true" class="verify-btn">
-            📱 Подтвердить телефон
+            рџ“± РџРѕРґС‚РІРµСЂРґРёС‚СЊ С‚РµР»РµС„РѕРЅ
           </button>
           <button @click="showChangePhoneModal = true" class="change-btn">
-            ✏️ Изменить телефон
+            вњЏпёЏ РР·РјРµРЅРёС‚СЊ С‚РµР»РµС„РѕРЅ
           </button>
           <button @click="showRemovePhoneConfirm = true" class="remove-btn">
-            🗑️ Удалить
+            рџ—‘пёЏ РЈРґР°Р»РёС‚СЊ
           </button>
         </template>
       </div>
@@ -83,29 +83,29 @@
     <!-- Change Email Modal -->
     <div v-if="showChangeEmailModal" class="modal-overlay" @click="showChangeEmailModal = false">
       <div class="modal" @click.stop>
-        <h3>Изменить email</h3>
+        <h3>РР·РјРµРЅРёС‚СЊ email</h3>
         
         <div class="change-steps">
           <div class="step" :class="{ active: emailChangeStep >= 1, completed: emailChangeStep > 1 }">
             <div class="step-number">1</div>
-            <div class="step-text">Новый email</div>
+            <div class="step-text">РќРѕРІС‹Р№ email</div>
           </div>
-          <div class="step-arrow">→</div>
+          <div class="step-arrow">в†’</div>
           <div class="step" :class="{ active: emailChangeStep >= 2, completed: emailChangeStep > 2 }">
             <div class="step-number">2</div>
-            <div class="step-text">Код со старого</div>
+            <div class="step-text">РљРѕРґ СЃРѕ СЃС‚Р°СЂРѕРіРѕ</div>
           </div>
-          <div class="step-arrow">→</div>
+          <div class="step-arrow">в†’</div>
           <div class="step" :class="{ active: emailChangeStep >= 3, completed: emailChangeStep > 3 }">
             <div class="step-number">3</div>
-            <div class="step-text">Код с нового</div>
+            <div class="step-text">РљРѕРґ СЃ РЅРѕРІРѕРіРѕ</div>
           </div>
         </div>
 
         <!-- Step 1: Enter new email -->
         <div v-if="emailChangeStep === 1" class="modal-step">
           <div class="input-group">
-            <label>Новый email:</label>
+            <label>РќРѕРІС‹Р№ email:</label>
             <input
               v-model="newEmail"
               type="email"
@@ -118,7 +118,7 @@
           </div>
           
           <div class="input-group">
-            <label>Подтвердите новый email:</label>
+            <label>РџРѕРґС‚РІРµСЂРґРёС‚Рµ РЅРѕРІС‹Р№ email:</label>
             <input
               v-model="confirmNewEmail"
               type="email"
@@ -131,18 +131,18 @@
           </div>
 
           <button @click="sendOldEmailCode" :disabled="!canProceedEmailChange" class="proceed-btn">
-            Продолжить →
+            РџСЂРѕРґРѕР»Р¶РёС‚СЊ в†’
           </button>
         </div>
 
         <!-- Step 2: Code from old email -->
         <div v-if="emailChangeStep === 2" class="modal-step">
           <p class="info-text">
-            Код подтверждения отправлен на {{ maskedEmail }}
+            РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РѕС‚РїСЂР°РІР»РµРЅ РЅР° {{ maskedEmail }}
           </p>
           
           <div class="input-group">
-            <label>Код из старого email:</label>
+            <label>РљРѕРґ РёР· СЃС‚Р°СЂРѕРіРѕ email:</label>
             <input
               v-model="oldEmailCode"
               type="text"
@@ -153,23 +153,23 @@
           </div>
 
           <div class="resend-section">
-            <span v-if="emailCooldown > 0">Отправить повторно через {{ emailCooldown }} сек</span>
-            <button v-else @click="resendOldEmailCode" class="resend-btn">Отправить повторно</button>
+            <span v-if="emailCooldown > 0">РћС‚РїСЂР°РІРёС‚СЊ РїРѕРІС‚РѕСЂРЅРѕ С‡РµСЂРµР· {{ emailCooldown }} СЃРµРє</span>
+            <button v-else @click="resendOldEmailCode" class="resend-btn">РћС‚РїСЂР°РІРёС‚СЊ РїРѕРІС‚РѕСЂРЅРѕ</button>
           </div>
 
           <button @click="verifyOldEmailCode" :disabled="oldEmailCode.length !== 6" class="proceed-btn">
-            Продолжить →
+            РџСЂРѕРґРѕР»Р¶РёС‚СЊ в†’
           </button>
         </div>
 
         <!-- Step 3: Code from new email -->
         <div v-if="emailChangeStep === 3" class="modal-step">
           <p class="info-text">
-            Код подтверждения отправлен на {{ maskedNewEmail }}
+            РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РѕС‚РїСЂР°РІР»РµРЅ РЅР° {{ maskedNewEmail }}
           </p>
           
           <div class="input-group">
-            <label>Код из нового email:</label>
+            <label>РљРѕРґ РёР· РЅРѕРІРѕРіРѕ email:</label>
             <input
               v-model="newEmailCode"
               type="text"
@@ -180,24 +180,24 @@
           </div>
 
           <div class="resend-section">
-            <span v-if="emailCooldown > 0">Отправить повторно через {{ emailCooldown }} сек</span>
-            <button v-else @click="resendNewEmailCode" class="resend-btn">Отправить повторно</button>
+            <span v-if="emailCooldown > 0">РћС‚РїСЂР°РІРёС‚СЊ РїРѕРІС‚РѕСЂРЅРѕ С‡РµСЂРµР· {{ emailCooldown }} СЃРµРє</span>
+            <button v-else @click="resendNewEmailCode" class="resend-btn">РћС‚РїСЂР°РІРёС‚СЊ РїРѕРІС‚РѕСЂРЅРѕ</button>
           </div>
 
           <button @click="confirmEmailChange" :disabled="newEmailCode.length !== 6" class="confirm-btn">
-            ✅ Подтвердить изменение
+            вњ… РџРѕРґС‚РІРµСЂРґРёС‚СЊ РёР·РјРµРЅРµРЅРёРµ
           </button>
         </div>
 
-        <button @click="closeEmailModal" class="cancel-btn">Отмена</button>
+        <button @click="closeEmailModal" class="cancel-btn">РћС‚РјРµРЅР°</button>
       </div>
     </div>
 
     <!-- Verify Email Modal -->
     <div v-if="showVerifyEmailModal" class="modal-overlay" @click="showVerifyEmailModal = false">
       <div class="modal" @click.stop>
-        <h3>Подтвердить email</h3>
-        <p>Код подтверждения будет отправлен на {{ maskedEmail }}</p>
+        <h3>РџРѕРґС‚РІРµСЂРґРёС‚СЊ email</h3>
+        <p>РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ Р±СѓРґРµС‚ РѕС‚РїСЂР°РІР»РµРЅ РЅР° {{ maskedEmail }}</p>
         
         <div class="input-group">
           <input
@@ -210,26 +210,26 @@
         </div>
 
         <button @click="verifyEmail" :disabled="verifyEmailCode.length !== 6" class="confirm-btn">
-          ✅ Подтвердить
+          вњ… РџРѕРґС‚РІРµСЂРґРёС‚СЊ
         </button>
-        <button @click="showVerifyEmailModal = false" class="cancel-btn">Отмена</button>
+        <button @click="showVerifyEmailModal = false" class="cancel-btn">РћС‚РјРµРЅР°</button>
       </div>
     </div>
 
     <!-- Add Phone Modal -->
     <div v-if="showAddPhoneModal" class="modal-overlay" @click="showAddPhoneModal = false">
       <div class="modal" @click.stop>
-        <h3>Добавить телефон</h3>
+        <h3>Р”РѕР±Р°РІРёС‚СЊ С‚РµР»РµС„РѕРЅ</h3>
         
         <div class="input-group">
-          <label>Номер телефона:</label>
+          <label>РќРѕРјРµСЂ С‚РµР»РµС„РѕРЅР°:</label>
           <div class="phone-input">
             <select v-model="phoneCountry" class="country-select">
-              <option value="+7">🇷🇺 +7</option>
-              <option value="+380">🇺🇦 +380</option>
-              <option value="+375">🇧🇾 +375</option>
-              <option value="+998">🇺🇿 +998</option>
-              <option value="+1">🇺🇸 +1</option>
+              <option value="+7">рџ‡·рџ‡є +7</option>
+              <option value="+380">рџ‡єрџ‡¦ +380</option>
+              <option value="+375">рџ‡§рџ‡ѕ +375</option>
+              <option value="+998">рџ‡єрџ‡ї +998</option>
+              <option value="+1">рџ‡єрџ‡ё +1</option>
             </select>
             <input
               v-model="phoneNumber"
@@ -242,17 +242,17 @@
         </div>
 
         <button @click="addPhone" :disabled="!isValidPhone" class="proceed-btn">
-          Продолжить →
+          РџСЂРѕРґРѕР»Р¶РёС‚СЊ в†’
         </button>
-        <button @click="showAddPhoneModal = false" class="cancel-btn">Отмена</button>
+        <button @click="showAddPhoneModal = false" class="cancel-btn">РћС‚РјРµРЅР°</button>
       </div>
     </div>
 
     <!-- Verify Phone Modal -->
     <div v-if="showVerifyPhoneModal" class="modal-overlay" @click="showVerifyPhoneModal = false">
       <div class="modal" @click.stop>
-        <h3>Подтвердить телефон</h3>
-        <p>SMS с кодом отправлена на {{ maskedPhone }}</p>
+        <h3>РџРѕРґС‚РІРµСЂРґРёС‚СЊ С‚РµР»РµС„РѕРЅ</h3>
+        <p>SMS СЃ РєРѕРґРѕРј РѕС‚РїСЂР°РІР»РµРЅР° РЅР° {{ maskedPhone }}</p>
         
         <div class="input-group">
           <input
@@ -265,27 +265,27 @@
         </div>
 
         <button @click="verifyPhone" :disabled="verifyPhoneCode.length !== 6" class="confirm-btn">
-          ✅ Подтвердить
+          вњ… РџРѕРґС‚РІРµСЂРґРёС‚СЊ
         </button>
-        <button @click="showVerifyPhoneModal = false" class="cancel-btn">Отмена</button>
+        <button @click="showVerifyPhoneModal = false" class="cancel-btn">РћС‚РјРµРЅР°</button>
       </div>
     </div>
 
     <!-- Remove Phone Confirm Modal -->
     <div v-if="showRemovePhoneConfirm" class="modal-overlay" @click="showRemovePhoneConfirm = false">
       <div class="modal danger-modal" @click.stop>
-        <h3>⚠️ Удалить телефон?</h3>
-        <p>Вы уверены, что хотите удалить привязанный телефон?</p>
-        <p class="warning">Это действие:</p>
+        <h3>вљ пёЏ РЈРґР°Р»РёС‚СЊ С‚РµР»РµС„РѕРЅ?</h3>
+        <p>Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ РїСЂРёРІСЏР·Р°РЅРЅС‹Р№ С‚РµР»РµС„РѕРЅ?</p>
+        <p class="warning">Р­С‚Рѕ РґРµР№СЃС‚РІРёРµ:</p>
         <ul>
-          <li>Отключит SMS-уведомления</li>
-          <li>Отключит 2FA через SMS</li>
-          <li>Уменьшит безопасность аккаунта</li>
+          <li>РћС‚РєР»СЋС‡РёС‚ SMS-СѓРІРµРґРѕРјР»РµРЅРёСЏ</li>
+          <li>РћС‚РєР»СЋС‡РёС‚ 2FA С‡РµСЂРµР· SMS</li>
+          <li>РЈРјРµРЅСЊС€РёС‚ Р±РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ Р°РєРєР°СѓРЅС‚Р°</li>
         </ul>
         
         <div class="modal-actions">
-          <button @click="showRemovePhoneConfirm = false" class="cancel-btn">Отмена</button>
-          <button @click="removePhone" class="danger-btn">Удалить</button>
+          <button @click="showRemovePhoneConfirm = false" class="cancel-btn">РћС‚РјРµРЅР°</button>
+          <button @click="removePhone" class="danger-btn">РЈРґР°Р»РёС‚СЊ</button>
         </div>
       </div>
     </div>
@@ -293,6 +293,8 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
+const { show: showToast } = useToast()
 import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/api/client'
 
@@ -376,9 +378,9 @@ const fetchContactInfo = async () => {
 const validateEmail = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(newEmail.value)) {
-    emailError.value = 'Некорректный email'
+    emailError.value = 'РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ email'
   } else if (newEmail.value === email.value) {
-    emailError.value = 'Новый email должен отличаться от текущего'
+    emailError.value = 'РќРѕРІС‹Р№ email РґРѕР»Р¶РµРЅ РѕС‚Р»РёС‡Р°С‚СЊСЃСЏ РѕС‚ С‚РµРєСѓС‰РµРіРѕ'
   } else {
     emailError.value = ''
   }
@@ -386,7 +388,7 @@ const validateEmail = () => {
 
 const validateConfirmEmail = () => {
   if (newEmail.value !== confirmNewEmail.value) {
-    confirmEmailError.value = 'Email не совпадает'
+    confirmEmailError.value = 'Email РЅРµ СЃРѕРІРїР°РґР°РµС‚'
   } else {
     confirmEmailError.value = ''
   }
@@ -412,7 +414,7 @@ const verifyOldEmailCode = async () => {
     emailChangeStep.value = 3
   } catch (error) {
     console.error('Error verifying old email code:', error)
-    alert('Неверный код')
+    showToast('РќРµРІРµСЂРЅС‹Р№ РєРѕРґ')
   }
 }
 
@@ -437,10 +439,10 @@ const confirmEmailChange = async () => {
     email.value = newEmail.value
     emailVerified.value = true
     closeEmailModal()
-    alert('Email успешно изменён!')
+    showToast('Email СѓСЃРїРµС€РЅРѕ РёР·РјРµРЅС‘РЅ!')
   } catch (error) {
     console.error('Error confirming email change:', error)
-    alert('Неверный код')
+    showToast('РќРµРІРµСЂРЅС‹Р№ РєРѕРґ')
   }
 }
 
@@ -451,10 +453,10 @@ const verifyEmail = async () => {
     })
     emailVerified.value = true
     showVerifyEmailModal.value = false
-    alert('Email успешно подтверждён!')
+    showToast('Email СѓСЃРїРµС€РЅРѕ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ!')
   } catch (error) {
     console.error('Error verifying email:', error)
-    alert('Неверный код')
+    showToast('РќРµРІРµСЂРЅС‹Р№ РєРѕРґ')
   }
 }
 
@@ -481,7 +483,7 @@ const addPhone = async () => {
     showVerifyPhoneModal.value = true
   } catch (error) {
     console.error('Error adding phone:', error)
-    alert('Ошибка при добавлении телефона')
+    showToast('РћС€РёР±РєР° РїСЂРё РґРѕР±Р°РІР»РµРЅРёРё С‚РµР»РµС„РѕРЅР°')
   }
 }
 
@@ -492,10 +494,10 @@ const verifyPhone = async () => {
     })
     phoneVerified.value = true
     showVerifyPhoneModal.value = false
-    alert('Телефон успешно подтверждён!')
+    showToast('РўРµР»РµС„РѕРЅ СѓСЃРїРµС€РЅРѕ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ!')
   } catch (error) {
     console.error('Error verifying phone:', error)
-    alert('Неверный код')
+    showToast('РќРµРІРµСЂРЅС‹Р№ РєРѕРґ')
   }
 }
 
@@ -505,10 +507,10 @@ const removePhone = async () => {
     phone.value = ''
     phoneVerified.value = false
     showRemovePhoneConfirm.value = false
-    alert('Телефон удалён')
+    showToast('РўРµР»РµС„РѕРЅ СѓРґР°Р»С‘РЅ')
   } catch (error) {
     console.error('Error removing phone:', error)
-    alert('Ошибка при удалении телефона')
+    showToast('РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё С‚РµР»РµС„РѕРЅР°')
   }
 }
 

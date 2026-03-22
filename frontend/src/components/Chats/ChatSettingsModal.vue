@@ -1170,8 +1170,8 @@ async function loadSettings() {
 async function loadNotifSettings() {
   try {
     const url = props.chatType === 'private'
-      ? `/social/private-chats/${props.chatId}/user-settings/`
-      : `/social/group-chats/${props.chatId}/member-settings/`
+      ? `/social/private-chats/${props.chatId}/settings/`
+      : `/social/group-chats/${props.chatId}/notification-settings/`
     const { data } = await apiClient.get(url)
     Object.assign(notifForm.value, {
       notifications_enabled: data.notifications_enabled ?? true,
@@ -1331,9 +1331,8 @@ async function unmuteChat() {
     if (props.chatType === 'private') {
       await apiClient.post(`/social/private-chats/${props.chatId}/unmute/`)
     } else {
-      await apiClient.put(`/social/group-chats/${props.chatId}/member-settings/`, {
-        notifications_enabled: true, muted_until: null,
-      })
+      // Используем новый дедикированный эндпойнт
+      await apiClient.post(`/social/group-chats/${props.chatId}/unmute/`)
     }
     notifForm.value.muted_until = null
     notifForm.value.notifications_enabled = true
@@ -1344,10 +1343,35 @@ async function unmuteChat() {
 
 async function saveOrganizeSettings() {
   try {
-    const url = props.chatType === 'private'
-      ? `/social/private-chats/${props.chatId}/user-settings/`
-      : `/social/group-chats/${props.chatId}/member-settings/`
-    await apiClient.put(url, organizeForm.value)
+    if (props.chatType === 'private') {
+      // Для личных чатов — все настройки через один эндпойнт
+      await apiClient.put(`/social/private-chats/${props.chatId}/settings/`, organizeForm.value)
+    } else {
+      // Для групп — архивацию и закрепление через специальные эндпойнты
+      const tasks: Promise<any>[] = []
+
+      // Архивация
+      if ('is_archived' in organizeForm.value) {
+        tasks.push(
+          apiClient.post(`/social/group-chats/${props.chatId}/archive/`, {
+            is_archived: organizeForm.value.is_archived
+          })
+        )
+      }
+
+      // Закрепление и остальные через member-settings
+      const memberSettings: Record<string, any> = {}
+      if ('is_pinned' in organizeForm.value) memberSettings.is_pinned = organizeForm.value.is_pinned
+      if ('tags' in organizeForm.value) memberSettings.tags = organizeForm.value.tags
+      if (Object.keys(memberSettings).length > 0) {
+        tasks.push(
+          apiClient.put(`/social/group-chats/${props.chatId}/member-settings/`, memberSettings)
+        )
+      }
+
+      await Promise.all(tasks)
+    }
+
     showToast('✅ Сохранено')
     emit('settings-saved', { type: 'organize', ...organizeForm.value })
   } catch { showToast('Ошибка', 'error') }
@@ -1356,7 +1380,7 @@ async function saveOrganizeSettings() {
 async function blockUser() {
   if (!confirm('Заблокировать пользователя?')) return
   try {
-    await apiClient.post(`/social/priv  ate-chats/${props.chatId}/block/`)
+    await apiClient.post(`/social/private-chats/${props.chatId}/block/`)
     privacyForm.value.is_blocked = true
     showToast('🚫 Пользователь заблокирован')
   } catch { showToast('Ошибка', 'error') }

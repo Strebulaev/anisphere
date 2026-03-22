@@ -1,531 +1,476 @@
 <template>
-  <div class="settings-section">
-    <h2>Редактировать профиль</h2>
+  <div class="account-settings">
 
+    <!-- Уведомления -->
+    <transition name="toast">
+      <div v-if="toast.visible" :class="['toast', toast.type]">
+        {{ toast.message }}
+      </div>
+    </transition>
+
+    <!-- Аватар -->
     <div class="settings-group">
       <h3>📸 Аватар</h3>
-      <div class="avatar-section">
+      <div class="avatar-row">
         <div class="avatar-preview">
-          <img v-if="profileData.avatar" :src="profileData.avatar" alt="Аватар" />
-          <div v-else class="avatar-placeholder">👤</div>
+          <img v-if="form.avatar_url" :src="form.avatar_url" alt="Аватар" />
+          <div v-else class="avatar-placeholder">{{ userInitials }}</div>
         </div>
         <div class="avatar-actions">
-          <input
-            ref="avatarInput"
-            type="file"
-            accept="image/jpeg,image/png"
-            @change="handleAvatarChange"
-            class="hidden-input"
-          />
-          <button @click="selectAvatar" class="upload-btn">
-            📁 Загрузить фото
+          <input ref="avatarInput" type="file" accept="image/jpeg,image/png,image/webp"
+                 class="hidden-input" @change="handleAvatarUpload" />
+          <button class="btn-primary" @click="avatarInput?.click()" :disabled="saving.avatar">
+            {{ saving.avatar ? 'Загрузка...' : '📁 Загрузить фото' }}
           </button>
-          <button v-if="profileData.avatar" @click="removeAvatar" class="remove-btn">
-            🗑️ Удалить
+          <button v-if="form.avatar_url" class="btn-danger" @click="removeAvatar" :disabled="saving.avatar">
+            🗑 Удалить
           </button>
         </div>
-        <p class="avatar-hint">JPEG/PNG, минимум 200x200px, до 5MB</p>
+        <p class="hint">JPEG / PNG / WebP, до 5 МБ</p>
       </div>
     </div>
 
+    <!-- Имя / никнейм -->
     <div class="settings-group">
-      <h3>👤 Имя (никнейм)</h3>
-      <div class="input-group">
-        <label>Отображаемое имя:</label>
-        <input
-          v-model="profileData.display_name"
-          type="text"
-          placeholder="Введите имя"
-          class="text-input"
-          :class="{ 'has-error': displayNameError }"
-          @input="validateDisplayName"
-        />
-        <span v-if="displayNameError" class="error-message">{{ displayNameError }}</span>
-        <span class="input-hint">3-30 символов, буквы, цифры, _, -</span>
+      <h3>👤 Имя</h3>
+      <div class="field-row">
+        <div class="field">
+          <label>Отображаемое имя</label>
+          <input v-model="form.display_name" type="text" placeholder="Твоё имя"
+                 class="input" :class="{ error: errors.display_name }"
+                 maxlength="50" @input="clearError('display_name')" />
+          <span v-if="errors.display_name" class="error-msg">{{ errors.display_name }}</span>
+        </div>
+        <div class="field">
+          <label>Никнейм (@username)</label>
+          <div class="input-with-icon">
+            <span class="prefix">@</span>
+            <input v-model="form.nickname" type="text" placeholder="nickname"
+                   class="input with-prefix" :class="{ error: errors.nickname }"
+                   maxlength="30" @input="onNicknameInput" />
+          </div>
+          <span v-if="errors.nickname" class="error-msg">{{ errors.nickname }}</span>
+          <span v-else-if="nicknameAvailable === true" class="ok-msg">✓ Доступен</span>
+          <span class="hint">3–30 символов: буквы, цифры, _ -</span>
+        </div>
       </div>
     </div>
 
+    <!-- О себе -->
     <div class="settings-group">
-      <h3>📝 Bio / О себе</h3>
-      <div class="input-group">
-        <textarea
-          v-model="profileData.bio"
-          placeholder="Расскажите о себе..."
-          class="textarea-input"
-          rows="4"
-          maxlength="500"
-        ></textarea>
-        <div class="char-count">{{ profileData.bio?.length || 0 }}/500</div>
-      </div>
+      <h3>📝 О себе</h3>
+      <textarea v-model="form.bio" class="textarea" rows="4" maxlength="500"
+                placeholder="Расскажи о себе..."></textarea>
+      <div class="char-count">{{ form.bio?.length || 0 }} / 500</div>
     </div>
 
+    <!-- Дата рождения -->
     <div class="settings-group">
       <h3>🎂 Дата рождения</h3>
-      <div class="input-group">
-        <label>Дата рождения:</label>
-        <input
-          v-model="profileData.birth_date"
-          type="date"
-          class="date-input"
-        />
-        <span class="input-hint">Используется для возрастных ограничений контента (18+)</span>
-      </div>
+      <input v-model="form.birth_date" type="date" class="input date-input" />
+      <span class="hint">Используется для возрастных ограничений контента</span>
     </div>
 
+    <!-- Ссылки на соцсети -->
     <div class="settings-group">
-      <h3>🔗 Ссылки на соцсети</h3>
-      <div class="social-links">
-        <div v-for="(link, index) in socialLinks" :key="index" class="social-link-item">
-          <select v-model="link.platform" class="platform-select">
+      <h3>🔗 Социальные сети</h3>
+      <div class="social-list">
+        <div v-for="(link, idx) in form.social_links" :key="idx" class="social-item">
+          <select v-model="link.platform" class="select">
             <option value="telegram">Telegram</option>
             <option value="vk">VK</option>
             <option value="youtube">YouTube</option>
-            <option value="twitter">Twitter/X</option>
+            <option value="twitter">X (Twitter)</option>
             <option value="instagram">Instagram</option>
             <option value="discord">Discord</option>
             <option value="other">Другое</option>
           </select>
-          <input
-            v-model="link.url"
-            type="url"
-            placeholder="https://..."
-            class="url-input"
-          />
-          <button @click="removeSocialLink(index)" class="remove-link-btn">✕</button>
+          <input v-model="link.url" type="url" placeholder="https://..." class="input" />
+          <button class="btn-icon-danger" @click="removeSocialLink(idx)" title="Удалить">✕</button>
         </div>
-        <button @click="addSocialLink" class="add-link-btn">
-          ➕ Добавить ссылку
-        </button>
+        <button class="btn-dashed" @click="addSocialLink">➕ Добавить ссылку</button>
       </div>
     </div>
 
+    <!-- Статус -->
     <div class="settings-group">
       <h3>🟢 Статус</h3>
-      <div class="status-options">
-        <label class="status-option" :class="{ active: profileData.status === 'online' }">
-          <input type="radio" v-model="profileData.status" value="online" />
-          <span class="status-dot online"></span>
-          <span>Онлайн</span>
-        </label>
-        <label class="status-option" :class="{ active: profileData.status === 'away' }">
-          <input type="radio" v-model="profileData.status" value="away" />
-          <span class="status-dot away"></span>
-          <span>Отошёл</span>
-        </label>
-        <label class="status-option" :class="{ active: profileData.status === 'invisible' }">
-          <input type="radio" v-model="profileData.status" value="invisible" />
-          <span class="status-dot invisible"></span>
-          <span>Невидимка</span>
+      <div class="status-row">
+        <label v-for="opt in statusOptions" :key="opt.value"
+               :class="['status-chip', { active: form.status === opt.value }]">
+          <input type="radio" v-model="form.status" :value="opt.value" hidden />
+          <span :class="['dot', opt.value]"></span>
+          {{ opt.label }}
         </label>
       </div>
     </div>
 
-    <div class="settings-actions">
-      <button @click="saveProfile" :disabled="!hasChanges || !isValid" class="save-btn">
-        💾 Сохранить изменения
+    <!-- Кнопки сохранения -->
+    <div class="actions">
+      <button class="btn-save" @click="saveProfile"
+              :disabled="!hasChanges || saving.profile || !isValid">
+        <span v-if="saving.profile">⏳ Сохранение...</span>
+        <span v-else>💾 Сохранить изменения</span>
       </button>
-      <button @click="resetChanges" class="reset-btn">
-        ↻ Отменить
+      <button class="btn-reset" @click="resetForm" :disabled="!hasChanges">
+        ↺ Отменить
       </button>
     </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import apiClient from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
-interface SocialLink {
-  platform: string
-  url: string
-}
+interface SocialLink { platform: string; url: string }
 
-interface ProfileData {
-  avatar?: string
-  display_name?: string
-  bio?: string
-  birth_date?: string
+interface ProfileForm {
+  avatar_url: string
+  display_name: string
+  nickname: string
+  bio: string
+  birth_date: string
+  social_links: SocialLink[]
   status: string
 }
 
-const authStore = useAuthStore()
+const authStore  = useAuthStore()
 const avatarInput = ref<HTMLInputElement | null>(null)
 
-const profileData = ref<ProfileData>({
-  status: 'online'
+const form = ref<ProfileForm>({
+  avatar_url:   '',
+  display_name: '',
+  nickname:     '',
+  bio:          '',
+  birth_date:   '',
+  social_links: [],
+  status:       'online',
 })
 
-const socialLinks = ref<SocialLink[]>([])
-const originalProfileData = ref<ProfileData>({ status: 'online' })
-const displayNameError = ref('')
+const original     = ref<string>('')   // JSON-снапшот для сравнения
+const errors       = ref<Record<string, string>>({})
+const saving       = ref({ profile: false, avatar: false })
+const nicknameAvailable = ref<boolean | null>(null)
+let   nickCheckTimer: ReturnType<typeof setTimeout> | null = null
 
-const hasChanges = computed(() => {
-  return JSON.stringify(profileData.value) !== JSON.stringify(originalProfileData.value)
+const toast = ref({ visible: false, message: '', type: 'success' })
+
+const statusOptions = [
+  { value: 'online',    label: 'Онлайн'    },
+  { value: 'away',      label: 'Отошёл'    },
+  { value: 'invisible', label: 'Невидимка' },
+]
+
+// ── Вычисляемые ─────────────────────────────────────────────────
+const hasChanges = computed(() => JSON.stringify(form.value) !== original.value)
+
+const isValid = computed(() => Object.keys(errors.value).length === 0)
+
+const userInitials = computed(() => {
+  const name = form.value.display_name || form.value.nickname || ''
+  return name.slice(0, 2).toUpperCase() || '?'
 })
 
-const isValid = computed(() => {
-  return !displayNameError.value
-})
-
-const fetchProfile = async () => {
+// ── Загрузка данных ──────────────────────────────────────────────
+const loadProfile = async () => {
   try {
-    const response = await apiClient.get('/users/me/')
-    profileData.value = {
-      avatar: response.data.avatar,
-      display_name: response.data.display_name,
-      bio: response.data.bio,
-      birth_date: response.data.birth_date,
-      status: response.data.status || 'online'
-    }
-    originalProfileData.value = { ...profileData.value }
-    
-    socialLinks.value = response.data.social_links || []
-  } catch (error) {
-    console.error('Error fetching profile:', error)
+    const { data } = await apiClient.get('/users/me/')
+    applyToForm(data)
+  } catch {
+    showToast('Не удалось загрузить профиль', 'error')
   }
 }
 
-const validateDisplayName = () => {
-  const name = profileData.value.display_name || ''
-  if (name.length > 0) {
-    if (name.length < 3) {
-      displayNameError.value = 'Минимум 3 символа'
-    } else if (name.length > 30) {
-      displayNameError.value = 'Максимум 30 символов'
-    } else if (!/^[a-zA-Zа-яА-Я0-9_-]+$/.test(name)) {
-      displayNameError.value = 'Только буквы, цифры, _ и -'
-    } else {
-      displayNameError.value = ''
-    }
-  } else {
-    displayNameError.value = ''
+const applyToForm = (data: any) => {
+  form.value = {
+    avatar_url:   data.avatar_url || data.avatar || '',
+    display_name: data.display_name || '',
+    nickname:     data.nickname     || '',
+    bio:          data.bio          || '',
+    birth_date:   data.birth_date   || '',
+    social_links: Array.isArray(data.social_links) ? data.social_links : [],
+    status:       data.status       || 'online',
   }
+  original.value = JSON.stringify(form.value)
 }
 
-const selectAvatar = () => {
-  avatarInput.value?.click()
-}
+// ── Валидация никнейма ───────────────────────────────────────────
+const onNicknameInput = () => {
+  clearError('nickname')
+  nicknameAvailable.value = null
 
-const handleAvatarChange = async (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  
-  if (file) {
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Размер файла не должен превышать 5MB')
-      return
-    }
-    
-    if (!file.type.match(/image\/(jpeg|png)/)) {
-      alert('Только JPEG или PNG форматы')
-      return
-    }
+  const nick = form.value.nickname
+  if (!nick) return
 
-    const formData = new FormData()
-    formData.append('avatar', file)
-    
+  if (!/^[a-zA-Z0-9_-]+$/.test(nick)) {
+    errors.value.nickname = 'Только латиница, цифры, _ и -'
+    return
+  }
+  if (nick.length < 3) {
+    errors.value.nickname = 'Минимум 3 символа'
+    return
+  }
+
+  if (nickCheckTimer) clearTimeout(nickCheckTimer)
+  nickCheckTimer = setTimeout(async () => {
     try {
-      const response = await apiClient.post('/users/me/avatar/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      profileData.value.avatar = response.data.avatar
-    } catch (error) {
-      console.error('Error uploading avatar:', error)
-      alert('Ошибка при загрузке аватара')
+      const { data } = await apiClient.get('/users/nickname/check/', { params: { nickname: nick } })
+      nicknameAvailable.value = data.available !== false
+      if (!nicknameAvailable.value) errors.value.nickname = 'Этот nickname уже занят'
+    } catch {
+      // молча игнорируем
     }
+  }, 500)
+}
+
+const clearError = (field: string) => { delete errors.value[field] }
+
+// ── Аватар ───────────────────────────────────────────────────────
+const handleAvatarUpload = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  if (file.size > 5 * 1024 * 1024) { showToast('Файл больше 5 МБ', 'error'); return }
+  if (!file.type.match(/image\/(jpeg|png|webp)/)) { showToast('Только JPEG, PNG или WebP', 'error'); return }
+
+  saving.value.avatar = true
+  try {
+    const fd = new FormData()
+    fd.append('avatar', file)
+    const { data } = await apiClient.post('/users/avatar/', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    form.value.avatar_url = data.avatar_url || data.avatar || ''
+    original.value = JSON.stringify(form.value)   // аватар сохранён — сбрасываем dirty
+    await authStore.fetchUser()
+    showToast('Аватар обновлён ✓')
+  } catch {
+    showToast('Ошибка загрузки аватара', 'error')
+  } finally {
+    saving.value.avatar = false
+    if (avatarInput.value) avatarInput.value.value = ''
   }
 }
 
 const removeAvatar = async () => {
+  saving.value.avatar = true
   try {
-    await apiClient.delete('/users/me/avatar/')
-    profileData.value.avatar = undefined
-  } catch (error) {
-    console.error('Error removing avatar:', error)
-  }
-}
-
-const addSocialLink = () => {
-  socialLinks.value.push({ platform: 'telegram', url: '' })
-}
-
-const removeSocialLink = (index: number) => {
-  socialLinks.value.splice(index, 1)
-}
-
-const saveProfile = async () => {
-  try {
-    await apiClient.put('/users/me/', {
-      display_name: profileData.value.display_name,
-      bio: profileData.value.bio,
-      birth_date: profileData.value.birth_date,
-      status: profileData.value.status,
-      social_links: socialLinks.value
-    })
-    originalProfileData.value = { ...profileData.value }
+    await apiClient.delete('/users/avatar/')
+    form.value.avatar_url = ''
+    original.value = JSON.stringify(form.value)
     await authStore.fetchUser()
-    alert('Профиль успешно обновлён!')
-  } catch (error) {
-    console.error('Error saving profile:', error)
-    alert('Ошибка при сохранении профиля')
+    showToast('Аватар удалён')
+  } catch {
+    showToast('Ошибка удаления аватара', 'error')
+  } finally {
+    saving.value.avatar = false
   }
 }
 
-const resetChanges = () => {
-  profileData.value = { ...originalProfileData.value }
-  displayNameError.value = ''
+// ── Соцсети ──────────────────────────────────────────────────────
+const addSocialLink    = () => form.value.social_links.push({ platform: 'telegram', url: '' })
+const removeSocialLink = (idx: number) => form.value.social_links.splice(idx, 1)
+
+// ── Сохранение профиля ────────────────────────────────────────────
+const saveProfile = async () => {
+  if (!hasChanges.value || saving.value.profile) return
+
+  // Финальная валидация
+  errors.value = {}
+  const nick = form.value.nickname
+  if (nick && nick.length < 3) { errors.value.nickname = 'Минимум 3 символа'; return }
+  if (nick && !/^[a-zA-Z0-9_-]+$/.test(nick)) { errors.value.nickname = 'Только латиница, цифры, _ и -'; return }
+  const name = form.value.display_name
+  if (name && name.length > 50) { errors.value.display_name = 'Максимум 50 символов'; return }
+
+  saving.value.profile = true
+  try {
+    const payload = {
+      display_name: form.value.display_name,
+      nickname:     form.value.nickname,
+      bio:          form.value.bio,
+      birth_date:   form.value.birth_date   || null,
+      social_links: form.value.social_links,
+      status:       form.value.status,
+    }
+    const { data } = await apiClient.put('/users/me/', payload)
+    applyToForm(data)
+    await authStore.fetchUser()
+    showToast('Профиль сохранён ✓')
+  } catch (err: any) {
+    const detail = err?.response?.data
+    if (detail && typeof detail === 'object') {
+      // Серверные ошибки валидации
+      for (const [k, v] of Object.entries(detail)) {
+        errors.value[k] = Array.isArray(v) ? v[0] : String(v)
+      }
+      showToast('Проверьте поля формы', 'error')
+    } else {
+      showToast('Ошибка сохранения профиля', 'error')
+    }
+  } finally {
+    saving.value.profile = false
+  }
 }
 
-onMounted(() => {
-  fetchProfile()
-})
+const resetForm = () => {
+  form.value   = JSON.parse(original.value)
+  errors.value = {}
+  nicknameAvailable.value = null
+}
+
+// ── Toast ────────────────────────────────────────────────────────
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { visible: true, message, type }
+  toastTimer  = setTimeout(() => (toast.value.visible = false), 3000)
+}
+
+onMounted(loadProfile)
 </script>
 
 <style scoped>
+.account-settings { display: flex; flex-direction: column; gap: 0; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  pointer-events: none;
+}
+.toast.success { background: #22c55e; color: #fff; }
+.toast.error   { background: #ef4444; color: #fff; }
+.toast-enter-active, .toast-leave-active { transition: all .25s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-12px); }
+
+/* Groups */
 .settings-group {
-  margin-bottom: 30px;
-  padding: 20px;
-  background: var(--hover-bg);
-  border-radius: 8px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--border-color);
 }
+.settings-group:last-of-type { border-bottom: none; }
+.settings-group h3 { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
 
-.settings-group h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 16px;
-}
-
-.avatar-section {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
+/* Avatar */
+.avatar-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .avatar-preview {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--card-bg);
-  border: 3px solid var(--border-color);
-  flex-shrink: 0;
+  width: 88px; height: 88px; border-radius: 50%;
+  overflow: hidden; background: var(--card-bg);
+  border: 2px solid var(--border-color); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
 }
+.avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-placeholder { font-size: 28px; font-weight: 700; color: var(--secondary-text); }
+.avatar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.hidden-input { display: none; }
 
-.avatar-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+/* Fields */
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 500; color: var(--secondary-text); }
 
-.avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 40px;
-}
-
-.avatar-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.upload-btn, .remove-btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.upload-btn {
-  background: var(--primary-color);
-  color: white;
-  border: none;
-}
-
-.remove-btn {
-  background: rgba(244, 67, 54, 0.1);
-  color: #f44336;
-  border: 1px solid #f44336;
-}
-
-.hidden-input {
-  display: none;
-}
-
-.avatar-hint {
-  margin: 10px 0 0 0;
-  font-size: 13px;
-  color: var(--secondary-text);
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.input-group label {
-  font-weight: 500;
-}
-
-.text-input, .date-input, .textarea-input {
-  padding: 10px 14px;
+.input {
+  padding: 9px 13px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--text-color);
-  font-size: 14px;
-}
-
-.text-input.has-error {
-  border-color: #f44336;
-}
-
-.textarea-input {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.error-message {
-  color: #f44336;
-  font-size: 13px;
-}
-
-.input-hint {
-  font-size: 13px;
-  color: var(--secondary-text);
-}
-
-.char-count {
-  text-align: right;
-  font-size: 13px;
-  color: var(--secondary-text);
-}
-
-.social-links {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.social-link-item {
-  display: flex;
-  gap: 10px;
-}
-
-.platform-select {
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--text-color);
-  min-width: 120px;
-}
-
-.url-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--text-color);
-}
-
-.remove-link-btn {
-  background: none;
-  border: none;
-  color: #f44336;
-  cursor: pointer;
-  padding: 5px 10px;
-  font-size: 18px;
-}
-
-.add-link-btn {
-  padding: 8px 16px;
-  background: var(--hover-bg);
-  border: 1px dashed var(--border-color);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-color);
-}
-
-.status-options {
-  display: flex;
-  gap: 15px;
-}
-
-.status-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.status-option:hover {
-  background: var(--hover-bg);
-}
-
-.status-option.active {
-  border-color: var(--primary-color);
-  background: rgba(0, 132, 255, 0.1);
-}
-
-.status-option input[type="radio"] {
-  display: none;
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.status-dot.online {
-  background: #4CAF50;
-}
-
-.status-dot.away {
-  background: #FFC107;
-}
-
-.status-dot.invisible {
-  background: #9E9E9E;
-}
-
-.settings-actions {
-  margin-top: 30px;
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-}
-
-.save-btn, .reset-btn {
-  padding: 12px 24px;
   border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 14px;
+  transition: border-color .15s;
 }
+.input:focus { outline: none; border-color: var(--primary-color); }
+.input.error { border-color: #ef4444; }
 
-.save-btn {
-  background: var(--primary-color);
-  color: white;
+.input-with-icon { position: relative; }
+.prefix {
+  position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--secondary-text); font-size: 14px; pointer-events: none;
+}
+.with-prefix { padding-left: 24px; }
+
+.textarea {
+  padding: 9px 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 14px;
+  resize: vertical; min-height: 90px;
+  width: 100%; box-sizing: border-box;
+}
+.textarea:focus { outline: none; border-color: var(--primary-color); }
+
+.date-input { max-width: 200px; }
+
+.char-count { text-align: right; font-size: 12px; color: var(--secondary-text); margin-top: 4px; }
+.error-msg { font-size: 12px; color: #ef4444; }
+.ok-msg    { font-size: 12px; color: #22c55e; }
+.hint      { font-size: 12px; color: var(--secondary-text); margin-top: 2px; }
+
+/* Social links */
+.social-list { display: flex; flex-direction: column; gap: 8px; }
+.social-item { display: flex; gap: 8px; align-items: center; }
+.select {
+  padding: 8px 10px; border: 1px solid var(--border-color);
+  border-radius: 8px; background: var(--card-bg); color: var(--text-color);
+  font-size: 14px; min-width: 130px;
+}
+.social-item .input { flex: 1; }
+
+/* Status */
+.status-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.status-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border: 1px solid var(--border-color);
+  border-radius: 20px; cursor: pointer;
+  font-size: 14px; transition: all .15s;
+  user-select: none;
+}
+.status-chip:hover { background: var(--hover-bg); }
+.status-chip.active { border-color: var(--primary-color); background: rgba(0,132,255,.1); }
+.dot { width: 9px; height: 9px; border-radius: 50%; }
+.dot.online    { background: #22c55e; }
+.dot.away      { background: #f59e0b; }
+.dot.invisible { background: #6b7280; }
+
+/* Buttons */
+.btn-primary, .btn-danger, .btn-save, .btn-reset, .btn-dashed, .btn-icon-danger {
+  padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  font-size: 14px; font-weight: 500; transition: all .15s;
   border: none;
 }
-
-.save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-primary { background: var(--primary-color); color: #fff; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-danger  { background: rgba(239,68,68,.1); color: #ef4444; border: 1px solid #ef4444; }
+.btn-icon-danger { background: none; color: #ef4444; padding: 6px 10px; font-size: 16px; }
+.btn-dashed  {
+  background: none; border: 1px dashed var(--border-color);
+  color: var(--text-color); width: 100%; padding: 9px;
 }
+.btn-dashed:hover { border-color: var(--primary-color); color: var(--primary-color); }
 
-.reset-btn {
-  background: var(--hover-bg);
+.actions { padding: 20px 24px; display: flex; gap: 12px; border-top: 1px solid var(--border-color); }
+.btn-save {
+  background: var(--primary-color); color: #fff;
+  padding: 10px 24px; font-size: 15px;
+}
+.btn-save:disabled { opacity: .4; cursor: not-allowed; }
+.btn-reset {
+  background: var(--hover-bg); color: var(--text-color);
   border: 1px solid var(--border-color);
 }
+.btn-reset:disabled { opacity: .4; cursor: not-allowed; }
 </style>

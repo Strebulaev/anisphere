@@ -24,31 +24,36 @@
 
       <div class="header-content">
         <div class="avatar-section">
-          <img :src="user.avatar || '/img/default-avatar.svg'" class="avatar" @click="openAvatarUpload" />
+          <img :src="user.avatar || '/img/default-avatar.svg'" class="avatar" @click="openSettings" title="Настроить аватар" style="cursor:pointer" />
           <div :class="['status-indicator', { online: isOnline }]"></div>
         </div>
 
         <div class="user-info">
-          <h1>{{ user.display_name || user.username }}</h1>
-          <p class="username">@{{ user.username }}</p>
-          <p v-if="user.nickname" class="nickname">🏷️ {{ user.nickname }}</p>
+          <!-- Отображаемое имя (то, что задал сам пользователь) -->
+          <h1>{{ user.display_name || user.nickname || user.username }}</h1>
+          <!-- Уникальный никнейм — один, не два -->
+          <p class="username">@{{ user.nickname || user.username }}</p>
           <p class="bio">{{ user.bio || 'Напишите что-то о себе...' }}</p>
 
           <div class="user-meta">
             <span v-if="user.experience" class="exp-badge">✨ {{ user.experience }} опыта</span>
-            <span v-if="user.created_at">📅 На сайте с {{ formatDate(user.created_at) }}</span>
+            <span v-if="user.created_at">🗓 На сайте с {{ formatDate(user.created_at) }}</span>
           </div>
         </div>
 
         <div class="header-actions">
-          <button @click="openFullSettings" class="btn-edit">
+          <button @click="openSettings" class="btn-edit">
             <CogIcon class="w-5 h-5" />
-            Редактировать профиль
+            Настройки профиля
+          </button>
+          <!-- Админская панель -->
+          <button v-if="isAdmin" @click="router.push('/admin')" class="btn-admin">
+            🛡️ Админ
           </button>
         </div>
 
         <!-- Статистика -->
-        <div class="stats">
+        <!-- <div class="stats">
           <div class="stat-item">
             <span class="stat-value">{{ stats.followers }}</span>
             <span class="stat-label">подписчиков</span>
@@ -69,12 +74,12 @@
             <span class="stat-value">{{ stats.achievements }}</span>
             <span class="stat-label">достижений</span>
           </div>
-        </div>
+        </div> -->
       </div>
     </div>
 
     <!-- Вкладки -->
-    <div class="profile-tabs">
+    <!-- <div class="profile-tabs">
       <button
         v-for="tab in tabs"
         :key="tab.id"
@@ -83,48 +88,39 @@
       >
         {{ tab.name }}
       </button>
-    </div>
+    </div> -->
 
     <!-- Контент вкладок -->
-    <div class="profile-content">
-      <!-- Лента -->
+    <!-- <div class="profile-content">
       <div v-if="activeTab === 'feed'" class="tab-content">
         <UserFeed :user-id="currentUser?.id" />
       </div>
 
-      <!-- Аниме (Моя коллекция) -->
       <div v-if="activeTab === 'anime'" class="tab-content">
         <MyCollection />
       </div>
 
-      <!-- Плейлисты -->
       <div v-if="activeTab === 'playlists'" class="tab-content">
         <MyPlaylists />
       </div>
 
-      <!-- Shorts -->
       <div v-if="activeTab === 'shorts'" class="tab-content">
         <UserShorts :user-id="currentUser?.id" />
       </div>
 
-      <!-- Достижения -->
       <div v-if="activeTab === 'achievements'" class="tab-content">
         <AchievementsView />
       </div>
 
-      <!-- О себе -->
       <div v-if="activeTab === 'about'" class="tab-content">
         <ProfileAbout :user="user" @edit="openEditProfile" />
       </div>
 
-      <!-- Избранное -->
       <div v-if="activeTab === 'favorites'" class="tab-content">
         <UserFavorites :user-id="currentUser?.id" />
       </div>
-    </div>
+    </div> -->
 
-    <!-- Модалка полных настроек -->
-    <FullSettingsModal :is-visible="showFullSettingsModal" @close="showFullSettingsModal = false" @on-save="handleSettingsSaved" />
   </div>
 </template>
 
@@ -133,14 +129,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { CogIcon } from '@heroicons/vue/24/outline'
-import MyCollection from '@/components/Feeds/MyCollection.vue'
-import UserFeed from '@/components/Profile/UserFeed.vue'
-import MyPlaylists from '@/components/page/playlists/MyPlaylistsView.vue'
-import UserShorts from '@/components/Profile/UserShorts.vue'
-import AchievementsView from '@/components/page/other/AchievementsView.vue'
-import ProfileAbout from '@/components/Profile/ProfileAbout.vue'
-import UserFavorites from '@/components/Profile/UserFavorites.vue'
-import FullSettingsModal from '@/components/modal/profile/FullSettingsModal.vue'
 import api from '@/api'
 
 const router = useRouter()
@@ -149,18 +137,13 @@ const authStore = useAuthStore()
 const user = ref({})
 const stats = ref({})
 const isOnline = ref(false)
-const activeTab = ref('feed')
-const showFullSettingsModal = ref(false)
 
-const tabs = [
-  { id: 'feed', name: 'Лента' },
-  { id: 'anime', name: 'Аниме' },
-  { id: 'playlists', name: 'Плейлисты' },
-  { id: 'shorts', name: 'Shorts' },
-  { id: 'achievements', name: 'Достижения' },
-  { id: 'favorites', name: 'Избранное' },
-  { id: 'about', name: 'О себе' },
-]
+// Администраторские права
+const isAdmin = computed(() => {
+  const u = authStore.user
+  if (!u) return false
+  return u.is_admin || u.is_staff || u.username === 'kaiden812'
+})
 
 const currentUser = computed(() => authStore.user)
 
@@ -194,16 +177,8 @@ const loadStats = async () => {
   }
 }
 
-const openFullSettings = () => {
-  showFullSettingsModal.value = true
-}
-
 const openSettings = () => {
   router.push('/settings')
-}
-
-const openAvatarUpload = () => {
-  showFullSettingsModal.value = true
 }
 
 const handleCoverUpload = async (event) => {
@@ -227,10 +202,6 @@ const handleCoverUpload = async (event) => {
   }
 }
 
-const handleSettingsSaved = async () => {
-  await authStore.fetchUser()
-  loadProfile()
-}
 
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString('ru-RU', {
@@ -405,6 +376,25 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   margin-top: 16px;
+}
+
+.btn-admin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  border-radius: var(--radius-button);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-admin:hover {
+  background: rgba(239, 68, 68, 0.25);
 }
 
 .btn-edit,

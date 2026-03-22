@@ -8,13 +8,28 @@ export type CollectionTab = LibraryStatus | 'favorite'
 export interface LibraryItem {
   id: number
   user?: number
-  anime: number
+  anime: number | {
+    id: number
+    title_ru: string
+    title_en: string
+    poster?: string
+    poster_url?: string
+    poster_image_url?: string
+    episodes?: number
+    episodes_count?: number
+    status?: string
+    score?: number
+    year?: number
+    type?: string
+    kind?: string
+  }
+  anime_id: number
   anime_title_ru: string
   anime_title_en: string
   anime_poster: string | null
   anime_episodes_count: number | null
+  anime_status_display?: string
   status: LibraryStatus
-  anime_status_display: string
   current_episode: number
   episodes_watched: number
   rating: number | null
@@ -50,8 +65,8 @@ export const libraryApi = {
     is_favorite?: boolean
     search?: string
     ordering?: string
-  }): Promise<LibraryItem[]> => {
-    const response = await apiClient.get<LibraryItem[]>('/users/library/', { params })
+  }): Promise<LibraryItem[] | { results: LibraryItem[]; count: number }> => {
+    const response = await apiClient.get<LibraryItem[] | { results: LibraryItem[]; count: number }>('/users/library/', { params })
     return response.data
   },
 
