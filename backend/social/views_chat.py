@@ -1164,9 +1164,9 @@ def init_franchise_discussion(request):
         anime=None,
         defaults={'title': franchise_name, 'order': 0}
     )
-    group_map['general'] = general_topic.id
+    group_map['general'] = main_group.id  # всегда GroupChat.id
 
-    # Темы по частям
+    # Темы по частям (все в одном GroupChat, topic_id для фильтрации сообщений)
     for idx, anime_id in enumerate(anime_ids):
         try:
             part = AnimeModel.objects.get(id=anime_id)
@@ -1180,7 +1180,7 @@ def init_franchise_discussion(request):
             anime_id=anime_id,
             defaults={'title': title, 'order': idx + 1}
         )
-        group_map[str(anime_id)] = topic.id
+        group_map[str(anime_id)] = main_group.id  # один GroupChat для всех топиков
 
     # Собираем полные данные по топикам
     topics_qs = ChatTopic.objects.filter(chat=main_group).order_by('order').select_related('anime')
@@ -1188,7 +1188,8 @@ def init_franchise_discussion(request):
     for t in topics_qs:
         poster = _poster(t.anime) if t.anime else franchise_poster
         topics_out.append({
-            'id': t.id,
+            'id': t.id,           # ChatTopic.id — для фильтрации
+            'chat_id': main_group.id,  # GroupChat.id — для WebSocket и messages
             'title': t.title,
             'order': t.order,
             'anime_id': t.anime_id,

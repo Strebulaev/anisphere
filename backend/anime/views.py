@@ -568,25 +568,26 @@ class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
             franchise = self.get_object()
             from .serializers import FranchiseEntrySerializer
             
-            entries = franchise.entries.all().order_by('franchise_order', 'year')
+            # franchise.entries - это обратная связь от Anime.franchise
+            animes = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id')
+            
             parts_data = []
             
-            for entry in entries:
-                anime = entry.anime
-                if anime:
-                    parts_data.append({
-                        'id': anime.id,
-                        'title_ru': anime.title_ru,
-                        'title_en': anime.title_en,
-                        'title_jp': anime.title_jp,
-                        'year': anime.year,
-                        'kind': anime.kind,
-                        'episodes': anime.episodes,
-                        'status': anime.status,
-                        'score': anime.score,
-                        'poster_url': anime.poster_url,
-                        'franchise_order': entry.franchise_order,
-                    })
+            for anime in animes:
+                poster_url = anime.poster.url if anime.poster else anime.poster_url
+                parts_data.append({
+                    'id': anime.id,
+                    'title_ru': anime.title_ru,
+                    'title_en': anime.title_en,
+                    'title_jp': anime.title_jp,
+                    'year': anime.year,
+                    'kind': anime.kind,
+                    'episodes': anime.episodes,
+                    'status': anime.status,
+                    'score': anime.score,
+                    'poster_url': poster_url,
+                    'franchise_order': anime.franchise_order,
+                })
             
             return Response({
                 'franchise_id': franchise.id,

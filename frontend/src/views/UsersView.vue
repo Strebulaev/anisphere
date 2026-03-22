@@ -129,9 +129,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { getMediaUrl } from '@/api/client'
 import apiClient from '@/api/client'
+import usersApi from '@/api/users'
 
 interface User {
   id: number
@@ -146,12 +147,12 @@ interface User {
 }
 
 const tabs = [
-  { value: '', label: 'Все' },
+  { value: 'all', label: 'Все' },
   { value: 'online', label: 'Онлайн' },
   { value: 'offline', label: 'Офлайн' }
 ]
 
-const activeTab = ref('')
+const activeTab = ref('all')
 const searchQuery = ref('')
 const people = ref<User[]>([])
 const isLoading = ref(false)
@@ -162,6 +163,27 @@ const totalCount = ref(0)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 const pageSize = 24
 
+// Polling для обновления статусов онлайн
+let statusPollingInterval: ReturnType<typeof setInterval> | null = null
+
+const updateOnlineStatuses = async () => {
+  if (people.value.length === 0) return
+  
+  try {
+    const userIds = people.value.map(p => p.id)
+    const response = await usersApi.getOnlineStatus(userIds)
+    const statuses = response.data.statuses
+    
+    // Обновляем статусы онлайн для каждого пользователя
+    people.value = people.value.map(person => ({
+      ...person,
+      is_online: statuses[person.id]?.is_online ?? person.is_online
+    }))
+  } catch (error) {
+    // Игнорируем ошибки polling
+  }
+}
+
 const fetchPeople = async () => {
   isLoading.value = true
   try {
@@ -170,7 +192,7 @@ const fetchPeople = async () => {
       page_size: pageSize,
     }
 
-    if (activeTab.value) {
+    if (activeTab.value && activeTab.value !== 'all') {
       params.status = activeTab.value
     }
 
@@ -186,6 +208,9 @@ const fetchPeople = async () => {
     people.value = response.data.results || []
     totalCount.value = response.data.count || 0
     totalPages.value = Math.ceil(totalCount.value / pageSize)
+    
+    // После загрузки обновляем статусы онлайн
+    await updateOnlineStatuses()
   } catch (error) {
     console.error('Error fetching people:', error)
     people.value = []
@@ -226,6 +251,15 @@ watch(activeTab, () => {
 
 onMounted(() => {
   fetchPeople()
+  
+  // Запускаем polling каждые 10 секунд
+  statusPollingInterval = setInterval(updateOnlineStatuses, 10000)
+})
+
+onUnmounted(() => {
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval)
+  }
 })
 </script>
 

@@ -883,31 +883,38 @@ class GroupChatSerializer(serializers.ModelSerializer):
         return None
 
     def get_anime_poster(self, obj):
-        """Получить постер аниме (локальный файл, внешний URL или постер франшизы)"""
+        """Получить постер: из anime → из первого аниме франшизы → None"""
+        request = self.context.get('request')
+
+        def _abs(url):
+            if url and request and not url.startswith('http'):
+                return request.build_absolute_uri(url)
+            return url
+
         if obj.anime:
-            request = self.context.get('request')
-            
-            # Сначала пробуем локальный файл
             if obj.anime.poster:
-                poster_url = obj.anime.poster.url
-                if request and poster_url and not poster_url.startswith('http'):
-                    poster_url = request.build_absolute_uri(poster_url)
-                return poster_url
-            
-            # Fallback на внешний URL
+                return _abs(obj.anime.poster.url)
             if obj.anime.poster_url:
                 return obj.anime.poster_url
-            
-            # Fallback на постер франшизы
-            if obj.anime.franchise:
-                franchise = obj.anime.franchise
-                if franchise.poster:
-                    poster_url = franchise.poster.url
-                    if request and poster_url and not poster_url.startswith('http'):
-                        poster_url = request.build_absolute_uri(poster_url)
-                    return poster_url
-                if franchise.poster_url:
-                    return franchise.poster_url
+
+        # Franchise-чат без anime — берём постер первого аниме франшизы
+        if obj.franchise_id:
+            try:
+                from anime.models import Anime as AnimeModel
+                first = (
+                    AnimeModel.objects
+                    .filter(franchise_id=obj.franchise_id)
+                    .exclude(poster='')
+                    .order_by('franchise_order', 'id')
+                    .first()
+                )
+                if first and first.poster:
+                    return _abs(first.poster.url)
+                if first and first.poster_url:
+                    return first.poster_url
+            except Exception:
+                pass
+
         return None
 
     def get_participants_usernames(self, obj):
@@ -949,10 +956,14 @@ class GroupChatSerializer(serializers.ModelSerializer):
     def get_last_message(self, obj):
         last_message = Message.objects.filter(chat=obj).order_by('-created_at').first()
         if last_message:
+            try:
+                sender_data = UserSimpleSerializer(last_message.sender).data
+            except Exception:
+                sender_data = {'id': None, 'username': '[удалён]', 'display_name': None, 'avatar': None}
             return {
                 'id': last_message.id,
                 'text': last_message.text,
-                'sender': UserSimpleSerializer(last_message.sender).data,
+                'sender': sender_data,
                 'created_at': last_message.created_at,
                 'is_edited': last_message.is_edited,
                 'media_type': last_message.media_type

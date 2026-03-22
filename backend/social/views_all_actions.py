@@ -24,7 +24,7 @@ from .models import (
 )
 from users.models import User
 from .serializers import (
-    ChatFolderCreateSerializer, ChatFolderSerializer, PostCommentSerializer, PostCommentCreateSerializer,
+    ChatFolderCreateSerializer, ChatFolderSerializer, GroupChatSerializer, PostCommentSerializer, PostCommentCreateSerializer,
     ReportSerializer,
     PostAttachmentSerializer, FeedPostSerializer, UserSimpleSerializer
 )
@@ -1447,21 +1447,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                     'error': 'Нельзя пожаловаться на самого себя'
                 }, status=400)
         
-        # Проверка на дубликат жалобы
-        existing = Report.objects.filter(
-            reporter=request.user,
-            content_type=content_type,
-            content_id=content_id,
-            status='pending'
-        ).first()
-        
-        if existing:
-            return Response({
-                'error': 'Вы уже отправили жалобу на этот контент',
-                'existing_id': existing.id
-            }, status=400)
-        
-        # Создание жалобы
+        # Создание жалобы (разрешаем неограниченное количество жалоб от одного пользователя)
         report = Report.objects.create(
             reporter=request.user,
             content_type=content_type,
@@ -1472,6 +1458,65 @@ class ReportViewSet(viewsets.ModelViewSet):
         )
         
         logger.info(f"Report created: id={report.id}, type={content_type}, content_id={content_id}")
+        
+        # Отправляем уведомление модераторам НАПРЯМУЮ (без Celery)
+        try:
+            from notifications.models import Notification, Complaint
+            from django.contrib.contenttypes.models import ContentType
+            
+            # Ищем модератора - сначала по is_staff/is_superuser
+            moderator = User.objects.filter(
+                models.Q(is_staff=True) | models.Q(is_superuser=True)
+            ).first()
+            
+            if moderator:
+                content_type_display = 'Пост' if content_type == 'post' else 'Комментарий' if content_type == 'comment' else 'Пользователь'
+                reason_display = dict(Report.REASON_CHOICES).get(reason, reason)
+                
+                # Создаём уведомление
+                Notification.objects.create(
+                    user=moderator,
+                    type='system',
+                    title=f'🚨 Новая жалоба: {content_type_display}',
+                    content=f'Причина: {reason_display}\nЖалоба от: @{request.user.username}\nID контента: {content_id}',
+                    link=f'/admin/social/report/{report.id}/'
+                )
+                logger.info(f"Moderator notification sent to {moderator.username}")
+                
+                # Также создаём запись в Complaint для админ-панели
+                content_type_map = {
+                    'post': 'comment',  # nearest match
+                    'comment': 'comment',
+                    'user': 'user',
+                }
+                complaint_type = content_type_map.get(content_type, 'other')
+                
+                # Получаем ContentType для generic relation
+                try:
+                    from social.models import Post, PostComment
+                    if content_type == 'post':
+                        ct = ContentType.objects.get_for_model(Post)
+                    elif content_type == 'comment':
+                        ct = ContentType.objects.get_for_model(PostComment)
+                    else:
+                        ct = ContentType.objects.get_for_model(User)
+                    
+                    Complaint.objects.create(
+                        content_type=ct,
+                        object_id=content_id,
+                        complainant=request.user,
+                        complaint_type=complaint_type,
+                        reason=reason,
+                        description=comment or '',
+                        status='pending'
+                    )
+                    logger.info(f"Complaint created for admin panel")
+                except Exception as e:
+                    logger.error(f"Failed to create Complaint: {e}")
+            else:
+                logger.warning("No moderator found for report notification")
+        except Exception as e:
+            logger.error(f"Failed to send moderator notification: {e}")
         
         return Response({
             'success': True,
@@ -2286,11 +2331,178 @@ def get_franchise_discussions(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_anime_discussion_group(request, anime_id):
-    """Получить или создать группу обсуждения для аниме.
-    Делегируем к исправленной версии из _discussion_views_patch.
+    """Получить или создать групповой чат для обсуждения аниме.
+    
+    Если аниме входит во франшизу — возвращаем franchise-группу (с топиками),
+    автоматически создавая её при первом обращении.
+    Для одиночного аниме создаём обычный discussion-чат.
     """
-    from ._discussion_views_patch import get_anime_discussion_group as _real
-    return _real(request, anime_id)
+    try:
+        from anime.models import Anime, Franchise
+        from .models import GroupChat, ChatMember
+        
+        # Получаем чистый Django request для построения URL
+        django_request = request._request if hasattr(request, '_request') else request
+        
+        anime = Anime.objects.select_related('franchise').get(id=anime_id)
+    except Exception as e:
+        return Response({'error': 'Аниме не найдено'}, status=404)
+
+    try:
+        def _get_poster_url(obj, req=None):
+            if obj is None:
+                return None
+            if getattr(obj, 'poster', None) and hasattr(obj.poster, 'url'):
+                url = obj.poster.url
+                if req:
+                    return req.build_absolute_uri(url)
+                return url
+            if getattr(obj, 'poster_url', None):
+                return obj.poster_url
+            return None
+
+        # ── Аниме входит во франшизу ──────────────────────────────────────
+        if anime.franchise_id:
+            franchise = anime.franchise
+
+            # Постер франшизы — берём у первой части
+            first_part = (
+                Anime.objects.filter(franchise=franchise)
+                .order_by('franchise_order', 'year', 'id')
+                .first()
+            )
+            franchise_poster_url = _get_poster_url(franchise, django_request) or _get_poster_url(first_part, django_request)
+
+            # Ищем или создаём главную группу франшизы
+            chat, created = GroupChat.objects.get_or_create(
+                franchise_id=franchise.id,
+                defaults={
+                    'name': franchise.name,
+                    'description': franchise.description or '',
+                    'created_by': request.user,
+                    'is_public': True,
+                    'discussion_type': 'franchise',
+                    'folder_type': 'discussions',
+                }
+            )
+
+            # Исправляем название если нужно
+            if not created:
+                dirty = False
+                clean_name = franchise.name
+                if chat.name != clean_name and (
+                    chat.name.startswith('Обсуждение:') or
+                    chat.name.startswith('Обсуждение ') or
+                    chat.name.lower().startswith('обсуждение')
+                ):
+                    chat.name = clean_name
+                    dirty = True
+                if dirty:
+                    chat.save(update_fields=['name'])
+
+            # Убеждаемся что пользователь в чате
+            ChatMember.objects.get_or_create(
+                chat=chat, user=request.user,
+                defaults={'is_admin': created}
+            )
+
+            # ChatTopic
+            from .models_chat import ChatTopic
+
+            # Общая тема
+            ChatTopic.objects.get_or_create(
+                chat=chat, anime=None,
+                defaults={'title': franchise.name, 'order': 0}
+            )
+
+            # Темы для каждой части
+            parts = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id')
+            for idx, part in enumerate(parts, start=1):
+                ChatTopic.objects.get_or_create(
+                    chat=chat, anime=part,
+                    defaults={
+                        'title': part.title_ru or part.title_en or f'Часть #{part.id}',
+                        'order': idx,
+                    }
+                )
+
+            # Сериализуем с топиками
+            topics = ChatTopic.objects.filter(chat=chat).order_by('order').select_related('anime')
+            topics_data = []
+            for t in topics:
+                poster = _get_poster_url(t.anime, django_request) if t.anime else franchise_poster_url
+                is_current = t.anime_id == anime_id if t.anime_id else False
+                topics_data.append({
+                    'id': t.id,
+                    'title': t.title,
+                    'order': t.order,
+                    'anime_id': t.anime_id,
+                    'anime_title': (t.anime.title_ru or t.anime.title_en) if t.anime else None,
+                    'poster_url': poster,
+                    'is_general': t.anime_id is None,
+                    'is_current': is_current,
+                })
+
+            chat_data = GroupChatSerializer(chat, context={'request': request}).data
+            if not chat_data.get('avatar') and franchise_poster_url:
+                chat_data['avatar'] = franchise_poster_url
+            if not chat_data.get('avatar_url') and franchise_poster_url:
+                chat_data['avatar_url'] = franchise_poster_url
+            chat_data['topics'] = topics_data
+            chat_data['discussion_type'] = 'franchise'
+            chat_data['type'] = 'franchise'
+            chat_data['franchise_id'] = franchise.id
+            chat_data['franchise'] = {
+                'id': franchise.id,
+                'name': franchise.name,
+            }
+            chat_data['franchise_poster'] = franchise_poster_url
+            chat_data['user_joined'] = True
+            current_topic = next((t for t in topics_data if t['anime_id'] == anime_id), None)
+            chat_data['current_topic_id'] = current_topic['id'] if current_topic else None
+            return Response(chat_data)
+
+        # ── Одиночное аниме (не во франшизе) ──────────────────────────────
+        anime_poster = _get_poster_url(anime, django_request)
+            
+        chat, created = GroupChat.objects.get_or_create(
+            anime_id=anime_id,
+            defaults={
+                'name': anime.title_ru or anime.title_en,
+                'description': anime.description[:500] if anime.description else '',
+                'created_by': request.user,
+                'is_public': True,
+                'discussion_type': 'anime',
+                'folder_type': 'discussions',
+            }
+        )
+        if not created and (
+            chat.name.startswith('Обсуждение:') or chat.name.startswith('Обсуждение ')
+        ):
+            chat.name = anime.title_ru or anime.title_en
+            chat.save(update_fields=['name'])
+
+        ChatMember.objects.get_or_create(
+            chat=chat, user=request.user,
+            defaults={'is_admin': created}
+        )
+        chat_data = GroupChatSerializer(chat, context={'request': request}).data
+        if not chat_data.get('avatar') and anime_poster:
+            chat_data['avatar'] = anime_poster
+        if not chat_data.get('avatar_url') and anime_poster:
+            chat_data['avatar_url'] = anime_poster
+        chat_data['discussion_type'] = 'anime'
+        chat_data['type'] = 'anime'
+        chat_data['topics'] = []
+        chat_data['current_topic_id'] = None
+        chat_data['user_joined'] = True
+        chat_data['is_public'] = True
+        return Response(chat_data)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
 
 
 # ── старая реализация ниже сохранена для справки, но не используется ──
@@ -2360,7 +2572,7 @@ def _get_anime_discussion_group_old(request, anime_id):
             'anime_id': None,
             'is_general': True
         })
-        
+
         # Топики для каждого аниме франшизы
         for idx, fa in enumerate(franchise_animes):
             topic_title = fa.title_ru or fa.title_en or f'Часть #{fa.id}'
@@ -2495,24 +2707,140 @@ def join_anime_discussion_group(request, anime_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_franchise_discussion_group(request, franchise_id):
-    """Получить или создать группу обсуждения для франшизы.
-    Делегируем к исправленной версии через первый anime франшизы.
-    """
-    from anime.models import Anime, Franchise
-    from .models import GroupChat, ChatMember, ChatTopic
-
-    # Находим первое аниме франшизы и делегируем
+    """Получить или создать группу обсуждения для франшизы."""
     try:
-        franchise = Franchise.objects.get(id=franchise_id)
-    except Franchise.DoesNotExist:
-        return Response({'error': 'Франшиза не найдена'}, status=404)
+        from anime.models import Anime, Franchise
+        from .models import GroupChat, ChatMember
+        from .models_chat import ChatTopic
 
-    first_anime = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id').first()
-    if not first_anime:
-        return Response({'error': 'Обсуждение недоступно: франшиза пуста'}, status=404)
+        # Получаем чистый Django request для построения URL
+        django_request = request._request if hasattr(request, '_request') else request
 
-    from ._discussion_views_patch import get_anime_discussion_group as _real
-    return _real(request, first_anime.id)
+        try:
+            franchise = Franchise.objects.get(id=franchise_id)
+        except Franchise.DoesNotExist:
+            return Response({'error': 'Франшиза не найдена'}, status=404)
+
+        first_anime = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id').first()
+        if not first_anime:
+            return Response({'error': 'Обсуждение недоступно: франшиза пуста'}, status=404)
+
+        # Запоминаем какой anime_id был передан (через query params)
+        requested_anime_id = request.query_params.get('anime_id')
+        
+        def _get_poster_url(obj, req=None):
+            if obj is None:
+                return None
+            if getattr(obj, 'poster', None) and hasattr(obj.poster, 'url'):
+                url = obj.poster.url
+                if req:
+                    return req.build_absolute_uri(url)
+                return url
+            if getattr(obj, 'poster_url', None):
+                return obj.poster_url
+            return None
+        
+        # Постер первого аниме франшизы для аватарки
+        franchise_poster_url = _get_poster_url(first_anime, django_request)
+
+        # Ищем или создаём группу
+        chat, created = GroupChat.objects.get_or_create(
+            franchise_id=franchise.id,
+            defaults={
+                'name': franchise.name,
+                'description': franchise.description or '',
+                'created_by': request.user,
+                'is_public': True,
+                'discussion_type': 'franchise',
+                'folder_type': 'discussions',
+            }
+        )
+
+        # Исправляем название если нужно
+        if not created:
+            if chat.name != franchise.name and (
+                chat.name.startswith('Обсуждение:') or
+                chat.name.startswith('Обсуждение ') or
+                chat.name.lower().startswith('обсуждение')
+            ):
+                chat.name = franchise.name
+                chat.save(update_fields=['name'])
+
+        # Убеждаемся что пользователь в чате
+        ChatMember.objects.get_or_create(
+            chat=chat, user=request.user,
+            defaults={'is_admin': created}
+        )
+
+        # Создаём топики
+        ChatTopic.objects.get_or_create(
+            chat=chat, anime=None,
+            defaults={'title': f'О франшизе «{franchise.name}»', 'order': 0}
+        )
+
+        parts = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id')
+        for idx, part in enumerate(parts, start=1):
+            ChatTopic.objects.get_or_create(
+                chat=chat, anime=part,
+                defaults={
+                    'title': part.title_ru or part.title_en or f'Часть #{part.id}',
+                    'order': idx,
+                }
+            )
+
+        # Получаем топики
+        topics = ChatTopic.objects.filter(chat=chat).order_by('order').select_related('anime')
+        topics_data = []
+        target_anime_id = int(requested_anime_id) if requested_anime_id else first_anime.id
+        
+        for t in topics:
+            poster = _get_poster_url(t.anime, django_request) if t.anime else franchise_poster_url
+            is_current = t.anime_id == target_anime_id if t.anime_id else (target_anime_id is None)
+            topics_data.append({
+                'id': t.id,
+                'title': t.title,
+                'order': t.order,
+                'anime_id': t.anime_id,
+                'anime_title': (t.anime.title_ru or t.anime.title_en) if t.anime else None,
+                'poster_url': poster,
+                'is_general': t.anime_id is None,
+                'is_current': is_current,
+            })
+
+        # Определяем текущий топик
+        current_topic = next((t for t in topics_data if t['is_current']), topics_data[0] if topics_data else None)
+        
+        return Response({
+            'id': chat.id,
+            'name': chat.name,
+            'description': chat.description,
+            'avatar_url': franchise_poster_url,  # Аватарка - постер первого аниме
+            'members_count': chat.members.count(),
+            'discussion_type': 'franchise',
+            'type': 'franchise',
+            'franchise_id': franchise.id,
+            'franchise': {
+                'id': franchise.id,
+                'name': franchise.name,
+            },
+            'group': {
+                'id': chat.id,
+                'name': chat.name,
+                'avatar_url': franchise_poster_url,
+                'members_count': chat.members.count(),
+                'discussion_type': 'franchise',
+                'user_joined': True,
+            },
+            'topics': topics_data,
+            'current_topic_id': current_topic['id'] if current_topic else None,
+            'user_joined': True,
+            'is_public': True,
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({'error': f'Ошибка при получении обсуждения: {str(e)}'}, status=500)
 
 
 def _get_franchise_discussion_group_old(request, franchise_id):
@@ -2536,7 +2864,7 @@ def _get_franchise_discussion_group_old(request, franchise_id):
             'folder_type': 'discussions',
         }
     )
-    
+
     # Автодобавляем пользователя
     ChatMember.objects.get_or_create(chat=main_group, user=request.user)
     
@@ -2577,7 +2905,7 @@ def _get_franchise_discussion_group_old(request, franchise_id):
             'anime_id': fa.id,
             'is_general': False,
         })
-    
+
     return Response({
         'type': 'franchise',
         'id': main_group.id,

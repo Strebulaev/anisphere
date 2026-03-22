@@ -62,7 +62,11 @@
     </div>
 
     <!-- Темы (топики) с постерами -->
-    <div class="fc-topics">
+    <div class="fc-topics-header" @click="topicsCollapsed = !topicsCollapsed">
+      <span class="fc-topics-title">📋 Темы ({{ topics.length }})</span>
+      <span class="fc-topics-chevron" :class="{ collapsed: topicsCollapsed }">▾</span>
+    </div>
+    <div class="fc-topics" v-show="!topicsCollapsed">
       <button
         v-for="topic in topics"
         :key="topic.id"
@@ -151,7 +155,8 @@ interface FranchisePart {
 }
 
 interface Topic {
-  id: number
+  id: number        // ChatTopic.id (для метаданных)
+  chatId: number    // GroupChat.id (для WebSocket и сообщений)
   name: string
   poster_url: string | null
   animeId: number | null
@@ -193,6 +198,7 @@ const isMuted = ref(false)
 const isArchived = ref(false)
 const showMuteModal = ref(false)
 const chatGroupId = ref<number | null>(null)
+const topicsCollapsed = ref(false)
 
 let ws: WebSocket | null = null
 
@@ -203,12 +209,13 @@ const franchisePosterResolved = computed(() => {
 })
 
 // ── Build topics из ответа бэкенда ──────────────────────────
-const buildTopicsFromResponse = (topicsData: any[], groupMap: Record<string, number>) => {
+const buildTopicsFromResponse = (topicsData: any[], groupMap: Record<string, number>, groupId: number) => {
   const list: Topic[] = []
 
   for (const t of topicsData) {
     list.push({
-      id: t.id,
+      id: t.topic_id ?? t.id,         // ChatTopic.id
+      chatId: t.chat_id ?? groupId,    // GroupChat.id — всегда один
       name: t.title,
       poster_url: t.poster_url || null,
       animeId: t.anime_id || null,
@@ -219,7 +226,8 @@ const buildTopicsFromResponse = (topicsData: any[], groupMap: Record<string, num
   // Если топики не пришли с бэкенда — строим из parts
   if (list.length === 0) {
     list.push({
-      id: groupMap['general'] ?? 0,
+      id: 0,
+      chatId: groupId,
       name: props.franchiseName,
       poster_url: props.franchisePoster || null,
       animeId: null,
@@ -228,7 +236,8 @@ const buildTopicsFromResponse = (topicsData: any[], groupMap: Record<string, num
     const sorted = [...props.parts].sort((a, b) => a.franchise_order - b.franchise_order)
     for (const part of sorted) {
       list.push({
-        id: groupMap[String(part.id)] ?? 0,
+        id: 0,
+        chatId: groupId,
         name: part.title_ru || part.title_en,
         poster_url: null,
         animeId: part.id,
@@ -262,11 +271,7 @@ const initFranchiseGroups = async () => {
     chatGroupId.value = data.group_id
 
     // Строим топики из ответа (с постерами)
-    if (data.topics && data.topics.length > 0) {
-      buildTopicsFromResponse(data.topics, data.group_map || {})
-    } else {
-      buildTopicsFromResponse([], data.group_map || {})
-    }
+    buildTopicsFromResponse(data.topics || [], data.group_map || {}, data.group_id)
 
     // Загружаем настройки уведомлений
     if (data.group_id) {
@@ -276,7 +281,7 @@ const initFranchiseGroups = async () => {
     console.error('Failed to init franchise groups:', e)
     const map: Record<string, number> = { general: 0 }
     props.parts.forEach(p => { map[String(p.id)] = 0 })
-    buildTopicsFromResponse([], map)
+    buildTopicsFromResponse([], map, 0)
   }
 }
 
@@ -325,15 +330,21 @@ const toggleArchive = async () => {
 
 // ── Select topic ───────────────────────────────────────────
 const selectTopic = async (topic: Topic) => {
-  if (activeTopic.value?.id === topic.id) return
-  disconnectWs()
+  if (activeTopic.value?.id === topic.id && activeTopic.value?.chatId === topic.chatId) return
   activeTopic.value = topic
-  await loadMessages(topic.id)
-  if (topic.id > 0) connectWs(topic.id)
+  // Сворачиваем список топиков после выбора
+  topicsCollapsed.value = true
+  // WS один на весь GroupChat — подключаемся только если нет соединения
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    disconnectWs()
+    if (topic.chatId) connectWs(topic.chatId)
+  }
+  // Всегда загружаем через REST — надёжный источник при любом сценарии
+  await loadMessages(topic.chatId)
 }
 
 // ── Load messages ──────────────────────────────────────────
-const loadMessages = async (groupId: number) => {
+const loadMessages = async (groupId: number, _topicId?: number) => {
   if (!groupId) { messages.value = []; return }
   loadingMessages.value = true
   try {
@@ -348,7 +359,7 @@ const loadMessages = async (groupId: number) => {
   }
 }
 
-// ── WebSocket ──────────────────────────────────────────────
+// ── WebSocket (один на весь GroupChat) ─────────────────────
 const connectWs = (groupId: number) => {
   const token = localStorage.getItem('access_token')
   if (!token || !groupId) return
@@ -356,7 +367,14 @@ const connectWs = (groupId: number) => {
   ws = new WebSocket(`${proto}//${location.host}/ws/chat/${groupId}/?token=${token}`)
   ws.onmessage = async (e) => {
     const data = JSON.parse(e.data)
-    if (data.action === 'new_message') {
+    if (data.action === 'init') {
+      // WS даёт историю при первом подключении — только если REST ещё не загрузил
+      if (data.messages?.length > 0 && messages.value.length === 0) {
+        messages.value = data.messages
+        await nextTick()
+        scrollToBottom()
+      }
+    } else if (data.action === 'new_message') {
       messages.value.push(data.message)
       await nextTick()
       scrollToBottom()
@@ -370,21 +388,29 @@ const disconnectWs = () => { ws?.close(); ws = null }
 // ── Send ───────────────────────────────────────────────────
 const sendMessage = async () => {
   const text = newMessage.value.trim()
-  if (!text || !activeTopic.value?.id) return
+  if (!text || !activeTopic.value?.chatId) return
+  const chatId = activeTopic.value.chatId
+
   if (ws?.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ action: 'send_message', text }))
     newMessage.value = ''
   } else {
+    // WS не подключён — отправляем через HTTP
     try {
-      const { data } = await apiClient.post('/social/messages/', {
-        text,
-        chat: activeTopic.value.id,
+      const { data } = await apiClient.post(`/social/group-chats/${chatId}/messages/`, { text })
+      // Адаптируем ответ под формат чата
+      messages.value.push({
+        id: data.id,
+        sender_id: data.sender,
+        sender_username: data.sender_username || authStore.user?.username || '',
+        sender_avatar: data.sender_avatar || null,
+        text: data.text,
+        created_at: data.created_at,
       })
-      messages.value.push(data)
       newMessage.value = ''
       await nextTick()
       scrollToBottom()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error('sendMessage HTTP error:', e) }
   }
 }
 
@@ -513,6 +539,26 @@ onUnmounted(disconnectWs)
 .fc-unmute-btn:hover, .fc-unarchive-btn:hover { background: rgba(255,255,255,.1); }
 
 /* Темы */
+.fc-topics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #141414;
+  border-bottom: 1px solid #2a2a2a;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+.fc-topics-header:hover { background: #1a1a1a; }
+.fc-topics-title { font-size: .75rem; color: #666; font-weight: 600; }
+.fc-topics-chevron {
+  font-size: .75rem;
+  color: #555;
+  transition: transform .2s;
+  display: inline-block;
+}
+.fc-topics-chevron.collapsed { transform: rotate(-90deg); }
 .fc-topics {
   display: flex;
   flex-direction: column;
@@ -521,7 +567,7 @@ onUnmounted(disconnectWs)
   background: #141414;
   border-bottom: 1px solid #2a2a2a;
   overflow-y: auto;
-  max-height: 240px;
+  max-height: 220px;
   flex-shrink: 0;
 }
 .fc-topic-btn {

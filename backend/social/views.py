@@ -322,15 +322,38 @@ class CombinedChatsView(generics.ListAPIView):
                 except:
                     last_message = None
 
+                # Аватарка: своя → постер аниме → None
+                avatar_url = None
+                if chat.avatar:
+                    avatar_url = request.build_absolute_uri(chat.avatar.url)
+                elif chat.anime and chat.anime.poster:
+                    try:
+                        avatar_url = request.build_absolute_uri(chat.anime.poster.url)
+                    except Exception:
+                        avatar_url = getattr(chat.anime, 'poster_url', None)
+                elif chat.franchise_id and chat.anime is None:
+                    # Франшизный чат без аниме — берём постер первого аниме франшизы
+                    try:
+                        from anime.models import Anime as AnimeModel
+                        first = AnimeModel.objects.filter(
+                            franchise_id=chat.franchise_id
+                        ).exclude(poster='').order_by('franchise_order', 'id').first()
+                        if first and first.poster:
+                            avatar_url = request.build_absolute_uri(first.poster.url)
+                    except Exception:
+                        pass
+
                 chat_data = {
                     'id': chat.id,
                     'type': 'group',
                     'name': chat.name,
-                    'avatar_url': chat.avatar.url if chat.avatar else None,
+                    'avatar_url': avatar_url,
+                    'franchise_id': chat.franchise_id,
+                    'discussion_type': chat.discussion_type,
                     'participants_usernames': [member.user.username for member in chat.members.all()],
                     'last_message_text': last_message.text if last_message else None,
                     'last_message_sender': last_message.sender.username if last_message else None,
-                    'updated_at': chat.created_at.isoformat(),  # Используем created_at
+                    'updated_at': (chat.last_message_at or chat.created_at).isoformat(),
                     'created_at': chat.created_at.isoformat()
                 }
                 chats_data.append(chat_data)
@@ -2350,13 +2373,30 @@ class GroupChatViewSet(ModelViewSet):
         
         return Response({'message': 'Сообщения отмечены как прочитанные'})
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get', 'post'])
     def messages(self, request, pk=None):
-        """Получить сообщения чата"""
+        """GET: получить сообщения чата (с фильтром по topic_id).
+           POST: отправить сообщение в чат (с опциональным topic_id)."""
         chat = self.get_object()
-        messages = Message.objects.filter(chat=chat).order_by('-created_at')[:100]
-        serializer = MessageSerializer(messages, many=True)
-        return Response(serializer.data)
+
+        if request.method == 'POST':
+            text = request.data.get('text', '').strip()
+            if not text:
+                return Response({'error': 'Текст обязателен'}, status=400)
+            msg = Message.objects.create(
+                chat=chat,
+                sender=request.user,
+                text=text,
+            )
+            serializer = MessageSerializer(msg, context={'request': request})
+            return Response(serializer.data, status=201)
+
+        # GET
+        qs = Message.objects.filter(chat=chat, is_deleted=False).order_by('created_at')
+        # Фильтр по топику пока не реализован на уровне БД (поля topic нет),
+        # возвращаем все сообщения чата — фронт сам фильтрует по теме через WS.
+        serializer = MessageSerializer(qs[:200], many=True, context={'request': request})
+        return Response({'results': serializer.data})
 
     @action(detail=True, methods=['post'])
     def leave_chat(self, request, pk=None):

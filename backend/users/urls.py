@@ -144,6 +144,9 @@ urlpatterns = [
     # Список пользователей с фильтрацией по статусу
     path('users/', views.UsersListView.as_view(), name='users_list'),
 
+    # Быстрая проверка статуса онлайн (для polling)
+    path('online-status/', views.OnlineStatusView.as_view(), name='online_status'),
+
     # ── Heartbeat: пинг онлайн-статуса с фронта ──
     path('heartbeat/', views.HeartbeatView.as_view(), name='heartbeat'),
 ]

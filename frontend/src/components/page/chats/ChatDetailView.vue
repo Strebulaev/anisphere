@@ -3,9 +3,9 @@
     <!-- Франшизное обсуждение — отдельный рендер -->
     <FranchiseDiscussionChat
       v-if="isFranchiseDiscussion && franchiseParts.length > 0"
-      :franchise-id="chat?.franchise_id || chat?.id"
-      :franchise-name="chat?.franchise_name || chat?.anime_title || chat?.name"
-      :franchise-poster="chat?.anime_poster || chat?.avatar_url || ''"
+      :franchise-id="chat?.franchise_id"
+      :franchise-name="chat?.name"
+      :franchise-poster="franchisePosterUrl || chat?.avatar_url || ''"
       :parts="franchiseParts"
       :highlight-anime-id="highlightAnimeId"
     />
@@ -378,23 +378,47 @@ const chatAvatar = computed(() => {
 
 const isGroup = computed(() => chat.value?.type === 'group')
 
-// Франшизное обсуждение — групповой чат с аниме-привязкой
+// Франшизное обсуждение — групповой чат с franchise_id
 const isFranchiseDiscussion = computed(() =>
-  chat.value?.type === 'group' && (chat.value?.franchise_id || chat.value?.anime_id)
+  chat.value?.type === 'group' && !!chat.value?.franchise_id
 )
 
 const franchiseParts = ref<any[]>([])  // части франшизы для FranchiseDiscussionChat
+const franchisePosterUrl = ref<string>('')
 const highlightAnimeId = ref<number | undefined>(undefined)
 
-// Загружаем части франшизы если это franchise discussion
+// Загружаем данные франшизы через franchise-discussion/init/
 const loadFranchiseParts = async () => {
   if (!isFranchiseDiscussion.value) return
   const franchiseId = chat.value?.franchise_id
   if (!franchiseId) return
+
   try {
-    const { data } = await apiClient.get(`/anime/franchises/${franchiseId}/parts/`)
-    franchiseParts.value = data.results || data || []
+    // Сначала получаем список аниме франшизы
+    const { data: franchiseData } = await apiClient.get(`/anime/franchises/${franchiseId}/`)
+    const animeIds: number[] = (franchiseData.entries || franchiseData.anime_list || franchiseData.parts || []).map((a: any) => a.id)
+
+    // Инициализируем franchise discussion — получаем топики с постерами
+    const { data } = await apiClient.post('/social/franchise-discussion/init/', {
+      franchise_id: franchiseId,
+      anime_ids: animeIds,
+    })
+
+    // Строим parts из topics бэкенда (всё кроме general)
+    franchiseParts.value = (data.topics || [])
+      .filter((t: any) => t.anime_id !== null)
+      .map((t: any) => ({
+        id: t.anime_id,
+        title_ru: t.title,
+        title_en: t.title,
+        franchise_order: t.order,
+      }))
+
+    if (data.franchise_poster) {
+      franchisePosterUrl.value = data.franchise_poster
+    }
   } catch {
+    // Фолбек: показываем обычный чат если не удалось загрузить
     franchiseParts.value = []
   }
 }

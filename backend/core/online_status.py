@@ -12,8 +12,11 @@ logger = logging.getLogger(__name__)
 
 # Ключ в Redis: user_online:{user_id}
 ONLINE_KEY_PREFIX = 'user_online:'
-# TTL в секундах — 30 минут (пользователь считается онлайн ещё 30 минут после последней активности)
-ONLINE_TTL = 1800
+# TTL в секундах — 2 минуты (пользователь считается онлайн пока активно использует сайт)
+# Если вкладка активна - heartbeat обновляет TTL каждые 30 секунд
+ONLINE_TTL = 120
+# TTL для неактивных пользователей (отошёл от компа) - 5 минут
+AWAY_TTL = 60
 
 
 class RedisOnlineStatus:
@@ -44,11 +47,14 @@ class RedisOnlineStatus:
                 self._redis_client = None
         return self._redis_client
 
-    def set_online(self, user_id: int, username: str, extra_data: Optional[Dict[str, Any]] = None) -> None:
+    def set_online(self, user_id: int, username: str, extra_data: Optional[Dict[str, Any]] = None, is_active: bool = True) -> None:
         """Установить статус онлайн для пользователя.
         
-        TTL = ONLINE_TTL (30 мин). Каждый API-запрос или явный heartbeat
-        сбрасывает таймер. Пользователь считается онлайн пока ключ жив.
+        TTL зависит от активности:
+        - is_active=True: 2 минуты (пользователь активно использует сайт)
+        - is_active=False: 5 минут (отошёл от компа)
+        
+        Каждый API-запрос или явный heartbeat сбрасывает таймер.
         """
         if self.redis_client is None:
             return
@@ -56,14 +62,16 @@ class RedisOnlineStatus:
         try:
             key = f"{ONLINE_KEY_PREFIX}{user_id}"
             now = timezone.now()
+            ttl = ONLINE_TTL if is_active else AWAY_TTL
             data = {
                 'user_id': user_id,
                 'username': username,
                 'last_seen': now.isoformat(),
                 'last_seen_ts': now.timestamp(),
+                'is_active': is_active,
                 **(extra_data or {})
             }
-            self.redis_client.setex(key, ONLINE_TTL, json.dumps(data))
+            self.redis_client.setex(key, ttl, json.dumps(data))
         except (redis.ConnectionError, redis.TimeoutError) as e:
             logger.debug(f"Redis set_online error (ignored): {e}")
         except Exception as e:

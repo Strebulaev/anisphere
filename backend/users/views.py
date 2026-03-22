@@ -1757,6 +1757,7 @@ class AdminComplaintsView(APIView):
     def get(self, request):
         from notifications.models import Complaint
         from notifications.serializers import ComplaintSerializer
+        from django.contrib.contenttypes.models import ContentType
 
         status_filter = request.query_params.get('status', 'pending')
         qs = Complaint.objects.all().order_by('-created_at')
@@ -1766,6 +1767,23 @@ class AdminComplaintsView(APIView):
 
         data = []
         for c in qs:
+            # Получаем информацию о контенте
+            target_info = None
+            target_user = None
+            try:
+                if c.content_object:
+                    obj = c.content_object
+                    if hasattr(obj, 'author'):
+                        target_user = obj.author
+                        target_info = f'Автор: @{obj.author.username}'
+                    elif hasattr(obj, 'user'):
+                        target_user = obj.user
+                        target_info = f'Пользователь: @{obj.user.username}'
+                    elif hasattr(obj, 'username'):
+                        target_info = f'Пользователь: @{obj.username}'
+            except Exception:
+                pass
+            
             data.append({
                 'id': c.id,
                 'complainant': {
@@ -1773,6 +1791,11 @@ class AdminComplaintsView(APIView):
                     'username': c.complainant.username,
                     'nickname': c.complainant.nickname,
                 },
+                'target_info': target_info,
+                'target_user': {
+                    'id': target_user.id,
+                    'username': target_user.username,
+                } if target_user else None,
                 'complaint_type': c.complaint_type,
                 'reason': c.reason,
                 'description': c.description,
@@ -1819,21 +1842,29 @@ class AdminDeletePostView(APIView):
 class HeartbeatView(APIView):
     """
     POST /api/users/heartbeat/
-    Фронтенд шлёт этот эндпойнт каждые 2-3 минуты пока вкладка активна.
-    Сбрасывает TTL ключа user_online:{id} в Redis (схема 30 мин).
+    Фронтенд шлёт этот эндпойнт каждые 30 секунд пока вкладка активна.
+    Если вкладка не активна (пользователь отошёл) - шлёт с is_active=false
+    Сбрасывает TTL ключа user_online:{id} в Redis:
+    - is_active=true: 2 минуты
+    - is_active=false: 5 минут
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         from core.online_status import online_status, publish_user_online_event
         user = request.user
+        
+        # Получаем статус активности вкладки от фронтенда
+        is_active = request.data.get('is_active', True)
+        
         online_status.set_online(
             user.id,
             user.username,
-            extra_data={'display_name': user.display_name or user.username}
+            extra_data={'display_name': user.display_name or user.username},
+            is_active=bool(is_active)
         )
         publish_user_online_event(user.id, user.username)
-        return Response({'ok': True})
+        return Response({'ok': True, 'is_active': is_active})
 
 
 # Импорт UserLibraryViewSet из отдельного модуля
@@ -2151,13 +2182,110 @@ class AllSettingsView(APIView):
 
 
 class UsersListView(APIView):
-    """Список пользователей"""
+    """Список пользователей с фильтрацией по онлайн статусу"""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        users = User.objects.all()[:50]
-        data = [{'id': u.id, 'username': u.username, 'is_online': u.is_online} for u in users]
-        return Response({'results': data})
+        from core.online_status import online_status
+        from django.db.models import Q
+
+        # Получаем фильтр из query params (поддерживаем и status, и tab)
+        tab = request.query_params.get('tab') or request.query_params.get('status', 'all')
+        search = request.query_params.get('search', '').strip()
+        
+        # Получаем всех онлайн пользователей из Redis
+        online_users_data = online_status.get_online_users()
+        online_ids = set(u['user_id'] for u in online_users_data if isinstance(u, dict) and 'user_id' in u)
+        
+        # Определяем базовый QuerySet в зависимости от фильтра
+        if tab == 'online':
+            # Только онлайн
+            users_qs = User.objects.filter(id__in=list(online_ids)) if online_ids else User.objects.none()
+        elif tab == 'offline':
+            # Только офлайн
+            users_qs = User.objects.exclude(id__in=list(online_ids)) if online_ids else User.objects.all()
+        else:
+            # all - все пользователи
+            users_qs = User.objects.all().order_by('-last_login')
+
+        # Поиск
+        if search:
+            users_qs = users_qs.filter(
+                Q(username__icontains=search) |
+                Q(nickname__icontains=search) |
+                Q(display_name__icontains=search)
+            )
+
+        # Ограничиваем и формируем результат
+        users = users_qs[:50]
+        
+        result = []
+        for user in users:
+            is_online = user.id in online_ids
+            user_data = next((u for u in online_users_data if u.get('user_id') == user.id), None)
+            is_active = user_data.get('is_active', False) if user_data else False
+
+            result.append({
+                'id': user.id,
+                'username': user.username,
+                'nickname': user.nickname or user.username,
+                'display_name': user.display_name or user.username,
+                'avatar_url': user.avatar.url if user.avatar else None,
+                'is_online': is_online,
+                'is_active': is_active,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+            })
+
+        return Response({
+            'results': result,
+            'count': len(result),
+            'tab': tab,
+            'online_count': len(online_ids),
+            'offline_count': User.objects.count() - len(online_ids),
+        })
+
+
+class OnlineStatusView(APIView):
+    """Быстрая проверка статуса онлайн для списка пользователей"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from core.online_status import online_status
+        
+        # Получаем ID пользователей из параметра user_ids (через запятую)
+        user_ids_param = request.query_params.get('user_ids', '')
+        if user_ids_param:
+            try:
+                user_ids = [int(x.strip()) for x in user_ids_param.split(',') if x.strip().isdigit()]
+            except:
+                user_ids = []
+        else:
+            user_ids = []
+        
+        result = {}
+        
+        if user_ids:
+            # Только для запрошенных пользователей
+            for user_id in user_ids:
+                user_data = online_status.get_user_data(user_id)
+                result[user_id] = {
+                    'is_online': user_data is not None,
+                    'is_active': user_data.get('is_active', False) if user_data else False,
+                }
+        else:
+            # Все онлайн пользователи
+            online_users = online_status.get_online_users()
+            for u in online_users:
+                if isinstance(u, dict) and 'user_id' in u:
+                    result[u['user_id']] = {
+                        'is_online': True,
+                        'is_active': u.get('is_active', False),
+                    }
+        
+        return Response({
+            'statuses': result,
+            'online_count': len([v for v in result.values() if v['is_online']]),
+        })
 
 
 class OnlineUsersView(APIView):
@@ -2169,13 +2297,30 @@ class OnlineUsersView(APIView):
         from django.db.models import Q
 
         # Получаем статус фильтра
-        status_filter = request.query_params.get('status', 'all')  # all, online, offline
-
-        # Получаем всех пользователей
-        users_qs = User.objects.all().order_by('-last_login')
+        status_filter = request.query_params.get('status', 'all')  # all, online, offline, active, away
+        search = request.query_params.get('search', '').strip()
+        
+        # Определяем базовый QuerySet
+        if status_filter == 'online' or status_filter == 'active':
+            # Только онлайн - получаем из Redis
+            online_users_data = online_status.get_online_users()
+            online_ids = [u['user_id'] for u in online_users_data if isinstance(u, dict) and 'user_id' in u]
+            if status_filter == 'active':
+                # Только активные (не отошли)
+                active_ids = [u['user_id'] for u in online_users_data if isinstance(u, dict) and u.get('is_active', True)]
+                users_qs = User.objects.filter(id__in=active_ids)
+            else:
+                users_qs = User.objects.filter(id__in=online_ids) if online_ids else User.objects.none()
+        elif status_filter == 'offline':
+            # Только офлайн
+            online_users_data = online_status.get_online_users()
+            online_ids = [u['user_id'] for u in online_users_data if isinstance(u, dict) and 'user_id' in u]
+            users_qs = User.objects.exclude(id__in=online_ids) if online_ids else User.objects.all()
+        else:
+            # all - все пользователи
+            users_qs = User.objects.all().order_by('-last_login')
 
         # Поиск
-        search = request.query_params.get('search', '').strip()
         if search:
             users_qs = users_qs.filter(
                 Q(username__icontains=search) |
@@ -2190,7 +2335,9 @@ class OnlineUsersView(APIView):
 
         for user in users_qs[:100]:  # Ограничиваем 100 пользователей
             # Проверяем онлайн статус через Redis
-            is_online = online_status.is_online(user.id)
+            user_data = online_status.get_user_data(user.id)
+            is_online = user_data is not None
+            is_active = user_data.get('is_active', False) if user_data else False
 
             if is_online:
                 online_count += 1
@@ -2202,6 +2349,8 @@ class OnlineUsersView(APIView):
                 continue
             if status_filter == 'offline' and is_online:
                 continue
+            if status_filter == 'active' and not is_active:
+                continue
 
             result.append({
                 'id': user.id,
@@ -2210,6 +2359,7 @@ class OnlineUsersView(APIView):
                 'display_name': user.display_name or user.username,
                 'avatar_url': user.avatar.url if user.avatar else None,
                 'is_online': is_online,
+                'is_active': is_active,
                 'last_login': user.last_login.isoformat() if user.last_login else None,
             })
 

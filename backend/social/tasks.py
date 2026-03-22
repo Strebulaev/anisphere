@@ -929,10 +929,10 @@ def send_post_like_notification(post_id: int, user_id: int):
         try:
             from notifications.models import Notification
             Notification.objects.create(
-                recipient=user,
-                notification_type='post_like',
+                user=user,
+                type='like',
                 title='Новый лайк',
-                text=f'Ваш пост получил лайк',
+                content=f'Ваш пост получил лайк',
                 link=f'/post/{post_id}'
             )
         except ImportError:
@@ -965,20 +965,20 @@ def send_post_comment_notification(post_id: int, comment_id: int, author_id: int
             # Уведомление автору поста
             if post.author.id != author_id:
                 Notification.objects.create(
-                    recipient=post.author,
-                    notification_type='post_comment',
+                    user=post.author,
+                    type='comment',
                     title='Новый комментарий',
-                    text=f'К вашему посту оставили комментарий',
+                    content=f'К вашему посту оставили комментарий',
                     link=f'/post/{post_id}#comment-{comment_id}'
                 )
 
             # Уведомление автору родительского комментария (если это ответ)
             if comment.parent and comment.parent.author.id != author_id:
                 Notification.objects.create(
-                    recipient=comment.parent.author,
-                    notification_type='comment_reply',
+                    user=comment.parent.author,
+                    type='reply',
                     title='Новый ответ',
-                    text=f'Вам ответили на комментарий',
+                    content=f'Вам ответили на комментарий',
                     link=f'/post/{post_id}#comment-{comment_id}'
                 )
         except ImportError:
@@ -1046,7 +1046,7 @@ def notify_moderators_new_report(report_id: int):
             return {'error': 'No moderator account found'}
 
         # Формируем сообщение
-        content_type_display = 'Пост' if report.content_type == 'post' else 'Комментарий'
+        content_type_display = 'Пост' if report.content_type == 'post' else 'Комментарий' if report.content_type == 'comment' else 'Пользователь'
         reason_display = dict(Report.REASON_CHOICES).get(report.reason, report.reason)
 
         # Получаем превью контента
@@ -1066,23 +1066,20 @@ def notify_moderators_new_report(report_id: int):
                 content_author = comment.author.username if comment.author else 'Удалён'
             except PostComment.DoesNotExist:
                 pass
+        elif report.content_type == 'user':
+            try:
+                target_user = User.objects.get(id=report.content_id)
+                content_author = target_user.username
+            except User.DoesNotExist:
+                pass
 
-        # Создаём уведомление
+        # Создаём уведомление (используем поле user вместо recipient)
         Notification.objects.create(
-            recipient=moderator,
-            notification_type='moderation_report',
+            user=moderator,
+            type='system',
             title=f'🚨 Новая жалоба: {content_type_display}',
-            text=f'Причина: {reason_display}\nАвтор: @{content_author}\nЖалоба от: @{report.reporter.username}',
-            link=f'/moderation/reports/{report_id}',
-            data={
-                'report_id': report_id,
-                'content_type': report.content_type,
-                'content_id': report.content_id,
-                'reason': report.reason,
-                'reporter_id': report.reporter_id,
-                'content_preview': content_preview,
-                'content_author': content_author,
-            }
+            content=f'Причина: {reason_display}\nАвтор: @{content_author}\nЖалоба от: @{report.reporter.username}',
+            link=f'/moderation/reports/{report_id}'
         )
 
         logger.info(f"Moderator {moderator.username} notified about report {report_id}")
@@ -1093,34 +1090,6 @@ def notify_moderators_new_report(report_id: int):
         return {'error': 'Report not found'}
     except Exception as e:
         logger.error(f"Error notifying moderators: {e}")
-        return {'error': str(e)}
-
-    logger = logging.getLogger(__name__)
-
-    try:
-        post = Post.objects.get(id=post_id)
-
-        if post.author.id == user_id:
-            return {'success': True, 'message': 'Self-repost notification skipped'}
-
-        try:
-            from notifications.models import Notification
-            Notification.objects.create(
-                recipient=post.author,
-                notification_type='post_repost',
-                title='Новый репост',
-                text=f'Ваш пост репостнули',
-                link=f'/post/{post_id}'
-            )
-        except ImportError:
-            logger.warning("Notifications app not available")
-
-        return {'success': True}
-
-    except Post.DoesNotExist:
-        return {'error': 'Post not found'}
-    except Exception as e:
-        logger.error(f"Error sending repost notification: {e}")
         return {'error': str(e)}
 
 
@@ -1139,10 +1108,10 @@ def send_mention_in_post_notification(post_id: int, user_id: int, mentioned_by_i
         try:
             from notifications.models import Notification
             Notification.objects.create(
-                recipient=user,
-                notification_type='mention',
+                user=user,
+                type='mention',
                 title='Упоминание',
-                text=f'{mentioned_by.username} упомянул вас в посте',
+                content=f'{mentioned_by.username} упомянул вас в посте',
                 link=f'/post/{post_id}'
             )
         except ImportError:
@@ -1269,45 +1238,6 @@ def process_post_mentions(post_id: int):
 
 
 @shared_task
-def notify_moderators_new_report(report_id: int):
-    """Уведомить модераторов о новой жалобе"""
-    from .models import Report
-    from users.models import User
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    try:
-        report = Report.objects.get(id=report_id)
-
-        # Получаем всех модераторов и админов
-        moderators = User.objects.filter(
-            Q(is_staff=True) | Q(is_superuser=True)
-        ).exclude(id=report.reporter_id)
-
-        try:
-            from notifications.models import Notification
-            for moderator in moderators:
-                Notification.objects.create(
-                    recipient=moderator,
-                    notification_type='new_report',
-                    title='Новая жалоба',
-                    text=f'Поступила новая жалоба от {report.reporter.username}',
-                    link=f'/admin/reports/{report_id}'
-                )
-        except ImportError:
-            logger.warning("Notifications app not available")
-
-        return {'success': True, 'moderators_notified': moderators.count()}
-
-    except Report.DoesNotExist:
-        return {'error': 'Report not found'}
-    except Exception as e:
-        logger.error(f"Error notifying moderators: {e}")
-        return {'error': str(e)}
-
-
-@shared_task
 def calculate_post_popularity(post_id: int):
     """Рассчитать популярность поста для рекомендаций"""
     from .models import Post
@@ -1393,15 +1323,13 @@ def send_like_notification(post_id: int, user_id: int):
         if post.likes_count > 1:
             return {'skipped': 'Not the first like'}
 
-        # Создаём уведомление
+        # Создаём уведомление (используем поле user)
         Notification.objects.create(
-            recipient=post.author,
-            sender=user,
-            notification_type='post_like',
+            user=post.author,
+            type='like',
             title='Новый лайк',
-            message=f'{user.username} лайкнул ваш пост',
-            link=f'/post/{post.id}',
-            is_read=False
+            content=f'{user.username} лайкнул ваш пост',
+            link=f'/post/{post.id}'
         )
 
         return {'success': True, 'notification_id': post.id}
@@ -1456,13 +1384,11 @@ def send_comment_notification(post_id: int, comment_id: int, parent_comment_id: 
                 continue
 
             Notification.objects.create(
-                recipient=recipient,
-                sender=comment.author,
-                notification_type='post_comment',
+                user=recipient,
+                type='comment',
                 title='Новый комментарий',
-                message=f'{comment.author.username} прокомментировал ваш пост',
-                link=f'/post/{post.id}?comment={comment.id}',
-                is_read=False
+                content=f'{comment.author.username} прокомментировал ваш пост',
+                link=f'/post/{post.id}?comment={comment.id}'
             )
 
         return {'success': True, 'notifications_sent': len(recipients)}
@@ -1492,13 +1418,11 @@ def send_mention_notification(post_id: int, mentioned_user_id: int):
             return {'skipped': 'Cannot notify yourself'}
 
         Notification.objects.create(
-            recipient=mentioned_user,
-            sender=post.author,
-            notification_type='mention',
+            user=mentioned_user,
+            type='mention',
             title='Упоминание',
-            message=f'{post.author.username} упомянул вас в посте',
-            link=f'/post/{post.id}',
-            is_read=False
+            content=f'{post.author.username} упомянул вас в посте',
+            link=f'/post/{post.id}'
         )
 
         return {'success': True}
@@ -1528,13 +1452,11 @@ def send_repost_notification(original_post_id: int, user_id: int):
             return {'skipped': 'Cannot notify yourself'}
 
         Notification.objects.create(
-            recipient=original_post.author,
-            sender=user,
-            notification_type='post_repost',
+            user=original_post.author,
+            type='repost',
             title='Новый репост',
-            message=f'{user.username} сделал репост вашего поста',
-            link=f'/post/{original_post.id}',
-            is_read=False
+            content=f'{user.username} сделал репост вашего поста',
+            link=f'/post/{original_post.id}'
         )
 
         return {'success': True}
