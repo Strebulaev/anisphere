@@ -294,6 +294,17 @@ class UserProfileSettings(models.Model):
     login_notifications = models.BooleanField(default=True)
     password_changed_notification = models.BooleanField(default=True)
 
+    # Профиль пользователя (биографические данные)
+    birth_date = models.DateField(null=True, blank=True, verbose_name='Дата рождения')
+    social_links = models.JSONField(default=list, blank=True, verbose_name='Ссылки на соцсети')
+    status = models.CharField(
+        max_length=20,
+        choices=[('online', 'Онлайн'), ('away', 'Отошёл'), ('invisible', 'Невидимка')],
+        default='online',
+        blank=True,
+        verbose_name='Статус'
+    )
+
     # Дата обновления
     updated_at = models.DateTimeField(auto_now=True)
 

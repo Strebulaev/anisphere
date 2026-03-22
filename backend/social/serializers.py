@@ -131,6 +131,7 @@ class PostSerializer(serializers.ModelSerializer):
     can_delete = serializers.SerializerMethodField()
     edited_at_display = serializers.SerializerMethodField()
     hashtags = serializers.SerializerMethodField()
+    spoiler_for = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -331,6 +332,16 @@ class PostSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'hashtag_links'):
             return [link.hashtag.name for link in obj.hashtag_links.all()]
         return []
+
+    def get_spoiler_for(self, obj):
+        """Возвращает информацию об аниме, к которому относится спойлер"""
+        if obj.spoiler_for:
+            return {
+                'id': obj.spoiler_for.id,
+                'title_ru': obj.spoiler_for.title_ru,
+                'title_en': obj.spoiler_for.title_en,
+            }
+        return None
 
     def get_edited_at_display(self, obj):
         if obj.edited_at:
@@ -539,7 +550,7 @@ class MessageSerializer(serializers.ModelSerializer):
             return False
         
         return False
-    
+
     def get_read_count(self, obj):
         """
         Количество пользователей, прочитавших сообщение (для групповых чатов)

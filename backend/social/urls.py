@@ -11,7 +11,6 @@ from .views import (
     PostViewSet, CombinedChatsView,
     GroupChatViewSet, ChatRoleViewSet, PrivateChatViewSet,
     get_chat_detail,
-    PrivateChatSettingsView, GroupChatSettingsView,
     FollowViewSet, get_post_likers,
     get_unread_count, get_unread_chats, mark_chat_read, mark_private_chat_read, mark_group_chat_read,
 )
@@ -96,6 +95,11 @@ from .views_chat import (
     mute_private_chat, unmute_private_chat,
     block_user_in_private_chat, unblock_user_in_private_chat,
     group_member_settings, mute_group_chat,
+    # Новые эндпойнты
+    unmute_group_chat,
+    archive_group_chat,
+    archive_private_chat,
+    get_group_notification_settings,
 )
 
 
@@ -163,11 +167,8 @@ urlpatterns = [
     path('chats/<int:pk>/', get_chat_detail, name='chat-detail'),
     path('chats/<int:pk>/settings/', get_chat_detail, name='chat-settings'),
 
-    # Настройки личного чата (старые)
-    path('private-chats/<int:chat_id>/settings/', PrivateChatSettingsView.as_view(), name='private-chat-settings'),
-    path('group-chats/<int:chat_id>/settings/', GroupChatSettingsView.as_view(), name='group-chat-settings'),
-
-    # ==================== НАСТРОЙКИ ЛИЧНОГО ЧАТА (НОВЫЕ) ====================
+    # ==================== НАСТРОЙКИ ЛИЧНОГО ЧАТА ====================
+    path('private-chats/<int:chat_id>/settings/', private_chat_user_settings, name='private-chat-settings'),
     path('private-chats/<int:chat_id>/user-settings/', private_chat_user_settings, name='private-chat-user-settings'),
     path('private-chats/<int:chat_id>/mute/', mute_private_chat, name='mute-private-chat'),
     path('private-chats/<int:chat_id>/unmute/', unmute_private_chat, name='unmute-private-chat'),
@@ -176,9 +177,14 @@ urlpatterns = [
     path('private-chats/<int:chat_id>/mark_as_read/', mark_private_chat_read, name='mark-private-chat-read'),
 
     # ==================== НАСТРОЙКИ ГРУППОВОГО ЧАТА ====================
+    path('group-chats/<int:chat_id>/settings/', group_member_settings, name='group-chat-settings'),
     path('group-chats/<int:chat_id>/member-settings/', group_member_settings, name='group-member-settings'),
     path('group-chats/<int:chat_id>/mute/', mute_group_chat, name='mute-group-chat'),
+    path('group-chats/<int:chat_id>/unmute/', unmute_group_chat, name='unmute-group-chat'),
+    path('group-chats/<int:chat_id>/notification-settings/', get_group_notification_settings, name='group-notification-settings'),
+    path('group-chats/<int:chat_id>/archive/', archive_group_chat, name='archive-group-chat'),
     path('group-chats/<int:chat_id>/mark_as_read/', mark_group_chat_read, name='mark-group-chat-read'),
+    path('private-chats/<int:chat_id>/archive/', archive_private_chat, name='archive-private-chat'),
 
     # ==================== КАСТОМИЗАЦИЯ ЧАТОВ (ОБОИ + ТЕМЫ) ====================
     # Обои — группа

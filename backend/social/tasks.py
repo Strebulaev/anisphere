@@ -1003,6 +1003,102 @@ def send_post_repost_notification(post_id: int, user_id: int):
 
     try:
         post = Post.objects.get(id=post_id)
+        # TODO: Implement notification
+        return {'success': True}
+    except Post.DoesNotExist:
+        return {'error': 'Post not found'}
+
+
+@shared_task
+def notify_moderators_new_report(report_id: int):
+    """
+    Уведомить модераторов о новой жалобе.
+    Все жалобы отправляются на специальный аккаунт модератора.
+    """
+    from .models import Report, Post, PostComment
+    from users.models import User
+    from notifications.models import Notification
+    from django.conf import settings
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        report = Report.objects.select_related('reporter').get(id=report_id)
+
+        # Получаем специальный аккаунт для жалоб из настроек
+        moderator_username = getattr(settings, 'REPORTS_MODERATOR_USERNAME', 'moderator')
+        moderator_email = getattr(settings, 'REPORTS_MODERATOR_EMAIL', '')
+
+        # Сначала ищем по username
+        moderator = User.objects.filter(username=moderator_username).first()
+
+        # Если не найден, ищем по email
+        if not moderator and moderator_email:
+            moderator = User.objects.filter(email=moderator_email).first()
+
+        # Если всё ещё не найден, ищем любого staff/superuser
+        if not moderator:
+            moderator = User.objects.filter(is_staff=True, is_superuser=True).first()
+
+        if not moderator:
+            logger.warning(f"No moderator account found for report {report_id}")
+            return {'error': 'No moderator account found'}
+
+        # Формируем сообщение
+        content_type_display = 'Пост' if report.content_type == 'post' else 'Комментарий'
+        reason_display = dict(Report.REASON_CHOICES).get(report.reason, report.reason)
+
+        # Получаем превью контента
+        content_preview = ''
+        content_author = ''
+        if report.content_type == 'post':
+            try:
+                post = Post.objects.get(id=report.content_id)
+                content_preview = post.text[:100] if post.text else ''
+                content_author = post.author.username
+            except Post.DoesNotExist:
+                pass
+        elif report.content_type == 'comment':
+            try:
+                comment = PostComment.objects.get(id=report.content_id)
+                content_preview = comment.content[:100] if comment.content else ''
+                content_author = comment.author.username if comment.author else 'Удалён'
+            except PostComment.DoesNotExist:
+                pass
+
+        # Создаём уведомление
+        Notification.objects.create(
+            recipient=moderator,
+            notification_type='moderation_report',
+            title=f'🚨 Новая жалоба: {content_type_display}',
+            text=f'Причина: {reason_display}\nАвтор: @{content_author}\nЖалоба от: @{report.reporter.username}',
+            link=f'/moderation/reports/{report_id}',
+            data={
+                'report_id': report_id,
+                'content_type': report.content_type,
+                'content_id': report.content_id,
+                'reason': report.reason,
+                'reporter_id': report.reporter_id,
+                'content_preview': content_preview,
+                'content_author': content_author,
+            }
+        )
+
+        logger.info(f"Moderator {moderator.username} notified about report {report_id}")
+        return {'success': True, 'moderator_id': moderator.id}
+
+    except Report.DoesNotExist:
+        logger.error(f"Report {report_id} not found")
+        return {'error': 'Report not found'}
+    except Exception as e:
+        logger.error(f"Error notifying moderators: {e}")
+        return {'error': str(e)}
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        post = Post.objects.get(id=post_id)
 
         if post.author.id == user_id:
             return {'success': True, 'message': 'Self-repost notification skipped'}

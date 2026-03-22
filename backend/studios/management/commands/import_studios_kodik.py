@@ -15,10 +15,11 @@ import requests
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 from studios.models import Studio, StudioAnime
+from anime.kodik_config import KODIK_API_TOKEN, KODIK_API_BASE
 
 
-KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
-KODIK_LIST_URL = 'https://kodikapi.com/list'
+KODIK_TOKEN = KODIK_API_TOKEN
+KODIK_LIST_URL = f'{KODIK_API_BASE}/list'
 
 
 def transliterate_slug(name: str) -> str:

@@ -224,9 +224,24 @@ def report_post(request, post_id):
     """Пожаловаться на пост"""
     post = get_object_or_404(Post, id=post_id)
     
+    # Нельзя жаловаться на свой пост
+    if post.author == request.user:
+        return Response({'error': 'Нельзя жаловаться на свой пост'}, status=400)
+
     reason = request.data.get('reason', 'other')
     comment = request.data.get('comment', '')
+
+    # Проверяем, не жаловался ли уже пользователь
+    existing_report = Report.objects.filter(
+        reporter=request.user,
+        content_type='post',
+        content_id=post_id,
+        status='pending'
+    ).first()
     
+    if existing_report:
+        return Response({'error': 'Вы уже отправили жалобу на этот пост'}, status=400)
+
     report = Report.objects.create(
         reporter=request.user,
         content_type='post',
@@ -236,6 +251,13 @@ def report_post(request, post_id):
         status='pending'
     )
     
+    # Запускаем фоновое задание для уведомления модераторов
+    try:
+        from social.tasks import notify_moderators_new_report
+        notify_moderators_new_report.delay(report.id)
+    except Exception as e:
+        logger.warning(f"Failed to notify moderators: {e}")
+
     return Response({'success': True, 'message': 'Жалоба отправлена'})
 
 
@@ -2082,7 +2104,16 @@ def get_franchise_discussions(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_anime_discussion_group(request, anime_id):
-    """Получить или создать группу обсуждения для аниме"""
+    """Получить или создать группу обсуждения для аниме.
+    Делегируем к исправленной версии из _discussion_views_patch.
+    """
+    from ._discussion_views_patch import get_anime_discussion_group as _real
+    return _real(request, anime_id)
+
+
+# ── старая реализация ниже сохранена для справки, но не используется ──
+def _get_anime_discussion_group_old(request, anime_id):
+    """УСТАРЕВШАЯ версия — не использовать."""
     from anime.models import Anime, Franchise
     from .models import GroupChat, ChatMember, ChatTopic
     
@@ -2091,7 +2122,6 @@ def get_anime_discussion_group(request, anime_id):
     except Anime.DoesNotExist:
         return Response({'error': 'Аниме не найдено'}, status=404)
     
-    # Проверяем, есть ли у аниме франшиза
     if anime.franchise:
         # Для франшизы - возвращаем главную группу с топиками
         franchise = anime.franchise
@@ -2108,6 +2138,21 @@ def get_anime_discussion_group(request, anime_id):
             }
         )
         
+        # Если группа создана и у франшизы есть постер - скачиваем его
+        if created and franchise.poster_url:
+            try:
+                import requests
+                from django.core.files.base import ContentFile
+                response = requests.get(franchise.poster_url, timeout=10)
+                if response.status_code == 200:
+                    main_group.avatar.save(
+                        f'franchise_{franchise.id}_avatar.jpg',
+                        ContentFile(response.content),
+                        save=True
+                    )
+            except Exception:
+                pass  # Игнорируем ошибки при скачивании
+        
         # Автодобавляем пользователя
         ChatMember.objects.get_or_create(chat=main_group, user=request.user)
         
@@ -2121,10 +2166,10 @@ def get_anime_discussion_group(request, anime_id):
         # Создаём топики
         topics = []
         
-        # Общий топик - используем anime=None вместо anime__isnull=True
+        # Общий топик
         general_topic, _ = ChatTopic.objects.get_or_create(
             chat=main_group,
-            anime=None,
+            anime_id=None,
             defaults={'title': f'О франшизе «{franchise.name}»', 'order': 0}
         )
         topics.append({
@@ -2155,7 +2200,7 @@ def get_anime_discussion_group(request, anime_id):
             'group': {
                 'id': main_group.id,
                 'name': main_group.name,
-                'avatar_url': main_group.avatar.url if main_group.avatar else None,
+                'avatar_url': main_group.avatar.url if main_group.avatar else (franchise.poster_url if franchise.poster_url else None),
                 'members_count': main_group.members.count(),
                 'discussion_type': 'franchise',
             },
@@ -2186,6 +2231,21 @@ def get_anime_discussion_group(request, anime_id):
                 folder_type='discussions',
             )
         
+            # Если у аниме есть постер - скачиваем его
+            if anime.poster_url:
+                try:
+                    import requests
+                    from django.core.files.base import ContentFile
+                    response = requests.get(anime.poster_url, timeout=10)
+                    if response.status_code == 200:
+                        group.avatar.save(
+                            f'anime_{anime.id}_avatar.jpg',
+                            ContentFile(response.content),
+                            save=True
+                        )
+                except Exception:
+                    pass  # Игнорируем ошибки при скачивании
+        
         # Автодобавляем пользователя
         ChatMember.objects.get_or_create(chat=group, user=request.user)
         
@@ -2198,7 +2258,7 @@ def get_anime_discussion_group(request, anime_id):
             'group': {
                 'id': group.id,
                 'name': group.name,
-                'avatar_url': group.avatar.url if group.avatar else (anime.poster.url if anime.poster else None),
+                'avatar_url': group.avatar.url if group.avatar else (anime.poster_image_url if anime.poster_image_url else None),
                 'members_count': group.members.count(),
                 'discussion_type': 'anime',
             },
@@ -2253,7 +2313,28 @@ def join_anime_discussion_group(request, anime_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_franchise_discussion_group(request, franchise_id):
-    """Получить или создать группу обсуждения для франшизы"""
+    """Получить или создать группу обсуждения для франшизы.
+    Делегируем к исправленной версии через первый anime франшизы.
+    """
+    from anime.models import Anime, Franchise
+    from .models import GroupChat, ChatMember, ChatTopic
+
+    # Находим первое аниме франшизы и делегируем
+    try:
+        franchise = Franchise.objects.get(id=franchise_id)
+    except Franchise.DoesNotExist:
+        return Response({'error': 'Франшиза не найдена'}, status=404)
+
+    first_anime = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id').first()
+    if not first_anime:
+        return Response({'error': 'Обсуждение недоступно: франшиза пуста'}, status=404)
+
+    from ._discussion_views_patch import get_anime_discussion_group as _real
+    return _real(request, first_anime.id)
+
+
+def _get_franchise_discussion_group_old(request, franchise_id):
+    """УСТАРЕВШАЯ — не использовать."""
     from anime.models import Anime, Franchise
     from .models import GroupChat, ChatMember, ChatTopic
     
@@ -2340,3 +2421,49 @@ def get_franchise_discussion_group(request, franchise_id):
 def join_franchise_discussion_group(request, franchise_id):
     """Присоединиться к группе обсуждения франшизы"""
     return get_franchise_discussion_group(request, franchise_id)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_online_users(request):
+    """
+    GET /social/users/online/
+    Возвращает список пользователей онлайн по Redis.
+    is_online = True только если ключ user_online:{id} жив в Redis (TTL 30 мин).
+    """
+    from core.online_status import online_status
+    from users.serializers import UserSimpleSerializer as _USS
+
+    # Получаем всех онлайн по Redis
+    online_data = online_status.get_online_users()   # list of dicts
+    online_ids = set(u.get('user_id') for u in online_data if u.get('user_id'))
+
+    # Исключаем текущего пользователя из результата
+    online_ids.discard(request.user.id)
+
+    if not online_ids:
+        return Response({'users': [], 'total': 0})
+
+    users_qs = User.objects.filter(id__in=online_ids).order_by('-last_login')
+
+    # Фильтрация по настройкам приватности
+    users_qs = users_qs.filter(
+        Q(settings__isnull=True) | Q(settings__show_online_status=True)
+    )
+
+    # Поиск
+    search = request.query_params.get('search', '').strip()
+    if search:
+        users_qs = users_qs.filter(
+            Q(username__icontains=search) |
+            Q(nickname__icontains=search) |
+            Q(display_name__icontains=search)
+        )
+
+    result = []
+    for u in users_qs:
+        d = _USS(u).data
+        d['is_online'] = True   # они точно онлайн — мы взяли их из Redis
+        result.append(d)
+
+    return Response({'users': result, 'total': len(result)})

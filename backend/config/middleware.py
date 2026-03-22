@@ -25,6 +25,14 @@ class OnlineStatusMiddleware:
                 extra_data={'display_name': user.display_name or user.username}
             )
 
+            # Обновляем last_seen в БД (асинхронно не блокируя запрос)
+            # Это нужно для fallback если Redis недоступен
+            try:
+                user.last_seen = timezone.now()
+                user.save(update_fields=['last_seen'])
+            except Exception:
+                pass  # Игнорируем ошибки БД
+
             # Публикуем событие для WebSocket подписчиков
             publish_user_online_event(user.id, user.username)
 

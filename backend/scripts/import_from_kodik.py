@@ -17,8 +17,8 @@ django.setup()
 
 from anime.models import Anime, Genre, Studio
 
-KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
-KODIK_API_BASE = 'https://kodikapi.com'
+# Импортируем актуальные домены из единого конфига
+from anime.kodik_config import KODIK_API_TOKEN, KODIK_API_BASE, normalize_kodik_player_link
 
 
 def map_status(status: str) -> str:
@@ -97,8 +97,8 @@ def fetch_all_anime() -> List[Dict[str, Any]]:
                 # next_page уже содержит полный URL с параметрами
                 url = next_page
                 # Убираем базовый URL для requests
-                if url.startswith('https://kodikapi.com'):
-                    url = url.replace('https://kodikapi.com', '')
+                if url.startswith(KODIK_API_BASE):
+                    url = url.replace(KODIK_API_BASE, '')
             else:
                 url = '/list'
             
@@ -203,13 +203,16 @@ def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
             'ova_count': 0,
             'total_items': seasons_count,
             'screenshots': screenshots,
+            'kodik_link': normalize_kodik_player_link(kodik_anime.get('link', '')),
+            'kodik_id': kodik_anime.get('id', ''),
+            'quality': kodik_anime.get('quality', ''),
         }
     )
     
     if created:
-        print(f"  ✨ Создано: {anime.title_ru}")
+        print(f"  \u2728 \u0421\u043e\u0437\u0434\u0430\u043d\u043e: {anime.title_ru}")
     else:
-        print(f"  🔄 Обновлено: {anime.title_ru}")
+        print(f"  \U0001f504 \u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e: {anime.title_ru}")
     
     return anime
 

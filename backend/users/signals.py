@@ -59,6 +59,41 @@ def create_contest_win_post(user, contest_title, place):
         place=place
     )
     
+def notify_admin(title: str, content: str, notif_type: str = 'system', link: str = ''):
+    """Отправить уведомление админу kaiden812"""
+    try:
+        admin = User.objects.filter(username='kaiden812').first()
+        if not admin:
+            admin = User.objects.filter(is_superuser=True).first()
+        if admin:
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=admin,
+                type=notif_type,
+                title=title,
+                content=content,
+                icon='🔔',
+                link=link,
+                is_important=True,
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'notify_admin error: {e}')
+
+
+@receiver(post_save, sender=User)
+def notify_admin_on_registration(sender, instance, created, **kwargs):
+    """Отправить админу уведомление о новой регистрации"""
+    if created:
+        display = instance.nickname or instance.username
+        notify_admin(
+            title=f'👤 Новый пользователь: @{display}',
+            content=f'Пользователь @{display} (имя: {instance.username}, email: {instance.email or "-"}) зарегистрировался.',
+            notif_type='system',
+            link=f'/profile/{instance.id}',
+        )
+
+
 @receiver(pre_save, sender=User)
 def generate_unique_id(sender, instance, **kwargs):
     """Генерирует уникальный ID перед сохранением пользователя"""

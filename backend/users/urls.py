@@ -42,6 +42,14 @@ urlpatterns = [
     # Профиль
     path('profile/', views.UserProfileView.as_view(), name='user_profile'),
     path('profile/<int:pk>/', views.UserPublicProfileView.as_view(), name='user_public_profile'),
+    # Профиль по никнейму — /api/users/by-nickname/@kaiden812/
+    path('by-nickname/<str:nickname>/', views.UserProfileByNicknameView.as_view(), name='user_by_nickname'),
+
+    # Admin endpoints
+    path('admin/dashboard/', views.AdminDashboardView.as_view(), name='admin_dashboard'),
+    path('admin/complaints/', views.AdminComplaintsView.as_view(), name='admin_complaints'),
+    path('admin/complaints/<int:complaint_id>/', views.AdminComplaintsView.as_view(), name='admin_complaint_detail'),
+    path('admin/posts/<int:post_id>/', views.AdminDeletePostView.as_view(), name='admin_delete_post'),
 
     # Сброс пароля
     path('password-reset/', views.password_reset, name='password_reset'),
@@ -135,4 +143,7 @@ urlpatterns = [
 
     # Список пользователей с фильтрацией по статусу
     path('users/', views.UsersListView.as_view(), name='users_list'),
+
+    # ── Heartbeat: пинг онлайн-статуса с фронта ──
+    path('heartbeat/', views.HeartbeatView.as_view(), name='heartbeat'),
 ]

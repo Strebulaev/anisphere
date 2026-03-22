@@ -1,4 +1,4 @@
-from django.http import HttpResponseBadRequest, HttpResponseServerError, StreamingHttpResponse
+﻿from django.http import HttpResponseBadRequest, HttpResponseServerError, StreamingHttpResponse
 from django.db.models import Q
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
@@ -20,6 +20,10 @@ from .serializers import (
 )
 from .services.anime_parser_service import (
     AnimeParserService, VideoStreamingService, CacheService, AnimeUpdateService
+)
+from .kodik_config import (
+    KODIK_API_TOKEN, KODIK_API_BASE, KODIK_PLAYER_BASE,
+    KODIK_VIDEO_BASE, normalize_kodik_player_link,
 )
 
 # Инициализация сервисов (в try/except чтобы ошибки парсера не ломали весь модуль)
@@ -124,7 +128,7 @@ def proxy_video(request):
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://kodik.cc/',
+            'Referer': 'https://kodikplayer.com/',
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
         }
@@ -333,8 +337,6 @@ class AnimeViewSet(viewsets.ModelViewSet):
             anime = Anime.objects.select_related('franchise').get(pk=kwargs['pk'])
             if not anime.screenshots and anime.shikimori_id:
                 try:
-                    KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
-                    KODIK_API_BASE = 'https://kodikapi.com'
                     search_params = {
                         'token': KODIK_API_TOKEN,
                         'shikimori_id': anime.shikimori_id,
@@ -421,8 +423,6 @@ class AnimeViewSet(viewsets.ModelViewSet):
                 return Response({'kodik_link': anime.kodik_link, 'source': 'database'})
             if not anime.shikimori_id:
                 return Response({'error': 'У аниме нет Shikimori ID для поиска в Kodik'}, status=status.HTTP_400_BAD_REQUEST)
-            KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
-            KODIK_API_BASE = 'https://kodikapi.com'
             search_params = {'token': KODIK_API_TOKEN, 'shikimori_id': anime.shikimori_id, 'with_material_data': True, 'limit': 1}
             response = requests.get(f'{KODIK_API_BASE}/search', params=search_params, timeout=10)
             response.raise_for_status()
@@ -434,7 +434,7 @@ class AnimeViewSet(viewsets.ModelViewSet):
             kodik_link = result.get('link')
             if not kodik_link:
                 return Response({'error': 'Ссылка на плеер не найдена в ответе Kodik', 'result': result}, status=status.HTTP_404_NOT_FOUND)
-            anime.kodik_link = kodik_link
+            anime.kodik_link = normalize_kodik_player_link(kodik_link)
             anime.kodik_id = result.get('id', '')
             anime.quality = result.get('quality', '')
             anime.screenshots = result.get('screenshots', [])
@@ -722,8 +722,6 @@ class KodikFiltersView(APIView):
 
     def get(self, request):
         import requests
-        KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
-        KODIK_API_BASE = 'https://kodikapi.com'
         try:
             genres_response = requests.get(f'{KODIK_API_BASE}/genres', params={'token': KODIK_API_TOKEN, 'types': 'anime-serial,anime', 'genres_type': 'shikimori', 'sort': 'title'})
             years_response = requests.get(f'{KODIK_API_BASE}/years', params={'token': KODIK_API_TOKEN, 'types': 'anime-serial,anime', 'sort': 'year', 'order': 'desc'})
@@ -742,8 +740,6 @@ class KodikTranslationsView(APIView):
             anime = Anime.objects.get(pk=pk)
             if not anime.shikimori_id:
                 return Response({'error': 'У аниме нет Shikimori ID'}, status=status.HTTP_400_BAD_REQUEST)
-            KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
-            KODIK_API_BASE = 'https://kodikapi.com'
             search_params = {'token': KODIK_API_TOKEN, 'shikimori_id': anime.shikimori_id, 'with_episodes_data': False, 'limit': 100}
             response = requests.get(f'{KODIK_API_BASE}/search', params=search_params, timeout=10)
             response.raise_for_status()
@@ -926,13 +922,26 @@ class RandomAnimeView(APIView):
 
 
 class CurrentlyWatchingView(APIView):
+    """
+    «Сейчас смотрят» учитывает три случая:
+
+    1. Плеер активен сейчас (воспроизведение идёт, не зависит от видимости вкладки):
+       UserActiveTab.activity_type='player' И last_ping <= 2 минуты назад.
+
+    2. Вкладка активна (прямо сейчас, но не обязательно воспроизводится):
+       UserActiveTab.activity_type='watching' И last_ping <= 10 минут назад.
+
+    3. Свежие данные из UserEpisodeProgress как дополнение к (1):
+       last_watched <= 2 минуты назад (плеер зафиксировал прогресс).
+
+    viewers_count = количество уникальных пользователей, попадающих хоть в один из случаев.
+    """
     permission_classes = [permissions.AllowAny]
 
-    # «Сейчас смотрит» = активность была не позже 2 часов назад.
-    # Источники данных:
-    # 1. UserEpisodeProgress.last_watched — плеер активен (воспроизведение идёт)
-    # 2. UserActiveTab.last_ping — вкладка открыта (пользователь на странице аниме)
-    ACTIVE_WINDOW_HOURS = 2
+    # Временные окна (секунды)
+    PLAYER_WINDOW   = 2 * 60     # плеер активен — 2 мин
+    TAB_WINDOW      = 10 * 60    # вкладка открыта — 10 мин
+    PROGRESS_WINDOW = 2 * 60     # прогресс зафиксирован — 2 мин
 
     def get(self, request):
         from django.utils import timezone
@@ -941,59 +950,76 @@ class CurrentlyWatchingView(APIView):
         from anime.models import UserActiveTab
 
         try:
-            cutoff = timezone.now() - timedelta(hours=self.ACTIVE_WINDOW_HOURS)
+            now = timezone.now()
 
-            # 1. Активные плееры (UserEpisodeProgress)
-            active_players = (
-                UserEpisodeProgress.objects
-                .filter(last_watched__gte=cutoff)
-                .values('anime_id')
-                .annotate(viewers=Count('user', distinct=True))
-                .order_by('-viewers')
-            )
-            player_ids = [r['anime_id'] for r in active_players]
-            player_viewers = {r['anime_id']: r['viewers'] for r in active_players}
+            # ── 1. Плеер активен ──────────────────────────────────────
+            player_cutoff = now - timedelta(seconds=self.PLAYER_WINDOW)
 
-            # 2. Открытые вкладки (UserActiveTab)
-            active_tabs = (
+            # Из UserActiveTab с activity_type='player'
+            player_tab = (
                 UserActiveTab.objects
-                .filter(last_ping__gte=cutoff)
+                .filter(activity_type='player', last_ping__gte=player_cutoff)
                 .values('anime_id')
-                .annotate(viewers=Count('user', distinct=True))
-                .order_by('-viewers')
+                .annotate(n=Count('user', distinct=True))
             )
-            tab_ids = [r['anime_id'] for r in active_tabs]
-            tab_viewers = {r['anime_id']: r['viewers'] for r in active_tabs}
+            player_tab_map = {r['anime_id']: r['n'] for r in player_tab}
 
-            # Объединяем уникальные ID аниме
-            all_anime_ids = list(set(player_ids + tab_ids))
+            # Из UserEpisodeProgress (last_watched) — подтверждает факт воспроизведения
+            progress_cutoff = now - timedelta(seconds=self.PROGRESS_WINDOW)
+            progress_rows = (
+                UserEpisodeProgress.objects
+                .filter(last_watched__gte=progress_cutoff)
+                .values('anime_id')
+                .annotate(n=Count('user', distinct=True))
+            )
+            progress_map = {r['anime_id']: r['n'] for r in progress_rows}
 
-            if not all_anime_ids:
+            # ── 2. Вкладка открыта (не плеер) ───────────────────────
+            tab_cutoff = now - timedelta(seconds=self.TAB_WINDOW)
+            watching_tab = (
+                UserActiveTab.objects
+                .filter(activity_type='watching', last_ping__gte=tab_cutoff)
+                .values('anime_id')
+                .annotate(n=Count('user', distinct=True))
+            )
+            watching_tab_map = {r['anime_id']: r['n'] for r in watching_tab}
+
+            # ── Объединяем уникальные ID аниме ─────────────────────
+            all_ids = set(player_tab_map) | set(progress_map) | set(watching_tab_map)
+
+            if not all_ids:
                 return Response({'results': [], 'count': 0})
 
-            animes = Anime.objects.filter(id__in=all_anime_ids)
-            animes_dict = {a.id: a for a in animes}
+            animes = {a.id: a for a in Anime.objects.filter(id__in=all_ids)}
             results = []
 
-            for aid in all_anime_ids:
-                a = animes_dict.get(aid)
+            for aid in all_ids:
+                a = animes.get(aid)
                 if not a:
                     continue
+
+                # Уникальные зрители = жесткое объединение пользователей из всех трёх источников.
+                # Чтобы не считать одного человека дважды, берём максимум.
+                # Сравнение player_tab и progress: возьмём максимум (player_tab записывается в тот же момент)
+                player_count  = max(player_tab_map.get(aid, 0), progress_map.get(aid, 0))
+                watching_count = watching_tab_map.get(aid, 0)
+                total = max(player_count, watching_count)  # макс: один человек может попасть в несколько срезов
+
                 data = AnimeSerializer(a).data
-                # Суммируем зрителей из обоих источников
-                data['viewers_count'] = player_viewers.get(aid, 0) + tab_viewers.get(aid, 0)
-                # Добавляем флаги источников для отладки/отображения
-                data['has_active_player'] = aid in player_ids
-                data['has_active_tab'] = aid in tab_ids
+                data['viewers_count'] = total
+                data['has_active_player']   = aid in player_tab_map or aid in progress_map
+                data['has_active_tab']      = aid in watching_tab_map
                 results.append(data)
 
-            # Сортируем по количеству зрителей
             results.sort(key=lambda x: x['viewers_count'], reverse=True)
-
             return Response({'results': results, 'count': len(results)})
+
         except Exception as e:
             import traceback
-            return Response({'error': str(e), 'detail': traceback.format_exc()}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': str(e), 'detail': traceback.format_exc()},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class UserActiveTabView(APIView):
@@ -1521,9 +1547,9 @@ class AnimeThemesView(APIView):
       { opening: {start, stop, kind} | null, ending: {start, stop, kind} | null }
     """
     permission_classes  = [permissions.AllowAny]
-    KODIK_API_TOKEN     = '74ecb013335271e4344ebc994956dd75'
+    KODIK_API_TOKEN   = KODIK_API_TOKEN
     KODIK_PRIVATE_KEY   = '692e74fa70fed3493e922cfcb6b0eab7'
-    KODIK_PUBLIC_KEY    = '74ecb013335271e4344ebc994956dd75'
+    KODIK_PUBLIC_KEY  = KODIK_API_TOKEN
 
     def _get_episode_url(self, anime, episode, season, translation_id):
         """Возвращает URL вида //kodik.info/seria/... для конкретной серии."""
@@ -1542,7 +1568,7 @@ class AnimeThemesView(APIView):
         if translation_id:
             params['translation_id'] = translation_id
 
-        r = requests.get('https://kodikapi.com/search', params=params, timeout=10)
+        r = requests.get(f'{KODIK_API_BASE}/search', params=params, timeout=10)
         r.raise_for_status()
         season_key = str(season)
         ep_key     = str(episode)
@@ -1593,7 +1619,7 @@ class AnimeThemesView(APIView):
             's':             signature,
             'skip_segments': 'true',
         }
-        r = requests.get('https://kodik.biz/api/video-links', params=params, timeout=15)
+        r = requests.get(f'{KODIK_VIDEO_BASE}/api/video-links', params=params, timeout=15)
         r.raise_for_status()
         data = r.json()
 
@@ -1673,7 +1699,7 @@ class KodikVideoUrlView(APIView):
       2. Fallback: загружаем HTML страницы плеера и ищем .m3u8 в JS
     """
     permission_classes = [permissions.AllowAny]
-    KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
+    KODIK_API_TOKEN   = KODIK_API_TOKEN
 
     def get(self, request, pk):
         try:
@@ -1701,7 +1727,7 @@ class KodikVideoUrlView(APIView):
                 if translation_id:
                     params['translation_id'] = translation_id
 
-                r = requests.get('https://kodikapi.com/search', params=params, timeout=10)
+                r = requests.get(f'{KODIK_API_BASE}/search', params=params, timeout=10)
                 r.raise_for_status()
                 results = r.json().get('results', [])
 
@@ -1797,9 +1823,9 @@ class KodikClipDownloadView(APIView):
     """
     permission_classes = [permissions.AllowAny]
 
-    KODIK_API_TOKEN   = '74ecb013335271e4344ebc994956dd75'   # публичный
+    KODIK_API_TOKEN   = KODIK_API_TOKEN   # публичный
     KODIK_PRIVATE_KEY = '692e74fa70fed3493e922cfcb6b0eab7'   # приватный (для HMAC)
-    KODIK_PUBLIC_KEY  = '74ecb013335271e4344ebc994956dd75'   # p= в video-links
+    KODIK_PUBLIC_KEY  = KODIK_API_TOKEN   # p= в video-links
 
     # ------------------------------------------------------------------ #
     #  Шаг 1: URL страницы плеера конкретной серии                        #
@@ -1829,7 +1855,7 @@ class KodikClipDownloadView(APIView):
             if translation_id:
                 params['translation_id'] = translation_id
 
-            resp = requests.get('https://kodikapi.com/search', params=params, timeout=10)
+            resp = requests.get(f'{KODIK_API_BASE}/search', params=params, timeout=10)
             resp.raise_for_status()
 
             for res in resp.json().get('results', []):
@@ -1896,7 +1922,7 @@ class KodikClipDownloadView(APIView):
         }
 
         try:
-            resp = requests.get('https://kodik.biz/api/video-links', params=params, timeout=15)
+            resp = requests.get(f'{KODIK_VIDEO_BASE}/api/video-links', params=params, timeout=15)
             resp.raise_for_status()
             data = resp.json()
 
@@ -1985,7 +2011,7 @@ class KodikClipDownloadView(APIView):
         try:
             # Общие флаги для HLS/m3u8
             hls_flags = [
-                '-headers', 'Referer: https://kodik.info/\r\nOrigin: https://kodik.info\r\n',
+                '-headers', 'Referer: https://kodikplayer.com/\r\nOrigin: https://kodikplayer.com\r\n',
                 '-reconnect', '1',
                 '-reconnect_streamed', '1',
                 '-reconnect_delay_max', '10',
@@ -2085,3 +2111,4 @@ class EpisodeProgressUndoView(APIView):
             return Response({'episode_number': episode_number, 'status': 'in_progress', 'undone': True})
         except UserEpisodeProgress.DoesNotExist:
             return Response({'error': 'Запись не найдена'}, status=404)
+

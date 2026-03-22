@@ -206,7 +206,7 @@ class Command(BaseCommand):
             self.stdout.write('')
             self.stdout.write(self.style.SUCCESS('NEXT STEPS:'))
             self.stdout.write('   • Start server: python manage.py runserver')
-            self.stdout.write('   • Open http://localhost:8000/anime/')
+            self.stdout.write('   • Open http://anisphere.ru/anime/')
             self.stdout.write('   • Check imported anime')
             
             if total_stats['imported'] == 0:

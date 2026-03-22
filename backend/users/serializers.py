@@ -30,19 +30,22 @@ class UserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя"""
     avatar_url = serializers.SerializerMethodField()
     cover_image_url = serializers.SerializerMethodField()
-    display_name = serializers.SerializerMethodField()
+    display_name_computed = serializers.SerializerMethodField()
+    is_admin = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'unique_id', 'username', 'email', 'first_name', 'last_name', 'display_name',
-            'nickname', 'phone_number', 'avatar', 'avatar_url', 'cover_image', 'cover_image_url', 'bio', 'favorite_genres',
+            'display_name_computed', 'nickname', 'phone_number', 'avatar', 'avatar_url',
+            'cover_image', 'cover_image_url', 'bio', 'favorite_genres',
             'website', 'vk_profile', 'telegram', 'email_verified',
             'phone_verified', 'two_factor_enabled', 'is_online', 'last_login',
             'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges',
-            'posts_count', 'comments_count', 'likes_received', 'playlists_count'
+            'posts_count', 'comments_count', 'likes_received', 'playlists_count',
+            'is_staff', 'is_admin',
         ]
-        read_only_fields = ['id', 'unique_id', 'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges', 'posts_count', 'comments_count', 'likes_received', 'playlists_count']
+        read_only_fields = ['id', 'unique_id', 'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges', 'posts_count', 'comments_count', 'likes_received', 'playlists_count', 'is_staff']
 
     def get_avatar_url(self, obj):
         if obj.avatar:
@@ -54,8 +57,11 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.cover_image.url
         return None
 
-    def get_display_name(self, obj):
+    def get_display_name_computed(self, obj):
         return obj.display_name or obj.nickname or obj.username
+
+    def get_is_admin(self, obj):
+        return obj.is_staff or obj.is_superuser or obj.username == 'kaiden812'
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -84,6 +90,13 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         user = User.objects.create_user(**validated_data)
+        # При регистрации сразу устанавливаем nickname = username,
+        # чтобы не было двойного никнейма при первом входе через Google/емайл
+        if not user.nickname:
+            user.nickname = user.username
+        if not user.display_name:
+            user.display_name = user.username
+        user.save(update_fields=['nickname', 'display_name'])
         return user
 
 

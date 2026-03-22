@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 KODIK_TOKEN = "74ecb013335271e4344ebc994956dd75"
-KODIK_API_URL = "https://kodikapi.com"
+KODIK_API_URL = "https://kodik-api.com"
 
 @csrf_exempt
 @require_http_methods(["GET"])

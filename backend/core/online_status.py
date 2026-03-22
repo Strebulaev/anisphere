@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 # Ключ в Redis: user_online:{user_id}
 ONLINE_KEY_PREFIX = 'user_online:'
-# TTL в секундах (5 минут)
-ONLINE_TTL = 300
+# TTL в секундах — 30 минут (пользователь считается онлайн ещё 30 минут после последней активности)
+ONLINE_TTL = 1800
 
 
 class RedisOnlineStatus:
@@ -45,16 +45,22 @@ class RedisOnlineStatus:
         return self._redis_client
 
     def set_online(self, user_id: int, username: str, extra_data: Optional[Dict[str, Any]] = None) -> None:
-        """Установить статус онлайн для пользователя"""
+        """Установить статус онлайн для пользователя.
+        
+        TTL = ONLINE_TTL (30 мин). Каждый API-запрос или явный heartbeat
+        сбрасывает таймер. Пользователь считается онлайн пока ключ жив.
+        """
         if self.redis_client is None:
             return
 
         try:
             key = f"{ONLINE_KEY_PREFIX}{user_id}"
+            now = timezone.now()
             data = {
                 'user_id': user_id,
                 'username': username,
-                'last_seen': timezone.now().isoformat(),
+                'last_seen': now.isoformat(),
+                'last_seen_ts': now.timestamp(),
                 **(extra_data or {})
             }
             self.redis_client.setex(key, ONLINE_TTL, json.dumps(data))

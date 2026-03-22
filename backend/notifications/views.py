@@ -25,7 +25,23 @@ class ComplaintViewSet(ModelViewSet):
         return self.queryset.filter(complainant=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(complainant=self.request.user)
+        complaint = serializer.save(complainant=self.request.user)
+        # Отправляем уведомление админу
+        try:
+            from users.signals import notify_admin
+            user_display = self.request.user.nickname or self.request.user.username
+            notify_admin(
+                title=f'⚠️ Новая жалоба от @{user_display}',
+                content=(
+                    f'Тип: {complaint.get_complaint_type_display()}, '
+                    f'Причина: {complaint.get_reason_display()}. '
+                    f'Описание: {complaint.description[:200] if complaint.description else "-"}'
+                ),
+                notif_type='warning',
+                link='/admin/complaints',
+            )
+        except Exception as e:
+            pass
 
 
 class NotificationViewSet(ModelViewSet):

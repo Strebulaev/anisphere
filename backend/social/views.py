@@ -581,6 +581,28 @@ class FollowViewSet(ModelViewSet):
         return Follow.objects.filter(follower=self.request.user)
 
     @action(detail=False, methods=['get'])
+    def check(self, request):
+        """Проверить, подписан ли текущий пользователь на указанного"""
+        following_id = request.query_params.get('following_id')
+        if not following_id:
+            return Response({'error': 'following_id required'}, status=400)
+        
+        try:
+            target_user = User.objects.get(id=following_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+        
+        is_following = Follow.objects.filter(
+            follower=request.user,
+            following=target_user
+        ).exists()
+        
+        return Response({
+            'is_following': is_following,
+            'following_id': int(following_id)
+        })
+
+    @action(detail=False, methods=['get'])
     def followers(self, request):
         """Получить список подписчиков"""
         follows = self.get_followers_queryset().select_related('follower')
@@ -819,10 +841,6 @@ def pin_post(request, post_id):
     if post.author != request.user:
         return Response({'error': 'Нельзя закреплять чужие посты'}, status=403)
 
-    # Проверяем, не истекло ли время на редактирование (5 минут)
-    if (timezone.now() - post.created_at).total_seconds() > 300:
-        return Response({'error': 'Время на закрепление истекло'}, status=400)
-
     # Снимаем закрепление с другого поста, если есть
     Post.objects.filter(author=request.user, is_pinned=True).update(is_pinned=False, pinned_at=None)
 
@@ -835,6 +853,31 @@ def pin_post(request, post_id):
         'success': True,
         'message': 'Пост закреплён',
         'is_pinned': True
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unpin_post(request, post_id):
+    """Открепить пост от профиля"""
+    try:
+        post = Post.objects.get(id=post_id)
+    except Post.DoesNotExist:
+        return Response({'error': 'Пост не найден'}, status=404)
+
+    # Проверяем права
+    if post.author != request.user:
+        return Response({'error': 'Нельзя откреплять чужие посты'}, status=403)
+
+    # Открепляем пост
+    post.is_pinned = False
+    post.pinned_at = None
+    post.save(update_fields=['is_pinned', 'pinned_at'])
+
+    return Response({
+        'success': True,
+        'message': 'Пост откреплён',
+        'is_pinned': False
     })
 
 
@@ -2301,7 +2344,7 @@ class GroupChatViewSet(ModelViewSet):
                 message=message,
                 user=request.user
             )
-            
+
         # Сбрасываем счётчик непрочитанных
         ChatCacheService.reset_unread(request.user.id, chat.id)
         
@@ -2445,360 +2488,3 @@ class PrivateChatViewSet(ModelViewSet):
                 message=message,
                 user=request.user
             )
-            if created:
-                read_message_ids.append(message.id)
-
-        # Сбрасываем счётчик непрочитанных в кэше
-        ChatCacheService.reset_unread(request.user.id, chat.id)
-        
-        # Отправляем WebSocket событие другим участникам чата
-        if read_message_ids:
-            try:
-                # Определяем другого пользователя
-                other_user_id = chat.user2_id if chat.user1_id == request.user.id else chat.user1_id
-                
-                # Публикуем событие через Redis
-                event_publisher.publish_event('messages_read', {
-                    'chat_id': chat.id,
-                    'chat_type': 'private',
-                    'user_id': request.user.id,
-                    'message_ids': read_message_ids,
-                    'read_at': timezone.now().isoformat()
-                }, target_users=[other_user_id])
-                
-            except Exception as e:
-                print(f"Error sending WS event: {e}")
-        
-        return Response({
-            'message': 'Сообщения отмечены как прочитанные',
-            'read_message_ids': read_message_ids
-        })
-
-
-class PrivateChatSettingsView(APIView):
-    """Настройки приватного чата"""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, chat_id):
-        """Получить настройки чата"""
-        try:
-            chat = PrivateChat.objects.get(id=chat_id)
-        except PrivateChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Проверяем доступ
-        if request.user not in [chat.user1, chat.user2]:
-            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
-
-        # Получаем или создаем настройки
-        settings, created = PrivateChatUserSettings.objects.get_or_create(
-            chat=chat,
-            user=request.user
-        )
-
-        serializer = PrivateChatUserSettingsSerializer(settings, context={'request': request})
-        return Response(serializer.data)
-    
-    def put(self, request, chat_id):
-        """Обновить настройки чата"""
-        try:
-            chat = PrivateChat.objects.get(id=chat_id)
-        except PrivateChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Проверяем доступ
-        if request.user not in [chat.user1, chat.user2]:
-            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
-
-        # Получаем или создаем настройки
-        settings, created = PrivateChatUserSettings.objects.get_or_create(
-            chat=chat,
-            user=request.user
-        )
-
-        serializer = PrivateChatUserSettingsSerializer(settings, data=request.data, partial=True, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class GroupChatSettingsView(APIView):
-    """Настройки группового чата"""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, chat_id):
-        """Получить настройки чата"""
-        try:
-            chat = GroupChat.objects.get(id=chat_id)
-        except GroupChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Проверяем доступ
-        member = chat.members.filter(user=request.user).first()
-        if not member:
-            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = GroupChatSettingsSerializer(chat, context={'request': request})
-        return Response(serializer.data)
-
-    def put(self, request, chat_id):
-        """Обновить настройки чата"""
-        try:
-            chat = GroupChat.objects.get(id=chat_id)
-        except GroupChat.DoesNotExist:
-            return Response({'error': 'Чат не найден'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Проверяем доступ - только админы могут менять настройки
-        member = chat.members.filter(user=request.user).first()
-        if not member:
-            return Response({'error': 'Нет доступа к чату'}, status=status.HTTP_403_FORBIDDEN)
-        
-        if not member.is_admin and not member.is_owner:
-            return Response({'error': 'Только администраторы могут менять настройки'}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = GroupChatSettingsSerializer(chat, data=request.data, partial=True, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# ==================== ANIME DISCUSSION GROUPS ====================
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_anime_discussion_group(request, anime_id):
-    """Получить или создать групповой чат для обсуждения аниме/франшизы
-    
-    Если аниме принадлежит франшизе, возвращает обсуждение франшизы с темами.
-    Если аниме одиночное, возвращает обычное обсуждение аниме.
-    """
-    from anime.models import Anime, Franchise
-    from .models_chat import ChatTopic
-    
-    try:
-        anime = Anime.objects.select_related('franchise').get(id=anime_id)
-    except Anime.DoesNotExist:
-        return Response({'error': 'Аниме не найдено'}, status=404)
-    
-    # Проверяем, принадлежит ли аниме франшизе
-    if anime.franchise:
-        # Это часть франшизы - нужно вернуть обсуждение франшизы с темами
-        franchise = anime.franchise
-        
-        # Ищем существующий чат франшизы
-        chat = GroupChat.objects.filter(
-            franchise_id=franchise.id,
-            discussion_type='franchise'
-        ).first()
-        
-        if not chat:
-            # Создаём чат франшизы
-            chat = GroupChat.objects.create(
-                name=f"Обсуждение: {franchise.name}",
-                franchise_id=franchise.id,
-                discussion_type='franchise',
-                folder_type='discussions',
-                created_by=request.user,
-                is_public=True,
-                description=f"Группа для обсуждения франшизы {franchise.name}"
-            )
-            # Добавляем создателя как админа
-            ChatMember.objects.create(
-                user=request.user,
-                chat=chat,
-                is_admin=True
-            )
-            
-            # Создаём темы для всех частей франшизы
-            franchise_parts = Anime.objects.filter(franchise=franchise).order_by('franchise_order')
-            
-            # Общая тема "О франшизе"
-            ChatTopic.objects.create(
-                chat=chat,
-                anime=None,
-                title=f"О франшизе {franchise.name}",
-                order=0
-            )
-            
-            # Темы для каждой части
-            for idx, part in enumerate(franchise_parts, start=1):
-                ChatTopic.objects.create(
-                    chat=chat,
-                    anime=part,
-                    title=part.title_ru or part.title_en or f"Часть {idx}",
-                    order=idx
-                )
-        
-        # Получаем или создаём тему для конкретного аниме
-        topic = ChatTopic.objects.filter(chat=chat, anime=anime).first()
-        
-        serializer = GroupChatSerializer(chat, context={'request': request})
-        data = serializer.data
-        data['is_franchise'] = True
-        data['franchise_name'] = franchise.name
-        data['topics'] = list(ChatTopic.objects.filter(chat=chat).order_by('order').values(
-            'id', 'anime_id', 'title', 'order'
-        ))
-        data['current_topic_id'] = topic.id if topic else None
-        
-        return Response(data)
-    
-    else:
-        # Одиночное аниме - обычное обсуждение
-        chat = GroupChat.objects.filter(
-            anime_id=anime_id,
-            discussion_type='anime'
-        ).first()
-        
-        if not chat:
-            # Создаём новый чат
-            chat = GroupChat.objects.create(
-                name=f"Обсуждение: {anime.title_ru or anime.title_en}",
-                anime_id=anime_id,
-                discussion_type='anime',
-                folder_type='discussions',
-                created_by=request.user,
-                is_public=True,
-                description=f"Группа для обсуждения аниме {anime.title_ru or anime.title_en}"
-            )
-            # Добавляем создателя как участника
-            ChatMember.objects.create(
-                user=request.user,
-                chat=chat,
-                is_admin=True
-            )
-        
-        serializer = GroupChatSerializer(chat, context={'request': request})
-        data = serializer.data
-        data['is_franchise'] = False
-        return Response(data)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_anime_discussion_group(request, anime_id):
-    """Создать групповой чат для обсуждения аниме"""
-    from anime.models import Anime, Franchise
-    from .models_chat import ChatTopic
-    
-    try:
-        anime = Anime.objects.select_related('franchise').get(id=anime_id)
-    except Anime.DoesNotExist:
-        return Response({'error': 'Аниме не найдено'}, status=404)
-    
-    # Если аниме принадлежит франшизе, создаём обсуждение франшизы
-    if anime.franchise:
-        franchise = anime.franchise
-        
-        # Проверяем, не существует ли уже чат франшизы
-        if GroupChat.objects.filter(franchise_id=franchise.id, discussion_type='franchise').exists():
-            return Response({'error': 'Чат для этой франшизы уже существует'}, status=400)
-        
-        # Создаём чат франшизы
-        chat = GroupChat.objects.create(
-            name=f"Обсуждение: {franchise.name}",
-            franchise_id=franchise.id,
-            discussion_type='franchise',
-            folder_type='discussions',
-            created_by=request.user,
-            is_public=True,
-            description=f"Группа для обсуждения франшизы {franchise.name}"
-        )
-        
-        # Добавляем создателя как админа
-        ChatMember.objects.create(
-            user=request.user,
-            chat=chat,
-            is_admin=True
-        )
-        
-        # Создаём темы для всех частей франшизы
-        franchise_parts = Anime.objects.filter(franchise=franchise).order_by('franchise_order')
-        
-        # Общая тема
-        ChatTopic.objects.create(
-            chat=chat,
-            anime=None,
-            title=f"О франшизе {franchise.name}",
-            order=0
-        )
-        
-        # Темы для каждой части
-        for idx, part in enumerate(franchise_parts, start=1):
-            ChatTopic.objects.create(
-                chat=chat,
-                anime=part,
-                title=part.title_ru or part.title_en or f"Часть {idx}",
-                order=idx
-            )
-    else:
-        # Одиночное аниме
-        if GroupChat.objects.filter(anime_id=anime_id, discussion_type='anime').exists():
-            return Response({'error': 'Чат для этого аниме уже существует'}, status=400)
-        
-        chat = GroupChat.objects.create(
-            name=f"Обсуждение: {anime.title_ru or anime.title_en}",
-            anime_id=anime_id,
-            discussion_type='anime',
-            folder_type='discussions',
-            created_by=request.user,
-            is_public=True,
-            description=f"Группа для обсуждения аниме {anime.title_ru or anime.title_en}"
-        )
-        
-        ChatMember.objects.create(
-            user=request.user,
-            chat=chat,
-            is_admin=True
-        )
-    
-    serializer = GroupChatSerializer(chat, context={'request': request})
-    return Response(serializer.data, status=201)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def join_anime_discussion_group(request, anime_id):
-    """Присоединиться к групповому чату аниме/франшизы"""
-    from anime.models import Anime
-    
-    try:
-        anime = Anime.objects.select_related('franchise').get(id=anime_id)
-    except Anime.DoesNotExist:
-        return Response({'error': 'Аниме не найдено'}, status=404)
-    
-    # Ищем чат
-    if anime.franchise:
-        chat = GroupChat.objects.filter(
-            franchise_id=anime.franchise.id,
-            discussion_type='franchise'
-        ).first()
-    else:
-        chat = GroupChat.objects.filter(
-            anime_id=anime_id,
-            discussion_type='anime'
-        ).first()
-    
-    if not chat:
-        return Response({'error': 'Чат не найден'}, status=404)
-    
-    # Проверяем, не является ли пользователь уже участником
-    if ChatMember.objects.filter(chat=chat, user=request.user).exists():
-        return Response({'message': 'Вы уже участник этого чата', 'chat_id': chat.id})
-    
-    # Проверяем лимит участников
-    if chat.members.count() >= chat.max_members:
-        return Response({'error': 'Чат переполнен'}, status=400)
-    
-    # Добавляем участника
-    ChatMember.objects.create(
-        user=request.user,
-        chat=chat
-    )
-    
-    return Response({
-        'message': 'Вы присоединились к чату',
-        'chat_id': chat.id
-    })

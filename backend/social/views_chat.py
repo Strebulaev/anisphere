@@ -429,17 +429,103 @@ def mute_group_chat(request, chat_id):
         return Response({'error': 'Вы не участник'}, status=403)
 
     settings_obj, _ = GroupMemberSettings.objects.get_or_create(membership=member)
-    duration = request.data.get('duration')
+    duration = request.data.get('duration')  # минуты, None = навсегда
 
     if duration is None:
         settings_obj.notifications_enabled = False
         settings_obj.muted_until = None
     else:
         settings_obj.muted_until = timezone.now() + timezone.timedelta(minutes=int(duration))
+        settings_obj.notifications_enabled = False
 
     settings_obj.save()
     SettingsCache.invalidate(request.user.id, 'group', chat_id)
-    return Response({'message': 'Группа заглушена'})
+    return Response({
+        'message': 'Группа заглушена',
+        'notifications_enabled': False,
+        'muted_until': settings_obj.muted_until,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unmute_group_chat(request, chat_id):
+    """Включить уведомления в группе"""
+    chat = get_object_or_404(GroupChat, id=chat_id)
+    member = ChatMember.objects.filter(chat=chat, user=request.user).first()
+    if not member:
+        return Response({'error': 'Вы не участник'}, status=403)
+
+    settings_obj, _ = GroupMemberSettings.objects.get_or_create(membership=member)
+    settings_obj.notifications_enabled = True
+    settings_obj.muted_until = None
+    settings_obj.save()
+    SettingsCache.invalidate(request.user.id, 'group', chat_id)
+    return Response({
+        'message': 'Уведомления включены',
+        'notifications_enabled': True,
+        'muted_until': None,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def archive_group_chat(request, chat_id):
+    """Архивировать/разархивировать групповой чат"""
+    chat = get_object_or_404(GroupChat, id=chat_id)
+    member = ChatMember.objects.filter(chat=chat, user=request.user).first()
+    if not member:
+        return Response({'error': 'Вы не участник'}, status=403)
+
+    settings_obj, _ = GroupMemberSettings.objects.get_or_create(membership=member)
+    is_archived = request.data.get('is_archived', not settings_obj.is_archived)
+    settings_obj.is_archived = is_archived
+    settings_obj.save(update_fields=['is_archived'])
+    SettingsCache.invalidate(request.user.id, 'group', chat_id)
+    return Response({
+        'message': 'Чат архивирован' if is_archived else 'Чат разархивирован',
+        'is_archived': is_archived,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def archive_private_chat(request, chat_id):
+    """Архивировать/разархивировать личный чат"""
+    chat = get_object_or_404(PrivateChat, id=chat_id)
+    if request.user not in [chat.user1, chat.user2]:
+        return Response({'error': 'Нет доступа'}, status=403)
+
+    settings_obj, _ = PrivateChatSettings.objects.get_or_create(chat=chat, user=request.user)
+    is_archived = request.data.get('is_archived', not settings_obj.is_archived)
+    settings_obj.is_archived = is_archived
+    settings_obj.save(update_fields=['is_archived'])
+    SettingsCache.invalidate(request.user.id, 'private', chat_id)
+    return Response({
+        'message': 'Чат архивирован' if is_archived else 'Чат разархивирован',
+        'is_archived': is_archived,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_group_notification_settings(request, chat_id):
+    """Получить настройки уведомлений для группового чата"""
+    chat = get_object_or_404(GroupChat, id=chat_id)
+    member = ChatMember.objects.filter(chat=chat, user=request.user).first()
+    if not member:
+        return Response({'error': 'Вы не участник'}, status=403)
+
+    settings_obj, _ = GroupMemberSettings.objects.get_or_create(membership=member)
+    return Response({
+        'notifications_enabled': settings_obj.notifications_enabled,
+        'mentions_only': settings_obj.mentions_only,
+        'sound_enabled': settings_obj.sound_enabled,
+        'muted_until': settings_obj.muted_until,
+        'is_muted': settings_obj.is_muted,
+        'is_archived': settings_obj.is_archived,
+        'is_pinned': settings_obj.is_pinned,
+    })
 
 
 # ==================== ССЫЛКИ-ПРИГЛАШЕНИЯ ====================
@@ -1009,14 +1095,16 @@ def clear_chat_history(request, chat_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def init_franchise_discussion(request):
-    """Инициализация franchise discussion: группа + топикив
+    """Инициализация franchise discussion: группа + топики с постерами
 
     POST /social/franchise-discussion/init/
     { franchise_id, anime_ids: [1, 2, 3] }
-    Returns { group_map: { 'general': <id>, '<anime_id>': <id>, ... } }
+    Returns { group_map: { 'general': <id>, '<anime_id>': <id>, ... }, topics: [...] }
     """
+    from anime.models import Franchise, Anime as AnimeModel
+
     franchise_id = request.data.get('franchise_id')
-    anime_ids = request.data.get('anime_ids', [])
+    anime_ids    = request.data.get('anime_ids', [])
 
     if not franchise_id:
         return Response({'error': 'franchise_id required'}, status=400)
@@ -1025,15 +1113,32 @@ def init_franchise_discussion(request):
 
     # Находим или создаём общую группу франшизы
     try:
-        from anime.models import Franchise
         franchise = Franchise.objects.get(id=franchise_id)
         franchise_name = franchise.name
-        franchise_poster = franchise.cover.url if franchise.cover else None
-    except Exception:
-        franchise_name = f'\u0424раншиза #{franchise_id}'
-        franchise_poster = None
+    except Franchise.DoesNotExist:
+        franchise_name = f'Франшиза #{franchise_id}'
+        franchise = None
 
-    # Основная группа обсуждения
+    # Постер франшизы — берём у первой части
+    first_part = None
+    if franchise:
+        first_part = (
+            AnimeModel.objects.filter(franchise=franchise)
+            .order_by('franchise_order', 'year', 'id')
+            .first()
+        )
+
+    def _poster(obj):
+        """URL постера для anime или franchise объекта."""
+        if obj is None:
+            return None
+        if getattr(obj, 'poster', None) and hasattr(obj.poster, 'url'):
+            return request.build_absolute_uri(obj.poster.url)
+        return getattr(obj, 'poster_url', None) or None
+
+    franchise_poster = _poster(franchise) or _poster(first_part)
+
+    # Основная группа обсуждения — название без префиксов
     main_group, created = GroupChat.objects.get_or_create(
         franchise_id=franchise_id,
         defaults={
@@ -1045,26 +1150,30 @@ def init_franchise_discussion(request):
         }
     )
 
+    # Исправляем старое название если оно содержит префикс
+    if not created and main_group.name.lower().startswith('обсуждение'):
+        main_group.name = franchise_name
+        main_group.save(update_fields=['name'])
+
     # Автодобавляем текущего пользователя в группу
     ChatMember.objects.get_or_create(chat=main_group, user=request.user)
 
-    # Тема «Общее»
+    # Тема «Общее» — название = название франшизы
     general_topic, _ = ChatTopic.objects.get_or_create(
         chat=main_group,
         anime=None,
-        defaults={'title': f'О франшизе «{franchise_name}»', 'order': 0}
+        defaults={'title': franchise_name, 'order': 0}
     )
     group_map['general'] = general_topic.id
 
     # Темы по частям
     for idx, anime_id in enumerate(anime_ids):
         try:
-            from anime.models import Anime
-            anime = Anime.objects.get(id=anime_id)
-            title = anime.title_ru or anime.title_en or f'\u0427асть #{anime_id}'
-        except Exception:
-            title = f'\u0427асть #{anime_id}'
-            anime = None
+            part = AnimeModel.objects.get(id=anime_id)
+            title = part.title_ru or part.title_en or f'Часть #{anime_id}'
+        except AnimeModel.DoesNotExist:
+            title = f'Часть #{anime_id}'
+            part = None
 
         topic, _ = ChatTopic.objects.get_or_create(
             chat=main_group,
@@ -1073,11 +1182,26 @@ def init_franchise_discussion(request):
         )
         group_map[str(anime_id)] = topic.id
 
+    # Собираем полные данные по топикам
+    topics_qs = ChatTopic.objects.filter(chat=main_group).order_by('order').select_related('anime')
+    topics_out = []
+    for t in topics_qs:
+        poster = _poster(t.anime) if t.anime else franchise_poster
+        topics_out.append({
+            'id': t.id,
+            'title': t.title,
+            'order': t.order,
+            'anime_id': t.anime_id,
+            'anime_title': (t.anime.title_ru or t.anime.title_en) if t.anime else None,
+            'poster_url': poster,
+        })
+
     return Response({
         'group_id': main_group.id,
         'group_map': group_map,
         'franchise_name': franchise_name,
         'franchise_poster': franchise_poster,
+        'topics': topics_out,
     })
 
 
