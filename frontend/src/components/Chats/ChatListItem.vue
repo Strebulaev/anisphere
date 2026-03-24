@@ -104,6 +104,11 @@ interface Chat {
   anime_id?: number | null
   anime_title?: string | null
   anime_poster?: string | null
+  anime_slug?: string | null
+  // Поля для franchise discussion
+  franchise_id?: number | null
+  franchise_slug?: string | null
+  discussion_type?: string | null
   lastMessage?: {
     text: string
     timestamp: string

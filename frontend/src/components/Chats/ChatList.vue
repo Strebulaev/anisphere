@@ -184,6 +184,11 @@ type LocalChat = {
   anime_id?: number | null
   anime_title?: string | null
   anime_poster?: string | null
+  anime_slug?: string | null  // slug для URL
+  // Поля для franchise discussion
+  franchise_id?: number | null
+  franchise_slug?: string | null  // slug франшизы для URL
+  discussion_type?: string | null  // 'anime' | 'franchise'
   lastMessage?: {
     text: string
     timestamp: string
@@ -200,6 +205,7 @@ type LocalChat = {
 
 const props = defineProps<{
   activeChatId?: number
+  activeFranchiseId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -323,6 +329,11 @@ const allChats = computed((): LocalChat[] => {
       anime_id: groupChat.anime_id || null,
       anime_title: groupChat.anime_title || null,
       anime_poster: animePoster || null,
+      anime_slug: groupChat.anime_slug || null,  // slug для URL
+      // Поля для franchise discussion
+      franchise_id: groupChat.franchise_id || null,
+      franchise_slug: groupChat.franchise_slug || null,
+      discussion_type: groupChat.discussion_type || null,
       lastMessage: groupChat.last_message ? {
         text: groupChat.last_message.text,
         timestamp: groupChat.last_message.created_at,
@@ -356,10 +367,14 @@ const allChats = computed((): LocalChat[] => {
           name: displayName,
           avatar: displayAvatar,
           avatar_url: displayAvatar, // Дублируем для совместимости
-          // Поля для группы обсуждения аниме
+          // Пол-o я для группы обсуждения аниме
           anime_id: folderChat.anime_id || null,
           anime_title: folderChat.anime_title || null,
           anime_poster: animePoster || null,
+          anime_slug: folderChat.anime_slug || null,
+          franchise_id: folderChat.franchise_id || null,
+          franchise_slug: folderChat.franchise_slug || null,
+          discussion_type: folderChat.discussion_type || null,
           lastMessage: folderChat.last_message ? {
             text: folderChat.last_message.text,
             timestamp: folderChat.last_message.created_at,

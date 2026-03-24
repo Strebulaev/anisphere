@@ -322,8 +322,8 @@
         </div>
 
         <!-- Обсуждение (встроенное чат) -->
-        <div class="discussion-section">
-          <div class="discussion-header" @click="showDiscussion = !showDiscussion">
+        <!-- <div class="discussion-section"> -->
+          <!-- <div class="discussion-header" @click="showDiscussion = !showDiscussion">
             <h3 class="discussion-title">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -333,27 +333,27 @@
             <span class="discussion-toggle">
               {{ showDiscussion ? '▲ Скрыть' : '▼ Обсуждение' }}
             </span>
-          </div>
-          <div v-if="showDiscussion" class="discussion-body">
+          </div> -->
+          <!-- <div v-if="showDiscussion" class="discussion-body"> -->
             <!-- Франшизное обсуждение с топиками -->
-            <FranchiseDiscussionChat
+            <!-- <FranchiseDiscussionChat
               v-if="franchise"
               :franchise-id="franchise.id"
               :franchise-name="franchise.name"
               :franchise-poster="franchisePosterUrl"
               :parts="franchise.entries"
               :highlight-anime-id="anime.id"
-            />
+            /> -->
             <!-- Обычное обсуждение для одиночного аниме -->
-            <FranchiseDiscussionChat
+            <!-- <FranchiseDiscussionChat
               v-else
               :franchise-id="anime.id"
               :franchise-name="anime.title_ru || anime.title_en"
               :franchise-poster="anime.poster_url || ''"
               :parts="[]"
-            />
-          </div>
-        </div>
+            /> -->
+          <!-- </div> -->
+        <!-- </div> -->
 
         <!-- Франшиза: другие части -->
         <div v-if="franchise" class="franchise-section">

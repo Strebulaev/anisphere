@@ -251,6 +251,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.user_id = None
         self.group_name = None
         self.typing_task = None
+        self.topic_id = None
         
     async def connect(self):
         """Handle WebSocket connection"""
@@ -315,9 +316,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             data = json.loads(text_data)
             action = data.get('action')
-            
+                
             if action == 'send_message':
-                await self.handle_send_message(data)
+                    await self.handle_send_message(data)
             elif action == 'typing_start':
                 await self.handle_typing_start()
             elif action == 'typing_stop':
@@ -326,11 +327,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_mark_read(data)
             elif action == 'get_messages':
                 await self.send_initial_data()
+            elif action == 'set_topic':
+                self.topic_id = data.get('topic_id')
+                await self.send_initial_data()
             elif action == 'ping':
                 await self.send(text_data=json.dumps({'action': 'pong'}))
-                
-        except json.JSONDecodeError:
-            pass
         except Exception as e:
             print(f"WebSocket receive error: {e}")
     
@@ -346,8 +347,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not text:
             return
         
+        topic_id = data.get('topic_id', self.topic_id)
+        
         # Create message
-        message = await self.create_message(text)
+        message = await self.create_message(text, topic_id)
         
         if message:
             # Broadcast to all users in chat
@@ -524,9 +527,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 private_chat_id=self.chat_id
             ).select_related('sender').order_by('-created_at')[:50]
         elif self.chat_type == 'group':
-            msg_qs = Message.objects.filter(
-                chat_id=self.chat_id
-            ).select_related('sender').order_by('-created_at')[:50]
+            # Фильтрация по topic_id:
+            # Если топик выбран (число) - только сообщения этого топика
+            # Если топик = 0 (главный) - показываем ВСЕ сообщения
+            # Если топик не выбран (None) - все сообщения
+            if self.topic_id is not None and self.topic_id != 0:
+                # Конкретный топик - только этот топик
+                msg_qs = Message.objects.filter(
+                    chat_id=self.chat_id,
+                    topic_id=self.topic_id
+                ).select_related('sender').order_by('-created_at')[:50]
+            else:
+                # Главный топик (0) или не выбран (None) - все сообщения
+                msg_qs = Message.objects.filter(
+                    chat_id=self.chat_id
+                ).select_related('sender').order_by('-created_at')[:50]
         
         if msg_qs:
             messages = list(reversed([
@@ -539,6 +554,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'created_at': m.created_at.isoformat(),
                     'media': m.media.url if m.media else None,
                     'media_type': m.media_type,
+                    'topic_id': m.topic_id,
                 }
                 for m in msg_qs
             ]))
@@ -546,7 +562,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return messages
     
     @database_sync_to_async
-    def create_message(self, text):
+    def create_message(self, text, topic_id=None):
         """Create a new message"""
         try:
             from core.redis_events import event_publisher
@@ -557,6 +573,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 msg_data['private_chat_id'] = self.chat_id
             else:
                 msg_data['chat_id'] = self.chat_id
+            
+            if topic_id:
+                msg_data['topic_id'] = topic_id
             
             msg = Message.objects.create(**msg_data)
             
@@ -593,6 +612,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'created_at': message.created_at.isoformat(),
             'media': message.media.url if message.media else None,
             'media_type': message.media_type,
+            'topic_id': message.topic_id,
         }
     
     @database_sync_to_async
@@ -655,7 +675,7 @@ class TypingConsumer(AsyncWebsocketConsumer):
             self.group_name,
             self.channel_name
         )
-        
+    
     async def disconnect(self, close_code):
         if self.group_name:
             await self.channel_layer.group_discard(

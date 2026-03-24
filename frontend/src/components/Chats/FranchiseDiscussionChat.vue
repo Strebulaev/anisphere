@@ -61,6 +61,11 @@
       <button class="fc-unarchive-btn" @click="toggleArchive">Разархивировать</button>
     </div>
 
+    <!-- Баннер ошибки slug -->
+    <div v-if="slugValidationError" class="fc-error-banner">
+      ⚠️ Топик не найден — показывается общее обсуждение
+    </div>
+
     <!-- Темы (топики) с постерами -->
     <div class="fc-topics-header" @click="topicsCollapsed = !topicsCollapsed">
       <span class="fc-topics-title">📋 Темы ({{ topics.length }})</span>
@@ -143,6 +148,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, reactive } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import apiClient from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import MuteChatModal from './MuteChatModal.vue'
@@ -155,12 +161,12 @@ interface FranchisePart {
 }
 
 interface Topic {
-  id: number        // ChatTopic.id (для метаданных)
-  chatId: number    // GroupChat.id (для WebSocket и сообщений)
+  id: number        // topic_id из бэкенда
   name: string
   poster_url: string | null
-  animeId: number | null
+  animeId: number | null  // null = общее обсуждение
   unread: number
+  slug: string      // slug из названия для URL
 }
 
 interface Message {
@@ -170,18 +176,69 @@ interface Message {
   sender_avatar: string | null
   text: string
   created_at: string
+  topic_id: number | null
 }
 
 const props = defineProps<{
   franchiseId: number
+  franchiseSlug?: string | null  // slug для URL
   franchiseName: string
   franchisePoster?: string
   parts: FranchisePart[]
-  highlightAnimeId?: number
+  initialTopicSlug?: string | null
 }>()
 
+const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const currentUserId = computed(() => authStore.user?.id)
+
+// ── SLUG UTILS ─────────────────────────────────────────────
+// Создание slug из названия (транслитерация)
+const makeSlug = (text: string | null | undefined): string => {
+  if (!text) return ''
+  const str = String(text)
+  const translitMap: Record<string, string> = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
+    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+    'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '',
+    'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+    'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo',
+    'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
+    'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
+    'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch', 'Ъ': '',
+    'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya',
+    ' ': '-', '_': '-', '.': '-', ',': '-', '!': '', '?': '', '(': '', ')': '',
+    '"': '', "'": '', ':': '', ';': '', '/': '-', '\\': '-',
+  }
+  
+  let slug = str.toLowerCase()
+  for (const [from, to] of Object.entries(translitMap)) {
+    slug = slug.split(from).join(to)  // Используем split/join вместо replace с regex
+  }
+  // Удаляем повторяющиеся дефисы и недопустимые символы
+  slug = slug.replace(/-+/g, '-').replace(/[^a-z0-9\-]/g, '')
+  // Удаляем дефисы в начале и конце
+  slug = slug.replace(/^-|-$/g, '')
+  return slug || 'unknown'
+}
+
+// Проверка что slug соответствует топику из списка
+const findTopicBySlug = (slug: string | null): Topic | null => {
+  if (!slug) return null
+  const targetSlug = slug.toLowerCase()
+  // Ищем точный slug или slug по названию аниме
+  return topics.value.find(t => 
+    t.slug.toLowerCase() === targetSlug || 
+    makeSlug(t.name).toLowerCase() === targetSlug
+  ) || null
+}
+
+// Проверка что slug валиден для этой франшизы
+const isValidTopicSlug = (slug: string): boolean => {
+  return findTopicBySlug(slug) !== null
+}
 
 // ── State ──────────────────────────────────────────────────
 const topics = ref<Topic[]>([])
@@ -192,6 +249,12 @@ const newMessage = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
 const posterError = ref(false)
 const topicPosterErrors = reactive<Record<number, boolean>>({})
+const slugValidationError = ref(false)
+
+// Защита от race condition при смене франшизы
+const isComponentMounted = ref(false)
+const currentComponentId = ref(0)
+let componentIdCounter = 0
 
 // Настройки уведомлений и архивации
 const isMuted = ref(false)
@@ -208,41 +271,61 @@ const franchisePosterResolved = computed(() => {
   return props.franchisePoster || null
 })
 
+// Текущий slug из URL
+const currentSlugFromProps = computed(() => props.initialTopicSlug)
+
 // ── Build topics из ответа бэкенда ──────────────────────────
-const buildTopicsFromResponse = (topicsData: any[], groupMap: Record<string, number>, groupId: number) => {
+// Все топики используют ОДИН chatGroupId
+const buildTopicsFromResponse = (topicsData: any[], groupId: number) => {
   const list: Topic[] = []
 
-  for (const t of topicsData) {
+  // Сначала добавляем общий топик (general) - это сам чат
+  list.push({
+    id: 0,
+    name: props.franchiseName,
+    poster_url: props.franchisePoster || null,
+    animeId: null,  // null = общее обсуждение
+    unread: 0,
+    slug: 'general',
+  })
+
+  // Добавляем топики из parts
+  const sortedParts = [...props.parts].sort((a, b) => a.franchise_order - b.franchise_order)
+  
+  for (const part of sortedParts) {
+    const slug = makeSlug(part.title_ru || part.title_en || String(part.id))
     list.push({
-      id: t.topic_id ?? t.id,         // ChatTopic.id
-      chatId: t.chat_id ?? groupId,    // GroupChat.id — всегда один
-      name: t.title,
-      poster_url: t.poster_url || null,
-      animeId: t.anime_id || null,
+      id: part.id,  // anime_id как topic_id
+      name: part.title_ru || part.title_en || `Часть #${part.id}`,
+      poster_url: null,
+      animeId: part.id,
       unread: 0,
+      slug: slug,
     })
   }
 
-  // Если топики не пришли с бэкенда — строим из parts
-  if (list.length === 0) {
-    list.push({
-      id: 0,
-      chatId: groupId,
-      name: props.franchiseName,
-      poster_url: props.franchisePoster || null,
-      animeId: null,
-      unread: 0,
-    })
-    const sorted = [...props.parts].sort((a, b) => a.franchise_order - b.franchise_order)
-    for (const part of sorted) {
-      list.push({
-        id: 0,
-        chatId: groupId,
-        name: part.title_ru || part.title_en,
-        poster_url: null,
-        animeId: part.id,
-        unread: 0,
-      })
+  if (topicsData.length > 0) {
+    for (const t of topicsData) {
+      const part = props.parts.find(p => p.id === t.anime_id)
+      const slug = part ? makeSlug(part.title_ru || part.title_en || String(part.id)) : 'general'
+      
+      const existingIndex = list.findIndex(item => 
+        (t.anime_id && item.animeId === t.anime_id) || 
+        (!t.anime_id && item.animeId === null)
+      )
+      
+      if (existingIndex >= 0) {
+        const existingItem = list[existingIndex]
+        if (!existingItem) continue
+        list[existingIndex] = {
+          id: t.topic_id ?? t.id ?? t.anime_id ?? 0,
+          name: t.title || existingItem.name,
+          poster_url: t.poster_url || existingItem.poster_url,
+          animeId: t.anime_id || null,
+          unread: 0,
+          slug: slug,
+        }
+      }
     }
   }
 
@@ -262,6 +345,18 @@ const loadNotificationSettings = async (groupId: number) => {
 
 // ── Init groups on backend ─────────────────────────────────
 const initFranchiseGroups = async () => {
+  // Сбрасываем состояние перед загрузкой
+  topics.value = []
+  activeTopic.value = null
+  messages.value = []
+  chatGroupId.value = null
+  slugValidationError.value = false
+  
+  // Очищаем ошибки постеров
+  for (const key in topicPosterErrors) {
+    delete topicPosterErrors[key]
+  }
+  
   try {
     const { data } = await apiClient.post('/social/franchise-discussion/init/', {
       franchise_id: props.franchiseId,
@@ -270,18 +365,17 @@ const initFranchiseGroups = async () => {
 
     chatGroupId.value = data.group_id
 
-    // Строим топики из ответа (с постерами)
-    buildTopicsFromResponse(data.topics || [], data.group_map || {}, data.group_id)
-
+    // Строим топики - все используют ОДИН group_id
+    buildTopicsFromResponse(data.topics || [], data.group_id)
+    
     // Загружаем настройки уведомлений
     if (data.group_id) {
       await loadNotificationSettings(data.group_id)
     }
   } catch (e) {
     console.error('Failed to init franchise groups:', e)
-    const map: Record<string, number> = { general: 0 }
-    props.parts.forEach(p => { map[String(p.id)] = 0 })
-    buildTopicsFromResponse([], map, 0)
+    // Создаём локальные топики если бэкенд недоступен
+    buildTopicsFromResponse([], 0)
   }
 }
 
@@ -290,7 +384,6 @@ const toggleNotifications = async () => {
   if (!chatGroupId.value) return
 
   if (isMuted.value) {
-    // Включаем уведомления
     try {
       await apiClient.post(`/social/group-chats/${chatGroupId.value}/unmute/`)
       isMuted.value = false
@@ -298,7 +391,6 @@ const toggleNotifications = async () => {
       console.error('Failed to unmute:', e)
     }
   } else {
-    // Показываем модалку для выбора длительности
     showMuteModal.value = true
   }
 }
@@ -328,56 +420,113 @@ const toggleArchive = async () => {
   }
 }
 
-// ── Select topic ───────────────────────────────────────────
-const selectTopic = async (topic: Topic) => {
-  if (activeTopic.value?.id === topic.id && activeTopic.value?.chatId === topic.chatId) return
-  activeTopic.value = topic
-  // Сворачиваем список топиков после выбора
-  topicsCollapsed.value = true
-  // WS один на весь GroupChat — подключаемся только если нет соединения
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    disconnectWs()
-    if (topic.chatId) connectWs(topic.chatId)
+// ── URL Navigation ─────────────────────────────────────────
+const navigateToTopic = (topic: Topic) => {
+  // Используем franchiseSlug если передан, иначе создаём из franchiseName
+  const baseSlug = props.franchiseSlug || makeSlug(props.franchiseName)
+  const targetUrl = topic.animeId === null 
+    ? `/chats/${baseSlug}` 
+    : `/chats/${baseSlug}-${topic.slug}`
+  
+  // Только если URL отличается
+  if (route.path !== targetUrl) {
+    router.push(targetUrl)
   }
-  // Всегда загружаем через REST — надёжный источник при любом сценарии
-  await loadMessages(topic.chatId)
 }
 
-// ── Load messages ──────────────────────────────────────────
-const loadMessages = async (groupId: number, _topicId?: number) => {
-  if (!groupId) { messages.value = []; return }
+const navigateToGeneral = () => {
+  const baseSlug = props.franchiseSlug || makeSlug(props.franchiseName)
+  router.push(`/chats/${baseSlug}`)
+}
+
+// ── Select topic ───────────────────────────────────────────
+const selectTopic = async (topic: Topic) => {
+  if (activeTopic.value?.id === topic.id && activeTopic.value?.animeId === topic.animeId) return
+  
+  const prevTopic = activeTopic.value
+  activeTopic.value = topic
+  topicsCollapsed.value = true
+  
+  // НЕ меняем URL при смене топика - это вызывает проблемы
+  // navigateToTopic(topic) - УБРАЛ
+  
+  // Загружаем сообщения для нового топика
+  // Используем ОДИН chatGroupId для всех топиков - это ключевое изменение
+  await loadMessagesSingleChat(topic.animeId)
+  
+  // WS - переподключаемся с новым топиком (но тот же chatId)
+  disconnectWs()
+  if (chatGroupId.value) {
+    connectWsSingle(chatGroupId.value, topic.animeId)
+  }
+}
+
+// ── Load messages - ОДИН чат, разные topic_id ─────────────
+const loadMessagesSingleChat = async (topicId: number | null) => {
+  if (!chatGroupId.value) { messages.value = []; return }
   loadingMessages.value = true
+  
   try {
-    const { data } = await apiClient.get(`/social/group-chats/${groupId}/messages/`)
+    const params: Record<string, string> = {}
+    if (topicId !== undefined && topicId !== null) {
+      params.topic_id = String(topicId)
+    }
+    
+    const { data } = await apiClient.get(`/social/group-chats/${chatGroupId.value}/messages/`, { params })
     messages.value = data.results || data || []
     await nextTick()
     scrollToBottom()
-  } catch {
+  } catch (e) {
+    console.error('loadMessages error:', e)
     messages.value = []
   } finally {
     loadingMessages.value = false
   }
 }
-
-// ── WebSocket (один на весь GroupChat) ─────────────────────
-const connectWs = (groupId: number) => {
+  
+// ── WebSocket - ОДИН чат с фильтром по topic_id ───────────
+const connectWsSingle = (groupId: number, topicId: number | null = null) => {
   const token = localStorage.getItem('access_token')
   if (!token || !groupId) return
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
   ws = new WebSocket(`${proto}//${location.host}/ws/chat/${groupId}/?token=${token}`)
+  
+  ws.onopen = () => {
+    // Устанавливаем топик при подключении
+    if (topicId !== null) {
+      ws?.send(JSON.stringify({ action: 'set_topic', topic_id: topicId }))
+    }
+  }
+  
   ws.onmessage = async (e) => {
     const data = JSON.parse(e.data)
     if (data.action === 'init') {
-      // WS даёт историю при первом подключении — только если REST ещё не загрузил
       if (data.messages?.length > 0 && messages.value.length === 0) {
-        messages.value = data.messages
+        // Фильтруем сообщения по текущему топику:
+        // - Главный топик (null): показываем ВСЕ сообщения
+        // - Конкретный топик: показываем ТОЛЬКО сообщения с matching topic_id
+        const filtered = data.messages.filter((m: any) => {
+          if (topicId === null) return true // Главный топик - все
+          return m.topic_id === topicId // Конкретный топик - только свои
+        })
+        messages.value = filtered
         await nextTick()
         scrollToBottom()
       }
     } else if (data.action === 'new_message') {
-      messages.value.push(data.message)
-      await nextTick()
-      scrollToBottom()
+      const msg = data.message
+      // Логика отображения:
+      // - Главный топик (null): показываем ВСЕ сообщения
+      // - Конкретный топик: показываем ТОЛЬКО сообщения с matching topic_id
+      if (topicId === null) {
+        messages.value.push(msg)
+        await nextTick()
+        scrollToBottom()
+      } else if (msg.topic_id === topicId) {
+        messages.value.push(msg)
+        await nextTick()
+        scrollToBottom()
+      }
     }
   }
   ws.onclose = () => { ws = null }
@@ -388,17 +537,18 @@ const disconnectWs = () => { ws?.close(); ws = null }
 // ── Send ───────────────────────────────────────────────────
 const sendMessage = async () => {
   const text = newMessage.value.trim()
-  if (!text || !activeTopic.value?.chatId) return
-  const chatId = activeTopic.value.chatId
+  if (!text || !chatGroupId.value) return
+  const topicId = activeTopic.value?.animeId
 
   if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: 'send_message', text }))
+    ws.send(JSON.stringify({ action: 'send_message', text, topic_id: topicId }))
     newMessage.value = ''
   } else {
-    // WS не подключён — отправляем через HTTP
     try {
-      const { data } = await apiClient.post(`/social/group-chats/${chatId}/messages/`, { text })
-      // Адаптируем ответ под формат чата
+      const { data } = await apiClient.post(`/social/group-chats/${chatGroupId.value}/messages/`, { 
+        text, 
+        topic_id: topicId 
+      })
       messages.value.push({
         id: data.id,
         sender_id: data.sender,
@@ -406,6 +556,7 @@ const sendMessage = async () => {
         sender_avatar: data.sender_avatar || null,
         text: data.text,
         created_at: data.created_at,
+        topic_id: data.topic_id || null,
       })
       newMessage.value = ''
       await nextTick()
@@ -430,25 +581,117 @@ const topicsWord = (n: number) => {
   return 'топиков'
 }
 
-// ── Lifecycle ──────────────────────────────────────────────
+// ── Инициализация при монтировании ─────────────────────────
 onMounted(async () => {
+  isComponentMounted.value = true
+  componentIdCounter++
+  
   await initFranchiseGroups()
 
-  const target = props.highlightAnimeId
-    ? topics.value.find(t => t.animeId === props.highlightAnimeId)
-    : topics.value[0]
-
-  if (target) await selectTopic(target)
-})
-
-watch(() => props.highlightAnimeId, async (newId) => {
-  if (newId) {
-    const topic = topics.value.find(t => t.animeId === newId)
-    if (topic) await selectTopic(topic)
+  // Проверяем slug из URL
+  const slug = currentSlugFromProps.value
+  
+  if (slug) {
+    // Проверяем что slug валиден
+    if (isValidTopicSlug(slug)) {
+      const topic = findTopicBySlug(slug)
+      if (topic) {
+        await selectTopic(topic)
+        return
+      }
+    } else {
+      // Slug невалиден - показываем ошибку и редиректим на общее
+      slugValidationError.value = true
+      navigateToGeneral()
+      return
+    }
+  }
+  
+  // По умолчанию - общее обсуждение
+  const generalTopic = topics.value.find(t => t.animeId === null)
+  if (generalTopic) {
+    await selectTopic(generalTopic)
+  } else {
+    const firstTopic = topics.value[0]
+    if (firstTopic) {
+      await selectTopic(firstTopic)
+    }
   }
 })
 
-onUnmounted(disconnectWs)
+// ── Слежение за changes в props (роутинг) ─────────────────
+// При смене топика через URL - просто перезагружаем сообщения
+watch(() => props.initialTopicSlug, async (newSlug) => {
+  if (!isComponentMounted.value || !chatGroupId.value) return
+  
+  if (!newSlug) {
+    // Переход на общее обсуждение (topic_id = null)
+    const generalTopic = topics.value.find(t => t.animeId === null)
+    if (generalTopic && activeTopic.value?.animeId !== null) {
+      activeTopic.value = generalTopic
+      await loadMessagesSingleChat(null)
+      // Переподключаем WS с новым топиком
+      disconnectWs()
+      connectWsSingle(chatGroupId.value, null)
+    }
+    return
+  }
+  
+  // Проверяем slug
+  if (!isValidTopicSlug(newSlug)) {
+    slugValidationError.value = true
+    return
+  }
+  
+  const topic = findTopicBySlug(newSlug)
+  if (topic && activeTopic.value?.animeId !== topic.animeId) {
+    activeTopic.value = topic
+    await loadMessagesSingleChat(topic.animeId)
+    disconnectWs()
+    connectWsSingle(chatGroupId.value, topic.animeId)
+  }
+})
+
+// Полная очистка состояния при смене франшизы
+const resetState = () => {
+  disconnectWs()
+  topics.value = []
+  activeTopic.value = null
+  messages.value = []
+  chatGroupId.value = null
+  isMuted.value = false
+  isArchived.value = false
+  topicsCollapsed.value = false
+  newMessage.value = ''
+  posterError.value = false
+  slugValidationError.value = false
+  for (const key in topicPosterErrors) {
+    delete topicPosterErrors[key]
+  }
+}
+
+// Следим за сменой franchiseId - полный ресет
+watch(() => props.franchiseId, async (newId, oldId) => {
+  if (newId && newId !== oldId && isComponentMounted.value) {
+    // Полный сброс
+    resetState()
+    await new Promise(r => setTimeout(r, 50))
+    await initFranchiseGroups()
+    
+    // После загрузки топиков - выбираем общий топик
+    const generalTopic = topics.value.find(t => t.animeId === null)
+    if (generalTopic) await selectTopic(generalTopic)
+    else {
+      const firstTopic = topics.value[0]
+      if (firstTopic) await selectTopic(firstTopic)
+    }
+  }
+})
+    
+onUnmounted(() => {
+  isComponentMounted.value = false
+  disconnectWs()
+})
 </script>
 
 <style scoped>
@@ -531,6 +774,7 @@ onUnmounted(disconnectWs)
 }
 .fc-muted-banner { background: #f59e0b1a; color: #f59e0b; border-bottom: 1px solid #f59e0b22; }
 .fc-archived-banner { background: #6366f11a; color: #6366f1; border-bottom: 1px solid #6366f122; }
+.fc-error-banner { background: #ef44441a; color: #ef4444; border-bottom: 1px solid #ef444422; padding: 8px 16px; font-size: .8rem; text-align: center; }
 .fc-unmute-btn, .fc-unarchive-btn {
   background: none; border: 1px solid currentColor;
   border-radius: 5px; color: inherit; cursor: pointer;

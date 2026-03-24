@@ -166,6 +166,15 @@ class AnimeViewSet(viewsets.ModelViewSet):
 
         queryset = self.get_queryset()
 
+        # ── Поиск по slug (транслитерированное название) ───────────
+        slug = request.query_params.get('slug')
+        if slug:
+            # Ищем по названию, заменяя дефисы на пробелы
+            queryset = queryset.filter(
+                Q(title_ru__icontains=slug.replace('-', ' ')) |
+                Q(title_en__icontains=slug.replace('-', ' '))
+            )
+
         # ── Поиск по названию ────────────────────────────────────
         search = request.query_params.get('search')
         if search:
@@ -539,6 +548,13 @@ class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
         search = request.query_params.get('search')
+        slug = request.query_params.get('slug')
+        
+        # Поиск по slug (транслитерированное название)
+        if slug:
+            # Транслитерируем slug обратно для поиска или ищем по транслитерированному названию
+            qs = qs.filter(name__icontains=slug.replace('-', ' '))
+        
         if search:
             qs = qs.filter(name__icontains=search)
         page_size = min(int(request.query_params.get('page_size', 20)), 200)

@@ -610,6 +610,10 @@ class Message(models.Model):
     private_chat = models.ForeignKey('PrivateChat', on_delete=models.CASCADE, null=True, blank=True, related_name='private_messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     text = models.TextField(blank=True)
+    
+    # Связь с топиком для franchise discussion (anime_id топика)
+    topic_id = models.IntegerField(null=True, blank=True, db_index=True)
+    
     media = models.FileField(upload_to='message_media/', null=True, blank=True)
     media_type = models.CharField(max_length=20, blank=True)  # image, video, audio, document, location, post, anime
 
@@ -652,6 +656,7 @@ class Message(models.Model):
         indexes = [
             models.Index(fields=['chat', 'created_at']),
             models.Index(fields=['sender', 'created_at']),
+            models.Index(fields=['chat', 'topic_id', 'created_at']),
         ]
 
     def __str__(self):

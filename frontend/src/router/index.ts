@@ -182,18 +182,16 @@ const router = createRouter({
       component: ChatsView,
       meta: { requiresAuth: true }
     },
+    // Универсальный маршрут для всех чатов: /chats/{slug}
+    // - /chats/hunter-x-hunter → аниме чат
+    // - /chats/friren → общее обсуждение франшизы
+    // - /chats/friren-chronicle → топик франшизы
     {
-      path: '/chats/:id',
-      name: 'chat-detail',
+      path: '/chats/:slug',
+      name: 'chat-slug',
       component: ChatsView,
-      props: true,
+      props: (route) => ({ slug: route.params.slug }),
       meta: { requiresAuth: true }
-    },
-    {
-      path: '/chat/:id',
-      name: 'chat-detail-view',
-      component: ChatsView,
-      props: true
     },
     {
       path: '/playlists',

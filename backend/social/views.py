@@ -2169,22 +2169,36 @@ class MessageListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         chat_id = self.kwargs.get('chat_id')
-        print(f"DEBUG: Получаем сообщения для чата {chat_id}, пользователь {self.request.user}")
+        topic_id = self.request.query_params.get('topic_id')
+        print(f"DEBUG: Получаем сообщения для чата {chat_id}, топик '{topic_id}', пользователь {self.request.user}")
 
-        # Определяем тип чата по ID (можно добавить префикс или параметр типа)
-        # Для простоты проверяем оба типа
         try:
-            # Сначала пытаемся найти групповой чат
             chat = GroupChat.objects.get(id=chat_id)
-            # Проверяем, что пользователь участник
             if not ChatMember.objects.filter(chat=chat, user=self.request.user).exists():
                 return Message.objects.none()
-            return Message.objects.filter(chat=chat, is_deleted=False).select_related('sender', 'reply_to')
+            
+            qs = Message.objects.filter(chat=chat, is_deleted=False).select_related('sender', 'reply_to')
+            
+            # Фильтрация по topic_id для franchise discussion:
+            # - topic_id = 'main' - показываем ВСЕ сообщения (главный топик = вся лента)
+            # - topic_id = число - показываем ТОЛЬКО сообщения этого топика
+            # - topic_id не передан - показываем все сообщения (для обратной совместимости)
+            if topic_id is not None and topic_id != '':
+                if topic_id == 'main' or topic_id == '0':
+                    # Главный топик - показываем ВСЕ сообщения (без фильтрации по topic_id)
+                    pass
+                else:
+                    try:
+                        tid = int(topic_id)
+                        qs = qs.filter(topic_id=tid)
+                    except ValueError:
+                        pass
+
+            print(f"DEBUG: Найдено сообщений: {qs.count()}")
+            return qs
         except GroupChat.DoesNotExist:
-            # Если не найден групповой, ищем личный
             try:
                 private_chat = PrivateChat.objects.get(id=chat_id)
-                # Проверяем доступ к личному чату
                 if self.request.user not in [private_chat.user1, private_chat.user2]:
                     return Message.objects.none()
                 return Message.objects.filter(private_chat=private_chat, is_deleted=False).select_related('sender', 'reply_to')
@@ -2195,7 +2209,8 @@ class MessageListCreateView(generics.ListCreateAPIView):
         from .chat_cache import ChatCacheService
 
         chat_id = self.request.data.get('chat_id') or self.request.data.get('private_chat') or self.request.data.get('chat')
-        print(f"DEBUG: Создаем сообщение для чата {chat_id}, пользователь {self.request.user}")
+        topic_id = self.request.data.get('topic_id')
+        print(f"DEBUG: Создаем сообщение для чата {chat_id}, топик {topic_id}, пользователь {self.request.user}")
         print(f"DEBUG: Данные запроса: {self.request.data}")
 
         if not chat_id:
@@ -2219,7 +2234,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                 if not member.can_send_messages:
                     raise PermissionError("Пользователь не может отправлять сообщения")
 
-                message = serializer.save(chat=chat, sender=self.request.user)
+                message = serializer.save(chat=chat, sender=self.request.user, topic_id=topic_id)
 
             except GroupChat.DoesNotExist:
                 try:
@@ -2234,7 +2249,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                     if settings.get('blocked', False):
                         raise PermissionError("Чат заблокирован")
 
-                    message = serializer.save(private_chat=private_chat, sender=self.request.user)
+                    message = serializer.save(private_chat=private_chat, sender=self.request.user, topic_id=topic_id)
 
                 except PrivateChat.DoesNotExist:
                     raise PermissionError("Чат не найден")
@@ -2327,9 +2342,15 @@ class GroupChatViewSet(ModelViewSet):
         return GroupChatSerializer
 
     def get_queryset(self):
-        return GroupChat.objects.filter(
-            members__user=self.request.user
-        ).select_related('anime', 'created_by').prefetch_related('members', 'members__user').order_by('-last_message_at', '-created_at')
+        try:
+            return GroupChat.objects.filter(
+                members__user=self.request.user
+            ).select_related('created_by').prefetch_related('members', 'members__user').order_by('-last_message_at', '-created_at')
+        except Exception as e:
+            print(f"DEBUG GroupChatViewSet get_queryset error: {e}")
+            import traceback
+            traceback.print_exc()
+            return GroupChat.objects.none()
 
     def perform_create(self, serializer):
         chat = serializer.save(created_by=self.request.user)
@@ -2383,18 +2404,38 @@ class GroupChatViewSet(ModelViewSet):
             text = request.data.get('text', '').strip()
             if not text:
                 return Response({'error': 'Текст обязателен'}, status=400)
+            
+            # Получаем topic_id из запроса
+            topic_id = request.data.get('topic_id')
+            if topic_id:
+                try:
+                    topic_id = int(topic_id)
+                except (ValueError, TypeError):
+                    topic_id = None
+            
             msg = Message.objects.create(
                 chat=chat,
                 sender=request.user,
                 text=text,
+                topic_id=topic_id,
             )
             serializer = MessageSerializer(msg, context={'request': request})
             return Response(serializer.data, status=201)
 
         # GET
+        topic_id = request.query_params.get('topic_id')
         qs = Message.objects.filter(chat=chat, is_deleted=False).order_by('created_at')
-        # Фильтр по топику пока не реализован на уровне БД (поля topic нет),
-        # возвращаем все сообщения чата — фронт сам фильтрует по теме через WS.
+        
+        # Фильтрация по topic_id:
+        # - topic_id не передан или = 'main' или = '0' -> показываем ВСЕ сообщения (главный топик)
+        # - topic_id = число -> показываем ТОЛЬКО сообщения этого топика
+        if topic_id and topic_id not in ['main', '0']:
+            try:
+                tid = int(topic_id)
+                qs = qs.filter(topic_id=tid)
+            except ValueError:
+                pass
+        
         serializer = MessageSerializer(qs[:200], many=True, context={'request': request})
         return Response({'results': serializer.data})
 
@@ -2528,3 +2569,22 @@ class PrivateChatViewSet(ModelViewSet):
                 message=message,
                 user=request.user
             )
+            if created:
+                read_message_ids.append(message.id)
+
+        # Публикуем событие о прочтении
+        if read_message_ids and event_publisher:
+            try:
+                event_publisher('messages_read', {
+                    'chat_id': chat.id,
+                    'chat_type': 'private',
+                    'user_id': request.user.id,
+                    'message_ids': read_message_ids,
+                })
+            except Exception as e:
+                print(f"DEBUG: Error publishing messages_read: {e}")
+
+        return Response({
+            'read_count': len(read_message_ids),
+            'message_ids': read_message_ids
+        })

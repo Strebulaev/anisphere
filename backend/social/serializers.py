@@ -490,6 +490,7 @@ class PostAttachmentSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
+    sender_id = serializers.IntegerField(source='sender.id', read_only=True)
     sender_username = serializers.CharField(source='sender.username', read_only=True)
     sender_avatar = serializers.ImageField(source='sender.avatar', read_only=True)
     reply_text = serializers.CharField(source='reply_to.text', read_only=True)
@@ -502,15 +503,16 @@ class MessageSerializer(serializers.ModelSerializer):
     forwarded_from_data = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
     
-    # Добавляем поля для статуса прочтения
+    # Добавляем поля для статуса прочтения и идентификации "моего" сообщения
     is_read_by_other = serializers.SerializerMethodField()
     read_count = serializers.SerializerMethodField()
+    is_mine = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = [
-            'id', 'chat', 'private_chat', 'sender', 'sender_username', 'sender_avatar',
-            'text', 'media', 'media_type', 'media_url',
+            'id', 'chat', 'private_chat', 'sender', 'sender_id', 'sender_username', 'sender_avatar',
+            'text', 'topic_id', 'media', 'media_type', 'media_url',
             'location_latitude', 'location_longitude', 'location_name',
             'shared_post', 'shared_post_data', 'shared_anime', 'shared_anime_title', 'shared_anime_poster',
             'reply_to', 'reply_text', 'reply_sender_username',
@@ -521,7 +523,8 @@ class MessageSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             # Новые поля
             'is_read_by_other',
-            'read_count'
+            'read_count',
+            'is_mine',
         ]
         read_only_fields = [
             'id', 'sender', 'is_edited', 'edited_at', 'is_deleted', 
@@ -579,6 +582,15 @@ class MessageSerializer(serializers.ModelSerializer):
             return obj.read_statuses.count()
         return 0
     
+    def get_is_mine(self, obj):
+        """
+        Определяет, является ли сообщение отправленным текущим пользователем.
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.sender_id == request.user.id
+
     def get_forwarded_from_data(self, obj):
         """Получаем данные о пересланном сообщении"""
         if obj.forwarded_from:
@@ -856,6 +868,11 @@ class GroupChatSerializer(serializers.ModelSerializer):
     anime_id = serializers.SerializerMethodField()
     anime_title = serializers.SerializerMethodField()
     anime_poster = serializers.SerializerMethodField()
+    anime_slug = serializers.SerializerMethodField()  # slug для URL
+    # Поля для franchise discussion
+    franchise_id = serializers.SerializerMethodField()
+    franchise_slug = serializers.SerializerMethodField()  # slug для URL
+    discussion_type = serializers.SerializerMethodField()  # тип обсуждения: anime/franchise
 
     class Meta:
         model = GroupChat
@@ -872,14 +889,22 @@ class GroupChatSerializer(serializers.ModelSerializer):
 
     def get_anime_id(self, obj):
         """Получить ID аниме, связанного с чатом"""
-        if obj.anime:
-            return obj.anime.id
+        try:
+            if hasattr(obj, 'anime_id') and obj.anime_id:
+                return obj.anime_id
+            if obj.anime:
+                return obj.anime.id
+        except Exception:
+            pass
         return None
 
     def get_anime_title(self, obj):
         """Получить название аниме, связанного с чатом"""
-        if obj.anime:
-            return obj.anime.title_ru or obj.anime.title_en
+        try:
+            if obj.anime:
+                return obj.anime.title_ru or obj.anime.title_en
+        except Exception:
+            pass
         return None
 
     def get_anime_poster(self, obj):
@@ -891,15 +916,18 @@ class GroupChatSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(url)
             return url
 
-        if obj.anime:
-            if obj.anime.poster:
-                return _abs(obj.anime.poster.url)
-            if obj.anime.poster_url:
-                return obj.anime.poster_url
+        try:
+            if obj.anime:
+                if obj.anime.poster:
+                    return _abs(obj.anime.poster.url)
+                if obj.anime.poster_url:
+                    return obj.anime.poster_url
+        except Exception:
+            pass
 
         # Franchise-чат без anime — берём постер первого аниме франшизы
-        if obj.franchise_id:
-            try:
+        try:
+            if getattr(obj, 'franchise_id', None):
                 from anime.models import Anime as AnimeModel
                 first = (
                     AnimeModel.objects
@@ -912,10 +940,54 @@ class GroupChatSerializer(serializers.ModelSerializer):
                     return _abs(first.poster.url)
                 if first and first.poster_url:
                     return first.poster_url
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         return None
+
+    def get_anime_slug(self, obj):
+        """Получить slug аниме для URL"""
+        try:
+            if obj.anime:
+                # Используем title_ru или title_en для создания slug
+                title = obj.anime.title_ru or obj.anime.title_en
+                if title:
+                    from django.utils.text import slugify
+                    return slugify(title)
+        except Exception:
+            pass
+        return None
+
+    def get_franchise_id(self, obj):
+        """Получить ID франшизы"""
+        try:
+            return getattr(obj, 'franchise_id', None)
+        except Exception:
+            return None
+
+    def get_franchise_slug(self, obj):
+        """Получить slug франшизы для URL"""
+        try:
+            franchise_id = getattr(obj, 'franchise_id', None)
+            if franchise_id:
+                from anime.models import Franchise
+                try:
+                    franchise = Franchise.objects.get(id=franchise_id)
+                    if franchise.name:
+                        from django.utils.text import slugify
+                        return slugify(franchise.name)
+                except Franchise.DoesNotExist:
+                    pass
+        except Exception:
+            pass
+        return None
+
+    def get_discussion_type(self, obj):
+        """Получить тип обсуждения: anime/franchise/обычный"""
+        try:
+            return getattr(obj, 'discussion_type', '') or ''
+        except Exception:
+            return ''
 
     def get_participants_usernames(self, obj):
         """Получить список имен участников"""

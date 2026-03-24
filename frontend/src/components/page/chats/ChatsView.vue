@@ -9,6 +9,7 @@
       >
         <ChatList
           :active-chat-id="activeChatId"
+          :active-franchise-id="activeFranchiseId"
           @chat-selected="handleChatSelected"
         />
       </div>
@@ -21,9 +22,31 @@
 
       <!-- Правая панель с чатом -->
       <div class="chats-main">
-        <div v-if="activeChatId" class="chat-detail">
-          <ChatDetailView :chat-id="activeChatId" />
+        <!-- Загрузка -->
+        <div v-if="isRouteLoading" class="chat-loading">
+          <div class="loading-spinner"></div>
+          <span>Загрузка...</span>
         </div>
+
+        <!-- Обсуждение франшизы -->
+        <div v-else-if="franchiseData && activeFranchiseId" class="chat-detail">
+          <FranchiseDiscussionChat
+            :key="`fdisc-${activeFranchiseId}`"
+            :franchise-id="activeFranchiseId"
+            :franchise-slug="franchiseSlug"
+            :franchise-name="franchiseName"
+            :franchise-poster="franchisePoster"
+            :parts="franchiseParts"
+            :initial-topic-slug="topicSlug ?? undefined"
+          />
+        </div>
+
+        <!-- Обычный чат -->
+        <div v-else-if="activeChatId" class="chat-detail">
+          <ChatDetailView :key="`chat-${activeChatId}`" :chat-id="activeChatId" />
+        </div>
+
+        <!-- Ничего не выбрано -->
         <div v-else class="no-chat-selected">
           <div class="no-chat-content">
             <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -39,33 +62,224 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatList from '@/components/Chats/ChatList.vue'
 import ChatDetailView from '@/components/page/chats/ChatDetailView.vue'
+import FranchiseDiscussionChat from '@/components/Chats/FranchiseDiscussionChat.vue'
 import { usePrivateChatStore } from '@/stores/privateChat'
 import { useGroupChatStore } from '@/stores/groupChat'
+import apiClient from '@/api/client'
 
 const route = useRoute()
 const router = useRouter()
 const privateChatStore = usePrivateChatStore()
 const groupChatStore = useGroupChatStore()
+
+// ── Активный чат/франшиза ──────────────────────────────────
 const activeChatId = ref<number | undefined>(undefined)
-const isLoading = ref(true)
+const activeFranchiseId = ref<number | undefined>(undefined)
+
+// ── Состояние загрузки ─────────────────────────────────────
+const isRouteLoading = ref(false)
+const isChatsLoaded = ref(false)
+
+// ── Сайдбар ────────────────────────────────────────────────
 const sidebarWidth = ref(350)
 const chatsSidebar = ref<HTMLElement | null>(null)
 const isResizing = ref(false)
 const startX = ref(0)
 const startWidth = ref(0)
 
-const handleChatSelected = (chat: any) => {
-  activeChatId.value = chat.id
-  // Переходим на URL чата
-  router.push(`/chats/${chat.id}`)
+// ── Данные франшизы ───────────────────────────────────────
+const franchiseData = ref<any>(null)
+const franchiseLoading = ref(false)
+
+// ── SLUG UTILS ─────────────────────────────────────────────
+const makeSlug = (text: string | null | undefined): string => {
+  if (!text) return ''
+  const translitMap: Record<string, string> = {
+    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i',
+    'й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t',
+    'у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'',
+    'э':'e','ю':'yu','я':'ya',
+    ' ':'-','_':'-','.':'-',',':'-','!':'','?':'','(': '', ')': '', '"': "", "'": "", ':': '', ';': '', '/': '-', '\\': '-',
+  }
+  let slug = String(text).toLowerCase()
+  for (const [from, to] of Object.entries(translitMap)) {
+    slug = slug.split(from).join(to)
+  }
+  return slug.replace(/-+/g, '-').replace(/[^a-z0-9\-]/g, '').replace(/^-|-$/g, '') || 'unknown'
 }
 
+// ── Топик slug для передачи во FranchiseDiscussionChat ─────
+// Формат URL: /chats/{franchiseSlug} или /chats/{franchiseSlug}-{topicSuffix}
+const topicSlug = computed((): string | null => {
+  if (!franchiseData.value) return null
+  const urlSlug = route.params.slug as string
+  if (!urlSlug) return null
+  const baseSlug = franchiseData.value.slug || makeSlug(franchiseData.value.name)
+  // Если urlSlug === baseSlug — это общее обсуждение (topicSlug = null)
+  if (urlSlug === baseSlug) return null
+  // Если urlSlug начинается с baseSlug + '-' — это топик
+  if (urlSlug.startsWith(baseSlug + '-')) {
+    return urlSlug.slice(baseSlug.length + 1) || null
+  }
+  return null
+})
+
+const franchiseName = computed(() => franchiseData.value?.name || '')
+const franchiseSlug = computed(() => {
+  if (franchiseData.value?.slug) return franchiseData.value.slug
+  return makeSlug(franchiseData.value?.name || '')
+})
+const franchisePoster = computed(() => franchiseData.value?.poster_image_url || franchiseData.value?.poster_url || '')
+const franchiseParts = computed(() => {
+  if (!franchiseData.value?.entries) return []
+  return [...franchiseData.value.entries].sort((a: any, b: any) => (a.franchise_order || 0) - (b.franchise_order || 0))
+})
+
+// ── Загрузка франшизы по slug ──────────────────────────────
+const loadFranchiseBySlug = async (slug: string): Promise<boolean> => {
+  franchiseLoading.value = true
+  try {
+    // Пробуем поиск по slug
+    for (const params of [{ slug }, { search: slug.replace(/-/g, ' ') }]) {
+      const res = await apiClient.get('/anime/franchises/', { params })
+      const results = res.data?.results || []
+      if (results.length > 0) {
+        franchiseData.value = results[0]
+        activeFranchiseId.value = results[0].id
+        return true
+      }
+    }
+    return false
+  } catch {
+    return false
+  } finally {
+    franchiseLoading.value = false
+  }
+}
+
+// ── Загрузка аниме чата по slug ───────────────────────────
+const loadAnimeChatBySlug = async (slug: string): Promise<boolean> => {
+  try {
+    for (const params of [{ slug }, { search: slug.replace(/-/g, ' ') }]) {
+      const res = await apiClient.get('/anime/', { params })
+      const results = res.data?.results || []
+      if (results.length > 0) {
+        const anime = results[0]
+        const discussionRes = await apiClient.get(`/anime/${anime.id}/discussion-group/`)
+        if (discussionRes.data?.id) {
+          activeChatId.value = discussionRes.data.id
+          return true
+        }
+      }
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+// ── Основная функция обработки slug из route ──────────────
+const handleRouteSlug = async (slug: string | null) => {
+  console.log('[ChatsView] handleRouteSlug called with:', slug)
+  
+  // Полный сброс при ЛЮБОМ изменении
+  activeChatId.value = undefined
+  activeFranchiseId.value = undefined
+  franchiseData.value = null
+
+  if (!slug) return
+
+  isRouteLoading.value = true
+  try {
+    // Числовой ID → обычный чат
+    const num = parseInt(slug)
+    if (!isNaN(num)) {
+      console.log('[ChatsView] Setting activeChatId:', num)
+      activeChatId.value = num
+      return
+    }
+
+    // Slug (не числовой) — пробуем найти franchise
+    console.log('[ChatsView] Trying to find franchise by slug:', slug)
+    const found = await loadFranchiseBySlug(slug)
+    if (found) {
+      console.log('[ChatsView] Franchise found:', franchiseData.value?.name)
+      // FranchiseDiscussionChat отобразится и сам обработает топик из URL
+      return
+    }
+    
+    // Не нашли franchise — пробуем anime discussion
+    const animeFound = await loadAnimeChatBySlug(slug)
+    if (animeFound) {
+      console.log('[ChatsView] Anime discussion found')
+      return
+    }
+    
+    // Ничего не найдено — показываем "выберите чат"
+    console.log('[ChatsView] Nothing found, showing no chat')
+    
+  } finally {
+    isRouteLoading.value = false
+    console.log('[ChatsView] handleRouteSlug done, chatId:', activeChatId.value, 'franchiseId:', activeFranchiseId.value)
+  }
+}
+
+// ── Обработчик выбора чата из списка ─────────────────────
+const handleChatSelected = async (chat: any) => {
+  console.log('[ChatsView] handleChatSelected:', chat)
+  
+  // Полный сброс перед открытием нового чата
+  activeChatId.value = undefined
+  activeFranchiseId.value = undefined
+  franchiseData.value = null
+  
+  // Для franchise чатов - загружаем данные франшизы
+  if (chat.franchise_id) {
+    // Загружаем franchise данные
+    const found = await loadFranchiseById(chat.franchise_id)
+    if (found) {
+      // Открываем FranchiseDiscussionChat
+      return
+    }
+    // Если не нашли - fallback на обычный чат
+  }
+  
+  // Для anime discussion - открываем как обычный чат по ID
+  if (chat.discussion_type === 'anime' && chat.anime_id) {
+    activeChatId.value = chat.id
+    return
+  }
+  
+  // Обычный чат
+  if (route.params.slug !== String(chat.id)) {
+    router.push(`/chats/${chat.id}`)
+  }
+}
+
+// ── Загрузка франшизы по ID ──────────────────────────────
+const loadFranchiseById = async (id: number): Promise<boolean> => {
+  franchiseLoading.value = true
+  try {
+    const res = await apiClient.get(`/anime/franchises/${id}/`)
+    if (res.data) {
+      franchiseData.value = res.data
+      activeFranchiseId.value = res.data.id
+      return true
+    }
+    return false
+  } catch {
+    return false
+  } finally {
+    franchiseLoading.value = false
+  }
+}
+
+// ── Загрузка списков чатов ────────────────────────────────
 const loadChats = async () => {
-  isLoading.value = true
   try {
     await Promise.all([
       privateChatStore.loadChats(),
@@ -74,10 +288,11 @@ const loadChats = async () => {
   } catch (error) {
     console.error('Error loading chats:', error)
   } finally {
-    isLoading.value = false
+    isChatsLoaded.value = true
   }
 }
 
+// ── Ресайзер ──────────────────────────────────────────────
 const startResize = (event: MouseEvent) => {
   isResizing.value = true
   startX.value = event.clientX
@@ -86,42 +301,51 @@ const startResize = (event: MouseEvent) => {
   document.addEventListener('mouseup', stopResize)
   event.preventDefault()
 }
-
 const handleResize = (event: MouseEvent) => {
   if (!isResizing.value) return
-
-  const deltaX = event.clientX - startX.value
-  const newWidth = startWidth.value + deltaX
-
-  // Ограничиваем ширину от 200px до 600px
-  sidebarWidth.value = Math.max(200, Math.min(600, newWidth))
+  sidebarWidth.value = Math.max(200, Math.min(600, startWidth.value + event.clientX - startX.value))
 }
-
 const stopResize = () => {
   isResizing.value = false
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
 }
 
-// Обработка id чата из route (при переходе по ссылке)
+// ── Инициализация ─────────────────────────────────────────
 onMounted(async () => {
-  // Сначала загружаем чаты
   await loadChats()
-  
-  // Затем устанавливаем активный чат из URL
-  if (route.params.id) {
-    activeChatId.value = parseInt(route.params.id as string)
+  const slug = route.params.slug as string | undefined
+  if (slug) {
+    await handleRouteSlug(slug)
   }
 })
 
-// Следим за изменением id в route
-watch(() => route.params.id, (newId) => {
-  if (newId) {
-    activeChatId.value = parseInt(newId as string)
-  } else {
+// ── Watch: реагируем на смену slug в URL ──────────────────
+watch(
+  () => route.params.slug as string | undefined,
+  async (newSlug, oldSlug) => {
+    // Пропускаем если slug не изменился
+    if (newSlug === oldSlug) return
+
+    // Если уже загружена franchise - проверяем, это смена топика или новый чат
+    if (franchiseData.value && newSlug) {
+      const baseSlug = franchiseData.value.slug || makeSlug(franchiseData.value.name)
+      // Если новый slug начинается с того же baseSlug - это смена топика, НЕ сбрасываем
+      if (newSlug === baseSlug || newSlug.startsWith(baseSlug + '-')) {
+        // Это смена топика - НЕ сбрасываем franchise данные
+        // FranchiseDiscussionChat сам обработает смену топика через props.initialTopicSlug
+        return
+      }
+    }
+
+    // Полный сброс при смене на другой чат
     activeChatId.value = undefined
+    activeFranchiseId.value = undefined
+    franchiseData.value = null
+    
+    await handleRouteSlug(newSlug ?? null)
   }
-})
+)
 </script>
 
 <style scoped>
@@ -133,25 +357,10 @@ watch(() => route.params.id, (newId) => {
   overflow: hidden;
 }
 
-.chats-view::-webkit-scrollbar {
-  display: none;
-}
-
-.chats-view {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
 .chats-container {
   display: flex;
   flex: 1;
   overflow: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.chats-container::-webkit-scrollbar {
-  display: none;
 }
 
 .chats-sidebar {
@@ -182,7 +391,36 @@ watch(() => route.params.id, (newId) => {
   display: flex;
   flex-direction: column;
   background: #0f0f0f;
+  overflow: hidden;
 }
+
+.chat-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #666;
+  font-size: 1rem;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #333;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .no-chat-selected {
   flex: 1;
@@ -224,14 +462,12 @@ watch(() => route.params.id, (newId) => {
 
 @media (max-width: 768px) {
   .chats-sidebar {
-    width: 100%;
+    width: 100% !important;
     border-right: none;
   }
-
   .chats-main {
     display: none;
   }
-
   .chats-main.active {
     display: flex;
   }

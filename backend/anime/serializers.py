@@ -306,18 +306,43 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
 class FranchiseEntrySerializer(serializers.ModelSerializer):
     """Mini-сериалайзер элемента франшизы"""
     poster_image_url = serializers.SerializerMethodField()
+    anime_slug = serializers.SerializerMethodField()
 
     def get_poster_image_url(self, obj):
         if obj.poster and hasattr(obj.poster, 'url'):
             return obj.poster.url
         return obj.poster_url or ''
 
+    def get_anime_slug(self, obj):
+        """Генерирует slug из названия аниме для URL"""
+        if not obj.title_ru:
+            return ''
+        # Транслитерация: заменяем русские буквы на латинские
+        slug = obj.title_ru.lower()
+        replacements = {
+            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
+            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+            'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '',
+            'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+        }
+        for ru, lat in replacements.items():
+            slug = slug.replace(ru, lat)
+        # Заменяем не буквы и не цифры на дефисы
+        import re
+        slug = re.sub(r'[^a-z0-9]', '-', slug)
+        # Удаляем повторяющиеся дефисы
+        slug = re.sub(r'-+', '-', slug)
+        # Удаляем дефисы в начале и конце
+        slug = slug.strip('-')
+        return slug
+
     class Meta:
         model = Anime
         fields = [
             'id', 'title_ru', 'title_en', 'title_jp',
             'kind', 'episodes', 'year', 'score', 'status',
-            'poster_url', 'poster_image_url',
+            'poster_url', 'poster_image_url', 'anime_slug',
             'franchise_order', 'kodik_link',
         ]
 

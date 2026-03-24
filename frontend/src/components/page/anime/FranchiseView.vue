@@ -100,27 +100,6 @@
         </div>
       </div>
 
-      <!-- Обсуждение франшизы -->
-      <div class="franchise-discussion-wrap">
-        <div class="fdisc-header" @click="showDiscussion = !showDiscussion">
-          <h2 class="fdisc-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            Обсуждение
-          </h2>
-          <span class="fdisc-toggle">{{ showDiscussion ? '▲ Скрыть' : '▼ Открыть' }}</span>
-        </div>
-        <div v-if="showDiscussion" class="fdisc-body">
-          <FranchiseDiscussionChat
-            :franchise-id="franchise.id"
-            :franchise-name="franchise.name"
-            :franchise-poster="franchise.poster_image_url || franchise.poster_url || ''"
-            :parts="sortedEntries"
-          />
-        </div>
-      </div>
-
       <!-- Список частей -->
       <div class="entries-section">
         <h2 class="entries-title">Все части</h2>
@@ -197,7 +176,16 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import apiClient, { getMediaUrl } from '@/api/client'
-import FranchiseDiscussionChat from '@/components/Chats/FranchiseDiscussionChat.vue'
+
+// Props для роутинга
+const props = defineProps<{
+  id?: number
+  discussionMode?: boolean
+  topicSlug?: string | null
+}>()
+
+const route  = useRoute()
+const router = useRouter()
 
 interface FranchiseEntry {
   id: number
@@ -233,13 +221,9 @@ interface FranchiseDetail {
   entries: FranchiseEntry[]
 }
 
-const route  = useRoute()
-const router = useRouter()
-
 const franchise = ref<FranchiseDetail | null>(null)
 const loading   = ref(true)
 const error     = ref(false)
-const showDiscussion = ref(false)
 
 const sortedEntries = computed(() =>
   [...(franchise.value?.entries || [])].sort(
@@ -329,7 +313,7 @@ onMounted(load)
   background-image: var(--hero-bg);
   background-size: cover;
   background-position: center;
-  filter: blur(24px) brightness(0.3);
+  filter: blur(18px) brightness(0.3);
   transform: scale(1.1);
 }
 
@@ -547,7 +531,7 @@ onMounted(load)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(3px);
   z-index: 3;
   background: rgba(0,0,0,0.75);
   color: var(--text-secondary);
@@ -681,33 +665,6 @@ onMounted(load)
 .w80       { width: 80%; }
 .w50       { width: 50%; }
 
-/* ── Обсуждение ─────────────────────────────────── */
-.franchise-discussion-wrap {
-  border-radius: var(--radius-xl, 14px);
-  overflow: hidden;
-  border: 1px solid var(--border-subtle, rgba(255,255,255,.08));
-  background: var(--surface-2, #111);
-  margin-bottom: var(--space-8, 2rem);
-}
-.fdisc-header {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  cursor: pointer; user-select: none;
-  transition: background .15s;
-}
-.fdisc-header:hover { background: var(--surface-3, #1a1a1a); }
-.fdisc-title {
-  display: flex; align-items: center; gap: 10px;
-  font-size: 1rem; font-weight: 600; margin: 0;
-  color: var(--text-primary, #e0e0e0);
-}
-.fdisc-toggle { font-size: .8rem; color: var(--text-tertiary, #666); white-space: nowrap; }
-.fdisc-body {
-  border-top: 1px solid var(--border-subtle, rgba(255,255,255,.08));
-  height: 520px; overflow: hidden;
-}
-
 /* ── Адаптив ─────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .franchise-page { padding: var(--space-4) var(--space-3) var(--space-8); }
@@ -717,6 +674,5 @@ onMounted(load)
   .entries-grid   { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); }
   .skeleton-hero  { flex-direction: column; padding: var(--space-5); }
   .sk-poster      { width: 120px; height: 168px; }
-  .fdisc-body     { height: 420px; }
 }
 </style>
