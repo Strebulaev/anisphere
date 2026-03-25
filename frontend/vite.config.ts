@@ -43,25 +43,41 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: null,
+        // ИСКЛЮЧАЕМ изображения из пре-кэша - они будут кэшироваться динамически
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // НЕ кэшируем API запросы - они должны идти напрямую
+        // Исключаем изображения из прекэша явно
+        globIgnores: ['**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.gif', '**/*.avif'],
         runtimeCaching: [
           {
-            // Кэширование изображений по расширению
-            urlPattern: /\.(?:jpg|jpeg|png|gif|webp|svg|woff|woff2)$/i,
+            // Динамическое кэширование изображений с ЖЁСТКИМИ ЛИМИТАМИ
+            urlPattern: /\.(?:jpg|jpeg|png|gif|webp|avif|svg)$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images-cache',
               expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 дней
+                maxEntries: 50,           // Не более 50 файлов
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 дней
               },
               cacheableResponse: {
                 statuses: [0, 200]
               }
             }
           },
-          // Убрали кэширование API - пусть идёт напрямую
+          // Шрифты - тоже с лимитами
+          {
+            urlPattern: /\.(?:woff|woff2|ttf|otf)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'fonts-cache',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 дней
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
         ]
       }
     }),

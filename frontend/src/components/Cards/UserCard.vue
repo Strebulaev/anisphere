@@ -1,7 +1,7 @@
 7<template>
   <div class="user-card" @click="handleClick">
     <div class="user-avatar">
-      <img
+      <OptimizedImage
         v-if="user.avatar_url"
         :src="getMediaUrl(user.avatar_url) || undefined"
         :alt="user.display_name || user.username"
@@ -48,7 +48,7 @@
           class="achievement-badge"
           :title="achievement.name"
         >
-          <img
+          <OptimizedImage
             v-if="achievement.icon"
             :src="getMediaUrl(achievement.icon) || undefined"
             :alt="achievement.name"

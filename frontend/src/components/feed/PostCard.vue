@@ -6,7 +6,7 @@
     <!-- Header -->
     <div class="post-header">
       <div class="author-info" @click.stop="goToProfile">
-        <img :src="post.author_avatar || defaultAvatar" class="avatar" alt="">
+        <OptimizedImage :src="post.author_avatar || defaultAvatar" class="avatar" alt="" />
         <div class="author-details">
           <div class="author-name">
             <span class="display-name">{{ post.author_display_name || post.author_username }}</span>
@@ -86,25 +86,25 @@
         <!-- Media Gallery -->
         <div v-if="hasMedia" class="media-gallery" :class="'grid-' + Math.min(displayMedia.length, 4)">
           <div v-for="(m, i) in displayMedia" :key="i" class="media-item" @click.stop="openMedia(i)">
-            <img v-if="m.type === 'image'" :src="m.url" :alt="m.caption || ''">
+            <OptimizedImage v-if="m.type === 'image'" :src="m.url" :alt="m.caption || ''" layout="fullWidth" />
             <video v-else :src="m.url" :poster="m.thumbnail" controls preload="metadata"></video>
           </div>
         </div>
-        <div v-else-if="post.image_url" class="single-media"><img :src="post.image_url" @click.stop></div>
+        <div v-else-if="post.image_url" class="single-media"><OptimizedImage :src="post.image_url" alt="" layout="fullWidth" @click.stop /></div>
         <div v-else-if="post.video_url" class="single-media"><video :src="post.video_url" controls preload="metadata"></video></div>
 
         <!-- Anime Card -->
         <div v-if="post.anime" class="anime-card" @click.stop="$router.push('/anime/'+post.anime.id)">
           <div class="anime-poster-wrap">
-            <img 
+            <OptimizedImage 
               v-if="getPosterUrl(post.anime)"
               :src="getPosterUrl(post.anime) || post.anime.poster_url"
               class="anime-poster" 
               alt="poster"
-              loading="lazy"
-              decoding="async"
               @error="onPosterError($event, post.anime)"
             >
+            </OptimizedImage>
+
             <div v-else class="anime-poster-placeholder">🎬</div>
           </div>
           <div class="anime-info">
@@ -119,15 +119,14 @@
         <!-- Playlist Card -->
         <div v-if="post.playlist && post.playlist.id" class="playlist-card" @click.stop="goToPlaylist(post.playlist)">
           <div class="playlist-poster-wrap">
-            <img
+            <OptimizedImage
               v-if="getPosterUrl(post.playlist)"
               :src="getPosterUrl(post.playlist)"
               class="playlist-poster"
               alt="poster"
-              loading="lazy"
-              decoding="async"
               @error="onPlaylistPosterError($event)"
             >
+            </OptimizedImage>
             <div v-else class="playlist-poster-placeholder">📁</div>
           </div>
           <div class="playlist-info">
@@ -202,7 +201,7 @@
 
       <!-- New comment input -->
       <div class="comment-input-row">
-        <img :src="defaultAvatar" class="ci-avatar" alt="">
+        <OptimizedImage :src="defaultAvatar" class="ci-avatar" alt="" />
         <div class="ci-wrap">
           <textarea
             v-model="newCommentText"

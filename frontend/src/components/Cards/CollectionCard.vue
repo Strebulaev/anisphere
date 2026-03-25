@@ -3,7 +3,7 @@
 
     <!-- Постер -->
     <div class="card-poster" @click="goToAnime">
-      <img
+      <OptimizedImage
         v-if="posterUrl"
         :src="posterUrl"
         :alt="item.anime_title_ru"

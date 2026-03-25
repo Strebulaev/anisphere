@@ -107,7 +107,7 @@
         <div class="navbar-profile">
           <router-link to="/profile" class="profile-link">
             <div class="profile-avatar">
-              <img v-if="userAvatar" :src="userAvatar" alt="Avatar" class="avatar-image" />
+              <OptimizedImage v-if="userAvatar" :src="userAvatar" alt="Avatar" class="avatar-image" />
               <div v-else class="avatar-placeholder">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>

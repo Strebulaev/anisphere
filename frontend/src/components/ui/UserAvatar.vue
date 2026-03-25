@@ -1,7 +1,7 @@
 <template>
   <div class="user-avatar" :class="avatarClasses" :style="avatarStyles">
-    <img 
-      v-if="src" 
+    <OptimizedImage 
+      v-if="src && !imageError" 
       :src="src" 
       :alt="alt"
       class="avatar-image"

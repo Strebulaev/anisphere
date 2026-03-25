@@ -717,10 +717,44 @@ class PostCommentViewSet(ModelViewSet):
 
         # parent is already resolved by the serializer from validated_data['parent']
         # We just pass post and author; serializer.create() handles path/level/counters
-        serializer.save(
+        comment = serializer.save(
             post=post,
             author=self.request.user,
         )
+
+        # Отправляем уведомление автору поста о новом комментарии
+        if post.author_id != self.request.user.id:
+            try:
+                from notifications.services import NotificationService
+                NotificationService.create_notification(
+                    user=post.author,
+                    notification_type='comment',
+                    title='Новый комментарий',
+                    content=f'{self.request.user.username} прокомментировал ваш пост',
+                    link=f'/post/{post.id}',
+                    icon='💬',
+                )
+            except Exception as e:
+                print(f"Failed to send comment notification: {e}")
+        
+        # Если это ответ на комментарий, отправляем уведомление автору родительского комментария
+        if comment.parent_id:
+            try:
+                parent_comment = PostComment.objects.get(id=comment.parent_id)
+                if parent_comment.author_id != self.request.user.id and parent_comment.author_id != post.author_id:
+                    from notifications.services import NotificationService
+                    NotificationService.create_notification(
+                        user=parent_comment.author,
+                        notification_type='reply',
+                        title='Ответ на ваш комментарий',
+                        content=f'{self.request.user.username} ответил на ваш комментарий',
+                        link=f'/post/{post.id}#comment-{comment.id}',
+                        icon='↩️',
+                    )
+            except PostComment.DoesNotExist:
+                pass
+            except Exception as e:
+                print(f"Failed to send reply notification: {e}")
 
     def perform_destroy(self, instance):
         # Мягкое удаление
@@ -2300,22 +2334,43 @@ class MessageListCreateView(generics.ListCreateAPIView):
 
     def send_notifications(self, message, group_chat=None, private_chat=None):
         """Отправить уведомления о новом сообщении"""
+        from notifications.services import NotificationService
+        
         if private_chat:
-            # Личный чат
+            # Личный чат - отправляем уведомление получателю
             receiver = private_chat.user1 if private_chat.user2 == message.sender else private_chat.user2
             settings = private_chat.get_user_settings(receiver)
 
             if settings.get('notifications', True) and not settings.get('blocked', False):
-                # Отправляем уведомление
-                pass
+                NotificationService.create_notification(
+                    user=receiver,
+                    notification_type='message',
+                    title=f'Новое сообщение от {message.sender.username}',
+                    content=message.text[:100] if message.text else 'Новое сообщение',
+                    link=f'/chats/{private_chat.id}',
+                    icon='✉️',
+                    content_object=message,
+                )
 
         elif group_chat:
-            # Групповой чат
+            # Групповой чат - отправляем уведомления участникам
             for member in group_chat.members.exclude(user=message.sender):
                 # Проверяем настройки уведомлений участника
                 if member.can_send_messages and not member.is_muted:
-                    # Отправляем уведомление
-                    pass
+                    # Проверяем настройки уведомлений пользователя
+                    user_settings = member.user.notif_settings if hasattr(member.user, 'notif_settings') else None
+                    if user_settings and not user_settings.push_enabled:
+                        continue
+                    
+                    NotificationService.create_notification(
+                        user=member.user,
+                        notification_type='group_message',
+                        title=f'Новое сообщение в {group_chat.name}',
+                        content=f'{message.sender.username}: {message.text[:80]}' if message.text else 'Новое сообщение',
+                        link=f'/chats/{group_chat.id}',
+                        icon='👥',
+                        content_object=message,
+                    )
 
 
 class ChatRoleViewSet(ModelViewSet):

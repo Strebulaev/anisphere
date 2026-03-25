@@ -9,12 +9,11 @@
       <!-- skeleton пока грузится -->
       <div v-if="isLoading" class="poster-skeleton" />
 
-      <img
+      <OptimizedImage
         v-if="posterUrl"
         :src="posterUrl"
         :alt="title"
         class="poster-img"
-        loading="lazy"
         @error="onPosterError"
         @load="isLoading = false"
       />

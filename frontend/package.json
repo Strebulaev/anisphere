@@ -18,6 +18,7 @@
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
+    "@unpic/vue": "^1.0.0",
     "axios": "^1.13.2",
     "lucide-vue-next": "^0.562.0",
     "pinia": "^3.0.4",

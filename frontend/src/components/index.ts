@@ -1,3 +1,6 @@
+// Оптимизированные компоненты
+export { default as OptimizedImage } from './common/OptimizedImage.vue'
+
 // Компоненты поиска
 export { default as SearchBar } from './Search/SearchBar.vue'
 export { default as SearchSuggestions } from './Search/SearchSuggestions.vue'

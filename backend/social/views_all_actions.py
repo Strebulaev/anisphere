@@ -39,18 +39,33 @@ logger = logging.getLogger(__name__)
 def toggle_follow(request, user_id):
     """Подписаться/отписаться от пользователя"""
     target_user = get_object_or_404(User, id=user_id)
-    
+
     if target_user == request.user:
         return Response({'error': 'Нельзя подписаться на самого себя'}, status=400)
-    
+
     follow = Follow.objects.filter(follower=request.user, following=target_user).first()
-    
+
     if follow:
         follow.delete()
         return Response({'following': False, 'message': 'Вы отписались'})
     else:
         Follow.objects.create(follower=request.user, following=target_user)
-        return Response({'following': True, 'message': 'Вы подписались'})
+        
+    # Отправляем уведомление о новом подписчике
+    try:
+        from notifications.services import NotificationService
+        NotificationService.create_notification(
+        user=target_user,
+        notification_type='follow',
+        title=f'Новый подписчик',
+        content=f'{request.user.username} подписался на вас',
+        link=f'/profile/{request.user.id}',
+        icon='👤',
+        )
+    except Exception as e:
+        print(f"Failed to send follow notification: {e}")
+        
+    return Response({'following': True, 'message': 'Вы подписались'})
 
 
 # ==================== POST LIKE/DISLIKE ====================
@@ -58,29 +73,46 @@ def toggle_follow(request, user_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def toggle_post_like(request, post_id):
-    """Лайк/дизлайк поста"""
+ """Лайк/дизлайк поста"""
+ try:
+    post = Post.objects.get(id=post_id)
+ except Post.DoesNotExist:
+    return Response({'error': 'Пост не найден'}, status=404)
+
+ # Разрешаем самолайк (многие соцсети это поддерживают)
+ existing_like = PostLike.objects.filter(user=request.user, post=post).first()
+ existing_dislike = PostDislike.objects.filter(user=request.user, post=post).first()
+
+ if existing_like:
+    existing_like.delete()
+    post.likes_count = max(0, post.likes_count -1)
+    post.save(update_fields=['likes_count'])
+    return Response({'liked': False, 'likes_count': post.likes_count, 'dislikes_count': post.dislikes_count})
+
+ if existing_dislike:
+    existing_dislike.delete()
+    post.dislikes_count = max(0, post.dislikes_count -1)
+
+ PostLike.objects.create(user=request.user, post=post)
+ post.likes_count +=1
+ post.save(update_fields=['likes_count', 'dislikes_count'])
+
+ # Отправляем уведомление автору поста о лайке
+ if post.author_id != request.user.id:
     try:
-        post = Post.objects.get(id=post_id)
-    except Post.DoesNotExist:
-        return Response({'error': 'Пост не найден'}, status=404)
+        from notifications.services import NotificationService
+        NotificationService.create_notification(
+        user=post.author,
+        notification_type='like',
+        title='Новый лайк',
+        content=f'{request.user.username} лайкнул ваш пост',
+        link=f'/post/{post.id}',
+        icon='❤️',
+        )
+    except Exception:
+        pass
 
-    # Разрешаем самолайк (многие соцсети это поддерживают)
-    existing_like = PostLike.objects.filter(user=request.user, post=post).first()
-    existing_dislike = PostDislike.objects.filter(user=request.user, post=post).first()
-
-    if existing_like:
-        existing_like.delete()
-        post.likes_count = max(0, post.likes_count - 1)
-        post.save(update_fields=['likes_count'])
-        return Response({'liked': False, 'likes_count': post.likes_count, 'dislikes_count': post.dislikes_count})
-    else:
-        if existing_dislike:
-            existing_dislike.delete()
-            post.dislikes_count = max(0, post.dislikes_count - 1)
-        PostLike.objects.create(user=request.user, post=post)
-        post.likes_count += 1
-        post.save(update_fields=['likes_count', 'dislikes_count'])
-        return Response({'liked': True, 'likes_count': post.likes_count, 'dislikes_count': post.dislikes_count})
+ return Response({'liked': True, 'likes_count': post.likes_count, 'dislikes_count': post.dislikes_count})
 
 
 @api_view(['POST'])

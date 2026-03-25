@@ -3,13 +3,11 @@
 
     <!-- ── ПОСТЕР ──────────────────────────────────────────── -->
     <div class="poster-wrap" @click="goAnime">
-      <img
+      <OptimizedImage
         v-if="posterUrl && !posterFailed"
         :src="posterUrl"
         :alt="title"
         class="poster-img"
-        loading="lazy"
-        decoding="async"
         @error="posterFailed = true"
       />
       <div v-else class="poster-ph">

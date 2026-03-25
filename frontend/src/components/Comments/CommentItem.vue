@@ -1,11 +1,12 @@
 <template>
   <div class="comment-item">
     <div class="flex space-x-3">
-      <img
+      <OptimizedImage
         :src="comment.author_avatar || '/missing_original.jpg'"
         :alt="comment.author_username"
         class="w-10 h-10 rounded-full"
       >
+      </OptimizedImage>
       <div class="flex-1">
         <div class="flex items-center space-x-2 mb-1">
           <span class="font-semibold text-sm">{{ comment.author_username }}</span>

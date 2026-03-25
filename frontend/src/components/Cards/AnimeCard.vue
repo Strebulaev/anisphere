@@ -6,14 +6,12 @@
   >
     <!-- Постер аниме -->
     <div class="anime-poster">
-      <img
+      <OptimizedImage
         v-if="getPosterUrl()"
         :src="getPosterUrl()"
         :alt="anime.title_ru || anime.title_en || ''"
         class="poster-image"
-        loading="lazy"
-        decoding="async"
-        fetchpriority="high"
+        priority
         @error="handleImageError"
       />
       <div v-else class="poster-placeholder">

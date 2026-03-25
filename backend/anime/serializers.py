@@ -273,15 +273,35 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
 
     def get_screenshots(self, obj):
         """Получение скриншотов в формате {url: string}"""
+        from .kodik_config import KODIK_DB_BASE, KODIK_OLD_DOMAINS
+        
         screenshots = getattr(obj, 'screenshots', []) or []
         if not screenshots:
             return []
+        
+        def normalize_screenshot_url(url: str) -> str:
+            """Нормализует URL скриншота - заменяет старые домены на KODIK_DB_BASE"""
+            if not url:
+                return url
+            # Если URL уже абсолютный с новым доменом - возвращаем как есть
+            if KODIK_DB_BASE in url:
+                return url
+            # Заменяем старые домены на KODIK_DB_BASE
+            for old_domain in KODIK_OLD_DOMAINS:
+                if old_domain in url:
+                    # Извлекаем путь после старого домена
+                    path = url.split(old_domain)[-1]
+                    return f"{KODIK_DB_BASE}{path}"
+            return url
         
         # Если скриншоты - массив строк, преобразуем в массив объектов
         if isinstance(screenshots, list) and screenshots:
             first = screenshots[0]
             if isinstance(first, str):
-                return [{'url': url} for url in screenshots]
+                return [{'url': normalize_screenshot_url(url)} for url in screenshots]
+            elif isinstance(first, dict):
+                # Если уже массив объектов - нормализуем URL в каждом
+                return [{'url': normalize_screenshot_url(s.get('url', ''))} for s in screenshots]
         
         # Если уже массив объектов, возвращаем как есть
         return screenshots

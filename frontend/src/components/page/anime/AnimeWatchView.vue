@@ -369,24 +369,89 @@
         <div v-if="anime?.genres && anime.genres.length > 0" class="genres-card">
           <h3>Жанры</h3>
           <div class="genres-list">
-            <span
+            <RouterLink
               v-for="genre in anime.genres"
               :key="typeof genre === 'object' ? genre.id : genre"
+              :to="getGenreLink(genre)"
               class="genre-tag"
-            >{{ typeof genre === 'object' ? genre.name : genre }}</span>
+            >{{ typeof genre === 'object' ? genre.name : genre }}</RouterLink>
           </div>
         </div>
 
         <!-- Действия -->
         <div class="actions-card">
-          <button @click="addToFavorites" class="action-btn">❤ В избранное</button>
-          <button @click="shareAnime" class="action-btn">↗ Поделиться</button>
+          <button 
+            @click="toggleFavorite" 
+            class="action-btn"
+            :class="{ 'is-favorite': isInFavorites, 'is-loading': favoriteLoading }"
+            :disabled="favoriteLoading"
+          >
+            <span v-if="favoriteLoading" class="action-spinner"></span>
+            <span v-else-if="isInFavorites" class="action-icon-filled">❤</span>
+            <span v-else class="action-icon">♡</span>
+            <span class="action-label">{{ isInFavorites ? 'В избранном' : 'В избранное' }}</span>
+          </button>
+          <button @click="shareAnime" class="action-btn">
+            <span class="action-icon">↗</span>
+            <span class="action-label">Поделиться</span>
+          </button>
         </div>
-
-
 
       </div>
     </div>
+
+    <!-- Карусель частей франшизы -->
+    <div 
+      v-if="franchise && franchise.entries?.length > 0" 
+      class="franchise-carousel-section"
+      ref="franchiseSectionRef"
+      id="franchise-section"
+    >
+      <Carousel
+        :title="franchise.name || 'Франшиза'"
+        :items-count="franchise.entries.length"
+        :scroll-step="4"
+      >
+        <RouterLink
+          v-for="entry in franchise.entries"
+          :key="entry.id"
+          :to="`/anime/${entry.id}/watch`"
+          class="franchise-carousel-item"
+          :class="{ active: entry.id === anime?.id }"
+        >
+          <div class="fci-poster">
+            <img
+              v-if="entry.poster_image_url"
+              :src="getMediaUrl(entry.poster_image_url) || entry.poster_image_url"
+              :alt="entry.title_ru || entry.title_en"
+            />
+            <div v-else class="fci-poster-placeholder">🎬</div>
+          </div>
+          <div class="fci-info">
+            <span class="fci-title">{{ entry.title_ru || entry.title_en }}</span>
+            <span class="fci-meta">
+              <span v-if="entry.year" class="fci-year">{{ entry.year }}</span>
+              <span v-if="entry.kind" class="fci-kind">{{ getKindLabel(entry.kind) }}</span>
+            </span>
+          </div>
+          <div v-if="entry.id === anime?.id" class="fci-current-badge">Сейчас смотришь</div>
+        </RouterLink>
+      </Carousel>
+    </div>
+
+    <!-- Кнопка прокрутки к франшизе -->
+    <Transition name="fade">
+      <button 
+        v-if="showFranchiseScrollButton"
+        class="scroll-to-franchise-btn"
+        @click="scrollToFranchise"
+        title="Перейти к другим частям франшизы"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 5v14M19 12l-7 7-7-7"/>
+        </svg>
+      </button>
+    </Transition>
 
     <!-- Модалки -->
     <AddCustomDubModal
@@ -410,7 +475,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
 import { normalizeKodikPlayerLink } from '@/config/kodik'
@@ -419,6 +484,7 @@ import CustomVideoPlayer from '@/components/Players/CustomVideoPlayer.vue'
 import AddCustomDubModal from '@/components/modal/anime/AddCustomDubModal.vue'
 import EpisodeProgressModal from '@/components/modal/anime/EpisodeProgressModal.vue'
 import EpisodeList from '@/components/Cards/EpisodeList.vue'
+import Carousel from '@/components/common/Carousel.vue'
 import { getTranslationAvatarUrl } from '@/utils/translationAvatars'
 import { useEpisodeProgress } from '@/composables/useEpisodeProgress'
 import { useToast } from '@/composables/useToast'
@@ -582,6 +648,7 @@ const epIsWatched = (num: number) => epEpisodes.value.get(num)?.status === 'watc
 
 // ── Основное состояние ───────────────────────────────────────────
 const anime              = ref<any>(null)
+const franchise          = ref<any>(null)  // Данные о франшизе
 const kodikLink          = ref('')
 const customVideoUrl     = ref('')
 const loading            = ref(true)
@@ -618,6 +685,85 @@ const episodeMarkedWatched = ref(false)
 const showSkipDialog      = ref(false)
 const skipDialogTargetEp  = ref<number | null>(null)
 
+// ── Избранное ─────────────────────────────────────────────────
+const favorites = ref<number[]>([])
+const favoriteLoading = ref(false)
+
+const isInFavorites = computed(() => favorites.value.includes(anime.value?.id))
+
+const loadFavorites = async () => {
+  if (!authStore.isAuthenticated) return
+  try {
+    const response = await apiClient.get('/users/favorites/')
+    favorites.value = (response.data.results || response.data || []).map((f: any) => 
+      typeof f.anime === 'object' ? f.anime.id : f.anime
+    )
+  } catch (e) {
+    console.error('Ошибка загрузки избранного:', e)
+  }
+}
+
+const toggleFavorite = async () => {
+  if (!authStore.isAuthenticated) {
+    toast.info('Войдите, чтобы добавлять в избранное', { duration: 3000 })
+    return
+  }
+  if (!anime.value?.id) return
+  
+  favoriteLoading.value = true
+  try {
+    if (isInFavorites.value) {
+      // Удалить из избранного
+      await apiClient.delete(`/users/favorites/`, { data: { anime: anime.value.id } })
+      favorites.value = favorites.value.filter(id => id !== anime.value?.id)
+      toast.success('Удалено из избранного')
+    } else {
+      // Добавить в избранное
+      await apiClient.post('/users/favorites/', { anime: anime.value.id })
+      favorites.value.push(anime.value.id)
+      toast.success('Добавлено в избранное')
+    }
+  } catch (err: any) {
+    console.error('Ошибка избранного:', err)
+    toast.error('Не удалось обновить избранное')
+  } finally {
+    favoriteLoading.value = false
+  }
+}
+
+const getGenreLink = (genre: any) => {
+  const genreName = typeof genre === 'object' ? genre.name : genre
+  const slug = genreName.toLowerCase().replace(/[^a-zа-яё0-9]/g, '-').replace(/-+/g, '-')
+  return `/anime?genres=${encodeURIComponent(slug)}`
+}
+
+// ── Кнопка прокрутки к франшизе ───────────────────────────────
+const franchiseSectionRef = ref<HTMLElement | null>(null)
+const isNearTop = ref(true)
+
+const checkScrollPosition = () => {
+  // Всегда показывать кнопку вверху страницы (isNearTop = true)
+  // Когда пользователь прокрутит вниз (franchise section будет видна), кнопка скроется
+  // Если элемент не найден - считаем что мы вверху
+  if (!franchiseSectionRef.value) {
+    isNearTop.value = true
+    return
+  }
+  const rect = franchiseSectionRef.value.getBoundingClientRect()
+  // Показываем кнопку если верх секции франшизы ниже середины экрана (т.е. нужно прокрутить)
+  isNearTop.value = rect.top > window.innerHeight * 0.5
+}
+
+const scrollToFranchise = () => {
+  franchiseSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+// Проверяем, показывать ли кнопку (если есть franchise_id)
+const showFranchiseScrollButton = computed(() => {
+  // Показываем если есть franchise_id и страница вверху
+  return anime.value?.franchise_id && isNearTop.value
+})
+
 // ── Вычисляемые ─────────────────────────────────────────────────
 const episodeProgress = computed(() => {
   if (duration.value === 0) return 0
@@ -646,6 +792,27 @@ const syncEpRefs = () => {
   epNextEpisode.value  = epProgress.nextEpisodeToWatch.value
   epEpisodes.value     = new Map(epProgress.episodes.value)
 }
+
+// ── Франшиза ───────────────────────────────────────────────────
+const loadFranchise = async (franchiseId: number) => {
+  try {
+    const response = await apiClient.get(`/anime/franchises/${franchiseId}/`)
+    franchise.value = {
+      id: response.data.id,
+      name: response.data.name,
+      entries: (response.data.entries || []).sort(
+        (a: any, b: any) => (a.franchise_order || 0) - (b.franchise_order || 0)
+      )
+    }
+  } catch (e) {
+    console.error('Ошибка загрузки франшизы:', e)
+    franchise.value = null
+  }
+}
+
+const getKindLabel = (kind: string) => ({
+  tv: 'TV', movie: 'Фильм', ova: 'OVA', ona: 'ONA', special: 'Спешл', music: 'Клип'
+}[kind] || kind.toUpperCase())
 
 const formatTime = (seconds: number) => {
   if (!seconds || !isFinite(seconds)) return '0:00'
@@ -688,6 +855,9 @@ const loadAnime = async () => {
     const response = await apiClient.get(`/anime/${animeId}/`)
     anime.value = response.data
 
+    // Отладка: выводим franchise_id в консоль
+    console.log('Anime loaded, franchise_id:', anime.value?.franchise_id)
+
     const episodeFromQuery = route.query.episode
     if (episodeFromQuery) {
       const ep = parseInt(episodeFromQuery as string, 10)
@@ -698,6 +868,7 @@ const loadAnime = async () => {
     }
 
     await checkLibraryStatus()
+    await loadFavorites()
     await loadTranslations()
     await loadKodikPlayer()
     loadWatchProgress()
@@ -708,6 +879,11 @@ const loadAnime = async () => {
       epTotalEpisodes.value = anime.value.episodes || 0
       await epProgress.loadProgress()
       syncEpRefs()
+
+      // Загружаем франшизу, если есть franchise_id
+      if (anime.value.franchise_id) {
+        await loadFranchise(anime.value.franchise_id)
+      }
 
       // Тост "Вы смотрели это аниме ранее?" если нет истории
       if (authStore.isAuthenticated && epProgress.watchedCount.value === 0 && !route.query.episode) {
@@ -1099,8 +1275,6 @@ const onSkipEpisode = async (num: number) => {
 // ── Прочие действия ──────────────────────────────────────────────
 const retryLoad = () => loadKodikPlayer()
 
-const addToFavorites = () => { /* TODO */ }
-
 // handleDownloadTheme оставлен как заглушка (логика перенесена в handleDownloadSegment)
 
 const shareAnime = () => {
@@ -1153,6 +1327,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
 onMounted(() => {
   loadAnime()
   document.addEventListener('keydown', handleKeyPress)
+  window.addEventListener('scroll', checkScrollPosition)
 
   nextTick(syncPosterHeight)
   ;[100,300,500,1000,2000].forEach(d => setTimeout(syncPosterHeight, d))
@@ -1163,10 +1338,14 @@ onMounted(() => {
     ;(window as any)._playerRO = ro
   }
   window.addEventListener('resize', syncPosterHeight)
+  
+  // Проверяем позицию скролла после загрузки
+  setTimeout(checkScrollPosition, 500)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyPress)
+  window.removeEventListener('scroll', checkScrollPosition)
   window.removeEventListener('resize', syncPosterHeight)
   saveWatchProgress()
   const ro = (window as any)._playerRO
@@ -1673,10 +1852,16 @@ watch(selectedTranslation, (v) => {
   font-size: 0.75rem;
   font-weight: 500;
   border: 1px solid rgba(139,92,246,0.25);
-  cursor: default;
+  cursor: pointer;
   transition: all .15s;
+  text-decoration: none;
+  display: inline-block;
 }
-.genre-tag:hover { background: rgba(139,92,246,0.22); }
+.genre-tag:hover { 
+  background: rgba(139,92,246,0.22); 
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139,92,246,0.2);
+}
 
 /* Действия */
 .actions-card {
@@ -1695,8 +1880,43 @@ watch(selectedTranslation, (v) => {
   font-weight: 500;
   cursor: pointer;
   transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 .action-btn:hover { background: rgba(255,255,255,0.1); color: #fff; transform: translateY(-1px); }
+.action-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+.action-icon { font-size: 1rem; }
+.action-icon-filled { font-size: 1rem; color: #ef4444; }
+.action-label { flex: 1; text-align: center; }
+
+.action-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Избранное - активное состояние */
+.action-btn.is-favorite {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+.action-btn.is-favorite:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+
+/* Загрузка */
+.action-btn.is-loading {
+  pointer-events: none;
+}
 
 /* ════════════════════════════════════════════════════════
    СКАЧАТЬ ТЕМУ (ОПЕНИНГ/ЭНДИНГ)
@@ -2077,9 +2297,320 @@ watch(selectedTranslation, (v) => {
 .clip-cancel-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ════════════════════════════════════════════════════════
+   ФРАНШИЗА
+════════════════════════════════════════════════════════ */
+.franchise-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 1.25rem;
+  border: 1px solid rgba(255,255,255,0.06);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.franchise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.franchise-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.franchise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.franchise-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: all .15s;
+}
+
+.franchise-item:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.1);
+  transform: translateX(2px);
+}
+
+.franchise-item.active {
+  background: rgba(59,130,246,0.1);
+  border-color: rgba(59,130,246,0.3);
+}
+
+.fi-poster {
+  width: 36px;
+  height: 54px;
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fi-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fi-poster-placeholder {
+  font-size: 1rem;
+  opacity: 0.4;
+}
+
+.fi-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fi-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fi-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fi-year {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.fi-kind {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  background: rgba(139,92,246,0.15);
+  color: #a78bfa;
+  border-radius: 4px;
+}
+
+.fi-current-icon {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+/* ════════════════════════════════════════════════════════
    АНИМАЦИИ
 ════════════════════════════════════════════════════════ */
+
+/* ── Карусель частей франшизы ─────────────────────────── */
+.franchise-carousel-section {
+  width: 100%;
+}
+
+/* Показываем стрелки всегда, а не только при наведении */
+.franchise-carousel-section :deep(.carousel-arrow) {
+  opacity: 1 !important;
+}
+
+/* Фиксированные размеры карточек */
+.franchise-carousel-section :deep(.carousel-card) {
+  flex: 0 0 160px;
+  width: 160px;
+}
+
+.franchise-carousel-item {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: all .2s;
+  position: relative;
+  width: 160px;
+  height: 260px;
+  flex-shrink: 0;
+}
+
+.franchise-carousel-item:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06);
+}
+
+.franchise-carousel-item.active {
+  border-color: rgba(59,130,246,0.5);
+  background: rgba(59,130,246,0.1);
+}
+
+.fci-poster {
+  width: 100%;
+  height: 200px;
+  background: rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.fci-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fci-poster-placeholder {
+  font-size: 2rem;
+  opacity: 0.3;
+}
+
+.fci-info {
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fci-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.fci-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fci-year {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.fci-kind {
+  font-size: 0.6rem;
+  padding: 0.1rem 0.35rem;
+  background: rgba(139,92,246,0.15);
+  color: #a78bfa;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.fci-current-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 0.25rem 0.5rem;
+  background: rgba(59,130,246,0.85);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+/* Адаптивность карусели франшизы */
+@media (max-width: 767px) {
+  .franchise-carousel-section :deep(.carousel-card) {
+    flex: 0 0 120px !important;
+    width: 120px !important;
+  }
+  
+  .franchise-carousel-item {
+    width: 120px !important;
+    height: 200px !important;
+  }
+  
+  .fci-poster {
+    height: 150px !important;
+  }
+  
+  .fci-info {
+    padding: 0.4rem;
+  }
+  
+  .fci-title {
+    font-size: 0.7rem;
+  }
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Кнопка прокрутки к франшизе ─────────────────────── */
+.scroll-to-franchise-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.85);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+  transition: all .2s;
+}
+
+.scroll-to-franchise-btn:hover {
+  background: rgba(59, 130, 246, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+}
+
+/* Адаптивность кнопки */
+@media (max-width: 767px) {
+  .scroll-to-franchise-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Transition для кнопки */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 
 /* ════════════════════════════════════════════════════════
    АДАПТИВНОСТЬ

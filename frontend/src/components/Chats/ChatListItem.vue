@@ -8,11 +8,12 @@
     <div class="flex items-center p-3 cursor-pointer chat-item-content">
       <!-- Avatar with status indicator -->
       <div class="relative mr-3">
-        <img
+        <OptimizedImage
           :src="displayAvatar"
           :alt="chat.name"
           class="w-12 h-12 rounded-full object-cover"
         >
+        </OptimizedImage>
         <!-- Status indicator -->
         <div
           v-if="chat.type === 'private'"
