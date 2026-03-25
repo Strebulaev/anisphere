@@ -11,7 +11,7 @@ KODIK_PLAYER_BASE = 'https://kodikplayer.com'   # Плеер (было: kodik.cc
 KODIK_DB_BASE     = 'https://bd.kodikres.com'   # База данных
 KODIK_SOCIAL_BASE = 'https://kodikonline.com'   # Плеер для соцсетей
 KODIK_VIDEO_BASE  = 'https://kodikres.com'      # video-links API (ранее был kodikres.com)
-
+KODIK_SCREENSHOTS_BASE  = 'https://i.kodikres.com'
 # Старые домены для замены в уже сохранённых ссылках
 KODIK_OLD_DOMAINS = [
     'kodik.cc',
