@@ -8,7 +8,8 @@ export const KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
 // Актуальные домены (обновлено после инцидента с регистратором)
 export const KODIK_API_BASE    = 'https://kodik-api.com'    // API
 export const KODIK_PLAYER_BASE = 'https://kodikplayer.com'  // Плеер (было: kodik.cc / kodik.info)
-export const KODIK_DB_BASE     = 'https://bd.kodikres.com'  // База данных
+export const KODIK_DB_BASE        = 'https://bd.kodikres.com'   // База данных
+export const KODIK_SCREENSHOTS_BASE = 'https://i.kodikres.com'   // Скриншоты
 export const KODIK_SOCIAL_BASE = 'https://kodikonline.com'  // Плеер для соцсетей
 
 // Старые домены которые могут встречаться в сохранённых ссылках
