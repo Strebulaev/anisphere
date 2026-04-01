@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import (
 )
 from rest_framework.routers import DefaultRouter
 from . import views
+from . import views_library
 
 router = DefaultRouter()
 router.register(r'profile-settings', views.UserProfileSettingsViewSet, basename='profile-settings')
@@ -14,6 +15,9 @@ router.register(r'themes', views.UserThemeViewSet, basename='themes')
 router.register(r'chat-backgrounds', views.ChatBackgroundViewSet, basename='chat-backgrounds')
 router.register(r'analytics', views.UserAnalyticsViewSet, basename='analytics')
 router.register(r'library', views.UserLibraryViewSet, basename='library')
+router.register(r'favorites', views_library.UserFavoritesViewSet, basename='favorites')
+router.register(r'favorite_themes', views_library.FavoriteThemesViewSet, basename='favorite-themes')
+router.register(r'favorite_episodes', views_library.FavoriteEpisodesViewSet, basename='favorite-episodes')
 
 urlpatterns = [
     path('', include(router.urls)),

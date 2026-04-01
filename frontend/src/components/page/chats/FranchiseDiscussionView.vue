@@ -114,6 +114,14 @@ watch(currentFranchiseId, (newId) => {
   flex-direction: column;
 }
 
+/* Мобильная адаптация - отступ сверху под мобильную навигацию */
+@media (max-width: 767px) {
+  .fdisc-page {
+    padding-top: 60px;
+    box-sizing: border-box;
+  }
+}
+
 .fdisc-nav {
   padding: 12px 16px;
   background: #1a1a1a;

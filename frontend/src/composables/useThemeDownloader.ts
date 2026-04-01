@@ -28,26 +28,35 @@ export interface CustomSegmentOpts {
   stopSec: number
   label?: string
   animeTitle?: string
+  format?: 'video' | 'audio'
+}
+
+export interface DownloadThemeOpts {
+  animeId: number
+  kind: ThemeKind
+  episode: number
+  season?: number
+  translationId?: string | number
+  animeTitle?: string
+  format?: 'video' | 'audio'
 }
 
 // ── Composable ────────────────────────────────────────────────────
 export function useThemeDownloader() {
   const openingState = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
   const endingState  = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
+  const episodeState = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
   const customState  = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
 
   // Скачивает опенинг или эндинг текущей серии
-  async function downloadTheme(opts: {
-    animeId: number
-    kind: ThemeKind
-    episode: number
-    season?: number
-    translationId?: string | number
-    animeTitle?: string
-  }) {
+  async function downloadTheme(opts: DownloadThemeOpts) {
     const state = opts.kind === 'opening' ? openingState : endingState
     if (state.value.loading) return
     state.value = { loading: true, progress: 10, error: '', done: false }
+    
+    const isAudio = opts.format === 'audio'
+    const extension = isAudio ? 'mp3' : 'mp4'
+    
     try {
       const { animeId, kind, episode, season = 1, translationId, animeTitle = '' } = opts
 
@@ -75,6 +84,7 @@ export function useThemeDownloader() {
         label:   kind === 'opening' ? 'Opening' : 'Ending',
       }
       if (translationId) clipParams.translation_id = String(translationId)
+      if (isAudio) clipParams.format = 'audio'
 
       const response = await apiClient.get(`/anime/${animeId}/clip/`, {
         params: clipParams,
@@ -93,7 +103,7 @@ export function useThemeDownloader() {
 
       const label = kind === 'opening' ? 'Opening' : 'Ending'
       const disposition = response.headers['content-disposition'] || ''
-      let filename = `${animeTitle || 'anime'} - Ep${episode} - ${label}.mp4`
+      let filename = `${animeTitle || 'anime'} - Ep${episode} - ${label}.${extension}`
       const fnMatch = disposition.match(/filename\*=UTF-8''([^;\n]+)/)
         || disposition.match(/filename="?([^";\n]+)"?/)
       if (fnMatch) filename = decodeURIComponent(fnMatch[1])
@@ -123,6 +133,9 @@ export function useThemeDownloader() {
     if (customState.value.loading) return
     customState.value = { loading: true, progress: 10, error: '', done: false }
 
+    const isAudio = opts.format === 'audio'
+    const extension = isAudio ? 'mp3' : 'mp4'
+
     try {
       const { animeId, episode, season = 1, translationId, startSec, stopSec, label = 'clip', animeTitle = '' } = opts
 
@@ -136,6 +149,7 @@ export function useThemeDownloader() {
         label:   label.slice(0, 40),
       }
       if (translationId) params.translation_id = String(translationId)
+      if (isAudio) params.format = 'audio'
 
       customState.value.progress = 20
 
@@ -158,7 +172,7 @@ export function useThemeDownloader() {
 
       // Определяем имя файла из заголовка или генерируем
       const disposition = response.headers['content-disposition'] || ''
-      let filename = `${animeTitle || 'anime'} - Ep${episode} - ${label}.mp4`
+      let filename = `${animeTitle || 'anime'} - Ep${episode} - ${label}.${extension}`
       const fnMatch = disposition.match(/filename\*=UTF-8''([^;\n]+)/)
         || disposition.match(/filename="?([^";\n]+)"?/)
       if (fnMatch) {
@@ -192,11 +206,78 @@ export function useThemeDownloader() {
     }
   }
 
+  // Скачивание серии целиком
+  async function downloadEpisode(opts: DownloadThemeOpts) {
+    const state = episodeState
+    if (state.value.loading) return
+    state.value = { loading: true, progress: 10, error: '', done: false }
+    
+    const isAudio = opts.format === 'audio'
+    const extension = isAudio ? 'mp3' : 'mp4'
+    
+    try {
+      const { animeId, episode, season = 1, translationId, animeTitle = '' } = opts
+
+      // Нарезаем через /clip/ от 0 до конца
+      const clipParams: Record<string, string> = {
+        episode: String(episode),
+        season:  String(season),
+        start:   '0',
+        end:     '99999',
+        label:   `Episode ${episode}`,
+      }
+      if (translationId) clipParams.translation_id = String(translationId)
+      if (isAudio) clipParams.format = 'audio'
+
+      const response = await apiClient.get(`/anime/${animeId}/clip/`, {
+        params: clipParams,
+        responseType: 'blob',
+        timeout: 0,
+        onDownloadProgress: (evt) => {
+          if (evt.total && evt.total > 0) {
+            state.value.progress = 10 + Math.round((evt.loaded / evt.total) * 85)
+          } else {
+            state.value.progress = Math.min(90, state.value.progress + 3)
+          }
+        },
+      })
+
+      state.value.progress = 97
+      const label = `Episode ${episode}`
+      const disposition = response.headers['content-disposition'] || ''
+      let filename = `${animeTitle || 'anime'} - ${label}.${extension}`
+      const fnMatch = disposition.match(/filename\*=UTF-8''([^;\n]+)/)
+        || disposition.match(/filename="?([^";\n]+)"?/)
+      if (fnMatch) filename = decodeURIComponent(fnMatch[1])
+
+      const url = URL.createObjectURL(response.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+
+      state.value = { loading: false, progress: 100, error: '', done: true }
+      setTimeout(() => { state.value.done = false }, 3000)
+
+    } catch (err: any) {
+      let message = err?.message || 'Ошибка скачивания'
+      if (err?.response?.data instanceof Blob) {
+        try { message = JSON.parse(await err.response.data.text()).error || message } catch { /* ignore */ }
+      }
+      state.value = { loading: false, progress: 0, error: message, done: false }
+    }
+  }
+
   return {
     openingState,
     endingState,
+    episodeState,
     customState,
     downloadTheme,
     downloadSegment,
+    downloadEpisode,
   }
 }

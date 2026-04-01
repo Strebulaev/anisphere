@@ -163,4 +163,12 @@ const createGroup = async () => {
   min-height: 100vh;
   background: var(--color-background);
 }
+
+/* Мобильная адаптация - отступ сверху под мобильную навигацию */
+@media (max-width: 767px) {
+  .create-group-view {
+    padding-top: 60px;
+    box-sizing: border-box;
+  }
+}
 </style>

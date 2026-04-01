@@ -64,7 +64,7 @@ class Person(models.Model):
         self.save()
 
 class DubGroup(models.Model):
-    """Группа озвучки (студия)"""
+    """Группа озвучки (студия озвучки)"""
     
     STATUS_CHOICES = [
         ('active', 'Активна'),
@@ -73,35 +73,52 @@ class DubGroup(models.Model):
     ]
     
     # Основная информация
-    name = models.CharField(max_length=200, unique=True)
+    name = models.CharField(max_length=200, unique=True, verbose_name='Название')
+    name_jp = models.CharField(max_length=200, blank=True, verbose_name='Название (японское)')
     slug = models.SlugField(max_length=200, unique=True)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True, verbose_name='Описание')
+    
+    # Визуальные ресурсы
+    logo_url = models.URLField(blank=True, verbose_name='URL логотипа')
+    logo = models.ImageField(upload_to='dub_groups/logos/', null=True, blank=True, verbose_name='Логотип')
+    banner_url = models.URLField(blank=True, verbose_name='URL баннера')
+    banner = models.ImageField(upload_to='dub_groups/banners/', null=True, blank=True, verbose_name='Баннер')
     
     # Контактная информация
-    website = models.URLField(blank=True)
-    vk_url = models.URLField(blank=True)
-    telegram_url = models.URLField(blank=True)
-    discord_url = models.URLField(blank=True)
+    website = models.URLField(blank=True, verbose_name='Официальный сайт')
+    vk_url = models.URLField(blank=True, verbose_name='VK')
+    telegram_url = models.URLField(blank=True, verbose_name='Telegram')
+    discord_url = models.URLField(blank=True, verbose_name='Discord')
+    youtube_url = models.URLField(blank=True, verbose_name='YouTube')
+    twitter_url = models.URLField(blank=True, verbose_name='Twitter/X')
     
-    # Логотип
-    logo_url = models.URLField(blank=True)
-    logo_file = models.ImageField(upload_to='dub_groups/logos/', null=True, blank=True)
+    # Детали
+    founded_year = models.PositiveIntegerField(null=True, blank=True, verbose_name='Год основания')
     
-    # Статистика
-    works_count = models.IntegerField(default=0)
-    followers_count = models.IntegerField(default=0)
+    # Статистика (кэшированные поля)
+    works_count = models.IntegerField(default=0, verbose_name='Всего озвучек')
+    tv_count = models.PositiveIntegerField(default=0, verbose_name='ТВ сериалов')
+    movie_count = models.PositiveIntegerField(default=0, verbose_name='Фильмов')
+    ova_count = models.PositiveIntegerField(default=0, verbose_name='OVA/ONA')
+    average_rating = models.FloatField(default=0.0, verbose_name='Средний рейтинг')
+    subscribers_count = models.PositiveIntegerField(default=0, verbose_name='Подписчиков')
+    
+    # Жанровая статистика (JSON: {"Экшен": 65, "Фэнтези": 45, ...})
+    genre_stats = models.JSONField(default=dict, blank=True, verbose_name='Статистика жанров')
+    
+    # Тип озвучки (для фильтрации)
+    translation_type = models.CharField(max_length=20, choices=[
+        ('voice', 'Озвучка'),
+        ('subtitles', 'Субтитры'),
+        ('both', 'Оба'),
+    ], default='voice', verbose_name='Тип перевода')
     
     # Статус
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
-    is_verified = models.BooleanField(default=False)
-    verification_status = models.CharField(max_length=20, choices=[
-        ('pending', 'На проверке'),
-        ('verified', 'Верифицирована'),
-        ('rejected', 'Отклонена'),
-    ], default='pending')
-
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
+    is_verified = models.BooleanField(default=False, verbose_name='Верифицирована')
+    
     # Рейтинги
-    rating = models.FloatField(default=0.0)  # Средний рейтинг
+    rating = models.FloatField(default=0.0)  # Средний рейтинг (устарел, используется average_rating)
     review_count = models.IntegerField(default=0)  # Количество отзывов
     
     # Время
@@ -109,21 +126,178 @@ class DubGroup(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['name']
+        ordering = ['-average_rating', 'name']
         verbose_name = 'Группа озвучки'
         verbose_name_plural = 'Группы озвучки'
     
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            base_slug = slugify(self.name)
+            if not base_slug:
+                base_slug = f'dub-{self.pk or "new"}'
+            slug = base_slug
+            counter = 1
+            while DubGroup.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f'{base_slug}-{counter}'
+                counter += 1
+            self.slug = slug
         super().save(*args, **kwargs)
         
     def __str__(self):
         return self.name
     
+    @property
+    def logo_image_url(self):
+        if self.logo and hasattr(self.logo, 'url'):
+            return self.logo.url
+        return self.logo_url or ''
+    
+    @property
+    def banner_image_url(self):
+        if self.banner and hasattr(self.banner, 'url'):
+            return self.banner.url
+        return self.banner_url or ''
+    
     def update_works_count(self):
         self.works_count = self.group_dubs.count()
         self.save()
+    
+    def update_subscribers_count(self):
+        self.subscribers_count = self.subscriptions.count()
+        self.save()
+
+
+class DubGroupSubscription(models.Model):
+    """Подписка пользователя на группу озвучки"""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='dub_group_subscriptions'
+    )
+    group = models.ForeignKey(
+        DubGroup,
+        on_delete=models.CASCADE,
+        related_name='subscriptions'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'group']
+        verbose_name = 'Подписка на группу озвучки'
+        verbose_name_plural = 'Подписки на группы озвучки'
+
+    def __str__(self):
+        return f'{self.user} → {self.group}'
+
+
+class DubGroupRating(models.Model):
+    """Оценка группы озвучки пользователем"""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='dub_group_ratings'
+    )
+    group = models.ForeignKey(
+        DubGroup,
+        on_delete=models.CASCADE,
+        related_name='ratings'
+    )
+
+    # Оценки по категориям (1-5)
+    voice_quality = models.IntegerField(default=5, verbose_name='Качество озвучки')
+    timing = models.IntegerField(default=5, verbose_name='Синхронизация')
+    translation = models.IntegerField(default=5, verbose_name='Перевод')
+    consistency = models.IntegerField(default=5, verbose_name='Постоянство')
+
+    overall_rating = models.FloatField(verbose_name='Общая оценка')
+    comment = models.TextField(blank=True, verbose_name='Комментарий')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'group']
+        verbose_name = 'Оценка группы озвучки'
+        verbose_name_plural = 'Оценки групп озвучки'
+
+    def save(self, *args, **kwargs):
+        self.overall_rating = (
+            self.voice_quality + self.timing +
+            self.translation + self.consistency
+        ) / 4
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.user} → {self.group}: {self.overall_rating}'
+
+
+class DubGroupNews(models.Model):
+    """Новости группы озвучки"""
+    group = models.ForeignKey(DubGroup, on_delete=models.CASCADE, related_name='news')
+    title = models.CharField(max_length=300, verbose_name='Заголовок')
+    content = models.TextField(verbose_name='Содержание')
+    author = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='dub_group_news'
+    )
+    likes_count = models.PositiveIntegerField(default=0)
+    comments_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Новость группы озвучки'
+        verbose_name_plural = 'Новости групп озвучки'
+
+    def __str__(self):
+        return f'{self.group.name}: {self.title}'
+
+
+class DubGroupDiscussion(models.Model):
+    """Обсуждение на странице группы озвучки"""
+    group = models.ForeignKey(DubGroup, on_delete=models.CASCADE, related_name='discussions')
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='dub_group_discussions'
+    )
+    title = models.CharField(max_length=300, verbose_name='Заголовок темы')
+    content = models.TextField(verbose_name='Содержание')
+    likes_count = models.PositiveIntegerField(default=0)
+    dislikes_count = models.PositiveIntegerField(default=0)
+    replies_count = models.PositiveIntegerField(default=0)
+    is_pinned = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_reply_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-is_pinned', '-created_at']
+        verbose_name = 'Обсуждение группы озвучки'
+        verbose_name_plural = 'Обсуждения групп озвучки'
+
+
+class DubGroupDiscussionReply(models.Model):
+    """Ответ на обсуждение группы озвучки"""
+    discussion = models.ForeignKey(DubGroupDiscussion, on_delete=models.CASCADE, related_name='replies')
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='dub_group_discussion_replies'
+    )
+    content = models.TextField(verbose_name='Содержание')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Ответ на обсуждение'
+        verbose_name_plural = 'Ответы на обсуждения'
+
+    def __str__(self):
+        return f'Reply by {self.author} on {self.discussion}'
 
 
 class VoiceActor(models.Model):

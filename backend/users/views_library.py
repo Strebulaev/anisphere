@@ -10,6 +10,334 @@ from django.db.models import Q
 from django.utils import timezone
 
 
+class UserFavoritesViewSet(viewsets.GenericViewSet,
+                           mixins.ListModelMixin,
+                           mixins.CreateModelMixin,
+                           mixins.DestroyModelMixin):
+    """Избранное аниме пользователя
+    
+    Endpoints:
+    - GET /api/users/favorites/ - список избранного аниме
+    - POST /api/users/favorites/ - добавить в избранное
+    - DELETE /api/users/favorites/ - удалить из избранного
+    """
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def list(self, request):
+        """Получить список избранного аниме"""
+        from .models import UserFavorite
+        
+        queryset = UserFavorite.objects.filter(user=request.user).select_related('anime')
+        
+        results = []
+        for item in queryset:
+            anime = item.anime
+            poster_url = None
+            if anime.poster and hasattr(anime.poster, 'url'):
+                poster_url = anime.poster.url
+            elif anime.poster_url:
+                poster_url = anime.poster_url
+            
+            results.append({
+                'id': item.id,
+                'anime': anime.id,
+                'anime_id': anime.id,
+                'anime_title_ru': anime.title_ru or '',
+                'anime_title_en': anime.title_en or '',
+                'anime_poster': poster_url,
+                'anime_episodes': anime.episodes or 0,
+                'anime_kind': anime.kind or '',
+                'anime_year': anime.year,
+                'added_at': item.added_at.isoformat() if item.added_at else None,
+            })
+        
+        return Response({'results': results, 'count': len(results)})
+
+    def create(self, request):
+        """Добавить аниме в избранное"""
+        from .models import UserFavorite
+        from anime.models import Anime
+        
+        anime_id = request.data.get('anime')
+        if not anime_id:
+            return Response({'error': 'anime is required'}, status=400)
+        
+        try:
+            anime = Anime.objects.get(id=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+        
+        # Проверяем, не добавлено ли уже
+        existing = UserFavorite.objects.filter(user=request.user, anime=anime).first()
+        if existing:
+            return Response({'error': 'Уже в избранном', 'id': existing.id}, status=400)
+        
+        favorite = UserFavorite.objects.create(user=request.user, anime=anime)
+        
+        return Response({
+            'id': favorite.id,
+            'anime': anime.id,
+            'message': 'Добавлено в избранное',
+        }, status=201)
+
+    def destroy(self, request, pk=None):
+        """Удалить аниме из избранного"""
+        from .models import UserFavorite
+        
+        if pk:
+            # Удалить по ID записи
+            try:
+                item = UserFavorite.objects.get(id=pk, user=request.user)
+                item.delete()
+                return Response({'success': True, 'message': 'Удалено из избранного'})
+            except UserFavorite.DoesNotExist:
+                return Response({'error': 'Запись не найдена'}, status=404)
+        else:
+            # Удалить по anime_id
+            anime_id = request.data.get('anime')
+            if not anime_id:
+                return Response({'error': 'anime_id required'}, status=400)
+            
+            deleted, _ = UserFavorite.objects.filter(user=request.user, anime_id=anime_id).delete()
+            if deleted:
+                return Response({'success': True, 'message': 'Удалено из избранного'})
+            return Response({'error': 'Запись не найдена'}, status=404)
+
+
+class FavoriteThemesViewSet(viewsets.GenericViewSet,
+                            mixins.ListModelMixin,
+                            mixins.CreateModelMixin,
+                            mixins.DestroyModelMixin):
+    """Избранные опенинги/эндинги пользователя
+    
+    Endpoints:
+    - GET /api/users/favorite_themes/ - список избранных тем
+    - POST /api/users/favorite_themes/ - добавить в избранное
+    - DELETE /api/users/favorite_themes/ - удалить из избранного
+    """
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """Получить список избранных опенингов/эндингов"""
+        from .models import FavoriteTheme
+        
+        queryset = FavoriteTheme.objects.filter(user=request.user).select_related('anime')
+        
+        results = []
+        for item in queryset:
+            anime = item.anime
+            results.append({
+                'id': item.id,
+                'anime': anime.id,
+                'anime_title_ru': anime.title_ru or '',
+                'anime_title_en': anime.title_en or '',
+                'theme_type': item.theme_type,
+                'theme_type_display': item.get_theme_type_display(),
+                'episode': item.episode,
+                'season': item.season,
+                'title': item.title or '',
+                'start_time': item.start_time,
+                'end_time': item.end_time,
+                'added_at': item.added_at.isoformat() if item.added_at else None,
+            })
+        
+        return Response({'results': results, 'count': len(results)})
+
+    def create(self, request):
+        """Добавить опенинг/эндинг в избранное"""
+        from .models import FavoriteTheme
+        from anime.models import Anime
+        
+        anime_id = request.data.get('anime')
+        theme_type = request.data.get('theme_type')  # 'opening' или 'ending'
+        episode = request.data.get('episode', 1)
+        season = request.data.get('season', 1)
+        title = request.data.get('title', '')
+        start_time = request.data.get('start_time', 0)
+        end_time = request.data.get('end_time')
+        
+        if not anime_id:
+            return Response({'error': 'anime is required'}, status=400)
+        if theme_type not in ('opening', 'ending'):
+            return Response({'error': 'theme_type must be opening or ending'}, status=400)
+        
+        try:
+            anime = Anime.objects.get(id=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+        
+        # Проверяем, не добавлено ли уже
+        existing = FavoriteTheme.objects.filter(
+            user=request.user, anime=anime, 
+            theme_type=theme_type, episode=episode, season=season
+        ).first()
+        
+        if existing:
+            return Response({'error': 'Уже в избранном', 'id': existing.id}, status=400)
+        
+        theme = FavoriteTheme.objects.create(
+            user=request.user,
+            anime=anime,
+            theme_type=theme_type,
+            episode=episode,
+            season=season,
+            title=title,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        
+        return Response({
+            'id': theme.id,
+            'anime': anime.id,
+            'theme_type': theme.theme_type,
+            'message': 'Добавлено в избранное',
+        }, status=201)
+
+    def destroy(self, request, pk=None):
+        """Удалить из избранного"""
+        from .models import FavoriteTheme
+        
+        if pk:
+            try:
+                item = FavoriteTheme.objects.get(id=pk, user=request.user)
+                item.delete()
+                return Response({'success': True, 'message': 'Удалено из избранного'})
+            except FavoriteTheme.DoesNotExist:
+                return Response({'error': 'Запись не найдена'}, status=404)
+        else:
+            # Удалить по параметрам
+            anime_id = request.data.get('anime')
+            theme_type = request.data.get('theme_type')
+            episode = request.data.get('episode')
+            season = request.data.get('season', 1)
+            
+            if not anime_id or not theme_type or not episode:
+                return Response({'error': 'anime, theme_type, episode required'}, status=400)
+            
+            deleted, _ = FavoriteTheme.objects.filter(
+                user=request.user, anime_id=anime_id,
+                theme_type=theme_type, episode=episode, season=season
+            ).delete()
+            
+            if deleted:
+                return Response({'success': True, 'message': 'Удалено из избранного'})
+            return Response({'error': 'Запись не найдена'}, status=404)
+
+
+class FavoriteEpisodesViewSet(viewsets.GenericViewSet,
+                              mixins.ListModelMixin,
+                              mixins.CreateModelMixin,
+                              mixins.DestroyModelMixin):
+    """Избранные серии пользователя
+    
+    Endpoints:
+    - GET /api/users/favorite_episodes/ - список избранных серий
+    - POST /api/users/favorite_episodes/ - добавить в избранное
+    - DELETE /api/users/favorite_episodes/ - удалить из избранного
+    """
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """Получить список избранных серий"""
+        from .models import FavoriteEpisode
+        
+        queryset = FavoriteEpisode.objects.filter(user=request.user).select_related('anime')
+        
+        results = []
+        for item in queryset:
+            anime = item.anime
+            poster_url = None
+            if anime.poster and hasattr(anime.poster, 'url'):
+                poster_url = anime.poster.url
+            elif anime.poster_url:
+                poster_url = anime.poster_url
+            
+            results.append({
+                'id': item.id,
+                'anime': anime.id,
+                'anime_title_ru': anime.title_ru or '',
+                'anime_title_en': anime.title_en or '',
+                'anime_poster': poster_url,
+                'episode': item.episode,
+                'season': item.season,
+                'note': item.note or '',
+                'added_at': item.added_at.isoformat() if item.added_at else None,
+            })
+        
+        return Response({'results': results, 'count': len(results)})
+
+    def create(self, request):
+        """Добавить серию в избранное"""
+        from .models import FavoriteEpisode
+        from anime.models import Anime
+        
+        anime_id = request.data.get('anime')
+        episode = request.data.get('episode', 1)
+        season = request.data.get('season', 1)
+        note = request.data.get('note', '')
+        
+        if not anime_id:
+            return Response({'error': 'anime is required'}, status=400)
+        
+        try:
+            anime = Anime.objects.get(id=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+        
+        # Проверяем, не добавлено ли уже
+        existing = FavoriteEpisode.objects.filter(
+            user=request.user, anime=anime,
+            episode=episode, season=season
+        ).first()
+        
+        if existing:
+            return Response({'error': 'Уже в избранном', 'id': existing.id}, status=400)
+        
+        fav_episode = FavoriteEpisode.objects.create(
+            user=request.user,
+            anime=anime,
+            episode=episode,
+            season=season,
+            note=note,
+        )
+        
+        return Response({
+            'id': fav_episode.id,
+            'anime': anime.id,
+            'episode': episode,
+            'message': 'Добавлено в избранное',
+        }, status=201)
+
+    def destroy(self, request, pk=None):
+        """Удалить из избранного"""
+        from .models import FavoriteEpisode
+        
+        if pk:
+            try:
+                item = FavoriteEpisode.objects.get(id=pk, user=request.user)
+                item.delete()
+                return Response({'success': True, 'message': 'Удалено из избранного'})
+            except FavoriteEpisode.DoesNotExist:
+                return Response({'error': 'Запись не найдена'}, status=404)
+        else:
+            anime_id = request.data.get('anime')
+            episode = request.data.get('episode')
+            season = request.data.get('season', 1)
+            
+            if not anime_id or not episode:
+                return Response({'error': 'anime, episode required'}, status=400)
+            
+            deleted, _ = FavoriteEpisode.objects.filter(
+                user=request.user, anime_id=anime_id,
+                episode=episode, season=season
+            ).delete()
+            
+            if deleted:
+                return Response({'success': True, 'message': 'Удалено из избранного'})
+            return Response({'error': 'Запись не найдена'}, status=404)
+
+
 class UserLibraryViewSet(viewsets.GenericViewSet,
                          mixins.ListModelMixin,
                          mixins.RetrieveModelMixin,

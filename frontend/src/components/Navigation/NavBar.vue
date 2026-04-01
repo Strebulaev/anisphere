@@ -30,6 +30,12 @@
 
       <!-- Правая часть -->
       <div class="navbar-actions">
+        <!-- Поддержать -->
+        <router-link to="/donate" class="donate-btn" title="Поддержать проект">
+          <span class="donate-icon">💝</span>
+          <span class="donate-label">Поддержать</span>
+        </router-link>
+
         <!-- Уведомления -->
         <div class="navbar-notifications" v-if="isAuthenticated">
           <button
@@ -456,6 +462,36 @@ onUnmounted(() => {
   z-index: calc(var(--z-navbar) + 1);
 }
 
+/* ── Кнопка поддержки ───────────────────────────────────── */
+.donate-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: all var(--duration-base) var(--ease-out);
+  white-space: nowrap;
+}
+
+.donate-btn:hover {
+  background: linear-gradient(135deg, #ff7b7b 0%, #ff6a6a 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.donate-icon {
+  font-size: var(--text-base);
+}
+
+.donate-label {
+  display: inline;
+}
+
 /* ── Действия ───────────────────────────────────────────── */
 .navbar-actions {
   display: flex;
@@ -747,6 +783,7 @@ onUnmounted(() => {
   .nav-link { padding: var(--space-2); }
   .nav-label { display: none; }
   .nav-icon { font-size: var(--text-xl); }
+  .donate-label { display: none; }
 }
 
 @media (max-width: 1023px) {

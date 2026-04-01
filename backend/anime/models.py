@@ -6,6 +6,9 @@ from django.contrib.postgres.fields import ArrayField
 from django.conf import settings
 from multiprocessing import connection
 
+# Импорт модели OP/ED
+from .models_oped import AnimeOPED
+
 class Franchise(models.Model):
     """Франшиза — группировка аниме (сезоны, фильмы, OVA и т.д.)"""
     name        = models.CharField(max_length=255, verbose_name='Название')

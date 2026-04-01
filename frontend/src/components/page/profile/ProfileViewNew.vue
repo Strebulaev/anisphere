@@ -1018,4 +1018,182 @@ onMounted(async () => {
     border-radius: 0.5rem 0.5rem 0 0;
   }
 }
+
+/* ═══ АДАПТИВНЫЕ СТИЛИ ПРОФИЛЯ ═══ */
+
+/* xs: 320px */
+@media (max-width: 374px) {
+  .profile-view {
+    padding: 0.25rem;
+  }
+  
+  .profile-cover {
+    height: 6rem;
+  }
+  
+  .profile-avatar {
+    width: 3.5rem;
+    height: 3.5rem;
+    bottom: -1.5rem;
+    left: 0.75rem;
+    border-width: 3px;
+  }
+  
+  .profile-info {
+    margin-top: 2rem;
+    padding: 0 0.5rem;
+  }
+  
+  .profile-name {
+    font-size: 1.125rem;
+  }
+  
+  .profile-stats {
+    gap: 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .profile-stats span {
+    font-size: 0.75rem;
+  }
+  
+  .profile-tabs {
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    overflow-x: auto;
+  }
+  
+  .profile-tab {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .profile-content {
+    padding: 0.5rem;
+  }
+  
+  .profile-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .profile-section-title {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .profile-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  .profile-settings-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .profile-setting-item {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .profile-setting-label {
+    font-size: 0.75rem;
+  }
+  
+  .profile-setting-value {
+    font-size: 0.75rem;
+  }
+}
+
+/* sm: 375px */
+@media (min-width: 375px) and (max-width: 767px) {
+  .profile-cover {
+    height: 7rem;
+  }
+  
+  .profile-avatar {
+    width: 4rem;
+    height: 4rem;
+    bottom: -1.75rem;
+  }
+  
+  .profile-info {
+    margin-top: 2.25rem;
+  }
+  
+  .profile-name {
+    font-size: 1.25rem;
+  }
+  
+  .profile-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* md: 768px+ */
+@media (min-width: 768px) {
+  .profile-cover {
+    height: 9rem;
+  }
+  
+  .profile-avatar {
+    width: 5rem;
+    height: 5rem;
+    bottom: -2rem;
+    left: 1rem;
+  }
+  
+  .profile-info {
+    margin-top: 2.5rem;
+    padding: 0 1rem;
+  }
+  
+  .profile-name {
+    font-size: 1.5rem;
+  }
+  
+  .profile-stats {
+    gap: 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .profile-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  
+  .profile-tabs {
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+  }
+  
+  .profile-tab {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* laptop: 1280px+ */
+@media (min-width: 1280px) {
+  .profile-cover {
+    height: 10rem;
+  }
+  
+  .profile-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* desktop: 1536px+ */
+@media (min-width: 1536px) {
+  .profile-cover {
+    height: 12rem;
+  }
+  
+  .profile-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
 </style>

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from .models import (
-    User, UserSession, UserSettings, UserProfileSettings, TwoFactorAuth,
+    FavoriteEpisode, FavoriteTheme, User, UserFavorite, UserSession, UserSettings, UserProfileSettings, TwoFactorAuth,
     ActiveSession, NotificationSettings, PrivacySettings, UserTheme,
     ChatBackground, EmailLog, MessageNotification, UserAnalytics, UserLibrary
 )
@@ -552,6 +552,69 @@ class UserAnalyticsSerializer(serializers.ModelSerializer):
 
     def get_weekly_report(self, obj):
         return obj.get_weekly_report()
+
+
+class UserFavoriteSerializer(serializers.ModelSerializer):
+    """Сериализатор избранного аниме"""
+    anime_title_ru = serializers.CharField(source='anime.title_ru', read_only=True)
+    anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
+    anime_poster = serializers.SerializerMethodField()
+    anime_episodes = serializers.IntegerField(source='anime.episodes', read_only=True)
+    anime_kind = serializers.CharField(source='anime.kind', read_only=True)
+    anime_year = serializers.IntegerField(source='anime.year', read_only=True)
+
+    class Meta:
+        model = UserFavorite
+        fields = [
+            'id', 'anime', 'anime_title_ru', 'anime_title_en', 'anime_poster',
+            'anime_episodes', 'anime_kind', 'anime_year', 'added_at'
+        ]
+        read_only_fields = ['id', 'user', 'added_at']
+
+    def get_anime_poster(self, obj):
+        if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
+            return obj.anime.poster.url
+        if obj.anime.poster_url:
+            return obj.anime.poster_url
+        return None
+
+
+class FavoriteThemeSerializer(serializers.ModelSerializer):
+    """Сериализатор избранных опенингов/эндингов"""
+    anime_title_ru = serializers.CharField(source='anime.title_ru', read_only=True)
+    anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
+    theme_type_display = serializers.CharField(source='get_theme_type_display', read_only=True)
+
+    class Meta:
+        model = FavoriteTheme
+        fields = [
+            'id', 'anime', 'anime_title_ru', 'anime_title_en',
+            'theme_type', 'theme_type_display', 'episode', 'season',
+            'title', 'start_time', 'end_time', 'added_at'
+        ]
+        read_only_fields = ['id', 'user', 'added_at']
+
+
+class FavoriteEpisodeSerializer(serializers.ModelSerializer):
+    """Сериализатор избранных серий"""
+    anime_title_ru = serializers.CharField(source='anime.title_ru', read_only=True)
+    anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
+    anime_poster = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FavoriteEpisode
+        fields = [
+            'id', 'anime', 'anime_title_ru', 'anime_title_en', 'anime_poster',
+            'episode', 'season', 'note', 'added_at'
+        ]
+        read_only_fields = ['id', 'user', 'added_at']
+
+    def get_anime_poster(self, obj):
+        if obj.anime.poster and hasattr(obj.anime.poster, 'url'):
+            return obj.anime.poster.url
+        if obj.anime.poster_url:
+            return obj.anime.poster_url
+        return None
 
 
 class UserLibrarySerializer(serializers.ModelSerializer):

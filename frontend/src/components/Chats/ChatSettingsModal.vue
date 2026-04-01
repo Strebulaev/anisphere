@@ -53,7 +53,7 @@
                   <div class="wp-bubble" :style="otherBubbleStyle">Привет! 👋</div>
                 </div>
                 <div class="wp-msg wp-msg--mine">
-                  <div class="wp-bubble" :style="mineBubbleStyle">Привет! Смотрю аниме 🎌</div>
+                  <div class="wp-bubble" :style="mineBubbleStyle">Привет! Смотрю аниме</div>
                 </div>
               </div>
 
@@ -236,7 +236,7 @@
                       <div class="tp-bubble" :style="otherBubblePreviewStyle">Всё хорошо!</div>
                     </div>
                     <div class="tp-row tp-row--mine">
-                      <div class="tp-bubble" :style="mineBubblePreviewStyle">Смотрю аниме 🎌</div>
+                      <div class="tp-bubble" :style="mineBubblePreviewStyle">Смотрю аниме</div>
                     </div>
                   </div>
                   <div class="tp-input" :style="{ background: themeForm.input_color }">

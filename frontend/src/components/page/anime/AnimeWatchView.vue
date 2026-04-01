@@ -1,10 +1,6 @@
 <template>
   <div class="anime-watch-page">
     <div class="watch-container">
-
-      <!-- ══════════════════════════════════════════════
-           ЛЕВАЯ КОЛОНКА: плеер + инфо + озвучки
-      ══════════════════════════════════════════════ -->
       <div class="left-column">
 
         <!-- Плеер -->
@@ -16,6 +12,7 @@
               :autoplay="autoplay"
               :season="currentSeason"
               :episode="currentEpisode"
+              :translation-id="selectedTranslation?.id ?? null"
               ref="kodikPlayer"
               @ready="onPlayerReady"
               @play="onPlay"
@@ -26,6 +23,7 @@
               @videoStarted="onVideoStarted"
               @videoEnded="onVideoEnded"
               @skipButton="onSkipButton"
+              @translationChanged="onKodikTranslationChanged"
               @error="onPlayerError"
             />
             <CustomVideoPlayer
@@ -55,53 +53,10 @@
               <p>Видео недоступно</p>
             </div>
 
-            <!-- ── Быстрые действия плеера (правый верх) ── -->
-            <div class="player-quick-actions" v-if="kodikLink || customVideoUrl">
-              <button
-                class="pqa-btn mark-btn"
-                :class="{ done: epIsWatched(currentEpisode) }"
-                @click="onPlayerMarkWatched"
-                :title="epIsWatched(currentEpisode) ? 'Просмотрено ✔' : 'Отметить просмотренной'"
-              >
-                <span>✓</span>
-              </button>
-              <button
-                class="pqa-btn skip-btn"
-                @click="onPlayerSkip"
-                title="Пропустить серию"
-              >
-                <span>⏭</span>
-              </button>
-            </div>
 
-            <!-- ── Индикатор прогресса серии (левый низ) ── -->
-            <div class="player-ep-info" v-if="duration > 0">
-              <span class="pei-ep">Серия {{ currentEpisode }}</span>
-              <span class="pei-time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
-              <div class="pei-bar">
-                <div class="pei-fill" :style="{ width: episodeProgress + '%' }" />
-              </div>
-            </div>
           </div>
         </div>
 
-        <!-- Диалог "Пропустить серию?" (показывается над плеером) -->
-        <Transition name="skip-dialog">
-          <div class="skip-dialog" v-if="showSkipDialog">
-            <div class="skip-dialog-inner">
-              <span class="skip-dialog-icon">⏭️</span>
-              <div class="skip-dialog-text">
-                <strong>Пропустить серию {{ currentEpisode }}?</strong>
-                <span>Просмотрено {{ Math.round(episodeProgress) }}% — серия не будет отмечена</span>
-              </div>
-              <div class="skip-dialog-btns">
-                <button class="sd-btn sd-yes" @click="confirmSkip">Пропустить</button>
-                <button class="sd-btn sd-filler" @click="confirmSkipAsFiller">Это филлер</button>
-                <button class="sd-btn sd-no" @click="cancelSkip">Остаться</button>
-              </div>
-            </div>
-          </div>
-        </Transition>
 
         <!-- ─── Быстрые кнопки скачивания ─────────────────── -->
         <div class="quick-dl-bar">
@@ -164,6 +119,20 @@
               <line x1="8.12" y1="8.12" x2="12" y2="12"/>
             </svg>
             <span class="qdl-label">Фрагмент</span>
+          </button>
+
+          <!-- Свернуть в мини-плеер -->
+          <button
+            class="qdl-btn qdl-float-btn"
+            :class="{ 'qdl-active': floatingPlayerVisible }"
+            @click="launchFloatingPlayer"
+            title="Свернуть в мини-плеер"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="2" width="20" height="20" rx="2"/>
+              <rect x="11" y="11" width="9" height="7" rx="1" fill="currentColor" stroke="none"/>
+            </svg>
+            <span class="qdl-label">Мини</span>
           </button>
 
           <!-- Ошибки под кнопками -->
@@ -462,6 +431,19 @@
       @dub-added="onDubAdded"
     />
 
+    <!-- Плавающий мини-плеер -->
+    <FloatingPlayer
+      :visible="floatingPlayerVisible"
+      :anime-id="anime?.id"
+      :anime-title="anime?.title_ru || anime?.title_en || 'Аниме'"
+      :episode="currentEpisode"
+      :season="currentSeason"
+      :player-link="kodikLink"
+      :translation-id="selectedTranslation?.id ?? null"
+      :start-time="currentTime"
+      @close="floatingPlayerVisible = false"
+    />
+
     <EpisodeProgressModal
       :show="showSyncModal"
       :anime-title="anime?.title_ru || anime?.title_en || ''"
@@ -481,6 +463,7 @@ import apiClient from '@/api/client'
 import { normalizeKodikPlayerLink } from '@/config/kodik'
 import KodikPlayer from '@/components/Players/KodikPlayer.vue'
 import CustomVideoPlayer from '@/components/Players/CustomVideoPlayer.vue'
+import FloatingPlayer from '@/components/Players/FloatingPlayer.vue'
 import AddCustomDubModal from '@/components/modal/anime/AddCustomDubModal.vue'
 import EpisodeProgressModal from '@/components/modal/anime/EpisodeProgressModal.vue'
 import EpisodeList from '@/components/Cards/EpisodeList.vue'
@@ -508,6 +491,13 @@ if (_routeAnimeId) {
 
 // Состояние скачивания серии целиком
 const episodeDownloadState = ref({ loading: false, progress: 0, error: '', done: false })
+
+// ── Мини-плеер (FloatingPlayer) ─────────────────────────────────
+const floatingPlayerVisible = ref(false)
+
+const launchFloatingPlayer = () => {
+  floatingPlayerVisible.value = true
+}
 
 // Быстрая скачка опенинга
 const handleDownloadOpening = () => {
@@ -682,8 +672,6 @@ const addedToLibrary      = ref(false)
 const episodeMarkedWatched = ref(false)
 
 // Диалог "Пропустить серию?"
-const showSkipDialog      = ref(false)
-const skipDialogTargetEp  = ref<number | null>(null)
 
 // ── Избранное ─────────────────────────────────────────────────
 const favorites = ref<number[]>([])
@@ -965,26 +953,6 @@ const updateLibraryProgress = async () => {
 }
 
 // ── Озвучки ──────────────────────────────────────────────────────
-const saveSelectedTranslation = () => {
-  const animeId = anime.value?.id
-  if (!animeId || !selectedTranslation.value) return
-  localStorage.setItem(`anime_translation_${animeId}`, JSON.stringify({
-    id: selectedTranslation.value.id,
-    is_custom: selectedTranslation.value.is_custom,
-    name: selectedTranslation.value.name,
-  }))
-}
-
-const loadSelectedTranslation = () => {
-  const animeId = anime.value?.id
-  if (!animeId || translations.value.length === 0) return null
-  const saved = localStorage.getItem(`anime_translation_${animeId}`)
-  if (!saved) return null
-  try {
-    const data = JSON.parse(saved)
-    return translations.value.find(t => t.id === data.id) || null
-  } catch { return null }
-}
 
 const loadTranslations = async () => {
   if (!anime.value?.id) return
@@ -1005,8 +973,7 @@ const loadTranslations = async () => {
     }
 
     if (translations.value.length > 0) {
-      const saved = loadSelectedTranslation()
-      selectedTranslation.value = saved || translations.value[0]
+      selectedTranslation.value = translations.value[0]
       if (!selectedTranslation.value.is_custom && selectedTranslation.value.kodik_link) {
         kodikLink.value = normalizeKodikPlayerLink(selectedTranslation.value.kodik_link)
       }
@@ -1033,7 +1000,6 @@ const loadKodikPlayer = async () => {
 
 const selectTranslation = async (translation: any) => {
   selectedTranslation.value = translation
-  saveSelectedTranslation()
   if (translation.is_custom) {
     useCustomPlayer.value = true
     try {
@@ -1057,65 +1023,9 @@ const selectEpisode = (episode: number) => {
  */
 const onSelectEpisodeFromList = (num: number) => {
   if (num === currentEpisode.value) return
-
-  // Если переходим вперёд и текущая серия < 50% — показываем диалог
-  if (num > currentEpisode.value && episodeProgress.value < 50 && episodeProgress.value > 5) {
-    skipDialogTargetEp.value = num
-    showSkipDialog.value = true
-  } else {
-    selectEpisode(num)
-  }
+  selectEpisode(num)
 }
 
-// ── Диалог пропуска ──────────────────────────────────────────────
-const confirmSkip = () => {
-  showSkipDialog.value = false
-  if (skipDialogTargetEp.value !== null) {
-    selectEpisode(skipDialogTargetEp.value)
-    skipDialogTargetEp.value = null
-  }
-}
-
-const confirmSkipAsFiller = async () => {
-  showSkipDialog.value = false
-  const epNum = currentEpisode.value
-  if (epProgress) {
-    await epProgress.skipEpisode(epNum)
-    syncEpRefs()
-  }
-  if (skipDialogTargetEp.value !== null) {
-    selectEpisode(skipDialogTargetEp.value)
-    skipDialogTargetEp.value = null
-  }
-}
-
-const cancelSkip = () => {
-  showSkipDialog.value = false
-  skipDialogTargetEp.value = null
-}
-
-// ── Кнопки плеера ────────────────────────────────────────────────
-const onPlayerMarkWatched = async () => {
-  if (!epProgress) return
-  if (epIsWatched(currentEpisode.value)) {
-    await epProgress.undoMark(currentEpisode.value)
-  } else {
-    await epProgress.markWatched(currentEpisode.value)
-  }
-  syncEpRefs()
-}
-
-const onPlayerSkip = () => {
-  if (episodeProgress.value > 0) {
-    skipDialogTargetEp.value = currentEpisode.value + 1
-    showSkipDialog.value = true
-  } else {
-    onSkipEpisode(currentEpisode.value)
-    if (currentEpisode.value < (anime.value?.episodes || 1)) {
-      selectEpisode(currentEpisode.value + 1)
-    }
-  }
-}
 
 // ── События плеера ───────────────────────────────────────────────
 const onPlayerReady = () => {
@@ -1181,6 +1091,37 @@ const onTimeUpdate = (time: number) => {
 }
 
 const onDurationUpdate = (dur: number) => { duration.value = dur }
+
+/**
+ * Пользователь сменил озвучку прямо внутри плеера Kodik.
+ * Синхронизируем selectedTranslation с тем, что выбрано в плеере,
+ * чтобы при переключении серий передавать правильный only_translations.
+ */
+const onKodikTranslationChanged = (data: { id: number, title: string }) => {
+  console.log('[AnimeWatchView] Kodik сообщил о смене озвучки:', data)
+
+  // Ищем совпадение по числовому id
+  const match = translations.value.find(
+    (t: any) => Number(t.id) === Number(data.id)
+  )
+
+  if (match) {
+    // Озвучка есть в нашем списке — просто выделяем её
+    selectedTranslation.value = match
+    console.log('[AnimeWatchView] Озвучка найдена в списке:', match.name)
+  } else {
+    // Озвучки нет в списке (например, kodik показал другую) — создаём временный объект
+    // чтобы при следующем запросе только_translations передался корректно
+    selectedTranslation.value = {
+      id: data.id,
+      name: data.title || `#${data.id}`,
+      type: 'voice',
+      is_custom: false,
+      kodik_link: kodikLink.value,  // сохраняем текущую ссылку
+    }
+    console.log('[AnimeWatchView] Озвучка не найдена в списке, создан временный объект:', selectedTranslation.value)
+  }
+}
 
 const onCurrentEpisode = (data: any) => {
   if (data.episode && data.episode !== currentEpisode.value) {
@@ -1425,151 +1366,6 @@ watch(selectedTranslation, (v) => {
   font-weight: 600;
 }
 
-/* ── Быстрые действия плеера (✓ ⏭) ─────────────────── */
-.player-quick-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  gap: 6px;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity .2s;
-}
-
-.player-container:hover .player-quick-actions { opacity: 1; }
-
-.pqa-btn {
-  width: 34px; height: 34px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.85rem;
-  font-weight: 700;
-  transition: all .15s;
-  backdrop-filter: blur(4px);
-}
-
-.pqa-btn.mark-btn {
-  background: rgba(34,197,94,0.25);
-  color: #22c55e;
-  border: 1px solid rgba(34,197,94,0.4);
-}
-.pqa-btn.mark-btn:hover { background: rgba(34,197,94,0.45); }
-.pqa-btn.mark-btn.done  { background: rgba(34,197,94,0.5); color: #fff; }
-
-.pqa-btn.skip-btn {
-  background: rgba(245,158,11,0.2);
-  color: #f59e0b;
-  border: 1px solid rgba(245,158,11,0.35);
-}
-.pqa-btn.skip-btn:hover { background: rgba(245,158,11,0.4); }
-
-/* ── Индикатор прогресса серии (левый низ плеера) ──── */
-.player-ep-info {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-  padding: 1rem 1rem 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .2s;
-}
-
-.player-container:hover .player-ep-info { opacity: 1; }
-
-.pei-ep {
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.7);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.pei-time {
-  font-size: 0.72rem;
-  color: rgba(255,255,255,0.5);
-  white-space: nowrap;
-}
-
-.pei-bar {
-  flex: 1;
-  height: 3px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.pei-fill {
-  height: 100%;
-  background: #3b82f6;
-  transition: width .3s;
-}
-
-/* ── Диалог "Пропустить серию?" ──────────────────────── */
-.skip-dialog {
-  background: rgba(15,15,26,0.97);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  backdrop-filter: blur(8px);
-}
-
-.skip-dialog-inner {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  width: 100%;
-  flex-wrap: wrap;
-}
-
-.skip-dialog-icon { font-size: 1.5rem; flex-shrink: 0; }
-
-.skip-dialog-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.skip-dialog-text strong { font-size: 0.9rem; color: #fff; }
-.skip-dialog-text span { font-size: 0.78rem; color: #9ca3af; }
-
-.skip-dialog-btns {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.sd-btn {
-  padding: 0.375rem 0.875rem;
-  border-radius: 7px;
-  border: none;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s;
-  white-space: nowrap;
-}
-
-.sd-yes    { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
-.sd-yes:hover { background: rgba(245,158,11,0.35); }
-
-.sd-filler { background: rgba(139,92,246,0.2); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
-.sd-filler:hover { background: rgba(139,92,246,0.35); }
-
-.sd-no { background: rgba(255,255,255,0.07); color: #9ca3af; border: 1px solid rgba(255,255,255,0.1); }
-.sd-no:hover { background: rgba(255,255,255,0.12); color: #fff; }
-
-.skip-dialog-enter-active, .skip-dialog-leave-active { transition: all .2s ease; }
-.skip-dialog-enter-from, .skip-dialog-leave-to { opacity: 0; transform: translateY(-8px); }
 
 /* ════════════════════════════════════════════════════════
    ИНФО ПОД ПЛЕЕРОМ
@@ -1994,6 +1790,20 @@ watch(selectedTranslation, (v) => {
   background: rgba(245, 158, 11, 0.15);
   border-color: rgba(245, 158, 11, 0.35);
   color: #fde68a;
+}
+
+/* Кнопка мини-плеера */
+.qdl-btn.qdl-float-btn {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  margin-left: auto; /* прижимаем к правом краю */
+}
+.qdl-btn.qdl-float-btn:hover:not(:disabled),
+.qdl-btn.qdl-float-btn.qdl-active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
 }
 
 .qdl-label { flex: 1; min-width: 0; }
@@ -2644,7 +2454,6 @@ watch(selectedTranslation, (v) => {
   .anime-title { font-size: 1.375rem; }
   .watch-container { gap: 1.25rem; }
   .translations-section, .episodes-card { padding: 1rem; }
-  .skip-dialog-inner { flex-direction: column; align-items: flex-start; }
 }
 
 @media (max-width: 480px) {

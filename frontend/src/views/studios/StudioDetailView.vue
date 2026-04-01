@@ -236,7 +236,7 @@
                 <h3 class="news-title">{{ item.title }}</h3>
                 <p class="news-preview">{{ item.content.slice(0, 200) }}{{ item.content.length > 200 ? '...' : '' }}</p>
                 <div class="news-footer">
-                  <span>💬 {{ item.comments_count }}</span>
+                  <span>💭 {{ item.comments_count }}</span>
                   <span>👍 {{ item.likes_count }}</span>
                 </div>
               </div>
@@ -303,7 +303,7 @@
                       👎 <span>{{ disc.dislikes_count }}</span>
                     </button>
                     <button @click="openDiscussion(disc)" class="disc-action-btn">
-                      💬 <span>{{ disc.replies_count }} ответов</span>
+                      💭 <span>{{ disc.replies_count }} ответов</span>
                     </button>
                     <span v-if="disc.last_reply_at" class="disc-last-reply">
                       Посл. ответ {{ timeAgo(disc.last_reply_at) }}

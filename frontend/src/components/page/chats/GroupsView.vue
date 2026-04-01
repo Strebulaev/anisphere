@@ -8,12 +8,20 @@
 </template>
 
 <script setup lang="ts">
-import NavBar from '@/components/NavBar.vue'
+  import NavBar from '@/components/NavBar.vue'
 </script>
 
 <style scoped>
 .groups-view {
   min-height: 100vh;
+}
+
+/* Мобильная адаптация - отступ сверху под мобильную навигацию */
+@media (max-width: 767px) {
+  .groups-view {
+    padding-top: 60px;
+    box-sizing: border-box;
+  }
 }
 
 .container {

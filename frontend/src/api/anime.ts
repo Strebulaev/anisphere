@@ -234,29 +234,70 @@ export const animeApi = {
   },
 
   getAnnouncements: async (): Promise<Anime[]> => {
-    // Сначала пробуем получить из бэкенда (status=announced)
+    // Собираем анонсы из всех возможных источников
+    let all: Anime[] = []
+    const existingIds = new Set<number | string>()
+    
+    // 1. Пробуем получить из бэкенда (status=announced)
     try {
       const PAGE_SIZE = 200
-      const all: Anime[] = []
       let page = 1
       while (true) {
         const response = await apiClient.get<AnimeListResponse>('/anime/', {
           params: { status: 'announced', ordering: '-year', page_size: PAGE_SIZE, page }
         })
         const results = response.data.results || []
-        all.push(...results)
+        for (const a of results) {
+          const id = a.shikimori_id || a.id
+          if (!existingIds.has(id)) {
+            existingIds.add(id)
+            all.push(a)
+          }
+        }
         if (page >= (response.data.total_pages ?? 1) || !results.length) break
         page++
       }
-      if (all.length > 0) return all
     } catch (e) {
-      // бэкенд не доступен, фоллбэк на Kodik
+      console.warn('Failed to fetch announcements from backend:', e)
     }
-    // Фоллбэк: анонсы напрямую из Kodik API
-    return animeApi.getAnnouncementsFromKodik()
+    
+    // 2. Если в бэкенде мало данных - дополняем из Kodik
+    if (all.length < 20) {
+      try {
+        const kodikAnnouncements = await animeApi.getAnnouncementsFromKodik()
+        for (const k of kodikAnnouncements) {
+          const kid = k.shikimori_id || k.id
+          if (!existingIds.has(kid)) {
+            existingIds.add(kid)
+            all.push(k)
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch announcements from Kodik:', e)
+      }
+    }
+    
+    // 3. Если всё ещё мало - пробуем Shikimori
+    if (all.length < 10) {
+      try {
+        const shikiAnnouncements = await animeApi.getAnnouncementsFromShikimori()
+        for (const s of shikiAnnouncements) {
+          const sid = s.shikimori_id || s.id
+          if (!existingIds.has(sid)) {
+            existingIds.add(sid)
+            all.push(s)
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch announcements from Shikimori:', e)
+      }
+    }
+    
+    return all
   },
 
   getAnnouncementsFromKodik: async (): Promise<Anime[]> => {
+    // Используем актуальный Kodik API v2
     const KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
     const all: any[] = []
     let nextPage: string | null = `https://kodik-api.com/list?token=${KODIK_TOKEN}&types=anime-serial,anime&anime_status=anons&with_material_data=true&limit=100`
@@ -265,37 +306,85 @@ export const animeApi = {
       iterations++
       try {
         const res = await fetch(nextPage)
+        if (!res.ok) break
         const data = await res.json()
         const results = data.results || []
+        if (!results.length) break
         all.push(...results)
         nextPage = data.next_page || null
       } catch { break }
     }
-    // Маппинг Kodik → формат AnimeCard
-    const seen = new Set<string>()
-    const mapped: Anime[] = []
-    for (const item of all) {
-      const shikiId = item.shikimori_id
-      const key = shikiId ? String(shikiId) : item.id
-      if (seen.has(key)) continue
-      seen.add(key)
-      const md = item.material_data || {}
-      mapped.push({
-        id: shikiId || item.id,
-        shikimori_id: shikiId ? String(shikiId) : undefined,
-        title_ru: md.title || item.title || '',
-        title_en: item.title_orig || '',
-        year: item.year || md.year,
-        status: 'announced',
-        episodes: md.episodes_total || item.episodes_count || null,
-        score: md.shikimori_rating || md.kinopoisk_rating || null,
-        poster_url: md.anime_poster_url || md.poster_url || null,
-        description: md.anime_description || md.description || '',
-        genres: md.anime_genres || md.genres || [],
-        source: 'kodik',
-      } as any)
+    
+    // Если Kodik вернул данные - маппим и возвращаем
+    if (all.length > 0) {
+      const seen = new Set<string>()
+      const mapped: Anime[] = []
+      for (const item of all) {
+        const shikiId = item.shikimori_id
+        const key = shikiId ? String(shikiId) : item.id
+        if (seen.has(key)) continue
+        seen.add(key)
+        const md = item.material_data || {}
+        mapped.push({
+          id: shikiId || item.id,
+          shikimori_id: shikiId ? String(shikiId) : undefined,
+          title_ru: md.title || item.title || '',
+          title_en: item.title_orig || '',
+          year: item.year || md.year,
+          status: 'announced',
+          episodes: md.episodes_total || item.episodes_count || null,
+          score: md.shikimori_rating || md.kinopoisk_rating || null,
+          poster_url: md.anime_poster_url || md.poster_url || null,
+          description: md.anime_description || md.description || '',
+          genres: md.anime_genres || md.genres || [],
+          source: 'kodik',
+        } as any)
+      }
+      return mapped
     }
-    return mapped
+    
+    // Если Kodik не вернул данные - пробуем Shikimori API
+    return animeApi.getAnnouncementsFromShikimori()
+  },
+
+  getAnnouncementsFromShikimori: async (): Promise<Anime[]> => {
+    // Используем Shikimori API для получения анонсов
+    try {
+      const all: any[] = []
+      // Запрашиваем аниме со статусом "anons" (анонсированные)
+      for (let page = 1; page <= 3; page++) {
+        const res = await fetch(
+          `https://shikimori.one/api/animes?kind=tv,movie,ona,ova,special&status=anons&order=rank&limit=50&page=${page}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        )
+        if (!res.ok) break
+        const data = await res.json()
+        if (!Array.isArray(data) || data.length === 0) break
+        all.push(...data)
+      }
+      
+      if (all.length === 0) return []
+      
+      // Маппинг Shikimori → формат AnimeCard
+      const mapped: Anime[] = all.map(item => ({
+        id: item.id,
+        shikimori_id: String(item.id),
+        title_ru: item.name || '',
+        title_en: item.english || '',
+        year: item.released_on ? new Date(item.released_on).getFullYear() : null,
+        status: 'announced',
+        episodes: item.episodes || null,
+        score: item.score ? parseFloat(item.score) : null,
+        poster_url: item.image ? `https://shikimori.one${item.image.original}` : null,
+        description: item.description || '',
+        genres: [],
+        source: 'shikimori',
+      } as any))
+      
+      return mapped
+    } catch {
+      return []
+    }
   },
 
   getRecommendations: async (limit: number = 12): Promise<Anime[]> => {

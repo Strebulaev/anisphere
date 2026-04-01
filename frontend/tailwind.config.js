@@ -7,6 +7,34 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      screens: {
+        // Мобильные устройства
+        'xs': { 'raw': '(min-width: 320px)' },
+        'sm': { 'raw': '(min-width: 375px)' },
+        'md': { 'raw': '(min-width: 414px)' },
+        'lg': { 'raw': '(min-width: 428px)' },
+        'xl': { 'raw': '(min-width: 480px)' },
+        
+        // Планшеты
+        'tablet-sm': { 'raw': '(min-width: 600px)' },
+        'tablet': { 'raw': '(min-width: 768px)' },
+        'tablet-lg': { 'raw': '(min-width: 834px)' },
+        'tablet-xl': { 'raw': '(min-width: 1024px)' },
+        
+        // Ноутбуки
+        'laptop-sm': { 'raw': '(min-width: 1152px)' },
+        'laptop': { 'raw': '(min-width: 1280px)' },
+        'laptop-lg': { 'raw': '(min-width: 1366px)' },
+        'laptop-xl': { 'raw': '(min-width: 1440px)' },
+        
+        // Десктопы
+        'desktop-sm': { 'raw': '(min-width: 1536px)' },
+        'desktop': { 'raw': '(min-width: 1600px)' },
+        'desktop-lg': { 'raw': '(min-width: 1680px)' },
+        'desktop-xl': { 'raw': '(min-width: 1920px)' },
+        'desktop-2xl': { 'raw': '(min-width: 2560px)' },
+        'desktop-3xl': { 'raw': '(min-width: 3840px)' },
+      },
       colors: {
         // Фоновые цвета
         background: {

@@ -1249,6 +1249,20 @@ watch(currentChatId, async (newId, oldId) => {
   display: flex;
   flex-direction: column;
 }
+
+/* Мобильная адаптация - отступ сверху под мобильную навигацию */
+@media (max-width: 767px) {
+  .chat-detail-view {
+    height: 100vh;
+    padding-top: 60px;
+    box-sizing: border-box;
+  }
+  
+  .chat-header {
+    padding-top: 0.5rem;
+  }
+}
+
 .chat-header {
   display: flex;
   align-items: center;

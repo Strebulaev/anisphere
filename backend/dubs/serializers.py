@@ -1,17 +1,174 @@
 from rest_framework import serializers
 from .models import DubGroup, Dub, VoiceActor, DubRole, DubLink, Person
+from .models import DubGroupSubscription, DubGroupRating, DubGroupNews, DubGroupDiscussion, DubGroupDiscussionReply
 
-class DubGroupSerializer(serializers.ModelSerializer):
-    """Сериализатор группы озвучки"""
-    
+
+class DubGroupListSerializer(serializers.ModelSerializer):
+    """Сериализатор для списка групп озвучки"""
+    logo_image_url = serializers.SerializerMethodField()
+    is_subscribed = serializers.SerializerMethodField()
+
+    def get_logo_image_url(self, obj):
+        return obj.logo_image_url
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return DubGroupSubscription.objects.filter(user=request.user, group=obj).exists()
+        return False
+
     class Meta:
         model = DubGroup
         fields = [
-            'id', 'name', 'slug', 'description',
-            'website', 'vk_url', 'telegram_url', 'discord_url',
-            'logo_url', 'works_count', 'followers_count',
-            'status', 'is_verified', 'created_at'
+            'id', 'name', 'name_jp', 'slug', 'translation_type',
+            'works_count', 'average_rating', 'subscribers_count',
+            'logo_image_url', 'is_subscribed', 'is_verified',
         ]
+
+
+class DubGroupSerializer(serializers.ModelSerializer):
+    """Сериализатор группы озвучки (полный)"""
+    logo_image_url = serializers.SerializerMethodField()
+    banner_image_url = serializers.SerializerMethodField()
+    is_subscribed = serializers.SerializerMethodField()
+    rating_distribution = serializers.SerializerMethodField()
+    top_anime = serializers.SerializerMethodField()
+
+    def get_logo_image_url(self, obj):
+        return obj.logo_image_url
+
+    def get_banner_image_url(self, obj):
+        return obj.banner_image_url
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return DubGroupSubscription.objects.filter(user=request.user, group=obj).exists()
+        return False
+
+    def get_rating_distribution(self, obj):
+        from django.db.models import Count
+        ratings = obj.ratings.values('overall_rating').annotate(count=Count('id'))
+        dist = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        total = obj.ratings.count()
+        for r in ratings:
+            key = round(r['overall_rating'])
+            if key in dist:
+                dist[key] += r['count']
+        if total > 0:
+            return {k: round(v / total * 100) for k, v in dist.items()}
+        return dist
+
+    def get_top_anime(self, obj):
+        # Получаем топ-5 аниме по рейтингу для этой группы
+        top_dubs = obj.group_dubs.filter(
+            anime__isnull=False,
+            average_rating__isnull=False
+        ).select_related('anime').order_by('-average_rating')[:5]
+        
+        result = []
+        for dub in top_dubs:
+            if dub.anime:
+                result.append({
+                    'id': dub.anime.id,
+                    'anime_url': f'/anime/{dub.anime.id}',
+                    'anime_title': dub.anime.title_ru or dub.anime.title_en,
+                    'anime_score': dub.average_rating,
+                    'anime_poster': dub.anime.poster_image_url if dub.anime.poster else dub.anime.poster_url,
+                    'anime_kind': dub.anime.kind,
+                })
+        return result
+
+    class Meta:
+        model = DubGroup
+        fields = [
+            'id', 'name', 'name_jp', 'slug', 'description',
+            'website', 'vk_url', 'telegram_url', 'discord_url', 'youtube_url', 'twitter_url',
+            'founded_year', 'translation_type',
+            'works_count', 'tv_count', 'movie_count', 'ova_count',
+            'average_rating', 'subscribers_count',
+            'genre_stats',
+            'logo_image_url', 'banner_image_url',
+            'is_subscribed', 'is_verified',
+            'rating_distribution', 'top_anime',
+            'created_at',
+        ]
+    
+
+class DubGroupSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DubGroupSubscription
+        fields = ['id', 'user', 'group', 'created_at']
+
+
+class DubGroupRatingSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_avatar = serializers.SerializerMethodField()
+
+    def get_user_name(self, obj):
+        return obj.user.username
+
+    def get_user_avatar(self, obj):
+        if hasattr(obj.user, 'avatar') and obj.user.avatar:
+            return obj.user.avatar.url
+        return None
+
+    class Meta:
+        model = DubGroupRating
+        fields = [
+            'id', 'user_name', 'user_avatar',
+            'voice_quality', 'timing', 'translation', 'consistency',
+            'overall_rating', 'comment', 'created_at',
+        ]
+
+
+class DubGroupNewsSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+
+    def get_author_name(self, obj):
+        return obj.author.username if obj.author else 'Редакция'
+
+    class Meta:
+        model = DubGroupNews
+        fields = ['id', 'title', 'content', 'author_name', 'likes_count', 'comments_count', 'created_at']
+
+
+class DubGroupDiscussionSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_avatar = serializers.SerializerMethodField()
+
+    def get_author_name(self, obj):
+        return obj.author.username
+
+    def get_author_avatar(self, obj):
+        if hasattr(obj.author, 'avatar') and obj.author.avatar:
+            return obj.author.avatar.url
+        return None
+
+    class Meta:
+        model = DubGroupDiscussion
+        fields = [
+            'id', 'title', 'content', 'author_name', 'author_avatar',
+            'likes_count', 'dislikes_count', 'replies_count',
+            'is_pinned', 'created_at', 'last_reply_at',
+        ]
+
+
+class DubGroupDiscussionReplySerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_avatar = serializers.SerializerMethodField()
+
+    def get_author_name(self, obj):
+        return obj.author.username
+
+    def get_author_avatar(self, obj):
+        if hasattr(obj.author, 'avatar') and obj.author.avatar:
+            return obj.author.avatar.url
+        return None
+
+    class Meta:
+        model = DubGroupDiscussionReply
+        fields = ['id', 'author_name', 'author_avatar', 'content', 'created_at']
 
 
 class VoiceActorSerializer(serializers.ModelSerializer):

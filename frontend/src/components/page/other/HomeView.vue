@@ -60,7 +60,7 @@
     <div v-else class="home-content">
 
       <!-- ▶ Продолжить просмотр -->
-      <section v-if="homeData.continue_watching.length > 0" class="home-section">
+      <section v-if="homeData.continue_watching?.length > 0" class="home-section">
         <div class="section-header">
           <div class="section-title-wrap">
             <span class="section-icon">▶</span>
@@ -91,7 +91,7 @@
       </section>
 
       <!-- 🔁 Пересмотреть -->
-      <section v-if="homeData.rewatch.length > 0" class="home-section">
+      <section v-if="homeData.rewatch?.length > 0" class="home-section">
         <div class="section-header">
           <div class="section-title-wrap">
             <span class="section-icon">🔁</span>
@@ -135,7 +135,7 @@
           </button>
         </div>
 
-        <div v-if="homeData.recommendations.length === 0" class="section-empty">
+        <div v-if="!homeData.recommendations?.length" class="section-empty">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
           </svg>
@@ -180,7 +180,7 @@
           </button>
         </div>
 
-        <div v-if="homeData.trending.length === 0" class="section-empty">
+        <div v-if="!homeData.trending?.length" class="section-empty">
           <div class="spinner-sm"></div>
           <p>Загружаем популярное...</p>
         </div>
@@ -651,5 +651,565 @@ onMounted(() => loadHomeData())
 
   .skeleton-poster { height: 190px; }
   .skeleton-card   { flex: 0 0 155px; }
+}
+
+/* ═══ АДАПТИВНЫЕ СТИЛИ HOME ═══ */
+
+/* xs: 320px */
+@media (max-width: 374px) {
+  .home-page {
+    padding: 0.5rem;
+  }
+  
+  .home-header {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .home-logo {
+    font-size: 1.25rem;
+  }
+  
+  .home-search {
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .home-nav {
+    gap: 0.25rem;
+    padding: 0.25rem;
+    overflow-x: auto;
+  }
+  
+  .home-nav-item {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  
+  .home-section {
+    margin-bottom: 1rem;
+  }
+  
+  .home-section-header {
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .home-section-title {
+    font-size: 1rem;
+  }
+  
+  .home-section-more {
+    font-size: 0.75rem;
+  }
+  
+  .home-carousel {
+    padding: 0.5rem;
+  }
+  
+  .home-carousel-track {
+    gap: 0.5rem;
+  }
+  
+  .home-carousel-item {
+    min-width: 130px;
+  }
+  
+  .home-poster {
+    height: 185px;
+    border-radius: 0.375rem;
+  }
+  
+  .home-poster-overlay {
+    padding: 0.375rem;
+  }
+  
+  .home-poster-title {
+    font-size: 0.75rem;
+  }
+  
+  .home-poster-meta {
+    font-size: 0.625rem;
+    gap: 0.25rem;
+  }
+  
+  .home-poster-rating {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.25rem;
+  }
+  
+  .home-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  
+  .home-grid-item {
+    min-width: 0;
+  }
+  
+  .home-grid-poster {
+    aspect-ratio: 2/3;
+    border-radius: 0.375rem;
+  }
+  
+  .home-grid-title {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+  }
+  
+  .home-grid-meta {
+    font-size: 0.625rem;
+  }
+  
+  .home-banner {
+    height: 150px;
+    border-radius: 0.5rem;
+    margin: 0.5rem;
+  }
+  
+  .home-banner-title {
+    font-size: 1rem;
+  }
+  
+  .home-banner-text {
+    font-size: 0.75rem;
+  }
+  
+  .home-banner-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  .home-skeleton {
+    padding: 0.5rem;
+  }
+  
+  .home-skeleton-track {
+    gap: 0.5rem;
+  }
+  
+  .home-skeleton-card {
+    min-width: 130px;
+  }
+  
+  .home-skeleton-poster {
+    height: 185px;
+    border-radius: 0.375rem;
+  }
+  
+  .home-skeleton-title {
+    height: 0.75rem;
+    margin-top: 0.375rem;
+    border-radius: 0.25rem;
+  }
+  
+  .home-skeleton-meta {
+    height: 0.625rem;
+    width: 60%;
+    margin-top: 0.25rem;
+    border-radius: 0.25rem;
+  }
+  
+  .home-loading-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .home-loading-card {
+    border-radius: 0.375rem;
+  }
+  
+  .home-loading-poster {
+    aspect-ratio: 2/3;
+    border-radius: 0.375rem;
+  }
+  
+  .home-loading-title {
+    height: 0.75rem;
+    margin-top: 0.375rem;
+    border-radius: 0.25rem;
+  }
+  
+  .home-loading-meta {
+    height: 0.625rem;
+    width: 50%;
+    margin-top: 0.25rem;
+    border-radius: 0.25rem;
+  }
+  
+  .home-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  
+  .home-empty-icon {
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .home-empty-title {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .home-empty-text {
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .home-empty-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .home-error {
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  
+  .home-error-icon {
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .home-error-title {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .home-error-text {
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .home-error-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* sm: 375px */
+@media (min-width: 375px) and (max-width: 767px) {
+  .home-page {
+    padding: 0.75rem;
+  }
+  
+  .home-search {
+    height: 2.75rem;
+  }
+  
+  .home-carousel-item {
+    min-width: 140px;
+  }
+  
+  .home-poster {
+    height: 200px;
+  }
+  
+  .home-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .home-banner {
+    height: 180px;
+    margin: 0.75rem;
+  }
+  
+  .home-banner-title {
+    font-size: 1.25rem;
+  }
+  
+  .home-skeleton-card {
+    min-width: 140px;
+  }
+  
+  .home-skeleton-poster {
+    height: 200px;
+  }
+}
+
+/* md: 768px+ */
+@media (min-width: 768px) {
+  .home-page {
+    padding: 1rem;
+  }
+  
+  .home-header {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .home-logo {
+    font-size: 1.5rem;
+  }
+  
+  .home-search {
+    height: 3rem;
+    padding: 0 1rem;
+    max-width: 400px;
+  }
+  
+  .home-nav {
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    overflow-x: auto;
+  }
+  
+  .home-nav-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .home-section {
+    margin-bottom: 1.5rem;
+  }
+  
+  .home-section-header {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .home-section-title {
+    font-size: 1.25rem;
+  }
+  
+  .home-section-more {
+    font-size: 0.875rem;
+  }
+  
+  .home-carousel {
+    padding: 0.75rem 1rem;
+  }
+  
+  .home-carousel-item {
+    min-width: 150px;
+  }
+  
+  .home-poster {
+    height: 215px;
+    border-radius: 0.5rem;
+  }
+  
+  .home-poster-overlay {
+    padding: 0.5rem;
+  }
+  
+  .home-poster-title {
+    font-size: 0.875rem;
+  }
+  
+  .home-poster-meta {
+    font-size: 0.75rem;
+  }
+  
+  .home-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .home-banner {
+    height: 200px;
+    margin: 1rem;
+    border-radius: 0.75rem;
+  }
+  
+  .home-banner-title {
+    font-size: 1.5rem;
+  }
+  
+  .home-banner-text {
+    font-size: 0.875rem;
+  }
+  
+  .home-skeleton-card {
+    min-width: 150px;
+  }
+  
+  .home-skeleton-poster {
+    height: 215px;
+  }
+  
+  .home-loading-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  
+  .home-empty,
+  .home-error {
+    padding: 3rem 2rem;
+  }
+  
+  .home-empty-icon,
+  .home-error-icon {
+    width: 4rem;
+    height: 4rem;
+  }
+  
+  .home-empty-title,
+  .home-error-title {
+    font-size: 1.25rem;
+  }
+  
+  .home-empty-text,
+  .home-error-text {
+    font-size: 0.875rem;
+  }
+}
+
+/* tablet-lg: 1024px+ */
+@media (min-width: 1024px) {
+  .home-page {
+    padding: 1.25rem;
+  }
+  
+  .home-carousel-item {
+    min-width: 160px;
+  }
+  
+  .home-poster {
+    height: 230px;
+  }
+  
+  .home-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .home-banner {
+    height: 220px;
+  }
+  
+  .home-skeleton-card {
+    min-width: 160px;
+  }
+  
+  .home-skeleton-poster {
+    height: 230px;
+  }
+  
+  .home-loading-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* laptop: 1280px+ */
+@media (min-width: 1280px) {
+  .home-page {
+    padding: 1.5rem;
+  }
+  
+  .home-header {
+    padding: 1.25rem 1.5rem;
+  }
+  
+  .home-logo {
+    font-size: 1.75rem;
+  }
+  
+  .home-search {
+    height: 3.25rem;
+    max-width: 500px;
+  }
+  
+  .home-nav {
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+  }
+  
+  .home-nav-item {
+    padding: 0.625rem 1.25rem;
+    font-size: 1rem;
+  }
+  
+  .home-section {
+    margin-bottom: 2rem;
+  }
+  
+  .home-section-title {
+    font-size: 1.5rem;
+  }
+  
+  .home-carousel-item {
+    min-width: 170px;
+  }
+  
+  .home-poster {
+    height: 245px;
+  }
+  
+  .home-poster-title {
+    font-size: 1rem;
+  }
+  
+  .home-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+  }
+  
+  .home-banner {
+    height: 240px;
+  }
+  
+  .home-banner-title {
+    font-size: 1.75rem;
+  }
+  
+  .home-skeleton-card {
+    min-width: 170px;
+  }
+  
+  .home-skeleton-poster {
+    height: 245px;
+  }
+  
+  .home-loading-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* desktop: 1536px+ */
+@media (min-width: 1536px) {
+  .home-page {
+    padding: 2rem;
+  }
+  
+  .home-carousel-item {
+    min-width: 180px;
+  }
+  
+  .home-poster {
+    height: 260px;
+  }
+  
+  .home-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.5rem;
+  }
+  
+  .home-banner {
+    height: 260px;
+  }
+  
+  .home-skeleton-card {
+    min-width: 180px;
+  }
+  
+  .home-skeleton-poster {
+    height: 260px;
+  }
+  
+  .home-loading-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
 </style>

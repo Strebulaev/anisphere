@@ -24,10 +24,10 @@ class DubLinkInline(admin.TabularInline):
 
 @admin.register(DubGroup)
 class DubGroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'status', 'is_verified', 'rating', 'review_count', 'works_count', 'followers_count')
+    list_display = ('name', 'slug', 'status', 'is_verified', 'rating', 'review_count', 'works_count', 'subscribers_count')
     search_fields = ('name', 'slug', 'description', 'website')
-    list_filter = ('status', 'is_verified', 'verification_status', 'created_at')
-    readonly_fields = ('created_at', 'updated_at', 'works_count', 'followers_count', 'rating', 'review_count')
+    list_filter = ('status', 'is_verified', 'created_at')
+    readonly_fields = ('created_at', 'updated_at', 'works_count', 'subscribers_count', 'rating', 'review_count')
 
 
 @admin.register(VoiceActor)

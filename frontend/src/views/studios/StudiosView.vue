@@ -3,10 +3,29 @@
     <!-- Заголовок -->
     <div class="page-header">
       <h1 class="page-title">🏢 Студии</h1>
-      <p class="page-subtitle">Каталог аниме-студий — {{ totalCount }} студий</p>
+      <p class="page-subtitle">
+        <template v-if="activeTab === 'anime'">Каталог аниме-студий — {{ totalCount }} студий</template>
+        <template v-else>Каталог студий озвучки — {{ totalDubCount }} озвучек</template>
+      </p>
     </div>
 
-    <!-- Карусель популярных -->
+    <!-- Вкладки -->
+    <div class="tabs">
+      <button 
+        :class="['tab-btn', { active: activeTab === 'anime' }]"
+        @click="switchTab('anime')"
+      >
+        🎬 Аниме-студии
+      </button>
+      <!-- <button 
+        :class="['tab-btn', { active: activeTab === 'dubs' }]"
+        @click="switchTab('dubs')"
+      >
+        🎤 Озвучка
+      </button> -->
+    </div>
+
+    <template v-if="activeTab === 'anime'">
     <section v-if="popularStudios.length > 0" class="popular-section">
       <h2 class="section-title">🔥 Популярные студии</h2>
       <div class="carousel-wrapper">
@@ -38,8 +57,8 @@
       </div>
     </section>
 
-    <!-- Фильтры -->
-    <section class="filters-section">
+    <!-- Фильтры для аниме-студий -->
+    <section class="filters-section" v-if="activeTab === 'anime'">
       <div class="filter-row">
         <div class="search-wrap">
           <svg class="search-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -90,8 +109,46 @@
       </div>
     </section>
 
-    <!-- Список студий -->
-    <section class="studios-list-section">
+    <!-- Фильтры для озвучек -->
+    <section class="filters-section" v-else>
+      <div class="filter-row">
+        <div class="search-wrap">
+          <svg class="search-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            v-model="dubFilters.search"
+            @input="debouncedDubFetch"
+            type="text"
+            placeholder="Поиск по названию озвучки..."
+            class="search-input"
+          />
+          <button v-if="dubFilters.search" @click="clearDubSearch" class="search-clear-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="filter-row filter-selects">
+        <div class="filter-group">
+          <label class="filter-label">📺 Тип</label>
+          <select v-model="dubFilters.type" @change="applyDubFilters" class="filter-select">
+            <option value="">Все типы</option>
+            <option value="voice">Голосовая озвучка</option>
+            <option value="subtitles">Субтитры</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">📈 Сортировка</label>
+          <select v-model="dubFilters.ordering" @change="applyDubFilters" class="filter-select">
+            <option value="count">По кол-ву аниме ↓</option>
+            <option value="title">По названию</option>
+            <option value="-title">По названию ↓</option>
+          </select>
+        </div>
+        <button @click="resetDubFilters" class="reset-btn">Сбросить</button>
+      </div>
+    </section>
+
+    <!-- Список аниме-студий -->
+    <section class="studios-list-section" v-if="activeTab === 'anime'">
       <div class="list-header">
         <h2 class="section-title">📋 Все студии ({{ totalCount }})</h2>
       </div>
@@ -189,16 +246,97 @@
         </button>
       </div>
     </section>
+    </template>
+
+    <!-- Список озвучек -->
+    <section class="studios-list-section" v-else>
+      <div class="list-header">
+        <h2 class="section-title">📋 Все озвучки ({{ totalDubCount }})</h2>
+      </div>
+
+      <!-- Скелетон загрузки -->
+      <div v-if="isDubLoading" class="skeleton-list">
+        <div v-for="i in 8" :key="i" class="skeleton-item">
+          <div class="sk-logo"></div>
+          <div class="sk-info">
+            <div class="sk-title"></div>
+            <div class="sk-meta"></div>
+            <div class="sk-rating"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Список озвучек -->
+      <div v-else-if="dubStudios.length > 0" class="studios-list">
+        <div
+          v-for="dub in dubStudios"
+          :key="dub.id"
+          class="studio-item clickable"
+          @click="goToDubStudio(dub.id)"
+        >
+          <div class="studio-item-logo-link">
+            <div class="studio-logo dub-logo">
+              <div class="studio-logo-placeholder">{{ getDubInitials(dub.title) }}</div>
+            </div>
+          </div>
+
+          <div class="studio-info">
+            <div class="studio-info-top">
+              <div class="studio-name-link">
+                <h3 class="studio-name">{{ dub.title }}</h3>
+              </div>
+              <div class="studio-actions">
+                <span class="type-badge" :class="dub.type">
+                  {{ dub.type === 'voice' ? '🎤 Озвучка' : '📝 Субтитры' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="studio-meta">
+              <span>🎬 {{ dub.count }} аниме</span>
+            </div>
+
+            <div class="studio-known">
+              <span class="known-label">ID:</span>
+              <span class="known-works">{{ dub.id }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Пусто -->
+      <div v-else class="empty-state">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        <p>Озвучки не найдены</p>
+        <button @click="resetDubFilters" class="reset-btn">Сбросить фильтры</button>
+      </div>
+
+      <!-- Пагинация -->
+      <div v-if="dubTotalPages > 1" class="pagination">
+        <button
+          v-for="p in dubVisiblePages"
+          :key="p"
+          @click="loadDubPage(p)"
+          :class="['page-btn', { active: p === dubCurrentPage, ellipsis: p === '...' }]"
+          :disabled="p === '...'"
+        >{{ p }}</button>
+        <button v-if="dubHasNext" @click="loadDubMore" class="load-more-btn">
+          Загрузить ещё ▼
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import studiosApi, { type Studio } from '@/api/studios'
 
 const router = useRouter()
 
+// Аниме-студии
 const studios = ref<Studio[]>([])
 const popularStudios = ref<Studio[]>([])
 const isLoading = ref(false)
@@ -213,7 +351,25 @@ const filters = ref({
   ordering: '-average_rating',
 })
 
+// Озвучки
+const dubStudios = ref<any[]>([])
+const isDubLoading = ref(false)
+const dubCurrentPage = ref(1)
+const totalDubCount = ref(0)
+const dubPageSize = 30
+const KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
+
+const dubFilters = ref({
+  search: '',
+  type: '',
+  ordering: 'count',
+})
+
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+let dubSearchTimer: ReturnType<typeof setTimeout> | null = null
+
+// Табы
+const activeTab = ref<'anime' | 'dubs'>('anime')
 
 const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
 const hasNext = computed(() => currentPage.value < totalPages.value)
@@ -234,6 +390,35 @@ const visiblePages = computed(() => {
   return pages
 })
 
+// Dub pagination
+const dubTotalPages = computed(() => Math.ceil(totalDubCount.value / dubPageSize))
+const dubHasNext = computed(() => dubCurrentPage.value < dubTotalPages.value)
+
+const dubVisiblePages = computed(() => {
+  const pages: (number | string)[] = []
+  const total = dubTotalPages.value
+  const cur = dubCurrentPage.value
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (cur > 3) pages.push('...')
+    for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i)
+    if (cur < total - 2) pages.push('...')
+    pages.push(total)
+  }
+  return pages
+})
+
+// Табы
+const switchTab = (tab: 'anime' | 'dubs') => {
+  activeTab.value = tab
+  if (tab === 'dubs' && dubStudios.value.length === 0) {
+    fetchDubStudios()
+  }
+}
+
+// Аниме-студии
 const fetchStudios = async (append = false) => {
   isLoading.value = true
   try {
@@ -299,6 +484,83 @@ const resetFilters = () => {
   applyFilters()
 }
 
+// Озвучки из Kodik API
+const fetchDubStudios = async (append = false) => {
+  isDubLoading.value = true
+  try {
+    const params: any = {
+      token: KODIK_TOKEN,
+      translation_type: dubFilters.value.type || undefined,
+      sort: dubFilters.value.ordering === 'count' ? 'count' : 'title',
+      limit: dubPageSize,
+      offset: (dubCurrentPage.value - 1) * dubPageSize,
+    }
+    
+    const res = await axios.get('https://kodik-api.com/translations/v2', { params })
+    const results = res.data?.results || []
+    
+    // Фильтрация по поиску на клиенте (т.к. API не поддерживает поиск)
+    let filteredResults = results
+    if (dubFilters.value.search) {
+      const search = dubFilters.value.search.toLowerCase()
+      filteredResults = results.filter((d: any) => 
+        d.title.toLowerCase().includes(search)
+      )
+    }
+    
+    if (append) {
+      dubStudios.value.push(...filteredResults)
+    } else {
+      dubStudios.value = filteredResults
+    }
+    totalDubCount.value = res.data?.total || filteredResults.length
+  } catch (e) {
+    console.error('Error fetching dubs:', e)
+  } finally {
+    isDubLoading.value = false
+  }
+}
+
+const loadDubPage = (page: number | string) => {
+  if (typeof page !== 'number') return
+  dubCurrentPage.value = page
+  fetchDubStudios()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const loadDubMore = () => {
+  dubCurrentPage.value++
+  fetchDubStudios(true)
+}
+
+const applyDubFilters = () => {
+  dubCurrentPage.value = 1
+  fetchDubStudios()
+}
+
+const debouncedDubFetch = () => {
+  if (dubSearchTimer) clearTimeout(dubSearchTimer)
+  dubSearchTimer = setTimeout(applyDubFilters, 300)
+}
+
+const clearDubSearch = () => {
+  dubFilters.value.search = ''
+  applyDubFilters()
+}
+
+const resetDubFilters = () => {
+  dubFilters.value = { search: '', type: '', ordering: 'count' }
+  applyDubFilters()
+}
+
+const getDubInitials = (title: string) => {
+  return title.slice(0, 2).toUpperCase()
+}
+
+const goToDubStudio = (id: number) => {
+  router.push(`/dubs/${id}`)
+}
+
 const toggleSubscribe = async (studio: Studio) => {
   try {
     if (studio.is_subscribed) {
@@ -345,6 +607,34 @@ onMounted(() => {
   font-size: 0.9375rem;
   color: var(--color-text-secondary);
   margin: 0;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-divider-light);
+  padding-bottom: 0;
+}
+.tab-btn {
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+}
+.tab-btn:hover {
+  color: var(--color-text);
+}
+.tab-btn.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
 }
 
 /* Sections */
@@ -542,6 +832,7 @@ onMounted(() => {
 }
 .studio-item:last-child { border-bottom: none; }
 .studio-item:hover { background: var(--color-background-active); }
+.studio-item.clickable { cursor: pointer; }
 
 .studio-item-logo-link { flex-shrink: 0; }
 .studio-logo {
@@ -560,6 +851,29 @@ onMounted(() => {
   font-size: 1.25rem;
   font-weight: 800;
   color: var(--color-accent);
+}
+
+/* Dub studio specific */
+.dub-logo {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+}
+.dub-logo .studio-logo-placeholder {
+  color: #fff;
+}
+
+.type-badge {
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.type-badge.voice {
+  background: #10b98122;
+  color: #10b981;
+}
+.type-badge.subtitles {
+  background: #f59e0b22;
+  color: #f59e0b;
 }
 
 .studio-info { flex: 1; min-width: 0; }

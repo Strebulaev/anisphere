@@ -702,6 +702,19 @@ onUnmounted(() => {
   background: #0f0f0f;
 }
 
+/* Мобильная адаптация - отступ сверху под мобильную навигацию */
+@media (max-width: 767px) {
+  .franchise-chat {
+    height: 100vh;
+    padding-top: 60px;
+    box-sizing: border-box;
+  }
+  
+  .fc-header {
+    padding-top: 0.5rem;
+  }
+}
+
 /* Шапка */
 .fc-header {
   display: flex;

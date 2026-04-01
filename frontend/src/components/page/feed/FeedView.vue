@@ -749,7 +749,7 @@ const feedTabs = computed(() => {
     { id: 'feed',        label: 'Лента' },
     { id: 'popular',     label: 'Популярное' },
     { id: 'subscriptions', label: 'Подписки' },
-    { id: 'bookmarks',   label: '★ Избранное' },
+    // { id: 'bookmarks',   label: '★ Избранное' },
     { id: 'pinned',      label: 'Пины' },
     { id: 'not_interested', label: 'Не интересно' }
   ]

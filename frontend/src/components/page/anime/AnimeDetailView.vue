@@ -37,19 +37,18 @@
     
         <!-- Основная информация -->
         <div class="anime-main-info">
-          <!-- Постер -->
-          <div class="anime-poster-large">
-            <img 
-              v-if="anime.poster" 
-              :src="getPosterUrl(anime.poster)" 
-              :alt="anime.title_ru || anime.title_en"
-              class="poster-image"
-            />
-          </div>
-    
-          <!-- Детали -->
-          <div class="anime-details">
-            <!-- Рейтинг и статистика -->
+          <!-- Левая колонка: постер + рейтинг -->
+          <div class="poster-section">
+            <div class="anime-poster-large">
+              <img
+                v-if="getPosterSrc()"
+                :src="getPosterSrc()"
+                :alt="anime.title_ru || anime.title_en"
+                class="poster-image"
+              />
+              <div v-else class="poster-placeholder">🎬</div>
+            </div>
+
             <div class="rating-section" v-if="anime.score || anime.rank || anime.popularity">
               <div class="rating-badge" v-if="anime.score">
                 <div class="rating-stars"></div>
@@ -70,7 +69,10 @@
                 </span>
               </div>
             </div>
-            
+          </div>
+    
+          <!-- Детали -->
+          <div class="anime-details">
             <div class="detail-row">
               <span class="detail-label">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -857,7 +859,12 @@
 
   const getPosterUrl = (url: string | null | undefined): string | undefined => {
     if (!url) return undefined
-    return getMediaUrl(url)
+    return getMediaUrl(url) || url
+  }
+
+  const getPosterSrc = (): string | undefined => {
+    if (!anime.value) return undefined
+    return getPosterUrl(anime.value.poster) || getPosterUrl(anime.value.poster_url)
   }
 
   onMounted(async () => {
@@ -1006,24 +1013,50 @@
 /* Main Info */
 .anime-main-info {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 220px 1fr;
   gap: 2rem;
   padding: 2rem;
 }
 
+/* Секция с постером - для мобильных делаем её больше и сверху */
+.poster-section {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  align-self: start;
+  width: 100%;
+  max-width: 300px;
+  gap: 1rem;
+}
+
 .anime-poster-large {
   position: relative;
+  display: block;
   border-radius: 1rem;
   overflow: hidden;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  aspect-ratio: 2/3;
-  background: var(--color-primary);
+  background: transparent;
+  width: 100%;
+  margin: 0;
+  aspect-ratio: 2 / 3;
 }
 
 .poster-image {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+}
+
+.poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 280px;
+  font-size: 4rem;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .anime-details {
@@ -1035,12 +1068,16 @@
 /* Rating Section */
 .rating-section {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 300px;
   padding: 1rem;
   background: rgba(251, 191, 36, 0.1);
   border-radius: 1rem;
   border: 2px solid rgba(251, 191, 36, 0.2);
+  box-sizing: border-box;
 }
 
 .rating-badge {
@@ -1055,7 +1092,12 @@
 .rating-stars { font-size: 1.5rem; }
 .rating-value { font-size: 1.5rem; font-weight: 800; color: #78350f; }
 
-.stats-badges { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.stats-badges {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
 
 .stat-badge {
   display: inline-flex;
@@ -1680,18 +1722,50 @@
 ══════════════════════════════════════════════ */
 @media (max-width: 1024px) {
   .anime-main-info { grid-template-columns: 1fr; }
-  .anime-poster-large { max-width: 350px; margin: 0 auto; }
+  .poster-section {
+    order: -1;
+    margin: 0 auto 1rem;
+    max-width: 180px;
+  }
+  .anime-poster-large,
+  .rating-section { max-width: 180px; margin: 0 auto; }
 }
-
+  
 @media (max-width: 768px) {
-  .anime-detail { padding: 1rem 0.5rem 3rem; }
+  .anime-detail { padding: 0.5rem 0.5rem 2rem; }
   .detail-header, .anime-main-info, .anime-description-section,
-  .anime-screenshots-section, .franchise-section, .dubs-section { padding: 1.5rem; }
+  .anime-screenshots-section, .franchise-section, .dubs-section { padding: 1rem; }
   .anime-title { font-size: 1.5rem; }
   .screenshots-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
   .dubs-header { flex-direction: column; align-items: flex-start; }
+  
+  .anime-main-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .poster-section {
+    order: -1;
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto 0.5rem;
+  }
+  
+  .anime-poster-large {
+    width: 100%;
+    max-width: 220px;
+    height: auto;
+    margin: 0 auto;
+    border-radius: 0.75rem;
+  }
+  
+  .rating-section {
+    max-width: 220px;
+    margin: 0 auto;
+  }
 }
-
+  
 @media (max-width: 480px) {
   .anime-title { font-size: 1.25rem; }
   .detail-row { flex-direction: column; gap: 0.5rem; }
@@ -1742,5 +1816,567 @@
   border-top: 1px solid var(--border-subtle, #2a2a2a);
   height: 500px;
   overflow: hidden;
+}
+
+/* ═══ АДАПТИВНЫЕ СТИЛИ АНИМЕ ДЕТАЛЬ ═══ */
+
+/* xs: 320px - полная вертикальная раскладка */
+@media (max-width: 374px) {
+  .anime-detail {
+    padding: 0.5rem 0.25rem 2rem;
+  }
+  
+  .anime-banner {
+    height: 180px;
+  }
+  
+  .anime-poster-large {
+    max-width: 180px;
+    border-radius: 0.5rem;
+  }
+  
+  .anime-main-info {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .anime-title {
+    font-size: 1.25rem;
+    line-height: 1.25;
+  }
+  
+  .anime-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+  }
+  
+  .anime-meta-item {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+  }
+  
+  .anime-rating {
+    font-size: 0.75rem;
+    gap: 0.25rem;
+  }
+  
+  .anime-rating-value {
+    font-size: 0.875rem;
+  }
+  
+  .anime-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+  }
+  
+  .anime-action-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+    justify-content: center;
+  }
+  
+  .anime-tabs {
+    gap: 0.125rem;
+    padding: 0.25rem;
+    overflow-x: auto;
+  }
+  
+  .anime-tab {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  
+  .anime-description-section,
+  .anime-screenshots-section,
+  .franchise-section,
+  .dubs-section {
+    padding: 0.5rem;
+  }
+  
+  .anime-section-title {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .anime-description {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  
+  .screenshots-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .screenshot-item {
+    aspect-ratio: 16/9;
+    border-radius: 0.375rem;
+  }
+  
+  .episode-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.25rem;
+  }
+  
+  .episode-item {
+    padding: 0.375rem;
+    font-size: 0.75rem;
+  }
+  
+  .dubs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .dub-item {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+  
+  .dub-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.375rem;
+  }
+  
+  .dub-name {
+    font-size: 0.875rem;
+  }
+  
+  .dub-info {
+    font-size: 0.625rem;
+  }
+  
+  .franchise-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .franchise-item {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+  
+  .franchise-poster {
+    width: 2.5rem;
+    height: 3.5rem;
+    border-radius: 0.25rem;
+  }
+  
+  .franchise-title {
+    font-size: 0.875rem;
+  }
+  
+  .franchise-type {
+    font-size: 0.625rem;
+  }
+  
+  .anime-modal {
+    padding: 0.5rem;
+  }
+  
+  .anime-modal-content {
+    max-width: 100%;
+    border-radius: 0.5rem;
+  }
+  
+  .anime-modal-header {
+    padding: 0.75rem;
+  }
+  
+  .anime-modal-title {
+    font-size: 1rem;
+  }
+  
+  .anime-modal-body {
+    padding: 0.75rem;
+  }
+  
+  .anime-modal-footer {
+    padding: 0.75rem;
+    gap: 0.5rem;
+    flex-direction: column;
+  }
+  
+  .anime-modal-btn {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* sm: 375px */
+@media (min-width: 375px) and (max-width: 479px) {
+  .anime-detail {
+    padding: 0.75rem 0.5rem 2rem;
+  }
+  
+  .anime-banner {
+    height: 200px;
+  }
+  
+  .anime-poster-large {
+    max-width: 200px;
+  }
+  
+  .anime-main-info {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .anime-title {
+    font-size: 1.375rem;
+  }
+  
+  .anime-actions {
+    flex-wrap: wrap;
+  }
+  
+  .anime-action-btn {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .episode-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .anime-modal-footer {
+    flex-direction: row;
+  }
+  
+  .anime-modal-btn {
+    width: auto;
+  }
+}
+
+/* md: 480px - 767px */
+@media (min-width: 480px) and (max-width: 767px) {
+  .anime-detail {
+    padding: 1rem 0.75rem 2rem;
+  }
+  
+  .anime-banner {
+    height: 220px;
+  }
+  
+  .anime-poster-large {
+    max-width: 240px;
+  }
+  
+  .anime-main-info {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .anime-title {
+    font-size: 1.5rem;
+  }
+  
+  .anime-tabs {
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+  }
+  
+  .anime-tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+  
+  .screenshots-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .episode-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  
+  .dubs-section,
+  .franchise-section {
+    padding: 1rem;
+  }
+}
+
+/* tablet: 768px+ */
+@media (min-width: 768px) {
+  .anime-detail {
+    padding: 1rem 1rem 3rem;
+  }
+  
+  .anime-banner {
+    height: 280px;
+    border-radius: 0.75rem;
+  }
+  
+  .anime-poster-large {
+    width: 100%;
+    max-width: 280px;
+    border-radius: 0.75rem;
+  }
+  
+  .anime-main-info {
+    padding: 1.25rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .poster-section {
+    order: -1;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+  
+  .anime-title {
+    font-size: 1.5rem;
+  }
+  
+  .anime-meta {
+    gap: 0.5rem;
+  }
+  
+  .anime-meta-item {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .anime-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+  
+  .anime-action-btn {
+    flex: none;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .anime-tabs {
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+  }
+  
+  .anime-tab {
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .anime-description-section,
+  .anime-screenshots-section,
+  .franchise-section,
+  .dubs-section {
+    padding: 1.25rem;
+  }
+  
+  .anime-section-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .anime-description {
+    font-size: 0.9375rem;
+  }
+  
+  .screenshots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .episode-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .episode-item {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  .dubs-header {
+    flex-direction: row;
+    align-items: center;
+  }
+  
+  .dubs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .dub-item {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+  
+  .dub-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  
+  .dub-name {
+    font-size: 1rem;
+  }
+  
+  .franchise-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .franchise-item {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+  
+  .franchise-poster {
+    width: 3rem;
+    height: 4rem;
+  }
+  
+  .franchise-title {
+    font-size: 1rem;
+  }
+  
+  .anime-modal {
+    padding: 1.5rem;
+  }
+  
+  .anime-modal-content {
+    max-width: 36rem;
+    border-radius: 0.75rem;
+  }
+  
+  .anime-modal-header {
+    padding: 1rem;
+  }
+  
+  .anime-modal-body {
+    padding: 1.5rem;
+  }
+  
+  .anime-modal-footer {
+    padding: 1rem;
+    gap: 0.75rem;
+    flex-direction: row;
+  }
+  
+  .anime-modal-btn {
+    width: auto;
+    padding: 0.625rem 1.25rem;
+  }
+}
+
+/* tablet-lg: 1024px+ */
+@media (min-width: 1024px) {
+  .anime-detail {
+    padding: 1.5rem;
+  }
+  
+  .anime-banner {
+    height: 320px;
+  }
+  
+  .anime-main-info {
+    grid-template-columns: 340px 1fr;
+    gap: 2rem;
+  }
+  
+  .anime-poster-large {
+    max-width: 320px;
+  }
+  
+  .poster-section {
+    order: unset;
+    max-width: 320px;
+    margin: 0;
+  }
+  
+  .anime-title {
+    font-size: 1.75rem;
+  }
+  
+  .screenshots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+  
+  .episode-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* laptop: 1280px+ */
+@media (min-width: 1280px) {
+  .anime-detail {
+    padding: 2rem;
+  }
+  
+  .anime-banner {
+    height: 360px;
+  }
+  
+  .anime-poster-large {
+    max-width: 320px;
+  }
+  
+  .anime-main-info {
+    grid-template-columns: 340px 1fr;
+  }
+  
+  .anime-title {
+    font-size: 2rem;
+  }
+  
+  .anime-tabs {
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+  }
+  
+  .anime-tab {
+    padding: 0.75rem 1.25rem;
+    font-size: 1rem;
+  }
+  
+  .screenshots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  
+  .episode-grid {
+    grid-template-columns: repeat(7, 1fr);
+  }
+  
+  .anime-modal-content {
+    max-width: 42rem;
+  }
+}
+
+/* desktop: 1536px+ */
+@media (min-width: 1536px) {
+  .anime-banner {
+    height: 400px;
+  }
+  
+  .screenshots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+  
+  .episode-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
 }
 </style>

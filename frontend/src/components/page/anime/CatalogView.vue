@@ -250,4 +250,81 @@ const handlePageChange = (newPage: number) => {
 @media (max-width: 767px) {
   .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
 }
+
+/* ═══ АДАПТИВНАЯ СЕТКА КАТАЛОГА ═══ */
+
+/* xs: 320px - 2 колонки, маленькие карточки */
+@media (max-width: 374px) {
+  .catalog-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .catalog-header {
+    padding: 0.5rem;
+  }
+  
+  .catalog-title {
+    font-size: 1.25rem;
+  }
+  
+  .catalog-search {
+    height: 2.5rem;
+    font-size: 0.875rem;
+  }
+  
+  .catalog-filters {
+    gap: 0.25rem;
+    padding: 0.25rem;
+    overflow-x: auto;
+  }
+  
+  .catalog-filter-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  .catalog-sort-btn {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* sm: 375px */
+@media (min-width: 375px) and (max-width: 413px) {
+  .catalog-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* md: 414px - 3 колонки */
+@media (min-width: 414px) and (max-width: 767px) {
+  .catalog-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* tablet: 768px+ */
+@media (min-width: 768px) {
+  .catalog-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+}
+
+/* laptop: 1280px+ */
+@media (min-width: 1280px) {
+  .catalog-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* desktop: 1536px+ */
+@media (min-width: 1536px) {
+  .catalog-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
 </style>

@@ -11,6 +11,7 @@ export const CommentThreadNode: any = defineComponent({
     postId:      { type: Number, required: true },
     isReply:     { type: Boolean, default: false }, // Это ответ (не корневой комментарий)
     replyToUser: { type: String, default: '' },     // Username того, кому отвечаем
+    depth:       { type: Number, default: 0 },      // Глубина вложенности
   },
   emits: ['reply-added'],
   setup(p, { emit: emitNode }) {
@@ -26,6 +27,14 @@ export const CommentThreadNode: any = defineComponent({
       return (p.allComments as any[])
         .filter(c => c.parent === p.comment.id)
         .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    })
+
+    // Вычисляем текст кнопки
+    const toggleButtonText = computed(() => {
+      if (showReplies.value) {
+        return `▲ Свернуть ответы`
+      }
+      return `▼ Ответы (${children.value.length})`
     })
 
     const submitReply = async () => {
@@ -54,8 +63,8 @@ export const CommentThreadNode: any = defineComponent({
     return () => {
       const c = p.comment as any
 
-      return h('div', { class: 'comment-node' }, [
-        h('div', { class: ['comment-row', p.isReply ? 'is-reply' : ''] }, [
+      return h('div', { class: ['comment-node', p.isReply ? 'is-reply' : ''] }, [
+        h('div', { class: 'comment-row' }, [
           h('img', { src: c.author_avatar || defaultAv, class: 'c-avatar' }),
           h('div', { class: 'c-body' }, [
             h('div', { class: 'c-header' }, [
@@ -87,11 +96,11 @@ export const CommentThreadNode: any = defineComponent({
                 class: 'c-btn',
                 onClick: (e: Event) => { e.stopPropagation(); replying.value = !replying.value }
               }, '💬 Ответить') : null,
-              // Кнопка "Показать ответы" только у корневых комментариев
+              // Кнопка "Ответы/Свернуть" только у корневых комментариев
               !p.isReply && children.value.length > 0 ? h('button', {
                 class: 'c-btn c-toggle',
                 onClick: (e: Event) => { e.stopPropagation(); showReplies.value = !showReplies.value }
-              }, showReplies.value ? `▲ Скрыть (${children.value.length})` : `▼ Показать ответы (${children.value.length})`) : null,
+              }, toggleButtonText.value) : null,
             ]),
             // Форма ответа только у корневых комментариев
             !p.isReply && replying.value ? h('div', { class: 'reply-form' }, [
@@ -112,24 +121,25 @@ export const CommentThreadNode: any = defineComponent({
                 }, sendingReply.value ? '...' : 'Ответить'),
               ]),
             ]) : null,
+            // Ответы внутри комментария (после формы ответа)
+            !p.isReply && showReplies.value && children.value.length > 0
+              ? h('div', { class: 'comment-replies' },
+                  children.value.map((child: any) =>
+                    h(CommentThreadNode, {
+                      key: child.id,
+                      comment: child,
+                      allComments: p.allComments,
+                      postId: p.postId,
+                      isReply: true,
+                      replyToUser: c.author_username || c.author_display_name || '',
+                      depth: p.depth + 1,
+                      onReplyAdded: (reply: any) => emitNode('reply-added', reply),
+                    })
+                  )
+                )
+              : null,
           ]),
         ]),
-        // Ответы только у корневых комментариев, на одном уровне
-        !p.isReply && showReplies.value && children.value.length > 0
-          ? h('div', { class: 'comment-children' },
-              children.value.map((child: any) =>
-                h(CommentThreadNode, {
-                  key: child.id,
-                  comment: child,
-                  allComments: p.allComments,
-                  postId: p.postId,
-                  isReply: true,
-                  replyToUser: c.author_username || c.author_display_name || '',
-                  onReplyAdded: (reply: any) => emitNode('reply-added', reply),
-                })
-              )
-            )
-          : null,
       ])
     }
   }

@@ -1,8 +1,8 @@
-# KODA.md — Инструкции для работы с проектом AnimeCore
+# KODA.md — Инструкции для работы с проектом anisphere
 
 ## Обзор проекта
 
-**AnimeCore** — это социальная сеть для анимешников, объединяющая поиск аниме, создание плейлистов, озвучки и сообщество. Платформа предназначена для русскоязычных анимешников и включает в себя функционал для просмотра аниме, управления коллекциями, взаимодействия с группами озвучек и социальными функциями.
+**anisphere** — это социальная сеть для анимешников, объединяющая поиск аниме, создание плейлистов, озвучки и сообщество. Платформа предназначена для русскоязычных анимешников и включает в себя функционал для просмотра аниме, управления коллекциями, взаимодействия с группами озвучек и социальными функциями.
 
 ## Технологический стек
 
@@ -34,7 +34,7 @@
 ## Структура проекта
 
 ```
-animecore/
+anisphere/
 ├── backend/                 # Django-приложение
 │   ├── anime/              # Приложение аниме (модели, views, serializers)
 │   ├── users/              # Приложение пользователей
@@ -79,8 +79,8 @@ animecore/
 
 ```bash
 # Клонирование репозитория
-git clone https://github.com/yourusername/animecore.git
-cd animecore
+git clone https://github.com/yourusername/anisphere.git
+cd anisphere
 
 # Запуск через Docker Compose
 docker-compose up -d
@@ -305,7 +305,7 @@ GET  /api/notifications/               # Уведомления
 ```bash
 DEBUG=True
 SECRET_KEY=your-secret-key
-DATABASE_URL=postgresql://user:pass@localhost:5432/animecore
+DATABASE_URL=postgresql://user:pass@localhost:5432/anisphere
 REDIS_URL=redis://localhost:6379/0
 ALLOWED_HOSTS=localhost,127.0.0.1
 
@@ -567,12 +567,12 @@ python import_shikimori_full.py
 - [Django REST Framework](https://www.django-rest-framework.org/)
 - [Vue.js 3 Documentation](https://vuejs.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
-- [Kodik API](https://kodik.cc/)
+- [Kodik API](https://kodik-api.com/)
 
 ---
 
 ## Контакты
 
-- Email: contact@animecore.app
-- Telegram: @animecore_support
-- Discord: AnimeCore Community
+- Email: contact@anisphere.app
+- Telegram: @anisphere_support
+- Discord: anisphere Community

@@ -306,7 +306,7 @@
             <div class="popular-text">{{ truncateText(post.text, 80) }}</div>
             <div class="popular-stats">
               <span>❤️ {{ post.likes_count }}</span>
-              <span>💬 {{ post.comments_count }}</span>
+              <span>💭 {{ post.comments_count }}</span>
             </div>
           </div>
         </div>

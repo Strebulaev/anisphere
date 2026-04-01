@@ -131,8 +131,13 @@ def fetch_all_anime() -> List[Dict[str, Any]]:
 
 
 def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
-    """Импорт одного аниме"""
+    """Импорт одного аниме (только новые, без обновления)"""
     material_data = kodik_anime.get('material_data', {})
+    
+    # Проверяем, есть ли уже это аниме
+    shikimori_id = kodik_anime.get('shikimori_id')
+    if shikimori_id and Anime.objects.filter(shikimori_id=shikimori_id).exists():
+        return None  # Пропускаем - уже есть
     
     # Определяем количество эпизодов
     episodes_count = (
@@ -179,42 +184,39 @@ def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
         ''
     )
     
-    # Создаем или обновляем аниме
-    anime, created = Anime.objects.update_or_create(
-        shikimori_id=kodik_anime.get('shikimori_id'),
-        defaults={
-            'title_ru': kodik_anime.get('title', ''),
-            'title_en': kodik_anime.get('title_orig', ''),
-            'title_jp': kodik_anime.get('other_title', ''),
-            'description': description,
-            'year': kodik_anime.get('year'),
-            'status': map_status(material_data.get('anime_status', 'released')),
-            'kind': map_kind(material_data.get('anime_kind') or kodik_anime.get('type', 'tv')),
-            'episodes': episodes_count,
-            'score': score,
-            'poster_url': poster_url,
-            'genres': genre_names,
-            'studios': studio_names,
-            'data_source': 'kodik',
+    # Создаём только новое аниме (без обновления существующих)
+    try:
+        anime = Anime.objects.create(
+            title_ru=kodik_anime.get('title', ''),
+            title_en=kodik_anime.get('title_orig', ''),
+            title_jp=kodik_anime.get('other_title', ''),
+            description=description,
+            year=kodik_anime.get('year'),
+            status=map_status(material_data.get('anime_status', 'released')),
+            kind=map_kind(material_data.get('anime_kind') or kodik_anime.get('type', 'tv')),
+            episodes=episodes_count,
+            score=score,
+            poster_url=poster_url,
+            genres=genre_names,
+            studios=studio_names,
+            data_source='kodik',
+            shikimori_id=shikimori_id,
             # Дополнительные поля для хранения данных Kodik
-            'movies': [],
-            'ovas': [],
-            'movie_count': 0,
-            'ova_count': 0,
-            'total_items': seasons_count,
-            'screenshots': screenshots,
-            'kodik_link': normalize_kodik_player_link(kodik_anime.get('link', '')),
-            'kodik_id': kodik_anime.get('id', ''),
-            'quality': kodik_anime.get('quality', ''),
-        }
-    )
-    
-    if created:
-        print(f"  \u2728 \u0421\u043e\u0437\u0434\u0430\u043d\u043e: {anime.title_ru}")
-    else:
-        print(f"  \U0001f504 \u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e: {anime.title_ru}")
-    
-    return anime
+            movies=[],
+            ovas=[],
+            movie_count=0,
+            ova_count=0,
+            total_items=seasons_count,
+            screenshots=screenshots,
+            kodik_link=normalize_kodik_player_link(kodik_anime.get('link', '')),
+            kodik_id=kodik_anime.get('id', ''),
+            quality=kodik_anime.get('quality', ''),
+        )
+        print(f"  ✨ Создано: {anime.title_ru}")
+        return anime
+    except Exception as e:
+        # Возможно уже есть (дубликат по другому полю)
+        return None
 
 
 def main():
@@ -232,18 +234,17 @@ def main():
     print("=" * 50)
     
     imported = 0
-    updated = 0
+    skipped = 0
     errors = 0
     
     for i, kodik_anime in enumerate(all_anime, 1):
         try:
             anime = import_anime(kodik_anime)
             
-            # Проверяем, было ли создано или обновлено
-            if anime.created_at == anime.updated_at:
+            if anime:
                 imported += 1
             else:
-                updated += 1
+                skipped += 1  # Уже есть
             
             # Прогресс
             if i % 50 == 0:
@@ -256,7 +257,7 @@ def main():
     print("\n" + "=" * 50)
     print("📊 Статистика импорта:")
     print(f"  ✨ Создано: {imported}")
-    print(f"  🔄 Обновлено: {updated}")
+    print(f"  ⏭️  Пропущено (уже есть): {skipped}")
     print(f"  ❌ Ошибок: {errors}")
     print(f"  📦 Всего обработано: {len(all_anime)}")
     print("=" * 50)

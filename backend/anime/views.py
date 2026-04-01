@@ -2025,8 +2025,13 @@ class KodikClipDownloadView(APIView):
             season         = int(request.query_params.get('season', 1))
             translation_id = request.query_params.get('translation_id')
             label          = request.query_params.get('label', 'clip')[:40]
+            output_format  = request.query_params.get('format', 'mp4').lower()  # mp4 или mp3
         except (ValueError, TypeError):
             return Response({'error': 'Некорректные параметры'}, status=400)
+
+        # Валидация формата
+        if output_format not in ('mp4', 'mp3'):
+            return Response({'error': 'format должен быть mp4 или mp3'}, status=400)
 
         # end=99999 — специальное значение «скачать целиком»
         full_episode = (end >= 99990)
@@ -2055,9 +2060,16 @@ class KodikClipDownloadView(APIView):
 
         safe_title = re.sub(r'[^\w\s\-]', '', anime.title_ru or anime.title_en or f'anime_{pk}').strip()[:50]
         safe_label = re.sub(r'[^\w\s\-]', '', label).strip()
-        filename   = f'{safe_title} - Ep{episode} - {safe_label}.mp4'
+        
+        # Имя файла зависит от формата
+        if output_format == 'mp3':
+            filename = f'{safe_title} - Ep{episode} - {safe_label}.mp3'
+            tmp_suffix = '.mp3'
+        else:
+            filename = f'{safe_title} - Ep{episode} - {safe_label}.mp4'
+            tmp_suffix = '.mp4'
 
-        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=tmp_suffix, delete=False) as tmp:
             tmp_path = tmp.name
 
         # Таймаут: целая серия может идти долго; даём 90 минут на целиком, 15 мин на фрагмент
@@ -2072,30 +2084,56 @@ class KodikClipDownloadView(APIView):
                 '-reconnect_delay_max', '10',
             ]
 
-            if full_episode:
-                # Скачиваем всю серию — без -ss и -t
-                cmd = [
-                    ffmpeg_bin, '-y',
-                    *hls_flags,
-                    '-i', m3u8_url,
-                    '-c:v', 'copy',
-                    '-c:a', 'aac',
-                    '-movflags', '+faststart',
-                    tmp_path,
-                ]
+            if output_format == 'mp3':
+                # Извлечение аудио в MP3
+                if full_episode:
+                    cmd = [
+                        ffmpeg_bin, '-y',
+                        *hls_flags,
+                        '-i', m3u8_url,
+                        '-vn',  # Отключаем видео
+                        '-acodec', 'libmp3lame',
+                        '-q:a', '2',  # Качество MP3 (0-9, где 0 лучшее)
+                        tmp_path,
+                    ]
+                else:
+                    cmd = [
+                        ffmpeg_bin, '-y',
+                        *hls_flags,
+                        '-i', m3u8_url,
+                        '-ss', str(start),
+                        '-t', str(duration),
+                        '-vn',  # Отключаем видео
+                        '-acodec', 'libmp3lame',
+                        '-q:a', '2',
+                        tmp_path,
+                    ]
             else:
-                # Нарезаем фрагмент: -ss после -i (точный seek для HLS)
-                cmd = [
-                    ffmpeg_bin, '-y',
-                    *hls_flags,
-                    '-i', m3u8_url,
-                    '-ss', str(start),
-                    '-t', str(duration),
-                    '-c:v', 'copy',
-                    '-c:a', 'aac',
-                    '-movflags', '+faststart',
-                    tmp_path,
-                ]
+                # MP4 — как было
+                if full_episode:
+                    # Скачиваем всю серию — без -ss и -t
+                    cmd = [
+                        ffmpeg_bin, '-y',
+                        *hls_flags,
+                        '-i', m3u8_url,
+                        '-c:v', 'copy',
+                        '-c:a', 'aac',
+                        '-movflags', '+faststart',
+                        tmp_path,
+                    ]
+                else:
+                    # Нарезаем фрагмент: -ss после -i (точный seek для HLS)
+                    cmd = [
+                        ffmpeg_bin, '-y',
+                        *hls_flags,
+                        '-i', m3u8_url,
+                        '-ss', str(start),
+                        '-t', str(duration),
+                        '-c:v', 'copy',
+                        '-c:a', 'aac',
+                        '-movflags', '+faststart',
+                        tmp_path,
+                    ]
 
             result = subprocess.run(cmd, capture_output=True, timeout=ffmpeg_timeout)
 
@@ -2117,9 +2155,13 @@ class KodikClipDownloadView(APIView):
 
             # Отдаём файл
             encoded_name = urllib.parse.quote(filename)
+            
+            # Content-Type зависит от формата
+            content_type = 'audio/mpeg' if output_format == 'mp3' else 'video/mp4'
+            
             response = FileResponse(
                 open(tmp_path, 'rb'),
-                content_type='video/mp4',
+                content_type=content_type,
                 as_attachment=True,
                 filename=filename,
             )

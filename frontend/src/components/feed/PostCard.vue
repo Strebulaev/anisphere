@@ -1043,17 +1043,20 @@ const onReplyAdded = (reply: any) => {
   display: block;
 }
 
-:deep(.comment-children) {
-  margin-left: 1.75rem;
-  padding-left: 0.625rem;
-  border-left: 2px solid var(--border-subtle, #1a1a1a);
-  margin-top: 0.2rem;
+:deep(.comment-node.is-reply) {
+  margin-top: 0.3rem;
 }
 
 :deep(.comment-row) {
   display: flex;
   gap: 0.5rem;
   padding: 0.4rem 0 0.2rem;
+}
+
+:deep(.comment-replies) {
+  margin-top: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border-subtle, #1a1a1a);
 }
 
 :deep(.c-avatar) {

@@ -65,18 +65,24 @@
     </div>
 
     <!-- Дата рождения -->
-    <div class="settings-group">
-      <h3>🎂 Дата рождения</h3>
-      <input v-model="form.birth_date" type="date" class="input date-input" />
+    <div class="settings-group locked">
+      <h3>
+        <span class="lock-icon"><i class="fas fa-lock"></i></span>
+        🎂 Дата рождения
+      </h3>
+      <input v-model="form.birth_date" type="date" class="input date-input" disabled />
       <span class="hint">Используется для возрастных ограничений контента</span>
     </div>
 
     <!-- Ссылки на соцсети -->
-    <div class="settings-group">
-      <h3>🔗 Социальные сети</h3>
+    <div class="settings-group locked">
+      <h3>
+        <span class="lock-icon"><i class="fas fa-lock"></i></span>
+        🟢 Социальные сети
+      </h3>
       <div class="social-list">
         <div v-for="(link, idx) in form.social_links" :key="idx" class="social-item">
-          <select v-model="link.platform" class="select">
+          <select v-model="link.platform" class="select" disabled>
             <option value="telegram">Telegram</option>
             <option value="vk">VK</option>
             <option value="youtube">YouTube</option>
@@ -85,20 +91,23 @@
             <option value="discord">Discord</option>
             <option value="other">Другое</option>
           </select>
-          <input v-model="link.url" type="url" placeholder="https://..." class="input" />
-          <button class="btn-icon-danger" @click="removeSocialLink(idx)" title="Удалить">✕</button>
+          <input v-model="link.url" type="url" placeholder="https://..." class="input" disabled />
+          <button class="btn-icon-danger" @click="removeSocialLink(idx)" title="Удалить" disabled>✕</button>
         </div>
-        <button class="btn-dashed" @click="addSocialLink">➕ Добавить ссылку</button>
+        <button class="btn-dashed" @click="addSocialLink" disabled>➕ Добавить ссылку</button>
       </div>
     </div>
 
     <!-- Статус -->
-    <div class="settings-group">
-      <h3>🟢 Статус</h3>
+    <div class="settings-group locked">
+      <h3>
+        <span class="lock-icon"><i class="fas fa-lock"></i></span>
+        🟢 Статус
+      </h3>
       <div class="status-row">
         <label v-for="opt in statusOptions" :key="opt.value"
                :class="['status-chip', { active: form.status === opt.value }]">
-          <input type="radio" v-model="form.status" :value="opt.value" hidden />
+          <input type="radio" v-model="form.status" :value="opt.value" hidden disabled />
           <span :class="['dot', opt.value]"></span>
           {{ opt.label }}
         </label>
@@ -361,6 +370,34 @@ onMounted(loadProfile)
 }
 .settings-group:last-of-type { border-bottom: none; }
 .settings-group h3 { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
+
+.settings-group.locked {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.settings-group.locked .lock-icon {
+  margin-right: 8px;
+  color: var(--secondary-text);
+}
+
+.settings-group.locked .input,
+.settings-group.locked .select,
+.settings-group.locked .textarea {
+  background: var(--hover-bg);
+  cursor: not-allowed;
+}
+
+.settings-group.locked .btn-dashed,
+.settings-group.locked .btn-icon-danger {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-group.locked .status-chip {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 
 /* Avatar */
 .avatar-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }

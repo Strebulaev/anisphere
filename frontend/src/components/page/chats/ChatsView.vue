@@ -5,7 +5,8 @@
       <div 
         ref="chatsSidebar"
         class="chats-sidebar"
-        :style="{ width: sidebarWidth + 'px' }"
+        :class="{ 'mobile-hidden': mobileChatOpen }"
+        :style="{ width: isMobile ? '100%' : sidebarWidth + 'px' }"
       >
         <ChatList
           :active-chat-id="activeChatId"
@@ -14,14 +15,30 @@
         />
       </div>
 
-      <!-- Резизер -->
+      <!-- Резизер (только десктоп) -->
       <div
+        v-if="!isMobile"
         class="chats-sidebar-resizer"
         @mousedown="startResize"
       ></div>
 
       <!-- Правая панель с чатом -->
-      <div class="chats-main">
+      <div 
+        class="chats-main"
+        :class="{ 'mobile-active': mobileChatOpen }"
+      >
+        <!-- Мобильная стрелка назад -->
+        <button 
+          v-if="isMobile && (activeChatId || activeFranchiseId)" 
+          class="mobile-back-btn"
+          @click="goBackToList"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5"/>
+            <path d="M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+
         <!-- Загрузка -->
         <div v-if="isRouteLoading" class="chat-loading">
           <div class="loading-spinner"></div>
@@ -62,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatList from '@/components/Chats/ChatList.vue'
 import ChatDetailView from '@/components/page/chats/ChatDetailView.vue'
@@ -94,6 +111,24 @@ const startWidth = ref(0)
 // ── Данные франшизы ───────────────────────────────────────
 const franchiseData = ref<any>(null)
 const franchiseLoading = ref(false)
+
+// ── Мобильная логика ───────────────────────────────────────
+const isMobile = ref(false)
+const mobileChatOpen = ref(false)
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768
+}
+
+const goBackToList = () => {
+  mobileChatOpen.value = false
+  // Сбрасываем активный чат
+  activeChatId.value = undefined
+  activeFranchiseId.value = undefined
+  franchiseData.value = null
+  // Обновляем URL
+  router.push('/chats')
+}
 
 // ── SLUG UTILS ─────────────────────────────────────────────
 const makeSlug = (text: string | null | undefined): string => {
@@ -232,6 +267,11 @@ const handleRouteSlug = async (slug: string | null) => {
 const handleChatSelected = async (chat: any) => {
   console.log('[ChatsView] handleChatSelected:', chat)
   
+  // На мобильных - показывать чат, скрывать список
+  if (isMobile.value) {
+    mobileChatOpen.value = true
+  }
+  
   // Полный сброс перед открытием нового чата
   activeChatId.value = undefined
   activeFranchiseId.value = undefined
@@ -313,11 +353,22 @@ const stopResize = () => {
 
 // ── Инициализация ─────────────────────────────────────────
 onMounted(async () => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+  
   await loadChats()
   const slug = route.params.slug as string | undefined
   if (slug) {
     await handleRouteSlug(slug)
+    // На мобильных - сразу показывать чат
+    if (isMobile.value && (activeChatId.value || activeFranchiseId.value)) {
+      mobileChatOpen.value = true
+    }
   }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 
 // ── Watch: реагируем на смену slug в URL ──────────────────
@@ -460,16 +511,115 @@ watch(
   margin: 0;
 }
 
-@media (max-width: 768px) {
+/* Мобильная адаптация */
+@media (max-width: 767px) {
+  .chats-view {
+    height: 100vh;
+    margin-top: 60px; /* Отступ под мобильную навигацию */
+  }
+  
   .chats-sidebar {
     width: 100% !important;
     border-right: none;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    transition: transform 0.3s ease;
   }
+  
+  .chats-sidebar.mobile-hidden {
+    transform: translateX(-100%);
+  }
+  
   .chats-main {
-    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: #0f0f0f;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
   }
-  .chats-main.active {
+  
+  .chats-main.mobile-active {
+    transform: translateX(0);
+  }
+  
+.mobile-back-btn {
+  display: none;
+  position: absolute;
+  top: 60px;
+  left: 10px;
+  z-index: 30;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: none;
+  border-radius: 50%;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.mobile-back-btn:hover {
+  background: var(--surface-3);
+}
+}
+  
+/* md: 768px+ */
+@media (min-width: 768px) {
+  .chats-view {
     display: flex;
+    flex-direction: row;
+    height: calc(100vh - 80px);
+  }
+  
+  .chats-sidebar {
+    width: 20rem;
+    border-right: 1px solid var(--border-subtle);
+  }
+  
+  .chats-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .chat-header {
+    height: 4rem;
+    padding: 1rem;
+  }
+  
+  .chat-messages {
+    flex: 1;
+    padding: 1rem;
+    gap: 0.5rem;
+  }
+  
+  .chat-message {
+    max-width: 80%;
+    padding: 0.75rem 1rem;
+  }
+  
+  .chat-input-wrapper {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+  
+  .chat-input {
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* laptop: 1280px+ */
+@media (min-width: 1280px) {
+  .chats-sidebar {
+    width: 24rem;
+  }
+  
+  .chat-message {
+    max-width: 70%;
   }
 }
 </style>

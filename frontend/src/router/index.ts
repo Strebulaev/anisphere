@@ -34,10 +34,13 @@ import PeopleDetailView from '@/views/PeopleDetailView.vue'
 import UsersView from '@/views/UsersView.vue'
 import StudiosView from '@/views/studios/StudiosView.vue'
 import StudioDetailView from '@/views/studios/StudioDetailView.vue'
+// import DubStudioView from '@/views/studios/DubStudioView.vue' // Закомментировано
 import SharedPlaylistView from '@/components/page/playlists/SharedPlaylistView.vue'
 import WheelView from '@/views/WheelView.vue'
 import WheelSettingsView from '@/views/WheelSettingsView.vue'
 import WheelHistoryView from '@/views/WheelHistoryView.vue'
+import ThemesView from '@/views/ThemesView.vue'
+import DonateView from '@/components/page/other/DonateView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -224,6 +227,18 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/themes',
+      name: 'themes',
+      component: ThemesView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/openings',
+      name: 'openings',
+      component: ThemesView,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/library',
       name: 'library',
       component: UserLibraryView,
@@ -294,6 +309,24 @@ const router = createRouter({
       component: StudioDetailView,
       props: true
     },
+    // === ЗАКОММЕНТИРОВАННЫЕ МАРШРУТЫ СТУДИЙ ОЗВУЧКИ (В РАЗРАБОТКЕ) ===
+    // {
+    //   path: '/dub-groups',
+    //   name: 'dub-groups',
+    //   component: StudiosView
+    // },
+    // {
+    //   path: '/dub-groups/:slug',
+    //   name: 'dub-group-detail',
+    //   component: DubStudioView,
+    //   props: true
+    // },
+    // {
+    //   path: '/dubs/:id',
+    //   name: 'dub-studio-detail',
+    //   component: DubStudioView,
+    //   props: true
+    // },
     {
       path: '/wheel',
       name: 'wheel',
@@ -311,6 +344,11 @@ const router = createRouter({
       name: 'wheel-history',
       component: WheelHistoryView,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/donate',
+      name: 'donate',
+      component: DonateView
     }
   ]
 })

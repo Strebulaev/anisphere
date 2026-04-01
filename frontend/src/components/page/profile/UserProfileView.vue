@@ -207,7 +207,8 @@ const tabs = [
 const currentUser = computed(() => authStore.user)
 
 const isOwnProfile = computed(() => {
-  return currentUser.value && userId.value && currentUser.value.id === userId.value
+  if (!currentUser.value || !userId.value || isNaN(userId.value)) return false
+  return currentUser.value.id === userId.value
 })
 
 const coverImageStyle = computed(() => {
@@ -279,7 +280,7 @@ const loadStats = async () => {
 }
 
 const loadFollowStatus = async () => {
-  if (!currentUser.value || !userId.value || isNaN(userId.value)) return
+  if (!authStore.isAuthenticated || !userId.value || isNaN(userId.value)) return
 
   try {
     const [followResponse, favoriteResponse] = await Promise.all([
@@ -287,7 +288,7 @@ const loadFollowStatus = async () => {
       api.get(`/social/favorites/check/?content_type=user&object_id=${userId.value}`)
     ])
 
-    isFollowing.value = followResponse.data.following
+    isFollowing.value = followResponse.data.is_following ?? followResponse.data.following
     isFavorite.value = favoriteResponse.data.favorited
   } catch (error) {
     console.error('Ошибка загрузки статуса:', error)
@@ -295,40 +296,59 @@ const loadFollowStatus = async () => {
 }
 
 const toggleFollow = async () => {
+  if (!authStore.isAuthenticated) {
+    alert('Для подписки необходимо войти в аккаунт')
+    return
+  }
   try {
     const response = await api.post(`/social/follow/toggle/${userId.value}/`)
     isFollowing.value = response.data.following
     stats.value.followers = response.data.followers_count || stats.value.followers
   } catch (error) {
     console.error('Ошибка подписки:', error)
+    alert('Не удалось выполнить подписку')
   }
 }
 
 const toggleFavorite = async () => {
+  if (!authStore.isAuthenticated) {
+    alert('Для добавления в избранное необходимо войти в аккаунт')
+    return
+  }
   try {
     const response = await api.post('/social/favorites/toggle/', {
       content_type: 'user',
-      target_user: userId.value
+      object_id: userId.value
     })
     isFavorite.value = response.data.favorited
   } catch (error) {
     console.error('Ошибка избранного:', error)
+    alert('Не удалось добавить в избранное')
   }
 }
 
 const openChat = async () => {
+  if (!authStore.isAuthenticated) {
+    alert('Для отправки сообщения необходимо войти в аккаунт')
+    return
+  }
   try {
     const response = await api.post('/chats/private/', { user_id: userId.value })
     router.push(`/chats/${response.data.id}`)
   } catch (error) {
     console.error('Ошибка создания чата:', error)
+    alert('Не удалось создать чат')
   }
 }
 
 const reportUser = () => {
+  if (!authStore.isAuthenticated) {
+    alert('Для отправки жалобы необходимо войти в аккаунт')
+    return
+  }
   const reason = prompt('Укажите причину жалобы:')
   if (reason) {
-    api.post(`/social/reports/`, {
+    api.post('/social/reports/', {
       content_type: 'user',
       object_id: userId.value,
       reason

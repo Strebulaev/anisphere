@@ -870,6 +870,73 @@ def validate_rating(value):
         raise ValidationError('Оценка должна быть от 1 до 10')
 
 
+class UserFavorite(models.Model):
+    """Избранное аниме пользователя"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='in_favorites')
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'anime']
+        indexes = [
+            models.Index(fields=['user', 'added_at']),
+        ]
+        ordering = ['-added_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.anime.title_ru}"
+
+
+class FavoriteTheme(models.Model):
+    """Избранные опенинги/эндинги пользователя"""
+    THEME_TYPE_CHOICES = [
+        ('opening', 'Опенинг'),
+        ('ending', 'Эндинг'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_themes')
+    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='favorite_themes')
+    theme_type = models.CharField(max_length=20, choices=THEME_TYPE_CHOICES)
+    episode = models.IntegerField()
+    season = models.IntegerField(default=1)
+    title = models.CharField(max_length=255, blank=True)  # Название опенинга/эндинга
+    start_time = models.IntegerField(default=0)  # Начало в секундах
+    end_time = models.IntegerField(null=True, blank=True)  # Конец в секундах
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'anime', 'theme_type', 'episode', 'season']
+        indexes = [
+            models.Index(fields=['user', 'anime', 'theme_type']),
+            models.Index(fields=['user', 'added_at']),
+        ]
+        ordering = ['-added_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_theme_type_display()} серия {self.episode} ({self.anime.title_ru})"
+
+
+class FavoriteEpisode(models.Model):
+    """Избранные серии пользователя"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_episodes')
+    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='favorite_episodes')
+    episode = models.IntegerField()
+    season = models.IntegerField(default=1)
+    note = models.CharField(max_length=255, blank=True)  # Заметка пользователя
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'anime', 'episode', 'season']
+        indexes = [
+            models.Index(fields=['user', 'anime', 'episode']),
+            models.Index(fields=['user', 'added_at']),
+        ]
+        ordering = ['-added_at']
+
+    def __str__(self):
+        return f"{self.user.username} - Серия {self.episode} ({self.anime.title_ru})"
+
+
 class UserLibrary(models.Model):
     """Библиотека аниме пользователя (Моя коллекция)"""
 

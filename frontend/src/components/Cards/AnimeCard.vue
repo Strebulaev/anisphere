@@ -888,4 +888,261 @@ checkFavorite()
   .anime-title  { font-size: var(--text-sm); }
   .anime-meta   { font-size: calc(var(--text-xs) - 1px); }
 }
+
+/* ═══ АДАПТИВНЫЕ РАЗМЕРЫ КАРТОЧКИ ═══ */
+
+/* xs: 320px */
+@media (max-width: 374px) {
+  .anime-card {
+    width: 130px;
+  }
+  
+  .anime-poster {
+    padding-bottom: 140%;
+  }
+  
+  .play-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+  }
+  
+  .play-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .action-btn {
+    width: 24px;
+    height: 24px;
+    min-height: 24px;
+  }
+  
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .score-badge {
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+  
+  .score-badge svg {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .collection-status {
+    width: 22px;
+    height: 22px;
+  }
+  
+  .collection-status svg {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .anime-info {
+    padding: 6px 8px 8px;
+  }
+  
+  .anime-title {
+    font-size: 11px;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  
+  .anime-meta {
+    font-size: 9px;
+    gap: 2px;
+  }
+  
+  .anime-genres {
+    gap: 2px;
+  }
+  
+  .genre-tag {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+  
+  .genre-more {
+    font-size: 9px;
+  }
+  
+  .anime-progress {
+    font-size: 9px;
+  }
+  
+  .progress-bar {
+    height: 2px;
+  }
+  
+  .live-cover-indicator {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .live-cover-indicator svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* sm: 375px */
+@media (min-width: 375px) and (max-width: 413px) {
+  .anime-card {
+    width: 140px;
+  }
+  
+  .anime-poster {
+    padding-bottom: 140%;
+  }
+  
+  .play-btn {
+    width: 56px;
+    height: 56px;
+  }
+  
+  .play-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .action-btn {
+    width: 26px;
+    height: 26px;
+    min-height: 26px;
+  }
+  
+  .anime-title {
+    font-size: 12px;
+  }
+  
+  .anime-meta {
+    font-size: 10px;
+  }
+  
+  .genre-tag {
+    font-size: 10px;
+  }
+}
+
+/* md: 414px - 767px */
+@media (min-width: 414px) and (max-width: 767px) {
+  .anime-card {
+    width: 150px;
+  }
+  
+  .anime-poster {
+    padding-bottom: 145%;
+  }
+  
+  .play-btn {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .play-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+  
+  .action-btn {
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
+  }
+  
+  .anime-title {
+    font-size: 13px;
+  }
+  
+  .anime-meta {
+    font-size: 11px;
+  }
+}
+
+/* tablet: 768px+ */
+@media (min-width: 768px) {
+  .anime-card {
+    width: 160px;
+  }
+  
+  .anime-poster {
+    padding-bottom: 145%;
+  }
+  
+  .anime-info {
+    padding: 8px 12px 12px;
+  }
+  
+  .anime-title {
+    font-size: 14px;
+  }
+  
+  .anime-meta {
+    font-size: 12px;
+  }
+  
+  .genre-tag {
+    font-size: 11px;
+  }
+  
+  .action-btn {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
+  
+  .play-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+  }
+  
+  .play-btn svg {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* laptop: 1280px+ */
+@media (min-width: 1280px) {
+  .anime-card {
+    width: 170px;
+  }
+  
+  .anime-poster {
+    padding-bottom: 150%;
+  }
+  
+  .anime-title {
+    font-size: 15px;
+  }
+  
+  .anime-meta {
+    font-size: 13px;
+  }
+}
+
+/* desktop: 1536px+ */
+@media (min-width: 1536px) {
+  .anime-card {
+    width: 180px;
+  }
+  
+  .anime-poster {
+    padding-bottom: 150%;
+  }
+  
+  .anime-title {
+    font-size: 16px;
+  }
+  
+  .anime-meta {
+    font-size: 14px;
+  }
+}
 </style>
