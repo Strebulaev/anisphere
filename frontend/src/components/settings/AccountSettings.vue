@@ -30,29 +30,15 @@
       </div>
     </div>
 
-    <!-- Имя / никнейм -->
+    <!-- Имя -->
     <div class="settings-group">
       <h3>👤 Имя</h3>
-      <div class="field-row">
-        <div class="field">
-          <label>Отображаемое имя</label>
-          <input v-model="form.display_name" type="text" placeholder="Твоё имя"
-                 class="input" :class="{ error: errors.display_name }"
-                 maxlength="50" @input="clearError('display_name')" />
-          <span v-if="errors.display_name" class="error-msg">{{ errors.display_name }}</span>
-        </div>
-        <div class="field">
-          <label>Никнейм (@username)</label>
-          <div class="input-with-icon">
-            <span class="prefix">@</span>
-            <input v-model="form.nickname" type="text" placeholder="nickname"
-                   class="input with-prefix" :class="{ error: errors.nickname }"
-                   maxlength="30" @input="onNicknameInput" />
-          </div>
-          <span v-if="errors.nickname" class="error-msg">{{ errors.nickname }}</span>
-          <span v-else-if="nicknameAvailable === true" class="ok-msg">✓ Доступен</span>
-          <span class="hint">3–30 символов: буквы, цифры, _ -</span>
-        </div>
+      <div class="field">
+        <label>Отображаемое имя</label>
+        <input v-model="form.display_name" type="text" placeholder="Твоё имя"
+               class="input" :class="{ error: errors.display_name }"
+               maxlength="50" @input="clearError('display_name')" />
+        <span v-if="errors.display_name" class="error-msg">{{ errors.display_name }}</span>
       </div>
     </div>
 
@@ -64,7 +50,28 @@
       <div class="char-count">{{ form.bio?.length || 0 }} / 500</div>
     </div>
 
-    <!-- Дата рождения -->
+    <!-- Социальные сети -->
+    <div class="settings-group">
+      <h3>🟢 Социальные сети</h3>
+      <div class="social-list">
+        <div v-for="(link, idx) in form.social_links" :key="idx" class="social-item">
+          <select v-model="link.platform" class="select">
+            <option value="telegram">Telegram</option>
+            <option value="vk">VK</option>
+            <option value="youtube">YouTube</option>
+            <option value="twitter">X (Twitter)</option>
+            <option value="instagram">Instagram</option>
+            <option value="discord">Discord</option>
+            <option value="other">Другое</option>
+          </select>
+          <input v-model="link.url" type="url" placeholder="https://..." class="input" />
+          <button class="btn-icon-danger" @click="removeSocialLink(idx)" title="Удалить">✕</button>
+        </div>
+        <button class="btn-dashed" @click="addSocialLink">➕ Добавить ссылку</button>
+      </div>
+    </div>
+
+    <!-- Дата рождения и Статус - ЗАКОММЕНТИРОВАНЫ
     <div class="settings-group locked">
       <h3>
         <span class="lock-icon"><i class="fas fa-lock"></i></span>
@@ -74,31 +81,6 @@
       <span class="hint">Используется для возрастных ограничений контента</span>
     </div>
 
-    <!-- Ссылки на соцсети -->
-    <div class="settings-group locked">
-      <h3>
-        <span class="lock-icon"><i class="fas fa-lock"></i></span>
-        🟢 Социальные сети
-      </h3>
-      <div class="social-list">
-        <div v-for="(link, idx) in form.social_links" :key="idx" class="social-item">
-          <select v-model="link.platform" class="select" disabled>
-            <option value="telegram">Telegram</option>
-            <option value="vk">VK</option>
-            <option value="youtube">YouTube</option>
-            <option value="twitter">X (Twitter)</option>
-            <option value="instagram">Instagram</option>
-            <option value="discord">Discord</option>
-            <option value="other">Другое</option>
-          </select>
-          <input v-model="link.url" type="url" placeholder="https://..." class="input" disabled />
-          <button class="btn-icon-danger" @click="removeSocialLink(idx)" title="Удалить" disabled>✕</button>
-        </div>
-        <button class="btn-dashed" @click="addSocialLink" disabled>➕ Добавить ссылку</button>
-      </div>
-    </div>
-
-    <!-- Статус -->
     <div class="settings-group locked">
       <h3>
         <span class="lock-icon"><i class="fas fa-lock"></i></span>
@@ -112,7 +94,7 @@
           {{ opt.label }}
         </label>
       </div>
-    </div>
+    </div> -->
 
     <!-- Кнопки сохранения -->
     <div class="actions">

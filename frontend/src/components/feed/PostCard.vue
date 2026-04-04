@@ -432,35 +432,36 @@ const onReplyAdded = (reply: any) => {
 <style scoped>
 /* ═══ Карточка поста ══════════════════════════════════════════════ */
 .post-card {
-  background: var(--surface-1, #0a0a0a);
+  background: var(--surface-2);
   border-radius: 14px;
   padding: 1rem 1.125rem;
-  transition: all 0.25s ease;
-  border: 1px solid var(--border-subtle, #111);
+  transition: all 0.25s var(--ease-petal);
+  border: 1px solid var(--border-subtle);
   margin-bottom: 0.75rem;
 }
 
 .post-card:hover {
-  border-color: var(--border-default, #1a1a1a);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-petal-sm);
 }
 
 .post-card.pinned {
-  border-color: rgba(102, 126, 234, 0.25);
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, transparent 100%);
+  border-color: var(--accent-subtle);
+  background: linear-gradient(135deg, var(--accent-subtle) 0%, transparent 100%);
 }
 
 .pinned-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff; 
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-press) 100%);
+  color: var(--text-on-accent); 
   padding: 0.2rem 0.55rem;
   border-radius: 20px;
   font-size: 0.7rem;
   font-weight: 600; 
   margin-bottom: 0.6rem;
+  box-shadow: var(--shadow-petal-sm);
 }
 
 /* ═══ Header ════════════════════════════════════════════════════ */
@@ -498,13 +499,13 @@ const onReplyAdded = (reply: any) => {
 }
 
 .display-name {
-  color: var(--text-primary, #fff);
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 0.875rem;
 }
 
 .username {
-  color: var(--text-tertiary, #555);
+  color: var(--text-tertiary);
   font-size: 0.78rem;
 }
 
@@ -517,43 +518,43 @@ const onReplyAdded = (reply: any) => {
 }
 
 .group-badge {
-  background: var(--surface-3, #151515);
-  color: var(--text-secondary, #777);
+  background: var(--surface-3);
+  color: var(--text-secondary);
   padding: 0.1rem 0.4rem;
   border-radius: 4px; 
   font-size: 0.68rem;
 }
 
 .time {
-  color: var(--text-tertiary, #555);
+  color: var(--text-tertiary);
   font-size: 0.78rem;
 }
 
 .edited {
-  color: var(--text-tertiary, #444);
+  color: var(--text-tertiary);
   font-size: 0.68rem;
   font-style: italic;
 }
 
 .visibility-badge {
-  color: var(--text-tertiary, #444);
+  color: var(--text-tertiary);
   font-size: 0.78rem;
 }
 
 .menu-btn {
   background: none; 
   border: none; 
-  color: var(--text-tertiary, #555);
+  color: var(--text-tertiary);
   font-size: 1.1rem;
   cursor: pointer; 
   padding: 0.2rem 0.4rem;
   border-radius: 6px;
-  transition: all 0.2s;
+  transition: all 0.2s var(--ease-petal);
 }
 
 .menu-btn:hover {
-  background: var(--surface-3, #1a1a1a);
-  color: var(--text-primary, #fff);
+  background: var(--surface-4);
+  color: var(--accent);
 }
 
 /* ═══ Content ═══════════════════════════════════════════════════ */
@@ -562,7 +563,7 @@ const onReplyAdded = (reply: any) => {
 }
 
 .post-title {
-  color: var(--text-primary, #fff);
+  color: var(--text-primary);
   font-size: 1rem;
   font-weight: 700;
   margin-bottom: 0.4rem;
@@ -573,7 +574,7 @@ const onReplyAdded = (reply: any) => {
 }
 
 .post-text {
-  color: var(--text-secondary, #ccc);
+  color: var(--text-secondary);
   line-height: 1.65;
   font-size: 0.9rem;
   word-break: break-word;
@@ -589,17 +590,18 @@ const onReplyAdded = (reply: any) => {
 .expand-btn {
   background: none;
   border: none;
-  color: var(--accent, #7c5cfc);
+  color: var(--accent);
   cursor: pointer;
   font-size: 0.78rem;
   padding: 0.25rem 0;
   margin-top: 0.15rem;
   display: block;
   font-weight: 500;
+  transition: color 0.2s var(--ease-petal);
 }
 
 .expand-btn:hover {
-  color: var(--accent-hover, #9d87ff);
+  color: var(--accent-press);
 }
 
 .hashtags {
@@ -610,14 +612,14 @@ const onReplyAdded = (reply: any) => {
 }
 
 .hashtag {
-  color: var(--accent, #7c5cfc);
+  color: var(--accent);
   cursor: pointer;
   font-size: 0.8rem;
-  transition: color 0.2s;
+  transition: color 0.2s var(--ease-petal);
 }
 
 .hashtag:hover {
-  color: var(--accent-hover, #9d87ff);
+  color: var(--accent-press);
 }
 
 /* ═══ Media ═════════════════════════════════════════════════════ */
@@ -897,7 +899,7 @@ const onReplyAdded = (reply: any) => {
   display: flex;
   justify-content: space-between;
   padding-top: 0.5rem;
-  border-top: 1px solid var(--border-subtle, #111);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .action-group {
@@ -911,29 +913,29 @@ const onReplyAdded = (reply: any) => {
   gap: 0.25rem;
   background: none;
   border: none;
-  color: var(--text-tertiary, #555);
+  color: var(--text-tertiary);
   padding: 0.35rem 0.5rem;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.8rem;
-  transition: all 0.15s;
+  transition: all 0.15s var(--ease-petal);
 }
 
 .action-btn:hover {
-  background: var(--surface-3, #151515);
-  color: var(--text-secondary, #aaa);
+  background: var(--surface-4);
+  color: var(--accent);
 }
 
 .action-btn.liked {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .action-btn.disliked {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .action-btn.bookmarked {
-  color: #eab308;
+  color: var(--warning);
 }
 
 /* ═══ Inline Comments ═══════════════════════════════════════════ */
@@ -952,8 +954,8 @@ const onReplyAdded = (reply: any) => {
 .spinner-sm {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--surface-4, #1a1a1a);
-  border-top-color: var(--accent, #7c5cfc);
+  border: 2px solid var(--surface-4);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -970,7 +972,7 @@ const onReplyAdded = (reply: any) => {
 }
 
 .no-comments {
-  color: var(--text-tertiary, #444);
+  color: var(--text-tertiary);
   font-size: 0.8rem;
   text-align: center;
   padding: 0.875rem 0;
@@ -988,6 +990,7 @@ const onReplyAdded = (reply: any) => {
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 0.2rem;
+  border: 1px solid var(--accent-subtle);
 }
 
 .ci-wrap {
@@ -999,34 +1002,34 @@ const onReplyAdded = (reply: any) => {
 
 .comment-textarea {
   width: 100%;
-  background: var(--surface-2, #0e0e0e);
-  border: 1px solid var(--border-subtle, #1a1a1a);
-  color: var(--text-primary, #ddd);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   padding: 0.45rem 0.65rem;
   border-radius: 8px;
   font-size: 0.8rem;
   resize: none;
   font-family: inherit;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s var(--ease-petal);
   box-sizing: border-box;
 }
 
 .comment-textarea:focus {
   outline: none;
-  border-color: var(--accent, #7c5cfc);
+  border-color: var(--accent);
 }
 
 .send-comment-btn {
   align-self: flex-end;
-  background: var(--accent, #7c5cfc);
-  color: #fff;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   padding: 0.35rem 0.875rem;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 600;
-  transition: background 0.2s;
+  transition: all 0.2s var(--ease-petal);
 }
 
 .send-comment-btn:disabled {
@@ -1035,7 +1038,7 @@ const onReplyAdded = (reply: any) => {
 }
 
 .send-comment-btn:hover:not(:disabled) {
-  background: var(--accent-hover, #6b4de8);
+  box-shadow: var(--shadow-glow-sm);
 }
 
 /* ═══ Comment Nodes ═════════════════════════════════════════════ */

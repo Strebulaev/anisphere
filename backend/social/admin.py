@@ -199,3 +199,29 @@ class ContestVoteAdmin(admin.ModelAdmin):
     list_filter = ('vote_type', 'value', 'created_at')
     readonly_fields = ('created_at',)
     raw_id_fields = ('contest', 'entry', 'voter')
+
+
+# Модели мини-чата поддержки
+from .models_support import SupportTicket, SupportMessage
+
+
+@admin.register(SupportTicket)
+class SupportTicketAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'subject', 'status', 'created_at', 'updated_at')
+    search_fields = ('user__username', 'subject')
+    list_filter = ('status', 'created_at')
+    readonly_fields = ('created_at', 'updated_at', 'closed_at')
+    raw_id_fields = ('user',)
+
+
+@admin.register(SupportMessage)
+class SupportMessageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'ticket', 'sender', 'text_preview', 'is_read', 'created_at')
+    search_fields = ('sender__username', 'text', 'ticket__id')
+    list_filter = ('is_read', 'created_at')
+    readonly_fields = ('created_at',)
+    raw_id_fields = ('ticket', 'sender')
+    
+    def text_preview(self, obj):
+        return obj.text[:100] if obj.text else ''
+    text_preview.short_description = 'Текст'

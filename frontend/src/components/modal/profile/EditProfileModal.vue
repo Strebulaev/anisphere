@@ -34,6 +34,39 @@
             </div>
           </div>
 
+          <!-- Cover Image Upload -->
+          <div class="form-group cover-group">
+            <label class="form-label">Обложка профиля</label>
+            <div class="cover-upload">
+              <div class="current-cover" :style="coverPreviewStyle">
+                <div v-if="!profileData.coverUrl" class="cover-placeholder">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span>Нет обложки</span>
+                </div>
+              </div>
+              <div class="upload-controls">
+                <input
+                  type="file"
+                  ref="coverInput"
+                  @change="handleCoverSelect"
+                  accept="image/*"
+                  style="display: none"
+                >
+                <button type="button" @click="coverInput?.click()" class="btn-upload">
+                  {{ profileData.coverUrl ? 'Изменить' : 'Загрузить' }}
+                </button>
+                <button v-if="profileData.coverUrl" type="button" @click="removeCover" class="btn-remove">
+                  Удалить
+                </button>
+                <p class="upload-hint">JPG, PNG. Рекомендуемый размер: 1500x500</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Display Name -->
           <div class="form-group">
             <label for="displayName" class="form-label">Отображаемое имя</label>
@@ -155,6 +188,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const fileInput = ref<HTMLInputElement>()
+const coverInput = ref<HTMLInputElement>()
 
 const isLoading = ref(false)
 const nicknameError = ref('')
@@ -164,10 +198,22 @@ const profileData = reactive({
   nickname: '',
   bio: '',
   avatarUrl: '',
+  coverUrl: '',
   website: '',
   vk: '',
   telegram: '',
   favoriteGenres: [] as string[]
+})
+
+const coverPreviewStyle = computed(() => {
+  if (profileData.coverUrl) {
+    return {
+      backgroundImage: `url(${profileData.coverUrl})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    }
+  }
+  return {}
 })
 
 const availableGenres = [
@@ -234,6 +280,32 @@ const handleFileSelect = (event: Event) => {
   }
 }
 
+const handleCoverSelect = (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) {
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      alert('Файл слишком большой. Максимальный размер: 10MB')
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите изображение')
+      return
+    }
+
+    // Create preview URL
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      profileData.coverUrl = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+const removeCover = () => {
+  profileData.coverUrl = ''
+}
+
 const validateForm = () => {
   if (!profileData.nickname.trim()) {
     alert('Никнейм обязателен')
@@ -270,6 +342,16 @@ const saveProfile = async () => {
       formData.append('avatar', fileInput.value.files[0])
     }
 
+    // Add cover image if changed (new file selected)
+    if (coverInput.value?.files?.[0]) {
+      formData.append('cover_image', coverInput.value.files[0])
+    }
+
+    // If cover was removed (empty string and was previously set)
+    if (profileData.coverUrl === '' && props.user?.cover_image) {
+      formData.append('cover_image', '')  // Signal to remove the cover
+    }
+
     const response = await apiClient.patch('/users/profile/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -302,7 +384,8 @@ watch(() => props.isVisible, (visible) => {
     profileData.displayName = props.user.display_name || props.user.first_name || ''
     profileData.nickname = props.user.nickname || ''
     profileData.bio = props.user.bio || ''
-    profileData.avatarUrl = props.user.avatar || ''
+    profileData.avatarUrl = props.user.avatar || props.user.avatar_url || ''
+    profileData.coverUrl = props.user.cover_image || props.user.cover_image_url || ''
     profileData.website = props.user.website || ''
     profileData.vk = props.user.vk_profile || ''
     profileData.telegram = props.user.telegram || ''
@@ -430,6 +513,57 @@ watch(() => props.isVisible, (visible) => {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+}
+
+/* Cover upload */
+.cover-group {
+  text-align: center;
+}
+
+.cover-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.current-cover {
+  width: 100%;
+  height: 120px;
+  border-radius: var(--radius-button);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-divider-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cover-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-tertiary);
+}
+
+.cover-placeholder svg {
+  opacity: 0.5;
+}
+
+.btn-remove {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--color-accent-pink);
+  border: 1px solid var(--color-accent-pink);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.15s ease;
+}
+
+.btn-remove:hover {
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .current-avatar {

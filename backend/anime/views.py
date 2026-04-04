@@ -84,6 +84,7 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
                 'title_jp': anime.title_jp or '',
                 'year': anime.year,
                 'status': anime.status,
+                'kind': anime.kind,
                 'episodes': anime.episodes,
                 'score': anime.score,
                 'poster_url': poster_url,
@@ -2207,3 +2208,48 @@ class EpisodeProgressUndoView(APIView):
             return Response({'episode_number': episode_number, 'status': 'in_progress', 'undone': True})
         except UserEpisodeProgress.DoesNotExist:
             return Response({'error': 'Запись не найдена'}, status=404)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Admin: Аниме добавленные сегодня
+# ═══════════════════════════════════════════════════════════════
+
+class AdminTodayAddedAnimeView(APIView):
+    """
+    GET /api/anime/admin/today-added/ — аниме добавленные сегодня
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Берем аниме за последние 16 часов (с учетом что могут добавить ночью)
+        now = timezone.now()
+        cutoff = now - timedelta(hours=16)
+        
+        anime_list = Anime.objects.filter(
+            created_at__gte=cutoff
+        ).order_by('-created_at')
+        
+        # Сериализуем
+        data = []
+        for a in anime_list:
+            # Конвертируем время в МСК для отображения
+            created_msk = a.created_at.astimezone(timezone.get_current_timezone()) if a.created_at else None
+            data.append({
+                'id': a.id,
+                'title_ru': a.title_ru,
+                'title_en': a.title_en,
+                'year': a.year,
+                'kind': a.kind,
+                'status': a.status,
+                'episodes': a.episodes,
+                'episode_duration': a.episode_duration,
+                'score': a.score,
+                'poster_url': a.poster_url,
+                'data_source': a.data_source,
+                'created_at': created_msk.isoformat() if created_msk else None,
+            })
+        
+        return Response({'anime': data, 'count': len(data)})

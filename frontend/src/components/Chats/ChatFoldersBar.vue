@@ -34,7 +34,7 @@
     </div>
 
     <div class="chat-folders-bar__actions">
-      <button
+      <!-- <button
         @click="showCreateModal = true"
         class="action-button"
         title="Создать папку"
@@ -44,7 +44,7 @@
           <line x1="12" y1="5" x2="12" y2="19"/>
           <line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-      </button>
+      </button> -->
 
       <button
         @click="showShortcutsModal = true"
@@ -292,13 +292,13 @@ onUnmounted(() => {
   width: 65px;
   height: 100%;
   max-height: 100vh;
-  background-color: #252525;
-  border-right: 2px solid #3a3a3a;
+  background-color: var(--surface-2);
+  border-right: 1px solid var(--border-default);
   padding: 0;
   gap: 0;
   z-index: 1000;
-  transition: width 0.25s ease-out;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+  transition: width 0.25s var(--ease-petal);
+  box-shadow: var(--shadow-md);
   overflow: visible;
   cursor: ew-resize;
   flex-shrink: 0;
@@ -312,7 +312,7 @@ onUnmounted(() => {
   width: 12px;
   padding: 0;
   gap: 0;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
   cursor: ew-resize;
 }
@@ -322,7 +322,7 @@ onUnmounted(() => {
   opacity: 0;
   pointer-events: none;
   overflow: hidden;
-  transition: opacity 0.2s ease-out;
+  transition: opacity 0.2s var(--ease-petal);
 }
 
 .chat-folders-bar--expanded .chat-folders-bar__list {
@@ -332,8 +332,8 @@ onUnmounted(() => {
   overflow-x: hidden;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: #404040 transparent;
-  transition: opacity 0.2s ease-out;
+  scrollbar-color: var(--surface-5) transparent;
+  transition: opacity 0.2s var(--ease-petal);
   gap: 12px;
 }
 
@@ -346,12 +346,12 @@ onUnmounted(() => {
 }
 
 .chat-folders-bar--expanded .chat-folders-bar__list::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: var(--surface-5);
   border-radius: 3px;
 }
 
 .chat-folders-bar--expanded .chat-folders-bar__list::-webkit-scrollbar-thumb:hover {
-  background: #505050;
+  background: var(--surface-4);
 }
 
 .chat-folders-bar__list {
@@ -370,29 +370,30 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   background-color: transparent;
-  color: #a0a0a0;
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s var(--ease-petal);
   flex-shrink: 0;
 }
 
 .chat-folders-bar--expanded .folder-icon {
   width: 48px;
   height: 48px;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
 }
 
 .folder-icon:hover {
-  background-color: #2d2d2d;
-  color: #ffffff;
+  background-color: var(--surface-4);
+  color: var(--text-primary);
   transform: scale(1.1);
 }
 
 .folder-icon--active {
-  background-color: #3b82f6;
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-petal-sm);
 }
 
 .folder-icon--active:hover {
@@ -407,14 +408,14 @@ onUnmounted(() => {
   transform: translateY(-50%);
   width: 3px;
   height: 24px;
-  background-color: #3b82f6;
-  border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-press));
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .folder-icon__emoji {
   font-size: 1rem;
   line-height: 1;
-  transition: font-size 0.3s ease;
+  transition: font-size 0.3s var(--ease-petal);
 }
 
 .chat-folders-bar--expanded .folder-icon__emoji {
@@ -431,14 +432,14 @@ onUnmounted(() => {
   min-width: 14px;
   height: 14px;
   padding: 0 2px;
-  background-color: #ef4444;
+  background: var(--danger);
   color: white;
   font-size: 0.625rem;
   font-weight: 700;
-  border-radius: 9999px;
-  border: 2px solid #1e1e1e;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--surface-2);
   flex-shrink: 0;
-  transition: all 0.3s ease;
+  transition: all 0.3s var(--ease-petal);
 }
 
 .chat-folders-bar--expanded .folder-icon__badge {
@@ -452,8 +453,8 @@ onUnmounted(() => {
 
 .folder-icon--active .folder-icon__badge {
   background-color: white;
-  color: #3b82f6;
-  border-color: #3b82f6;
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .chat-folders-bar__actions {
@@ -463,16 +464,16 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 4px;
   padding: 0 0 12px 0;
-  border-top: 1px solid #2d2d2d;
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0;
   opacity: 0;
-  transition: opacity 0.3s ease, padding 0.3s ease;
+  transition: opacity 0.3s var(--ease-petal), padding 0.3s var(--ease-petal);
 }
 
 .chat-folders-bar--expanded .chat-folders-bar__actions {
   opacity: 1;
   padding: 0.5rem 0 12px 0;
-  transition: opacity 0.2s ease-out 0.1s, padding 0.3s ease;
+  transition: opacity 0.2s var(--ease-petal) 0.1s, padding 0.3s var(--ease-petal);
 }
 
 .action-button {
@@ -482,30 +483,30 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   background-color: transparent;
-  color: #a0a0a0;
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s var(--ease-petal);
   flex-shrink: 0;
 }
 
 .chat-folders-bar--expanded .action-button {
   width: 48px;
   height: 48px;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
 }
 
 .action-button:hover {
-  background-color: #2d2d2d;
-  color: #ffffff;
+  background-color: var(--surface-4);
+  color: var(--accent);
   transform: scale(1.1);
 }
 
 .action-button svg {
   width: 16px;
   height: 16px;
-  transition: all 0.3s ease;
+  transition: all 0.3s var(--ease-petal);
 }
 
 .chat-folders-bar--expanded .action-button svg {
@@ -516,15 +517,16 @@ onUnmounted(() => {
 .folder-tooltip {
   position: fixed;
   padding: 0.5rem 0.75rem;
-  background-color: #2a2a2a;
-  color: #e0e0e0;
+  background-color: var(--surface-3);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 500;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-modal);
   z-index: 10000;
   pointer-events: none;
   white-space: nowrap;
+  border: 1px solid var(--border-default);
 }
 
 @media (max-width: 768px) {

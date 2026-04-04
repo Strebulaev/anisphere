@@ -109,24 +109,38 @@ watch(currentFranchiseId, (newId) => {
 <style scoped>
 .fdisc-page {
   min-height: 100vh;
-  background: #0f0f0f;
+  background: var(--surface-1);
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Фоновый узор */
+.fdisc-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle at 10% 90%, rgba(255,126,179,0.03) 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(168,197,226,0.03) 0%, transparent 40%);
+  pointer-events: none;
 }
 
 /* Мобильная адаптация - отступ сверху под мобильную навигацию */
 @media (max-width: 767px) {
   .fdisc-page {
-    padding-top: 60px;
+    padding-top: 54px;
     box-sizing: border-box;
   }
 }
 
 .fdisc-nav {
   padding: 12px 16px;
-  background: #1a1a1a;
-  border-bottom: 1px solid #2a2a2a;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 
 .fdisc-back-btn {
@@ -135,23 +149,25 @@ watch(currentFranchiseId, (newId) => {
   gap: 8px;
   padding: 8px 12px;
   background: transparent;
-  border: 1px solid #333;
-  border-radius: 8px;
-  color: #888;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
   font-size: .85rem;
   cursor: pointer;
-  transition: all .15s;
+  transition: all .15s var(--ease-petal);
 }
 
 .fdisc-back-btn:hover {
-  background: #222;
-  color: #ccc;
+  background: var(--surface-4);
+  color: var(--accent);
 }
 
 .fdisc-chat-wrap {
   flex: 1;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .fdisc-chat-wrap :deep(.franchise-chat) {
@@ -164,11 +180,11 @@ watch(currentFranchiseId, (newId) => {
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  color: #666;
+  color: var(--text-tertiary);
   font-size: 1rem;
 }
 
 .fdisc-error {
-  color: #ef4444;
+  color: var(--danger);
 }
 </style>

@@ -1,10 +1,17 @@
 <template>
   <aside class="sidebar" :class="{ collapsed: isCollapsed }">
+    <!-- Декorative лепестки сакуры -->
+    <div class="sakura-decor">
+      <span class="petal petal-1">🌸</span>
+      <span class="petal petal-2">🌸</span>
+    </div>
+
     <!-- Логотип -->
     <div class="sidebar-header">
       <router-link to="/" class="sidebar-logo">
-        <span class="logo-text">{{ isCollapsed ? 'A' : 'Anisphere' }}</span>
-        <span class="logo-tagline"></span>
+        <img src="../../../public/sakura.png" alt="Sakura" class="logo-icon" />
+        <span class="logo-text">{{ isCollapsed ? '' : 'Anisphere' }}</span>
+        <!-- <span class="logo-tagline">{{ isCollapsed ? '' : 'Sakura Bloom' }}</span> -->
       </router-link>
       <button @click="toggleSidebar" class="collapse-btn" type="button" :title="isCollapsed ? 'Развернуть' : 'Свернуть'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ rotated: isCollapsed }">
@@ -41,7 +48,7 @@
         <span>Лента</span>
       </router-link>
 
-      <router-link 
+      <router-link
         to="/anime" 
         class="nav-item"
         :class="{ active: isActiveRoute('/anime') }"
@@ -70,7 +77,7 @@
         <span>Reactor</span>
       </router-link> -->
 
-      <router-link 
+      <router-link
         to="/playlists" 
         class="nav-item"
         :class="{ active: isActiveRoute('/playlists') }"
@@ -86,7 +93,7 @@
         <span>Плейлисты</span>
       </router-link>
 
-      <router-link 
+      <router-link
         to="/library" 
         class="nav-item"
         :class="{ active: isActiveRoute('/library') }"
@@ -112,9 +119,15 @@
         class="nav-item"
         :class="{ active: isActiveRoute('/chats') }"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-        </svg>
+        <div class="nav-item-icon-wrapper">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          <!-- Бейдж с непрочитанными -->
+          <span v-if="unreadCount > 0" class="unread-badge">
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
+        </div>
         <span>Чаты</span>
       </router-link>
 
@@ -234,14 +247,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSidebar } from '@/composables/useSidebar'
 import { useAuthStore } from '@/stores/auth'
+import { useChatExtrasStore } from '@/stores/chatExtras'
 
 const route = useRoute()
 const { isCollapsed, toggleSidebar } = useSidebar()
 const authStore = useAuthStore()
+const chatExtrasStore = useChatExtrasStore()
 
 const isAdmin = computed(() => {
   const u = authStore.user
@@ -256,6 +271,22 @@ const isActiveRoute = (path: string) => {
   // Точное совпадение для /feed чтобы не пересекалось с /feed/...
   return route.path === path || route.path.startsWith(path + '/')
 }
+
+// Количество непрочитанных сообщений
+const unreadCount = computed(() => chatExtrasStore.totalUnreadCount || 0)
+
+// Загружаем непрочитанные при монтировании
+onMounted(() => {
+  chatExtrasStore.loadUnreadChats()
+  
+  // Периодическое обновление непрочитанных (каждые 30 секунд)
+  const interval = setInterval(() => {
+    chatExtrasStore.loadUnreadChats()
+  }, 30000)
+  
+  // Очищаем интервал при размонтировании
+  return () => clearInterval(interval)
+})
 </script>
 
 <style scoped>
@@ -265,13 +296,52 @@ const isActiveRoute = (path: string) => {
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
-  background-color: var(--surface-2);
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
   border-right: 1px solid var(--border-subtle);
   z-index: var(--z-sidebar);
   display: flex;
   flex-direction: column;
-  transition: width var(--duration-slow) var(--ease-out);
+  transition: width var(--duration-slow) var(--ease-petal);
   overflow: hidden;
+}
+
+/* ── Декорация сакуры ─────────────────────────────────────── */
+.sakura-decor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.15;
+}
+
+.petal {
+  position: absolute;
+  font-size: 12px;
+  animation: floatPetal 8s ease-in-out infinite;
+  filter: blur(0.5px);
+}
+
+.petal-1 {
+  top: 20%;
+  right: 10%;
+  animation-delay: -2s;
+}
+
+.petal-2 {
+  top: 60%;
+  right: 5%;
+  animation-delay: -4s;
+  font-size: 10px;
+}
+
+@keyframes floatPetal {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.1; }
+  25% { transform: translateY(-8px) rotate(5deg); opacity: 0.2; }
+  50% { transform: translateY(-4px) rotate(-3deg); opacity: 0.15; }
+  75% { transform: translateY(-10px) rotate(2deg); opacity: 0.1; }
 }
 
 /* ── Заголовок ─────────────────────────────────────────────── */
@@ -284,6 +354,8 @@ const isActiveRoute = (path: string) => {
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   gap: var(--space-2);
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-logo {
@@ -294,15 +366,41 @@ const isActiveRoute = (path: string) => {
   overflow: hidden;
 }
 
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  object-fit: contain;
+  transition: transform var(--duration-slow) var(--ease-petal);
+}
+
+.sidebar-logo:hover .logo-icon {
+  transform: rotate(15deg) scale(1.05);
+}
+
+.sidebar-logo:hover .logo-icon svg {
+  transform: rotate(15deg) scale(1.05);
+}
+
 .logo-text {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;
-  letter-spacing: 0.03em;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-bright) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.logo-tagline {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
@@ -313,24 +411,24 @@ const isActiveRoute = (path: string) => {
   width: 28px;
   height: 28px;
   min-height: 28px;
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: all var(--duration-base) var(--ease-out);
+  transition: all var(--duration-base) var(--ease-petal);
   flex-shrink: 0;
-  margin-left: -28px;  /* ← добавить эту строку */
 }
 
 .collapse-btn:hover {
-  background-color: var(--surface-4);
-  color: var(--text-primary);
-  border-color: var(--border-strong);
+  background: var(--surface-4);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow-sm);
 }
 
 .collapse-btn svg {
-  transition: transform var(--duration-base) var(--ease-out);
+  transition: transform var(--duration-base) var(--ease-petal);
 }
 
 .collapse-btn svg.rotated {
@@ -343,60 +441,108 @@ const isActiveRoute = (path: string) => {
   padding: var(--space-3) var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   color: var(--text-secondary);
   text-decoration: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: var(--text-base);
   font-weight: 500;
   transition:
-    background-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out);
+    all var(--duration-base) var(--ease-petal);
   position: relative;
   white-space: nowrap;
   overflow: hidden;
 }
 
-.nav-item:hover {
-  background-color: var(--surface-4);
-  color: var(--text-primary);
-}
-
-.nav-item.active {
-  background-color: var(--accent-subtle);
-  color: var(--accent);
-}
-
-.nav-item.active::before {
+.nav-item::before {
   content: '';
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
-  height: 18px;
-  background-color: var(--accent);
-  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  width: 0;
+  height: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  transition: width var(--duration-base) var(--ease-petal);
+  opacity: 0;
+}
+
+.nav-item:hover {
+  background-color: var(--surface-4);
+  color: var(--text-primary);
+  transform: translateX(4px);
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, var(--accent-subtle) 0%, var(--accent-2-subtle) 100%);
+  color: var(--accent);
+}
+
+.nav-item.active::before {
+  width: 4px;
+  opacity: 1;
+}
+
+.nav-item-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .nav-item svg {
   flex-shrink: 0;
-  opacity: 0.8;
-  transition: opacity var(--duration-base) var(--ease-out);
+  opacity: 0.7;
+  transition: all var(--duration-base) var(--ease-petal);
+}
+
+/* Бейдж непрочитанных сообщений */
+.unread-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-press) 100%);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface-2);
+  white-space: nowrap;
+  z-index: 1;
+  box-shadow: var(--shadow-petal-sm);
+}
+
+.sidebar.collapsed .unread-badge {
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  font-size: 9px;
+  padding: 0 3px;
 }
 
 .nav-item:hover svg,
 .nav-item.active svg {
   opacity: 1;
+  color: var(--accent);
 }
 
 .nav-icon-emoji {
@@ -412,9 +558,11 @@ const isActiveRoute = (path: string) => {
 /* ── Разделитель ───────────────────────────────────────────── */
 .sidebar-divider {
   height: 1px;
-  background-color: var(--border-subtle);
-  margin: var(--space-2) var(--space-2);
+  background: linear-gradient(90deg, transparent 0%, var(--border-subtle) 50%, transparent 100%);
+  margin: var(--space-3) var(--space-4);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Вторичная навигация ───────────────────────────────────── */
@@ -422,23 +570,24 @@ const isActiveRoute = (path: string) => {
   padding: var(--space-2) var(--space-2) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .nav-item-secondary {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   color: var(--text-tertiary);
   text-decoration: none;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: 500;
   transition:
-    background-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out);
+    all var(--duration-base) var(--ease-petal);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -446,30 +595,32 @@ const isActiveRoute = (path: string) => {
 .nav-item-secondary:hover {
   background-color: var(--surface-4);
   color: var(--text-secondary);
+  transform: translateX(4px);
 }
 
 .nav-item-secondary.active {
-  background-color: var(--accent-subtle);
+  background: var(--accent-subtle);
   color: var(--accent);
 }
 
 .nav-item-admin {
-  color: #ef4444 !important;
+  color: var(--danger) !important;
 }
 
 .nav-item-admin:hover {
-  background-color: rgba(239, 68, 68, 0.1) !important;
-  color: #ef4444 !important;
+  background: var(--danger-subtle) !important;
+  color: var(--danger) !important;
+  box-shadow: 0 0 12px rgba(255,138,138,0.15);
 }
 
 .nav-item-admin.active {
-  background-color: rgba(239, 68, 68, 0.15) !important;
-  color: #ef4444 !important;
+  background: var(--danger-subtle) !important;
+  color: var(--danger) !important;
 }
 
 .nav-item-secondary svg {
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 .nav-item-secondary:hover svg,
@@ -493,10 +644,11 @@ const isActiveRoute = (path: string) => {
 
 .sidebar.collapsed .collapse-btn {
   position: absolute;
-  right: -13px;
-  background-color: var(--surface-3);
+  right: 16px;
+  background: var(--surface-3);
   border-color: var(--border-default);
   z-index: 10;
+  box-shadow: var(--shadow-md);
 }
 
 .sidebar.collapsed .nav-item {
@@ -523,6 +675,10 @@ const isActiveRoute = (path: string) => {
 
 .sidebar.collapsed .sidebar-divider {
   margin: var(--space-2) var(--space-1);
+}
+
+.sidebar.collapsed .sakura-decor {
+  opacity: 0.05;
 }
 
 /* ── Адаптивность ──────────────────────────────────────────── */

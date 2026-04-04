@@ -12,6 +12,7 @@ export interface AnimeResult {
   episodes?: number
   score?: number
   status?: string
+  kind?: string
 }
 
 export interface UserResult {
@@ -20,6 +21,7 @@ export interface UserResult {
   display_name?: string
   avatar_url?: string
   nickname?: string
+  status?: string
 }
 
 export interface PlaylistResult {

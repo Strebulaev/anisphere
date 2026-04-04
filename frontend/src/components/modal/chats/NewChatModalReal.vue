@@ -291,7 +291,7 @@ const handleCreate = async () => {
       handleClose()
       router.push(`/chats/${chatId}`)
     } else {
-      const response = await apiClient.post('/social/group-chats/create/', {
+      const response = await apiClient.post('/social/group-chats/', {
         name: groupForm.value.name,
         description: groupForm.value.description,
         participants: selectedMembers.value.map(m => m.id)

@@ -83,28 +83,29 @@ const handleContextMenu = (event: MouseEvent) => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.625rem 1rem;
-  border-radius: 0.75rem;
-  background-color: var(--color-background-active);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface-4);
   border: 2px solid transparent;
   cursor: pointer;
-  transition: all 0.2s var(--transition-smooth);
+  transition: all 0.2s var(--ease-petal);
   flex-shrink: 0;
   user-select: none;
 }
 
 .folder-card:hover:not(.folder-card--active) {
-  background-color: var(--color-background-hover);
-  border-color: var(--color-divider);
+  background-color: var(--surface-5);
+  border-color: var(--border-default);
 }
 
 .folder-card--active {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-text-inverted);
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-petal-sm);
 }
 
 .folder-card--active .folder-card__name {
-  color: var(--color-text-inverted);
+  color: var(--text-on-accent);
 }
 
 .folder-card--system {
@@ -125,7 +126,7 @@ const handleContextMenu = (event: MouseEvent) => {
 .folder-card__name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -138,17 +139,17 @@ const handleContextMenu = (event: MouseEvent) => {
   min-width: 1.5rem;
   height: 1.5rem;
   padding: 0 0.375rem;
-  background-color: #ef4444;
+  background-color: var(--danger);
   color: white;
   font-size: 0.75rem;
   font-weight: 700;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 
 .folder-card--active .folder-card__badge {
   background-color: white;
-  color: var(--color-accent);
+  color: var(--accent);
 }
 
 .folder-card__drag-handle {
@@ -157,7 +158,7 @@ const handleContextMenu = (event: MouseEvent) => {
   justify-content: center;
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
   cursor: grab;
   flex-shrink: 0;
 }

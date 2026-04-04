@@ -15,6 +15,7 @@
         @keydown.enter.prevent="handleSearch"
         @focus="handleFocus"
         @blur="handleBlur"
+        style="background: transparent !important; background-color: transparent !important; border: none !important; outline: none !important; box-shadow: none !important; -webkit-appearance: none !important; appearance: none !important;"
       />
       <button 
         v-if="showClearButton"
@@ -206,23 +207,48 @@ defineExpose({
   color: var(--color-accent);
 }
 
+/* ===== ОСНОВНЫЕ СТИЛИ ИНПУТА (ТОЛЬКО ЗДЕСЬ, БЕЗ ДУБЛИКАТОВ) ===== */
 .search-input {
   flex: 1;
   background: transparent !important;
   border: none !important;
-  outline: none;
+  outline: none !important;
   color: var(--color-text);
   font-size: 14px;
   min-width: 0;
+  padding: 0;
+  margin: 0;
   box-shadow: none !important;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .search-input:focus {
-  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .search-input::placeholder {
   color: var(--color-text-tertiary);
+}
+
+/* Убираем фон автозаполнения в Chrome/Edge/Safari */
+.search-input:-webkit-autofill,
+.search-input:-webkit-autofill:hover,
+.search-input:-webkit-autofill:focus,
+.search-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: var(--color-text);
+  caret-color: var(--color-text);
+  transition: background-color 9999s ease-in-out 0s;
+  background-color: transparent !important;
+}
+
+/* Убираем фон автозаполнения в Firefox */
+.search-input:autofill {
+  background: transparent !important;
 }
 
 .search-clear {

@@ -184,7 +184,8 @@ const close = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(5,4,8,0.88);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,14 +193,15 @@ const close = () => {
 }
 
 .modal-content {
-  background: var(--color-background-surface);
-  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   width: 90%;
   max-width: 600px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-modal);
 }
 
 .modal-header {
@@ -207,21 +209,21 @@ const close = () => {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -229,11 +231,13 @@ const close = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
+  transition: all 0.2s var(--ease-petal);
 }
 
 .close-btn:hover {
-  background: var(--color-background-active);
+  background: var(--surface-4);
+  color: var(--accent);
 }
 
 .modal-body {
@@ -252,38 +256,40 @@ const close = () => {
 .search-input {
   flex: 1;
   padding: 0.75rem;
-  border: 1px solid var(--color-divider-light);
-  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
   font-size: 1rem;
-  background: var(--color-background);
-  color: var(--color-text);
+  background: var(--surface-4);
+  color: var(--text-primary);
+  transition: all 0.2s var(--ease-petal);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.1);
+  border-color: var(--accent);
+  box-shadow: var(--border-glow);
 }
 
 .search-btn {
   padding: 0.75rem 1.5rem;
-  background: var(--color-accent);
+  background: var(--accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-size: 0.875rem;
   font-weight: 500;
-  color: white;
+  color: var(--text-on-accent);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s var(--ease-petal);
   white-space: nowrap;
 }
 
 .search-btn:hover {
-  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow-sm);
 }
 
 .search-btn:disabled {
-  background: var(--color-text-disabled);
+  background: var(--surface-5);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 
@@ -301,23 +307,24 @@ const close = () => {
 
 .filter-label {
   font-size: 0.75rem;
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .filter-select,
 .filter-input {
   padding: 0.5rem;
-  border: 1px solid var(--color-divider-light);
-  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
-  background: var(--color-background);
-  color: var(--color-text);
+  background: var(--surface-4);
+  color: var(--text-primary);
+  transition: all 0.2s var(--ease-petal);
 }
 
 .filter-select:focus,
 .filter-input:focus {
   outline: none;
-  border-color: var(--color-accent);
+  border-color: var(--accent);
 }
 
 .search-results {
@@ -330,9 +337,9 @@ const close = () => {
 
 .results-header {
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-divider-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .results-list {
@@ -343,14 +350,16 @@ const close = () => {
 
 .result-item {
   padding: 0.75rem;
-  background: var(--color-background);
-  border-radius: 8px;
+  background: var(--surface-3);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s var(--ease-petal);
+  border: 1px solid var(--border-subtle);
 }
 
 .result-item:hover {
-  background: var(--color-background-active);
+  background: var(--surface-4);
+  border-color: var(--accent);
 }
 
 .result-header {
@@ -363,17 +372,17 @@ const close = () => {
 .result-sender {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 
 .result-date {
   font-size: 0.75rem;
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .result-text {
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -382,14 +391,14 @@ const close = () => {
 .result-media-type {
   margin-top: 0.25rem;
   font-size: 0.75rem;
-  color: var(--color-accent);
+  color: var(--accent);
 }
 
 .no-results,
 .search-hint {
   text-align: center;
   padding: 2rem;
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.875rem;
 }
 </style>

@@ -77,9 +77,9 @@
                   >
                     ✓ Все
                   </button>
-                  <router-link to="/notifications/settings" class="notif-settings-btn" @click="showNotifications = false" title="Настройки">
+                    <!-- <router-link to="/notifications/settings" class="notif-settings-btn" @click="showNotifications = false" title="Настройки">
                     ⚙️
-                  </router-link>
+                  </router-link> -->
                 </div>
               </div>
               <div class="notif-list" v-if="notificationStore.recentNotifications.length > 0">
@@ -397,12 +397,14 @@ onUnmounted(() => {
   left: var(--sidebar-width);
   right: 0;
   height: var(--navbar-height);
-  background-color: var(--surface-2);
+  background: linear-gradient(180deg, var(--surface-2) 0%, rgba(15,11,26,0.95) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-subtle);
   z-index: var(--z-navbar);
   display: flex;
   align-items: center;
-  transition: left var(--duration-slow) var(--ease-out);
+  transition: left var(--duration-slow) var(--ease-petal);
 }
 
 .sidebar-collapsed .navbar {
@@ -429,23 +431,41 @@ onUnmounted(() => {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: transparent;
   border: none;
   color: var(--text-secondary);
   font-size: var(--text-base);
   font-weight: 500;
   transition:
-    background-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out);
+    all var(--duration-base) var(--ease-petal);
   white-space: nowrap;
   cursor: pointer;
-  min-height: 32px;
+  min-height: 34px;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 60%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: var(--radius-full);
+  transition: transform var(--duration-base) var(--ease-petal);
 }
 
 .nav-link:hover {
   background-color: var(--surface-4);
   color: var(--text-primary);
+}
+
+.nav-link:hover::after {
+  transform: translateX(-50%) scaleX(1);
 }
 
 .nav-icon { font-size: var(--text-md); display: inline-block; }
@@ -466,22 +486,23 @@ onUnmounted(() => {
 .donate-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-  color: white;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-press) 100%);
+  color: var(--text-on-accent);
   text-decoration: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: var(--text-sm);
   font-weight: 600;
-  transition: all var(--duration-base) var(--ease-out);
+  transition: all var(--duration-base) var(--ease-petal);
   white-space: nowrap;
+  box-shadow: var(--shadow-petal-sm);
 }
 
 .donate-btn:hover {
-  background: linear-gradient(135deg, #ff7b7b 0%, #ff6a6a 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--accent-glow);
 }
 
 .donate-icon {
@@ -501,26 +522,26 @@ onUnmounted(() => {
 }
 
 .navbar-icon-btn {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: transparent;
+  background: transparent;
   color: var(--text-tertiary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition:
-    background-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out);
+    all var(--duration-base) var(--ease-petal);
   position: relative;
   border: none;
 }
 
 .navbar-icon-btn:hover {
-  background-color: var(--surface-4);
-  color: var(--text-primary);
+  background: var(--surface-4);
+  color: var(--accent);
+  box-shadow: var(--shadow-glow-sm);
 }
 
 .notification-dot {
@@ -529,9 +550,9 @@ onUnmounted(() => {
   right: 4px;
   min-width: 16px;
   height: 16px;
-  padding: 0 3px;
-  background-color: var(--danger);
-  border-radius: 8px;
+  padding: 0 4px;
+  background: linear-gradient(135deg, var(--danger) 0%, #ff6b6b 100%);
+  border-radius: var(--radius-full);
   border: 2px solid var(--surface-2);
   font-size: 9px;
   font-weight: 700;
@@ -540,6 +561,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   line-height: 1;
+  box-shadow: 0 2px 8px rgba(255,138,138,0.3);
 }
 
 /* ── Сверкание колокольчика при напоминании ───────────────── */
@@ -557,14 +579,14 @@ onUnmounted(() => {
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  border: 2px solid var(--danger, #ef4444);
+  border: 2px solid var(--danger);
   animation: bell-pulse 1s ease-out infinite;
   pointer-events: none;
 }
 
 @keyframes bell-flash {
   0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(239, 68, 68, 0.18); }
+  50% { background-color: rgba(255,138,138, 0.18); }
 }
 
 @keyframes bell-shake {
@@ -592,11 +614,11 @@ onUnmounted(() => {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 340px;
+  width: 360px;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
   z-index: calc(var(--z-navbar) + 10);
   overflow: hidden;
 }
@@ -605,12 +627,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.875rem 1rem 0.625rem;
+  padding: 1rem 1.25rem 0.75rem;
   border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, var(--surface-3) 0%, var(--surface-2) 100%);
 }
 
 .notif-title {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -621,11 +644,12 @@ onUnmounted(() => {
   background: none;
   border: none;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   padding: 0;
+  transition: opacity 0.15s;
 }
 
-.mark-all-read-btn:hover { text-decoration: underline; }
+.mark-all-read-btn:hover { opacity: 0.8; }
 
 .notif-header-actions {
   display: flex;
@@ -644,29 +668,35 @@ onUnmounted(() => {
 .notif-settings-btn:hover { color: var(--text-primary); }
 
 .notif-list {
-  max-height: 360px;
+  max-height: 380px;
   overflow-y: auto;
 }
 
 .notif-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.625rem;
-  padding: 0.75rem 1rem;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
   cursor: pointer;
   border-bottom: 1px solid var(--border-subtle);
-  transition: background-color 0.15s;
+  transition: all 0.15s;
   position: relative;
 }
 
-.notif-item:hover { background: var(--surface-3); }
-.notif-item.unread { background: rgba(var(--accent-rgb, 58,134,255), 0.06); }
+.notif-item:hover { 
+  background: var(--surface-3); 
+}
+
+.notif-item.unread { 
+  background: linear-gradient(90deg, var(--accent-subtle) 0%, transparent 100%);
+}
+
 .notif-item:last-child { border-bottom: none; }
 
 .notif-icon {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   flex-shrink: 0;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .notif-content { flex: 1; min-width: 0; }
@@ -686,20 +716,21 @@ onUnmounted(() => {
 .notif-time {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
-  margin-top: 0.2rem;
+  margin-top: 0.25rem;
 }
 
 .notif-unread-dot {
-  width: 7px;
-  height: 7px;
-  background: var(--accent);
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 5px;
+  box-shadow: var(--shadow-glow-sm);
 }
 
 .notif-empty {
-  padding: 2rem 1rem;
+  padding: 2.5rem 1rem;
   text-align: center;
   color: var(--text-tertiary);
   font-size: 0.875rem;
@@ -707,23 +738,26 @@ onUnmounted(() => {
 
 .notif-footer {
   display: block;
-  padding: 0.625rem 1rem;
+  padding: 0.875rem 1rem;
   text-align: center;
   font-size: 0.8125rem;
   color: var(--accent);
   text-decoration: none;
   font-weight: 600;
   border-top: 1px solid var(--border-subtle);
-  transition: background-color 0.15s;
+  background: var(--surface-3);
+  transition: all 0.15s;
 }
 
-.notif-footer:hover { background: var(--surface-3); }
+.notif-footer:hover { 
+  background: var(--surface-4); 
+}
 
 /* ── Анимация дропдауна ──── */
-.dropdown-enter-active { transition: opacity 0.15s ease, transform 0.15s ease; }
-.dropdown-leave-active { transition: opacity 0.12s ease, transform 0.12s ease; }
+.dropdown-enter-active { transition: all 0.2s var(--ease-petal); }
+.dropdown-leave-active { transition: all 0.15s var(--ease-in); }
 .dropdown-enter-from,
-.dropdown-leave-to { opacity: 0; transform: translateY(-6px) scale(0.98); }
+.dropdown-leave-to { opacity: 0; transform: translateY(-8px) scale(0.98); }
 
 /* ── Профиль ─────────────────────────────────────────────── */
 .navbar-profile {
@@ -736,19 +770,21 @@ onUnmounted(() => {
 }
 
 .profile-avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background-color: var(--surface-4);
+  background: linear-gradient(135deg, var(--surface-4) 0%, var(--surface-5) 100%);
   border: 2px solid var(--border-default);
   overflow: hidden;
   position: relative;
   cursor: pointer;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition: all var(--duration-base) var(--ease-petal);
 }
 
 .profile-avatar:hover {
   border-color: var(--accent);
+  box-shadow: var(--shadow-glow-sm);
+  transform: scale(1.05);
 }
 
 .avatar-image {
@@ -770,11 +806,12 @@ onUnmounted(() => {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 9px;
-  height: 9px;
-  background-color: var(--success);
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, var(--success) 0%, #6ed396 100%);
   border-radius: 50%;
   border: 2px solid var(--surface-2);
+  box-shadow: 0 0 8px rgba(142,212,168,0.4);
 }
 
 /* ── Адаптивность ──────────────────────────────────────────── */

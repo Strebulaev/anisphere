@@ -19,7 +19,36 @@
               <i class="fas fa-user"></i>
               <span>Редактировать профиль</span>
             </div>
+            <!-- <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-key"></i>
+              <span>Сменить пароль</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
             <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-address-book"></i>
+              <span>Email и телефон</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-shield-alt"></i>
+              <span>Двухфакторная аутентификация</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div> -->
+            <div class="sidebar-item" :class="{ active: activeTab === 'delete' }" @click="activeTab = 'delete'">
+              <i class="fas fa-trash-alt"></i>
+              <span>Удаление аккаунта</span>
+            </div>
+          </div>
+            <!-- <div class="sidebar-item locked" @click.prevent>
               <i class="fas fa-key"></i>
               <span>Сменить пароль</span>
               <div class="lock-icons">
@@ -43,9 +72,9 @@
                 <i class="fas fa-lock"></i>
               </div>
             </div>
-          </div>
+          </div> -->
 
-          <div class="sidebar-section">
+          <!-- <div class="sidebar-section">
             <h2>Конфиденциальность и безопасность</h2>
             <div class="sidebar-item locked" @click.prevent>
               <i class="fas fa-eye"></i>
@@ -74,34 +103,6 @@
             <div class="sidebar-item locked" @click.prevent>
               <i class="fas fa-trash-alt"></i>
               <span>Удаление аккаунта</span>
-              <div class="lock-icons">
-                <i class="fas fa-link"></i>
-                <i class="fas fa-lock"></i>
-              </div>
-            </div>
-          </div>
-
-          <div class="sidebar-section">
-            <h2>Уведомления и звуки</h2>
-            <div class="sidebar-item locked" @click.prevent>
-              <i class="fas fa-bell"></i>
-              <span>Уведомления</span>
-              <div class="lock-icons">
-                <i class="fas fa-link"></i>
-                <i class="fas fa-lock"></i>
-              </div>
-            </div>
-            <div class="sidebar-item locked" @click.prevent>
-              <i class="fas fa-envelope"></i>
-              <span>Email уведомления</span>
-              <div class="lock-icons">
-                <i class="fas fa-link"></i>
-                <i class="fas fa-lock"></i>
-              </div>
-            </div>
-            <div class="sidebar-item locked" @click.prevent>
-              <i class="fas fa-volume-up"></i>
-              <span>Звуки и вибрация</span>
               <div class="lock-icons">
                 <i class="fas fa-link"></i>
                 <i class="fas fa-lock"></i>
@@ -199,8 +200,154 @@
                 <i class="fas fa-lock"></i>
               </div>
             </div>
+          </div> -->
+            </div>
+            <!-- <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-mobile-alt"></i>
+              <span>Активные сессии</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-ban"></i>
+              <span>Заблокированные пользователи</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div> -->
+            <!-- <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-trash-alt"></i>
+              <span>Удаление аккаунта</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div> -->
+            </div>
           </div>
-        </div>
+
+          <!-- <div class="sidebar-section">
+            <h2>Уведомления и звуки</h2>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-bell"></i>
+              <span>Уведомления</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-envelope"></i>
+              <span>Email уведомления</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-volume-up"></i>
+              <span>Звуки и вибрация</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+          </div> -->
+
+          <!-- <div class="sidebar-section">
+            <h2>Внешний вид</h2>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-palette"></i>
+              <span>Тема и оформление</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-image"></i>
+              <span>Фон чатов</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-font"></i>
+              <span>Шрифты и размер</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="sidebar-section">
+            <h2>Данные и хранилище</h2>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-hdd"></i>
+              <span>Использование памяти</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-sync"></i>
+              <span>Синхронизация</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-download"></i>
+              <span>Экспорт данных</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-broom"></i>
+              <span>Очистка кэша</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="sidebar-section">
+            <h2>Дополнительно</h2>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-globe"></i>
+              <span>Язык и регион</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-cogs"></i>
+              <span>Расширенные настройки</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div>
+            <div class="sidebar-item locked" @click.prevent>
+              <i class="fas fa-info-circle"></i>
+              <span>О программе</span>
+              <div class="lock-icons">
+                <i class="fas fa-link"></i>
+                <i class="fas fa-lock"></i>
+              </div>
+            </div> -->
+          </div>
+        <!-- </div> -->
 
         <!-- Main Content -->
         <div class="settings-content">
@@ -267,9 +414,9 @@
           <!-- About -->
           <AboutSettings v-if="activeTab === 'about'" />
         </div>
-      </div>
-    </div>
-  </div>
+      <!-- </div> -->
+    <!-- </div> -->
+  <!-- </div> -->
 </template>
 
 <script setup lang="ts">

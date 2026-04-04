@@ -206,23 +206,23 @@ export const SYSTEM_FOLDERS: Partial<ChatFolder>[] = [
       only_pinned: false
     }
   },
-  {
-    id: -3,
-    name: 'Архив',
-    icon: '📦',
-    is_system: true,
-    position: 999,
-    rules: {
-      include_private: true,
-      include_groups: true,
-      include_bots: true,
-      exclude_keywords: [],
-      include_keywords: [],
-      exclude_user_ids: [],
-      only_unread: false,
-      only_pinned: false
-    }
-  }
+  // {
+  //   id: -3,
+  //   name: 'Архив',
+  //   icon: '📦',
+  //   is_system: true,
+  //   position: 999,
+  //   rules: {
+  //     include_private: true,
+  //     include_groups: true,
+  //     include_bots: true,
+  //     exclude_keywords: [],
+  //     include_keywords: [],
+  //     exclude_user_ids: [],
+  //     only_unread: false,
+  //     only_pinned: false
+  //   }
+  // }
 ]
 
 export const FOLDER_ICONS = [

@@ -316,18 +316,45 @@ class NotificationSettingViewSet(
     serializer_class = NotificationSettingSerializer
 
     def get_object(self):
-        obj, _ = NotificationSetting.objects.get_or_create(user=self.request.user)
-        return obj
+        try:
+            obj, _ = NotificationSetting.objects.get_or_create(user=self.request.user)
+            return obj
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error getting notification settings: {e}")
+            # Создаем новый объект с дефолтными значениями
+            return NotificationSetting(user=self.request.user)
 
     # Переопределяем retrieve, чтобы не нужен был pk в URL
     def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error retrieving notification settings: {e}")
+            return Response({
+                'push_enabled': True,
+                'email_enabled': True,
+                'sound_enabled': True,
+                'dnd_enabled': False,
+                'dnd_start': None,
+                'dnd_end': None,
+                'auto_clean_read_days': 30,
+                'auto_clean_unread_days': 90,
+                'type_settings': {},
+                'updated_at': None
+            })
 
     def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error updating notification settings: {e}")
+            return Response({'error': str(e)}, status=400)

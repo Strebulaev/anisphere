@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+<li>
+    <a href="{% url 'admin:anime_today' %}" class="historylink">
+        📅 Добавленные сегодня ({{ today_count }})
+    </a>
+</li>
+{{ block.super }}
+{% endblock %}

@@ -26,7 +26,7 @@
               @translationChanged="onKodikTranslationChanged"
               @error="onPlayerError"
             />
-            <CustomVideoPlayer
+            <!-- <CustomVideoPlayer
               v-else-if="useCustomPlayer && customVideoUrl"
               :video-url="customVideoUrl"
               :poster="posterSrc ?? undefined"
@@ -38,7 +38,7 @@
               @durationUpdate="onDurationUpdate"
               @videoEnded="onVideoEnded"
               @error="onPlayerError"
-            />
+            /> -->
             <div v-else-if="loading" class="player-placeholder loading">
               <div class="spinner"></div>
               <p>Загрузка плеера...</p>
@@ -217,9 +217,9 @@
               </svg>
               Озвучки
             </h3>
-            <button @click="showAddDubModal = true" class="btn-outline-sm">
+            <!-- <button @click="showAddDubModal = true" class="btn-outline-sm">
               + Добавить
-            </button>
+            </button> -->
           </div>
 
           <div v-if="loadingTranslations" class="loading-row">
@@ -381,10 +381,10 @@
         :items-count="franchise.entries.length"
         :scroll-step="4"
       >
-        <RouterLink
+        <a
           v-for="entry in franchise.entries"
           :key="entry.id"
-          :to="`/anime/${entry.id}/watch`"
+          :href="`/anime/${entry.id}/watch`"
           class="franchise-carousel-item"
           :class="{ active: entry.id === anime?.id }"
         >
@@ -404,7 +404,7 @@
             </span>
           </div>
           <div v-if="entry.id === anime?.id" class="fci-current-badge">Сейчас смотришь</div>
-        </RouterLink>
+        </a>
       </Carousel>
     </div>
 
@@ -674,20 +674,18 @@ const episodeMarkedWatched = ref(false)
 // Диалог "Пропустить серию?"
 
 // ── Избранное ─────────────────────────────────────────────────
-const favorites = ref<number[]>([])
+import playlistsApi from '@/api/playlists'
+
+const isInFavorites = ref(false)
 const favoriteLoading = ref(false)
 
-const isInFavorites = computed(() => favorites.value.includes(anime.value?.id))
-
-const loadFavorites = async () => {
-  if (!authStore.isAuthenticated) return
+const checkIsFavorite = async () => {
+  if (!authStore.isAuthenticated || !anime.value?.id) return
   try {
-    const response = await apiClient.get('/users/favorites/')
-    favorites.value = (response.data.results || response.data || []).map((f: any) => 
-      typeof f.anime === 'object' ? f.anime.id : f.anime
-    )
+    const response = await playlistsApi.checkAnimeInFavorites(anime.value.id)
+    isInFavorites.value = response.data.is_favorite
   } catch (e) {
-    console.error('Ошибка загрузки избранного:', e)
+    console.error('Ошибка проверки избранного:', e)
   }
 }
 
@@ -702,13 +700,13 @@ const toggleFavorite = async () => {
   try {
     if (isInFavorites.value) {
       // Удалить из избранного
-      await apiClient.delete(`/users/favorites/`, { data: { anime: anime.value.id } })
-      favorites.value = favorites.value.filter(id => id !== anime.value?.id)
+      await playlistsApi.removeFromFavorites(anime.value.id)
+      isInFavorites.value = false
       toast.success('Удалено из избранного')
     } else {
       // Добавить в избранное
-      await apiClient.post('/users/favorites/', { anime: anime.value.id })
-      favorites.value.push(anime.value.id)
+      await playlistsApi.addToFavorites(anime.value.id)
+      isInFavorites.value = true
       toast.success('Добавлено в избранное')
     }
   } catch (err: any) {
@@ -856,7 +854,7 @@ const loadAnime = async () => {
     }
 
     await checkLibraryStatus()
-    await loadFavorites()
+    await checkIsFavorite()
     await loadTranslations()
     await loadKodikPlayer()
     loadWatchProgress()

@@ -199,8 +199,10 @@ onUnmounted(() => {
   right: 0;
   width: 100vw;
   max-width: 100vw;
-  height: 50px;
-  background-color: var(--surface-2);
+  height: 54px;
+  background: linear-gradient(180deg, var(--surface-2) 0%, rgba(15,11,26,0.98) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-subtle);
   z-index: var(--z-navbar);
   padding: 0 var(--space-3);
@@ -220,45 +222,51 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border: none;
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  border-radius: var(--radius-md);
-  transition: background-color var(--duration-base) var(--ease-out);
+  border-radius: var(--radius-lg);
+  transition: all var(--duration-base) var(--ease-petal);
 }
 
 .burger-btn:hover,
 .profile-btn:hover {
-  background-color: var(--surface-4);
+  background: var(--surface-4);
+  color: var(--accent);
+}
+
+.burger-btn:active,
+.profile-btn:active {
+  transform: scale(0.95);
 }
 
 .mobile-logo {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-bright) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-decoration: none;
-  margin-left: var(--space-3);
+  margin-left: var(--space-2);
 }
 
 .mobile-menu {
   position: fixed;
-  top: 50px;
+  top: 54px;
   left: 0;
   right: 0;
   width: 100vw;
   max-width: 100vw;
-  background-color: var(--surface-2);
-  border-bottom: 1px solid var(--border-subtle);
-  max-height: calc(100vh - 50px);
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  border-bottom: 1px solid var(--border-default);
+  max-height: calc(100vh - 54px);
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-xl);
   z-index: calc(var(--z-navbar) + 10);
   box-sizing: border-box;
 }
@@ -266,7 +274,8 @@ onUnmounted(() => {
 .menu-items {
   display: flex;
   flex-direction: column;
-  padding: var(--space-2);
+  padding: var(--space-3);
+  gap: 4px;
 }
 
 .menu-item {
@@ -276,49 +285,74 @@ onUnmounted(() => {
   padding: var(--space-3) var(--space-4);
   color: var(--text-secondary);
   text-decoration: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: var(--text-base);
   font-weight: 500;
-  transition: background-color var(--duration-base) var(--ease-out);
+  transition: all var(--duration-base) var(--ease-petal);
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  transition: width var(--duration-base) var(--ease-petal);
+  opacity: 0;
 }
 
 .menu-item:hover {
-  background-color: var(--surface-4);
+  background: var(--surface-4);
   color: var(--text-primary);
+  transform: translateX(4px);
 }
 
 .menu-item.router-link-active {
-  background-color: var(--accent-subtle);
+  background: linear-gradient(135deg, var(--accent-subtle) 0%, var(--accent-2-subtle) 100%);
   color: var(--accent);
+}
+
+.menu-item.router-link-active::before {
+  width: 4px;
+  opacity: 1;
 }
 
 .menu-item svg {
   flex-shrink: 0;
-  opacity: 0.8;
+  opacity: 0.7;
+  transition: opacity var(--duration-base) var(--ease-petal);
 }
 
 .menu-item:hover svg,
 .menu-item.router-link-active svg {
   opacity: 1;
+  color: var(--accent);
 }
 
 .menu-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(5,4,8,0.7);
+  backdrop-filter: blur(4px);
   z-index: calc(var(--z-navbar) + 5);
 }
 
 /* Transitions */
 .menu-enter-active,
 .menu-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: all 0.25s var(--ease-petal);
 }
 
 .menu-enter-from,
 .menu-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(-12px) scale(0.98);
 }
 
 .overlay-enter-active,

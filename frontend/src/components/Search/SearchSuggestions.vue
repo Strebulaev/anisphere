@@ -253,17 +253,49 @@ const SuggestionThumbnail = {
   }
 }
 
+// Перевод типов аниме на русский
+const animeKindMap: Record<string, string> = {
+  tv: 'ТВ',
+  movie: 'Фильм',
+  ova: 'OVA',
+  special: 'Спешл',
+  ona: 'ONA',
+  music: 'Музыка',
+  cm: 'CM',
+  tv_special: 'ТВ спешл',
+}
+
 const AnimeSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: AnimeResult }) {
-    return () => h('div', { class: 'suggestion-content' }, [
-      h(SuggestionThumbnail, { item: props.item, type: 'anime' }),
+    const kindText = computed(() => {
+      if (!props.item.kind) return null
+      return animeKindMap[props.item.kind] || props.item.kind
+    })
+    
+    return () => h('div', { class: 'suggestion-content anime-suggestion' }, [
+      // Постер как в плейлисте - 44x62
+      h('div', { class: 'suggestion-poster' }, [
+        props.item.poster_url
+          ? h('img', { 
+              src: getMediaUrl(props.item.poster_url), 
+              alt: props.item.title_ru || props.item.title_en,
+              class: 'poster-img'
+            })
+          : h('div', { class: 'poster-placeholder' }, [
+              h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [
+                h('rect', { x: 2, y: 2, width: 20, height: 20, rx: 2 })
+              ])
+            ])
+      ]),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.title_ru || props.item.title_en),
+        // Meta как в плейлисте: Год · Тип · Эпизоды · Рейтинг
         h('div', { class: 'suggestion-meta' }, [
-          props.item.year ? h('span', {}, props.item.year.toString()) : null,
-          props.item.episodes ? h('span', {}, `${props.item.episodes} эп.`) : null,
-          props.item.score ? h('span', { class: 'suggestion-rating' }, `★ ${props.item.score}`) : null
+          props.item.year ? h('span', { class: 'meta-chip' }, props.item.year) : null,
+          kindText.value ? h('span', { class: 'meta-chip kind' }, kindText.value) : null,
+          props.item.episodes ? h('span', { class: 'meta-chip' }, `${props.item.episodes} эп.`) : null,
+          props.item.score ? h('span', { class: 'meta-chip score' }, `⭐ ${Number(props.item.score).toFixed(1)}`) : null
         ].filter(Boolean))
       ])
     ])
@@ -273,8 +305,19 @@ const AnimeSuggestionItem = {
 const UserSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: UserResult }) {
-    return () => h('div', { class: 'suggestion-content' }, [
-      h(SuggestionThumbnail, { item: props.item, type: 'users' }),
+    return () => h('div', { class: 'suggestion-content user-suggestion' }, [
+      // Аватар как постер - 36x50
+      h('div', { class: 'suggestion-avatar' }, [
+        props.item.avatar_url
+          ? h('img', { 
+              src: getMediaUrl(props.item.avatar_url), 
+              alt: props.item.display_name || props.item.username,
+              class: 'avatar-img'
+            })
+          : h('div', { class: 'avatar-placeholder' }, 
+              (props.item.display_name || props.item.username)?.[0]?.toUpperCase() || '?'
+            )
+      ]),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.display_name || props.item.username),
         h('div', { class: 'suggestion-meta' }, `@${props.item.username}`)
@@ -286,8 +329,23 @@ const UserSuggestionItem = {
 const PlaylistSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: PlaylistResult }) {
-    return () => h('div', { class: 'suggestion-content' }, [
-      h(SuggestionThumbnail, { item: props.item, type: 'playlists' }),
+    return () => h('div', { class: 'suggestion-content playlist-suggestion' }, [
+      // Мини постеры как в плейлисте
+      h('div', { class: 'suggestion-poster playlist-mini' }, [
+        h('div', { class: 'playlist-mini-posters' }, [
+          ...(props.item.items?.slice(0, 4).map((anime: any) =>
+            h('div', { class: 'mini-poster' }, [
+              anime.poster_url 
+                ? h('img', { 
+                    src: getMediaUrl(anime.poster_url), 
+                    alt: anime.title_ru || anime.title_en,
+                    class: 'poster-img'
+                  }) 
+                : h('div', { class: 'poster-placeholder-sm' })
+            ])
+          ) || [])
+        ])
+      ]),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.title),
         h('div', { class: 'suggestion-meta' }, `${props.item.items?.length || 0} аниме`)
@@ -299,8 +357,19 @@ const PlaylistSuggestionItem = {
 const GroupSuggestionItem = {
   props: ['item', 'category'],
   setup(props: { item: GroupResult }) {
-    return () => h('div', { class: 'suggestion-content' }, [
-      h(SuggestionThumbnail, { item: props.item, type: 'groups' }),
+    return () => h('div', { class: 'suggestion-content group-suggestion' }, [
+      // Аватар группы как постер - 36x50
+      h('div', { class: 'suggestion-avatar' }, [
+        props.item.avatar_url
+          ? h('img', { 
+              src: getMediaUrl(props.item.avatar_url), 
+              alt: props.item.name,
+              class: 'avatar-img'
+            })
+          : h('div', { class: 'avatar-placeholder group' }, 
+              props.item.name?.[0]?.toUpperCase() || '?'
+            )
+      ]),
       h('div', { class: 'suggestion-info' }, [
         h('div', { class: 'suggestion-title' }, props.item.name),
         h('div', { class: 'suggestion-meta' }, `${props.item.members_count || 0} участников`)
@@ -314,27 +383,19 @@ const GroupSuggestionItem = {
 .search-suggestions {
   position: absolute;
   top: calc(100% + 4px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 400px;
-  max-width: 90vw;
+  left: 0;
+  right: 0;
+  width: 100%;
+  min-width: 280px;
+  max-width: 360px;
   background-color: var(--color-background-secondary);
   border: 1px solid var(--color-divider);
   border-radius: 12px;
   box-shadow: var(--shadow-card-hover);
-  max-height: 450px;
+  max-height: 400px;
   overflow-y: auto;
   z-index: 1000;
 }
-
-/* Если поисковая строка имеет определенную ширину, можно сделать так:
-.parent-search-container {
-  position: relative;
-}
-.search-suggestions {
-  width: min(400px, calc(100vw - 32px));
-}
-*/
 
 .suggestions-loading {
   display: flex;
@@ -388,10 +449,10 @@ const GroupSuggestionItem = {
 .suggestion-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   cursor: pointer;
   transition: background-color 0.1s;
-  min-height: 48px;
+  min-height: 40px;
 }
 
 .suggestion-item:hover,
@@ -406,10 +467,77 @@ const GroupSuggestionItem = {
   width: 100%;
 }
 
-/* Единый размер для всех миниатюр - 32x32 */
+/* Аниме карточка - точно как в плейлисте */
+.anime-suggestion .suggestion-poster {
+  width: 44px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--color-background-active);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.anime-suggestion .poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.anime-suggestion .poster-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-background-active);
+  color: var(--color-text-tertiary);
+}
+
+.anime-suggestion .poster-placeholder svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Пользователь - карточка как аниме */
+.user-suggestion .suggestion-avatar {
+  width: 44px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--color-background-active);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-suggestion .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.user-suggestion .avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+/* Для остальных типов (playlists, groups) - старый стиль */
 .suggestion-thumbnail {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
@@ -456,7 +584,16 @@ const GroupSuggestionItem = {
   height: 18px;
 }
 
-/* Плейлист мини постеры */
+/* Плейлист мини постеры - как в плейлисте */
+.playlist-suggestion .suggestion-poster {
+  width: 44px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--color-background-active);
+}
+
 .playlist-mini-posters {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -473,10 +610,52 @@ const GroupSuggestionItem = {
   overflow: hidden;
 }
 
-.mini-poster .thumbnail-img {
+.mini-poster .poster-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.poster-placeholder-sm {
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-background-active);
+}
+
+/* Группа - карточка как аниме */
+.group-suggestion .suggestion-avatar {
+  width: 44px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--color-background-active);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-suggestion .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.group-suggestion .avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.group-suggestion .avatar-placeholder.group {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
 .suggestion-info {
@@ -488,28 +667,60 @@ const GroupSuggestionItem = {
 }
 
 .suggestion-title {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .suggestion-meta {
-  font-size: 11px;
+  font-size: 0.72rem;
   color: var(--color-text-tertiary);
   display: flex;
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
-  line-height: 1.3;
+  line-height: 1.2;
+}
+
+/* Meta chips как в плейлисте */
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  background: var(--color-background-active);
+}
+
+.meta-chip.kind {
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 10px;
+  background: var(--color-background-surface);
+}
+
+.meta-chip.score {
+  background: transparent;
+  color: #f59e0b;
+  font-weight: 600;
+  padding: 0;
 }
 
 .suggestion-rating {
-  color: var(--color-accent-orange);
+  color: #f59e0b;
   font-weight: 600;
+}
+
+.suggestion-kind {
+  background: var(--color-background-active);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  text-transform: uppercase;
 }
 
 .suggestions-empty {

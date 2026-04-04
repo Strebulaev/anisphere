@@ -12,6 +12,7 @@ from .views import (
     RandomAnimeView, CurrentlyWatchingView, UserActiveTabView,
     EpisodeProgressView, EpisodeProgressUndoView,
     AnimeThemesView, KodikVideoUrlView, KodikClipDownloadView,
+    AdminTodayAddedAnimeView,
 )
 
 router = DefaultRouter()
@@ -53,6 +54,9 @@ urlpatterns = [
     # Direct Kodik video URL (m3u8) for downloading
     path('<int:pk>/kodik_video_url/', KodikVideoUrlView.as_view(), name='kodik-video-url'),
     path('<int:pk>/clip/', KodikClipDownloadView.as_view(), name='kodik-clip-download'),
+    
+    # Admin endpoints
+    path('admin/today-added/', AdminTodayAddedAnimeView.as_view(), name='admin-today-added'),
 ]
 
 # kodik_proxy маршруты (без 'api/' префикса — он добавляется в корневом urls.py)

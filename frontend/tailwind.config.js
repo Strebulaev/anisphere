@@ -36,62 +36,63 @@ export default {
         'desktop-3xl': { 'raw': '(min-width: 3840px)' },
       },
       colors: {
-        // Фоновые цвета
+        // Фоновые цвета — глубокая ночь с оттенками сакуры
         background: {
-          DEFAULT: '#0A0A0A',
-          secondary: '#111111',
-          surface: '#1A1A1A',
-          active: '#222222',
+          DEFAULT: '#090613',
+          secondary: '#0f0b1a',
+          surface: '#151023',
+          active: '#1c162c',
         },
         
         // Текстовые цвета
         text: {
-          DEFAULT: '#373737',
-          primary: 'rgba(255, 255, 255, 0.9)',
-          secondary: '#CCCCCC',
-          tertiary: '#888888',
-          disabled: '#666666',
+          DEFAULT: '#b8aec8',
+          primary: '#f5f0f8',
+          secondary: '#b8aec8',
+          tertiary: '#6d607a',
+          disabled: '#443a54',
         },
         
-        // Акцентные цвета
+        // Акцентные цвета — нежная сакура
         accent: {
-          DEFAULT: '#3A86FF',
-          hover: '#2A76FF',
-          active: '#1A66FF',
+          DEFAULT: '#ff7eb3',
+          hover: '#ff94ab',
+          active: '#e86a9e',
         },
         
         accentPink: {
-          DEFAULT: '#FF2A6D',
-          hover: '#FF1A5D',
+          DEFAULT: '#ff7eb3',
+          hover: '#ff94ab',
         },
         
         accentTeal: {
-          DEFAULT: '#00D4AA',
+          DEFAULT: '#a8c5e2',
         },
         
         accentOrange: {
-          DEFAULT: '#FFB347',
+          DEFAULT: '#ffcba4',
         },
         
         // Разделители
         divider: {
-          DEFAULT: '#2A2A2A',
-          weak: '#333333',
-          light: '#444444',
+          DEFAULT: '#2a2244',
+          weak: '#231c38',
+          light: '#1c162c',
         },
         
         // Статусы просмотра
         status: {
-          watching: '#3A86FF',
-          completed: '#00D4AA',
-          planned: '#FFB347',
-          dropped: '#FF2A6D',
-          onhold: '#888888',
+          watching: '#ff7eb3',
+          completed: '#8ed4a8',
+          planned: '#ffd592',
+          dropped: '#ff8a8a',
+          onhold: '#b8aec8',
         },
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        display: ['Orbitron', 'sans-serif'],
+        sans: ['Inter', 'Noto Sans JP', 'Zen Kaku Gothic New', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['Syne', 'Inter', 'Noto Sans JP', 'sans-serif'],
+        jp: ['Noto Sans JP', 'Zen Kaku Gothic New', 'sans-serif'],
       },
       fontSize: {
         'h1': ['32px', { lineHeight: '1.2', fontWeight: '700' }],
@@ -113,14 +114,16 @@ export default {
         '3xl': '48px',
       },
       borderRadius: {
-        'card': '8px',
-        'button': '8px',
-        'modal': '12px',
+        'card': '12px',
+        'button': '10px',
+        'modal': '16px',
       },
       boxShadow: {
-        'card': '0 4px 20px rgba(0, 0, 0, 0.08)',
-        'card-hover': '0 20px 50px rgba(0, 0, 0, 0.15)',
-        'modal': '-4px 0 24px rgba(0, 0, 0, 0.5)',
+        'card': '0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,126,179,0.08)',
+        'card-hover': '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255,126,179,0.15)',
+        'modal': '0 24px 80px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255,126,179,0.12)',
+        'glow': '0 0 20px rgba(255,126,179,0.3)',
+        'glow-sm': '0 0 10px rgba(255,126,179,0.15)',
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out',
@@ -133,6 +136,8 @@ export default {
         'spin-fast': 'spin 6s linear infinite',
         'shimmer': 'shimmer 1.5s ease-in-out infinite',
         'glitch': 'glitch 0.3s ease-in-out',
+        'float': 'floatPetal 4s ease-in-out infinite',
+        'bloom': 'bloomIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
       },
       keyframes: {
         fadeIn: {
@@ -162,13 +167,24 @@ export default {
           '60%': { transform: 'translate(2px, 2px)' },
           '80%': { transform: 'translate(2px, -2px)' },
         },
+        floatPetal: {
+          '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+          '25%': { transform: 'translateY(-4px) rotate(2deg)' },
+          '50%': { transform: 'translateY(-2px) rotate(-1deg)' },
+          '75%': { transform: 'translateY(-6px) rotate(1deg)' },
+        },
+        bloomIn: {
+          '0%': { opacity: '0', transform: 'scale(0.9) translateY(10px)' },
+          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
       },
       backdropBlur: {
-        'nav': '10px',
-        'panel': '12px',
+        'nav': '12px',
+        'panel': '16px',
       },
       transitionTimingFunction: {
-        'smooth': 'cubic-bezier(0.4, 0.0, 0.2, 1)',
+        'smooth': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        'petal': 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

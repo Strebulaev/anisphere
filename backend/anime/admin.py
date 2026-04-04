@@ -1,4 +1,8 @@
 from django.contrib import admin
+from django.utils import timezone
+from django.shortcuts import render
+from django.http import HttpResponseRedirect
+from django.urls import path
 from anime.models import (
     Franchise, Genre, Studio, Anime, Playlist, PlaylistItem, VoiceActor, DubStudio,
     Dub, DubRole, UserDubRating, VideoSource, Episode, Translation,
@@ -86,6 +90,46 @@ class AnimeAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('today/', self.admin_site.admin_view(self.today_added_view), name='anime_today'),
+        ]
+        return custom_urls + urls
+
+    def today_added_view(self, request):
+        """Показывает аниме добавленные сегодня"""
+        from datetime import timedelta
+        
+        now = timezone.now()
+        today_moscow = now.date()
+        
+        # Берем за последние 16 часов (с учетом ночи)
+        cutoff = now - timedelta(hours=16)
+        anime_list = Anime.objects.filter(created_at__gte=cutoff).order_by('-created_at')
+        
+        context = {
+            'title': 'Аниме добавленные сегодня',
+            'anime_list': anime_list,
+            'today': today_moscow,
+            'count': anime_list.count(),
+            **self.admin_site.each_context(request),
+        }
+        return render(request, 'admin/anime_today.html', context)
+    
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        from datetime import timedelta
+        now = timezone.now()
+        cutoff = now - timedelta(hours=16)
+        extra_context['today_count'] = Anime.objects.filter(created_at__gte=cutoff).count()
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def add_view(self, request, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_cancel_link'] = True
+        return super().add_view(request, form_url, extra_context=extra_context)
 
 
 @admin.register(Playlist)

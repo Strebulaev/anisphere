@@ -107,6 +107,31 @@
       </div>
     </div>
 
+    <!-- Вкладка: Добавлено сегодня -->
+    <div v-else-if="activeTab === 'today_added'" class="tab-content">
+      <div class="section-title">
+        Аниме добавленные сегодня ({{ todayAddedAnime.length }})
+      </div>
+      <div class="anime-grid">
+        <div v-for="a in todayAddedAnime" :key="a.id" class="anime-card">
+          <div class="anime-poster">
+            <img v-if="a.poster_url" :src="a.poster_url" :alt="a.title_ru" />
+            <div v-else class="no-poster">🎬</div>
+          </div>
+          <div class="anime-info">
+            <div class="anime-title">{{ a.title_ru }}</div>
+            <div class="anime-meta">
+              {{ a.year }} · {{ a.kind }} · {{ a.episodes || '?' }} эп.
+            </div>
+            <div class="anime-status" :class="a.status">{{ a.status }}</div>
+          </div>
+        </div>
+        <div v-if="!todayAddedAnime.length" class="empty-state">
+          Сегодня аниме не добавлялось
+        </div>
+      </div>
+    </div>
+
     <!-- Вкладка: Жалобы -->
     <div v-else-if="activeTab === 'complaints'" class="tab-content">
       <div class="complaints-toolbar">
@@ -187,6 +212,7 @@ const lastRefresh = ref('')
 const stats = ref<any>({})
 const recentRegistrations = ref<any[]>([])
 const onlineUsers = ref<any[]>([])
+const todayAddedAnime = ref<any[]>([])
 const complaints = ref<any[]>([])
 const complaintFilter = ref('pending')
 
@@ -194,6 +220,7 @@ const tabs = [
   { id: 'stats',         icon: '📊', label: 'Статистика' },
   { id: 'registrations', icon: '👤', label: 'Регистрации' },
   { id: 'online',        icon: '🟢', label: 'Онлайн' },
+  { id: 'today_added',   icon: '📺', label: 'Добавлено сегодня' },
   { id: 'complaints',    icon: '⚠️', label: 'Жалобы' },
 ]
 
@@ -232,6 +259,16 @@ const loadComplaints = async () => {
   }
 }
 
+const loadTodayAddedAnime = async () => {
+  try {
+    const { data } = await api.get('/anime/admin/today-added/')
+    todayAddedAnime.value = data.anime || []
+  } catch (e) {
+    console.error('Today added anime error:', e)
+    todayAddedAnime.value = []
+  }
+}
+
 const setComplaintFilter = (val: string) => {
   complaintFilter.value = val
   loadComplaints()
@@ -254,6 +291,7 @@ const loadAll = () => {
 
 watch(activeTab, (val) => {
   if (val === 'complaints') loadComplaints()
+  if (val === 'today_added') loadTodayAddedAnime()
 })
 
 const formatDate = (d: string) => {
@@ -566,4 +604,79 @@ onMounted(() => {
   font-size: 16px;
   color: var(--secondary-text, #aaa);
 }
+
+/* Anime Grid */
+.anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.anime-card {
+  background: var(--card-bg, #1e1e1e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.anime-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-color, #6c63ff);
+}
+
+.anime-poster {
+  width: 80px;
+  min-height: 120px;
+  background: var(--hover-bg, #2a2a2a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.anime-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-poster {
+  font-size: 28px;
+  opacity: 0.5;
+}
+
+.anime-info {
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.anime-title {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.anime-meta {
+  font-size: 12px;
+  color: var(--secondary-text, #aaa);
+}
+
+.anime-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.anime-status.ongoing { background: #22c55e22; color: #22c55e; }
+.anime-status.finished { background: #3b82f622; color: #3b82f6; }
+.anime-status.announced { background: #f59e0b22; color: #f59e0b; }
+.anime-status.canceled { background: #ef444422; color: #ef4444; }
 </style>

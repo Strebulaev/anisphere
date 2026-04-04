@@ -516,6 +516,27 @@ class FavoriteAnimeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def _sync_library_favorite(self, user, anime_id, is_favorite):
+        """Синхронизировать избранное с библиотекой пользователя"""
+        from users.models import UserLibrary
+        try:
+            library_item = UserLibrary.objects.filter(user=user, anime_id=anime_id).first()
+            if library_item:
+                if library_item.is_favorite != is_favorite:
+                    library_item.is_favorite = is_favorite
+                    library_item.save(update_fields=['is_favorite', 'updated_at'])
+            else:
+                # Создаём запись в библиотеке со статусом "В планах" и is_favorite=True
+                UserLibrary.objects.create(
+                    user=user,
+                    anime_id=anime_id,
+                    status='planned',
+                    is_favorite=is_favorite
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error syncing library favorite: {e}")
+
     def create(self, request, *args, **kwargs):
         anime_id = request.data.get('anime')
         if not anime_id:
@@ -523,13 +544,23 @@ class FavoriteAnimeViewSet(viewsets.ModelViewSet):
         existing = FavoriteAnime.objects.filter(user=request.user, anime_id=anime_id).first()
         if existing:
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
-        return super().create(request, *args, **kwargs)
+        
+        # Создаём избранное
+        result = super().create(request, *args, **kwargs)
+        
+        # Синхронизируем с библиотекой
+        if result.status_code in (200, 201):
+            self._sync_library_favorite(request.user, anime_id, True)
+        
+        return result
 
     def destroy(self, request, *args, **kwargs):
         anime_id = request.data.get('anime_id')
         if anime_id:
             deleted, _ = FavoriteAnime.objects.filter(user=request.user, anime_id=anime_id).delete()
             if deleted:
+                # Синхронизируем с библиотекой - убираем из избранного
+                self._sync_library_favorite(request.user, anime_id, False)
                 return Response({'message': 'Удалено'}, status=status.HTTP_204_NO_CONTENT)
         return super().destroy(request, *args, **kwargs)
 
@@ -548,6 +579,8 @@ class FavoriteAnimeViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Нет anime_id'}, status=status.HTTP_400_BAD_REQUEST)
         deleted, _ = FavoriteAnime.objects.filter(user=request.user, anime_id=anime_id).delete()
         if deleted:
+            # Синхронизируем с библиотекой - убираем из избранного
+            self._sync_library_favorite(request.user, anime_id, False)
             return Response({'message': 'Удалено'}, status=status.HTTP_204_NO_CONTENT)
         return Response({'error': 'Не в избранном'}, status=status.HTTP_404_NOT_FOUND)
 

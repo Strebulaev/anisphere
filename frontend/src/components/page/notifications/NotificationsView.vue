@@ -43,22 +43,27 @@
         </div>
       </div>
 
-      <!-- Табы -->
-      <div class="tabs">
-        <button
-          v-for="t in tabs"
-          :key="t.key"
-          :class="['tab', { active: activeTab === t.key }]"
-          @click="switchTab(t.key)"
-        >
-          {{ t.label }}
-          <span v-if="t.key === 'unread' && store.unreadCount > 0" class="tab-badge">
-            {{ store.unreadCount }}
-          </span>
-          <span v-if="t.key === 'reminders' && activeRemindersCount > 0" class="tab-badge reminder">
-            {{ activeRemindersCount }}
-          </span>
-        </button>
+      <!-- Табы с общим счётчиком непрочитанных -->
+      <div class="tabs-wrapper">
+        <div v-if="store.unreadCount > 0" class="total-unread-badge" title="Всего непрочитанных">
+          🔔 {{ store.unreadCount }}
+        </div>
+        <div class="tabs">
+          <button
+            v-for="t in tabs"
+            :key="t.key"
+            :class="['tab', { active: activeTab === t.key }]"
+            @click="switchTab(t.key)"
+          >
+            {{ t.label }}
+            <span v-if="t.key === 'unread' && store.unreadCount > 0" class="tab-badge">
+              {{ store.unreadCount }}
+            </span>
+            <span v-if="t.key === 'reminders' && activeRemindersCount > 0" class="tab-badge reminder">
+              {{ activeRemindersCount }}
+            </span>
+          </button>
+        </div>
       </div>
 
       <!-- Фильтры типов (только для уведомлений) -->
@@ -226,7 +231,7 @@ const contentRef = ref<HTMLElement | null>(null)
 const tabs = [
   { key: 'all',       label: 'Все' },
   { key: 'unread',    label: 'Непрочитанные' },
-  { key: 'important', label: 'Важные' },
+  // { key: 'important', label: 'Важные' },
   { key: 'reminders', label: 'Напоминания' },
 ] as const
 
@@ -508,6 +513,29 @@ onUnmounted(() => {
 .confirm-btns { display: flex; gap: .75rem; justify-content: center; }
 
 /* ── Табы ───────────────────────────────────────────────── */
+.tabs-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.total-unread-badge {
+  position: absolute;
+  top: -28px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 20px;
+  color: #3b82f6;
+  font-size: 0.75rem;
+  font-weight: 700;
+  z-index: 10;
+}
+
 .tabs {
   display: flex;
   gap: .4rem;

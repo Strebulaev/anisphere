@@ -9,23 +9,23 @@
         </div>
 
         <div class="gs-body">
-          <p class="gs-hint">
+          <!-- <p class="gs-hint">
             Глобальные стилевые настройки применяются ко всем чатам.
             Настройки конкретного чата имеют приоритет над этими.
-          </p>
+          </p> -->
 
           <!-- Фон -->
           <section class="gs-section">
             <h3 class="gs-section-title">Фон чата</h3>
-            <div class="gs-row">
+            <!-- <div class="gs-row">
               <label class="gs-label">Тип фона</label>
               <select v-model="form.wallpaper_type" class="gs-select">
                 <option value="solid">Сплошной цвет</option>
                 <option value="gradient">Градиент</option>
                 <option value="pattern">Паттерн</option>
               </select>
-            </div>
-            <div class="gs-row" v-if="form.wallpaper_type !== 'pattern'">
+            </div> -->
+            <!-- <div class="gs-row" v-if="form.wallpaper_type !== 'pattern'">
               <label class="gs-label">Цвет 1</label>
               <input type="color" v-model="form.wallpaper_color" class="gs-color" />
             </div>
@@ -33,10 +33,10 @@
               <label class="gs-label">Цвет 2</label>
               <input type="color" v-model="form.wallpaper_color2" class="gs-color" />
             </div>
-          </section>
+          </section> -->
 
           <!-- Пузыри -->
-          <section class="gs-section">
+          <!-- <section class="gs-section">
             <h3 class="gs-section-title">Пузыри сообщений</h3>
             <div class="gs-row">
               <label class="gs-label">Стиль пузырей</label>
@@ -46,14 +46,13 @@
                   {{ s.label }}
                 </label>
               </div>
-            </div>
+            </div> -->
             <div class="gs-row">
               <label class="gs-label">Акцентный цвет</label>
               <input type="color" v-model="form.accent_color" class="gs-color" />
             </div>
           </section>
-
-          <!-- Шрифт -->
+          <!--
           <section class="gs-section">
             <h3 class="gs-section-title">Текст</h3>
             <div class="gs-row">
@@ -74,7 +73,6 @@
             </div>
           </section>
 
-          <!-- Анимации -->
           <section class="gs-section">
             <h3 class="gs-section-title">Анимации</h3>
             <div class="gs-row">
@@ -88,7 +86,6 @@
             </div>
           </section>
 
-          <!-- Эмодзи -->
           <section class="gs-section">
             <h3 class="gs-section-title">Эмодзи</h3>
             <div class="gs-row">
@@ -101,7 +98,7 @@
                 <option value="anime">Аниме</option>
               </select>
             </div>
-          </section>
+          </section> -->
         </div>
 
         <div class="gs-footer">
@@ -183,51 +180,54 @@ onMounted(load)
 <style scoped>
 .gs-backdrop {
   position: fixed; inset: 0; z-index: 10000;
-  background: rgba(0,0,0,.6);
+  background: rgba(5,4,8,0.88);
+  backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
   padding: 1rem;
 }
 .gs-modal {
-  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 16px;
+  background: var(--surface-2); border: 1px solid var(--border-default); border-radius: var(--radius-xl);
   width: 100%; max-width: 460px; max-height: 90vh;
   display: flex; flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-modal);
 }
 .gs-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px; border-bottom: 1px solid #2a2a2a; flex-shrink: 0;
+  padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
 }
-.gs-title { color: #e0e0e0; font-weight: 700; font-size: 1rem; }
-.gs-close  { background: none; border: none; color: #666; cursor: pointer; font-size: 1.1rem; }
+.gs-title { color: var(--text-primary); font-weight: 700; font-size: 1rem; }
+.gs-close  { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 1.1rem; transition: color .15s var(--ease-petal); }
+.gs-close:hover { color: var(--accent); }
 .gs-body   { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
-.gs-hint   { color: #666; font-size: .8rem; line-height: 1.5; margin: 0; }
+.gs-hint   { color: var(--text-tertiary); font-size: .8rem; line-height: 1.5; margin: 0; }
 
 .gs-section { display: flex; flex-direction: column; gap: 10px; }
-.gs-section-title { font-size: .75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+.gs-section-title { font-size: .75rem; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .06em; margin: 0; }
 .gs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.gs-label { color: #ccc; font-size: .875rem; flex-shrink: 0; }
+.gs-label { color: var(--text-secondary); font-size: .875rem; flex-shrink: 0; }
 .gs-select {
-  background: #111; border: 1px solid #333; border-radius: 6px;
-  color: #ddd; padding: 5px 8px; font-size: .85rem; cursor: pointer;
+  background: var(--surface-4); border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  color: var(--text-primary); padding: 5px 8px; font-size: .85rem; cursor: pointer; transition: border-color .15s var(--ease-petal);
 }
-.gs-color { width: 40px; height: 30px; border: none; border-radius: 6px; cursor: pointer; padding: 2px; background: transparent; }
+.gs-select:focus { outline: none; border-color: var(--accent); }
+.gs-color { width: 40px; height: 30px; border: none; border-radius: var(--radius-md); cursor: pointer; padding: 2px; background: transparent; }
 .gs-radio-group { display: flex; gap: 12px; flex-wrap: wrap; }
-.gs-radio { display: flex; align-items: center; gap: 5px; color: #ccc; font-size: .85rem; cursor: pointer; }
-.gs-radio input { accent-color: #6C5CE7; }
+.gs-radio { display: flex; align-items: center; gap: 5px; color: var(--text-secondary); font-size: .85rem; cursor: pointer; }
+.gs-radio input { accent-color: var(--accent); }
 
 .gs-footer {
   display: flex; justify-content: flex-end; gap: 10px;
-  padding: 14px 20px; border-top: 1px solid #2a2a2a; flex-shrink: 0;
+  padding: 14px 20px; border-top: 1px solid var(--border-subtle); flex-shrink: 0;
 }
 .gs-btn-reset {
-  background: #111; border: 1px solid #333; color: #888; border-radius: 8px;
-  padding: 8px 16px; cursor: pointer; font-size: .875rem;
+  background: var(--surface-4); border: 1px solid var(--border-default); color: var(--text-tertiary); border-radius: var(--radius-lg);
+  padding: 8px 16px; cursor: pointer; font-size: .875rem; transition: all .15s var(--ease-petal);
 }
-.gs-btn-reset:hover { background: #1a1a1a; color: #ccc; }
+.gs-btn-reset:hover { background: var(--surface-5); color: var(--text-secondary); }
 .gs-btn-save {
-  background: #6C5CE7; border: none; color: #fff; border-radius: 8px;
-  padding: 8px 20px; cursor: pointer; font-weight: 600; font-size: .875rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-press)); border: none; color: var(--text-on-accent); border-radius: var(--radius-lg);
+  padding: 8px 20px; cursor: pointer; font-weight: 600; font-size: .875rem; box-shadow: var(--shadow-petal-sm); transition: all .15s var(--ease-petal);
 }
-.gs-btn-save:hover:not(:disabled) { background: #5a4bd4; }
+.gs-btn-save:hover:not(:disabled) { box-shadow: var(--shadow-glow-sm); transform: translateY(-1px); }
 .gs-btn-save:disabled { opacity: .5; cursor: not-allowed; }
 </style>

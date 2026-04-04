@@ -587,6 +587,38 @@ def join_chat_by_invite(request, token):
     if chat.members.count() >= chat.max_members:
         return Response({'error': 'Чат переполнен'}, status=400)
 
+    # Для приватных чатов - создаём запрос на вступление вместо прямого добавления
+    if not chat.is_public:
+        # Проверяем, не подавал ли уже заявку
+        existing_request = ChatJoinRequest.objects.filter(
+            chat=chat, user=request.user, status='pending'
+        ).first()
+        if existing_request:
+            return Response({'error': 'Запрос уже отправлен', 'status': 'pending'}, status=400)
+        
+        # Создаём запрос на вступление
+        ChatJoinRequest.objects.create(
+            chat=chat,
+            user=request.user,
+            status='pending',
+            message=f'Запрос на вступление по ссылке-приглашению'
+        )
+        
+        # Логируем попытку вступления
+        ChatAdminLog.objects.create(
+            chat=chat, user=request.user,
+            action='join_requested',
+            details={'invite_link': invite.invite_link}
+        )
+
+        return Response({
+            'status': 'pending',
+            'message': 'Запрос на вступление отправлен. Ожидайте одобрения.',
+            'chat_id': chat.id,
+            'chat_name': chat.name
+        })
+
+    # Для публичных чатов - сразу добавляем
     ChatMember.objects.create(
         user=request.user,
         chat=chat,

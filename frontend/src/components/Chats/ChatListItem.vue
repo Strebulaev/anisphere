@@ -233,23 +233,24 @@ const formatLastMessage = (lastMessage?: Chat['lastMessage']) => {
 <style scoped>
 .chat-list-item {
   background: transparent;
+  transition: all var(--duration-base) var(--ease-petal);
 }
 
 .chat-list-item:hover .chat-item-content {
-  background: #222222;
+  background: var(--surface-4);
 }
 
 .chat-list-item.active {
-  background: #222222;
-  border-right: 2px solid #3b82f6;
+  background: var(--surface-4);
+  border-right: 2px solid var(--accent);
 }
 
 .chat-list-item.active .chat-item-content {
-  background: #2a2a2a;
+  background: var(--surface-5);
 }
 
 .chat-list-item.active h3 {
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 /* Убедитесь, что класс truncate работает */

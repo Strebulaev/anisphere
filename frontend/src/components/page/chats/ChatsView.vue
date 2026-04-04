@@ -404,22 +404,36 @@ watch(
   height: 90vh;
   display: flex;
   flex-direction: column;
-  background-color: #0f0f0f;
+  background: var(--surface-1);
   overflow: hidden;
+  position: relative;
+}
+
+/* Фоновый узор */
+.chats-view::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle at 10% 90%, rgba(255,126,179,0.03) 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(168,197,226,0.03) 0%, transparent 40%);
+  pointer-events: none;
 }
 
 .chats-container {
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .chats-sidebar {
   min-width: 200px;
   max-width: 600px;
   flex-shrink: 0;
-  background: #1a1a1a;
-  border-right: 1px solid #2a2a2a;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -427,21 +441,22 @@ watch(
 
 .chats-sidebar-resizer {
   width: 4px;
-  background: #2a2a2a;
+  background: var(--border-subtle);
   cursor: ew-resize;
   flex-shrink: 0;
-  transition: background-color 0.2s;
+  transition: all var(--duration-base) var(--ease-petal);
 }
 
 .chats-sidebar-resizer:hover {
-  background: #3b82f6;
+  background: var(--accent);
+  box-shadow: var(--shadow-glow-sm);
 }
 
 .chats-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #0f0f0f;
+  background: var(--surface-1);
   overflow: hidden;
 }
 
@@ -458,15 +473,15 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #666;
+  color: var(--text-tertiary);
   font-size: 1rem;
 }
 
 .loading-spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid #333;
-  border-top-color: #3b82f6;
+  border: 2px solid var(--surface-5);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -478,36 +493,36 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f0f0f;
+  background: var(--surface-1);
 }
 
 .no-chat-content {
   text-align: center;
-  color: #888;
+  color: var(--text-tertiary);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
-
+  
 .no-chat-content svg {
   width: 80px;
   height: 80px;
   margin-bottom: 1rem;
   opacity: 0.4;
-  stroke: #666;
+  stroke: var(--text-tertiary);
 }
 
 .no-chat-content h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--text-primary);
   margin: 0 0 0.5rem 0;
 }
 
 .no-chat-content p {
   font-size: 1rem;
-  color: #888;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -515,7 +530,7 @@ watch(
 @media (max-width: 767px) {
   .chats-view {
     height: 100vh;
-    margin-top: 60px; /* Отступ под мобильную навигацию */
+    margin-top: 54px;
   }
   
   .chats-sidebar {
@@ -524,7 +539,7 @@ watch(
     position: absolute;
     inset: 0;
     z-index: 10;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s var(--ease-petal);
   }
   
   .chats-sidebar.mobile-hidden {
@@ -535,9 +550,9 @@ watch(
     position: absolute;
     inset: 0;
     z-index: 20;
-    background: #0f0f0f;
+    background: var(--surface-1);
     transform: translateX(100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s var(--ease-petal);
   }
   
   .chats-main.mobile-active {
@@ -547,23 +562,26 @@ watch(
 .mobile-back-btn {
   display: none;
   position: absolute;
-  top: 60px;
+  top: 54px;
   left: 10px;
   z-index: 30;
   width: 40px;
   height: 40px;
   align-items: center;
   justify-content: center;
-  background: var(--surface-2);
-  border: none;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
   border-radius: 50%;
   color: var(--text-primary);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-md);
+  transition: all var(--duration-base) var(--ease-petal);
 }
 
 .mobile-back-btn:hover {
-  background: var(--surface-3);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 }
   

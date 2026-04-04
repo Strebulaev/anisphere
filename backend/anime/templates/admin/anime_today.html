@@ -1,0 +1,75 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}Аниме добавленные сегодня{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module-header">
+        <h1>Аниме добавленные сегодня ({{ today }})</h1>
+        <p>Всего добавлено: <strong>{{ count }}</strong></p>
+    </div>
+    
+    {% if anime_list %}
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Тип</th>
+                <th>Год</th>
+                <th>Эпизоды</th>
+                <th>Статус</th>
+                <th>Источник</th>
+                <th>Добавлено</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for anime in anime_list %}
+            <tr>
+                <td>{{ anime.id }}</td>
+                <td>
+                    <a href="{% url 'admin:anime_anime_change' anime.id %}">{{ anime.title_ru }}</a>
+                    {% if anime.title_en %}<br><small>{{ anime.title_en }}</small>{% endif %}
+                </td>
+                <td>{{ anime.get_kind_display }}</td>
+                <td>{{ anime.year }}</td>
+                <td>{{ anime.episodes|default:"-" }}</td>
+                <td>{{ anime.get_status_display }}</td>
+                <td>{{ anime.data_source|default:"-" }}</td>
+                <td>{{ anime.created_at|date:"H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-info">Сегодня аниме не добавлялось.</p>
+    {% endif %}
+    
+    <div class="submit-row">
+        <a href="{% url 'admin:anime_anime_changelist %}" class="btn btn-default">К списку аниме</a>
+    </div>
+</div>
+
+<style>
+.module-header {
+    margin-bottom: 20px;
+}
+.module-header h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+.empty-info {
+    padding: 40px;
+    text-align: center;
+    color: #666;
+    background: #f9f9f9;
+    border-radius: 4px;
+}
+.submit-row {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+</style>
+{% endblock %}

@@ -18,6 +18,8 @@ class User(AbstractUser):
     # Дополнительные поля профиля
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     cover_image = models.ImageField(upload_to='covers/', null=True, blank=True, verbose_name=_('Profile cover'))
+    cover_position_x = models.FloatField(default=50, verbose_name=_('Cover position X'))
+    cover_position_y = models.FloatField(default=50, verbose_name=_('Cover position Y'))
     bio = models.TextField(max_length=500, blank=True)
 
     # Никнейм и отображаемое имя
@@ -1016,3 +1018,98 @@ class UserLibrary(models.Model):
         """Отметить как любимое"""
         self.is_favorite = True
         self.save(update_fields=['is_favorite', 'updated_at'])
+
+
+# ==================== ПОДДЕРЖКА ====================
+
+class SupportTicket(models.Model):
+    """Обращение в поддержку"""
+    STATUS_CHOICES = [
+        ('open', 'Открыто'),
+        ('in_progress', 'В работе'),
+        ('waiting', 'Ожидание ответа'),
+        ('resolved', 'Решено'),
+        ('closed', 'Закрыто'),
+    ]
+
+    PRIORITY_CHOICES = [
+        ('low', 'Низкий'),
+        ('medium', 'Средний'),
+        ('high', 'Высокий'),
+        ('urgent', 'Срочный'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
+    subject = models.CharField(max_length=200, verbose_name='Тема')
+    description = models.TextField(verbose_name='Описание')
+    category = models.CharField(
+        max_length=50,
+        choices=[
+            ('general', 'Общий вопрос'),
+            ('account', 'Проблема с аккаунтом'),
+            ('payment', 'Оплата'),
+            ('bug', 'Баг/ошибка'),
+            ('content', 'Контент'),
+            ('other', 'Другое'),
+        ],
+        default='general',
+        verbose_name='Категория'
+    )
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', verbose_name='Статус')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium', verbose_name='Приоритет')
+
+    # Связанный админ
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_tickets',
+        verbose_name='Назначенный админ'
+    )
+
+    # Для связи с чатом поддержки
+    chat_id = models.CharField(max_length=100, blank=True, null=True, verbose_name='ID чата')
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
+    resolved_at = models.DateTimeField(null=True, blank=True, verbose_name='Решено')
+
+    class Meta:
+        verbose_name = 'Обращение в поддержку'
+        verbose_name_plural = 'Обращения в поддержку'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['status', 'priority']),
+        ]
+
+    def __str__(self):
+        return f"#{self.id} - {self.user.username} - {self.subject}"
+
+
+class SupportMessage(models.Model):
+    """Сообщение в обращении поддержки"""
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_messages')
+    message = models.TextField(verbose_name='Сообщение')
+    is_from_admin = models.BooleanField(default=False, verbose_name='От админа')
+
+    # Для вложений
+    attachments = models.JSONField(default=list, verbose_name='Вложения')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Сообщение поддержки'
+        verbose_name_plural = 'Сообщения поддержки'
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['ticket', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"Ticket #{self.ticket.id} - {self.sender.username}"

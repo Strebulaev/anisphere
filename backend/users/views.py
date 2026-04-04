@@ -27,7 +27,7 @@ import requests
 from .models import (
     User, UserProfileSettings, TwoFactorAuth, ActiveSession,
     NotificationSettings, PrivacySettings, UserTheme, ChatBackground,
-    UserAnalytics, EmailLog, SecurityLog
+    UserAnalytics, EmailLog, SecurityLog, SupportTicket, SupportMessage
 )
 from .serializers import (
     UserSerializer, UserSimpleSerializer, RegisterSerializer, LoginSerializer,
@@ -35,7 +35,8 @@ from .serializers import (
     GoogleAuthSerializer, PasswordResetSerializer,
     ProfileUpdateSerializer, UserSessionSerializer, UserSettingsSerializer,
     NicknameCheckSerializer, TwoFactorSetupSerializer, ChangePasswordSerializer,
-    ActiveSessionSerializer,
+    ActiveSessionSerializer, SupportTicketSerializer, SupportTicketListSerializer,
+    SupportTicketCreateSerializer, SupportMessageSerializer,
 )
 from core.redis_events import event_publisher
 
@@ -66,6 +67,37 @@ class CurrentUserView(APIView):
 
     def patch(self, request):
         return self._update_profile(request)
+
+    def delete(self, request):
+        """DELETE /api/users/me/ - удаление аккаунта"""
+        user = request.user
+        
+        # Проверяем, не удалён ли уже аккаунт
+        if getattr(user, 'is_deleted', False):
+            return Response({'error': 'Аккаунт уже удалён'}, status=400)
+        
+        # Проверяем, есть ли поле для soft delete
+        if hasattr(user, 'deleted_at'):
+            from django.utils import timezone
+            user.is_deleted = True
+            user.deleted_at = timezone.now()
+            user.email = f'deleted_{user.id}_{timezone.now().timestamp()}@deleted.anisphere'
+            user.save()
+            
+            # Отзываем все токены
+            from rest_framework_simplejwt.tokens import RefreshToken
+            try:
+                RefreshToken.for_user(user)
+            except:
+                pass
+            
+            return Response({
+                'message': 'Аккаунт удалён. Вы можете восстановить его в течение 7 дней, войдя в аккаунт.'
+            })
+        else:
+            # Если нет soft delete - удаляем полностью
+            user.delete()
+            return Response({'message': 'Аккаунт удалён'})
 
     def _update_profile(self, request):
         user = request.user
@@ -838,6 +870,23 @@ class UserSettingsView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
+class OnlineStatusView(APIView):
+    """Быстрая проверка статуса онлайн для конкретного пользователя (polling)"""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'is_online': False, 'error': 'user_id required'}, status=400)
+        
+        from core.online_status import online_status
+        online_data = online_status.get_online_users()
+        online_ids = set(u.get('user_id') for u in online_data if u.get('user_id'))
+        
+        is_online = int(user_id) in online_ids
+        return Response({'is_online': is_online})
+
+
 class OnlineUsersView(generics.ListAPIView):
     """Список пользователей онлайн с фильтрацией.
     
@@ -865,7 +914,7 @@ class OnlineUsersView(generics.ListAPIView):
             Q(settings__isnull=True) |
             Q(settings__show_online_status=True)
         )
-
+        
         # Поиск
         search = request.query_params.get('search', '').strip()
         if search:
@@ -1155,7 +1204,7 @@ class TwoFactorAuthViewSet(viewsets.ViewSet):
             name=request.user.email,
             issuer_name="AnimeCore"
         )
-
+        
         # �������� QR-���� � base64
         qr = qrcode.make(provisioning_uri)
         buffer = BytesIO()
@@ -2241,193 +2290,175 @@ class UsersListView(APIView):
             'count': len(result),
             'tab': tab,
             'online_count': len(online_ids),
-            'offline_count': User.objects.count() - len(online_ids),
+            'online_ids': list(online_ids),
         })
 
 
-class OnlineStatusView(APIView):
-    """Быстрая проверка статуса онлайн для списка пользователей"""
+# ==================== ПОДДЕРЖКА ====================
+
+class SupportTicketViewSet(viewsets.ViewSet):
+    """ViewSet для обращений в поддержку"""
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        from core.online_status import online_status
+    def list(self, request):
+        """Список обращений пользователя или всех (для админа)"""
+        user = request.user
         
-        # Получаем ID пользователей из параметра user_ids (через запятую)
-        user_ids_param = request.query_params.get('user_ids', '')
-        if user_ids_param:
-            try:
-                user_ids = [int(x.strip()) for x in user_ids_param.split(',') if x.strip().isdigit()]
-            except:
-                user_ids = []
+        # Админы видят все обращения
+        if user.is_staff or user.is_superuser or user.username == 'kaiden812':
+            tickets = SupportTicket.objects.all().order_by('-created_at')[:50]
         else:
-            user_ids = []
+            tickets = SupportTicket.objects.filter(user=user).order_by('-created_at')
         
-        result = {}
-        
-        if user_ids:
-            # Только для запрошенных пользователей
-            for user_id in user_ids:
-                user_data = online_status.get_user_data(user_id)
-                result[user_id] = {
-                    'is_online': user_data is not None,
-                    'is_active': user_data.get('is_active', False) if user_data else False,
-                }
-        else:
-            # Все онлайн пользователи
-            online_users = online_status.get_online_users()
-            for u in online_users:
-                if isinstance(u, dict) and 'user_id' in u:
-                    result[u['user_id']] = {
-                        'is_online': True,
-                        'is_active': u.get('is_active', False),
-                    }
-        
-        return Response({
-            'statuses': result,
-            'online_count': len([v for v in result.values() if v['is_online']]),
-        })
+        serializer = SupportTicketListSerializer(tickets, many=True, context={'request': request})
+        return Response({'results': serializer.data, 'count': len(serializer.data)})
 
-
-class OnlineUsersView(APIView):
-    """Пользователи онлайн с фильтрацией"""
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-        from core.online_status import online_status
-        from django.db.models import Q
-
-        # Получаем статус фильтра
-        status_filter = request.query_params.get('status', 'all')  # all, online, offline, active, away
-        search = request.query_params.get('search', '').strip()
-        
-        # Определяем базовый QuerySet
-        if status_filter == 'online' or status_filter == 'active':
-            # Только онлайн - получаем из Redis
-            online_users_data = online_status.get_online_users()
-            online_ids = [u['user_id'] for u in online_users_data if isinstance(u, dict) and 'user_id' in u]
-            if status_filter == 'active':
-                # Только активные (не отошли)
-                active_ids = [u['user_id'] for u in online_users_data if isinstance(u, dict) and u.get('is_active', True)]
-                users_qs = User.objects.filter(id__in=active_ids)
-            else:
-                users_qs = User.objects.filter(id__in=online_ids) if online_ids else User.objects.none()
-        elif status_filter == 'offline':
-            # Только офлайн
-            online_users_data = online_status.get_online_users()
-            online_ids = [u['user_id'] for u in online_users_data if isinstance(u, dict) and 'user_id' in u]
-            users_qs = User.objects.exclude(id__in=online_ids) if online_ids else User.objects.all()
-        else:
-            # all - все пользователи
-            users_qs = User.objects.all().order_by('-last_login')
-
-        # Поиск
-        if search:
-            users_qs = users_qs.filter(
-                Q(username__icontains=search) |
-                Q(nickname__icontains=search) |
-                Q(display_name__icontains=search)
+    def create(self, request):
+        """Создать новое обращение"""
+        serializer = SupportTicketCreateSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            ticket = serializer.save()
+            
+            # Создаём первое сообщение с описанием проблемы
+            SupportMessage.objects.create(
+                ticket=ticket,
+                sender=request.user,
+                message=ticket.description,
+                is_from_admin=False
             )
+            
+            return Response(
+                SupportTicketSerializer(ticket, context={'request': request}).data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Формируем результат
-        result = []
-        online_count = 0
-        offline_count = 0
+    def retrieve(self, request, pk=None):
+        """Получить обращение по ID"""
+        try:
+            ticket = SupportTicket.objects.get(pk=pk)
+        except SupportTicket.DoesNotExist:
+            return Response({'error': 'Обращение не найдено'}, status=404)
+        
+        # Проверяем доступ
+        user = request.user
+        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812' or ticket.user == user):
+            return Response({'error': 'Доступ запрещён'}, status=403)
+        
+        serializer = SupportTicketSerializer(ticket, context={'request': request})
+        return Response(serializer.data)
 
-        for user in users_qs[:100]:  # Ограничиваем 100 пользователей
-            # Проверяем онлайн статус через Redis
-            user_data = online_status.get_user_data(user.id)
-            is_online = user_data is not None
-            is_active = user_data.get('is_active', False) if user_data else False
+    @action(detail=True, methods=['post'])
+    def reply(self, request, pk=None):
+        """Отправить сообщение в обращение"""
+        try:
+            ticket = SupportTicket.objects.get(pk=pk)
+        except SupportTicket.DoesNotExist:
+            return Response({'error': 'Обращение не найдено'}, status=404)
+        
+        user = request.user
+        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812' or ticket.user == user):
+            return Response({'error': 'Доступ запрещён'}, status=403)
+        
+        message_text = request.data.get('message')
+        if not message_text:
+            return Response({'error': 'Сообщение не может быть пустым'}, status=400)
+        
+        # Определяем, от админа ли сообщение
+        is_admin = user.is_staff or user.is_superuser or user.username == 'kaiden812'
+        
+        # Создаём сообщение
+        message = SupportMessage.objects.create(
+            ticket=ticket,
+            sender=user,
+            message=message_text,
+            is_from_admin=is_admin
+        )
+        
+        # Обновляем статус обращения
+        if is_admin:
+            # Если админ ответил - меняем статус на "в работе"
+            if ticket.status == 'open':
+                ticket.status = 'in_progress'
+                ticket.assigned_to = user
+                ticket.save()
+        else:
+            # Если пользователь ответил - меняем статус на "ожидание"
+            if ticket.status in ['in_progress', 'resolved']:
+                ticket.status = 'waiting'
+                ticket.save()
+        
+        return Response(SupportMessageSerializer(message).data, status=status.HTTP_201_CREATED)
 
-            if is_online:
-                online_count += 1
-            else:
-                offline_count += 1
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """Закрыть обращение"""
+        try:
+            ticket = SupportTicket.objects.get(pk=pk)
+        except SupportTicket.DoesNotExist:
+            return Response({'error': 'Обращение не найдено'}, status=404)
+        
+        user = request.user
+        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812' or ticket.user == user):
+            return Response({'error': 'Доступ запрещён'}, status=403)
+        
+        ticket.status = 'closed'
+        ticket.resolved_at = timezone.now()
+        ticket.save()
+        
+        return Response({'success': True, 'message': 'Обращение закрыто'})
 
-            # Фильтрация по статусу
-            if status_filter == 'online' and not is_online:
-                continue
-            if status_filter == 'offline' and is_online:
-                continue
-            if status_filter == 'active' and not is_active:
-                continue
+    @action(detail=True, methods=['post'])
+    def reopen(self, request, pk=None):
+        """Переоткрыть обращение"""
+        try:
+            ticket = SupportTicket.objects.get(pk=pk)
+        except SupportTicket.DoesNotExist:
+            return Response({'error': 'Обращение не найдено'}, status=404)
+        
+        user = request.user
+        if ticket.user != user:
+            return Response({'error': 'Доступ запрещён'}, status=403)
+        
+        if ticket.status not in ['closed', 'resolved']:
+            return Response({'error': 'Можно переоткрыть только закрытые обращения'}, status=400)
+        
+        ticket.status = 'in_progress'
+        ticket.resolved_at = None
+        ticket.save()
+        
+        return Response({'success': True, 'message': 'Обращение переоткрыто'})
 
-            result.append({
-                'id': user.id,
-                'username': user.username,
-                'nickname': user.nickname or user.username,
-                'display_name': user.display_name or user.username,
-                'avatar_url': user.avatar.url if user.avatar else None,
-                'is_online': is_online,
-                'is_active': is_active,
-                'last_login': user.last_login.isoformat() if user.last_login else None,
-            })
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        """Получить количество непрочитанных сообщений (для админа)"""
+        user = request.user
+        
+        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812'):
+            return Response({'count': 0})
+        
+        # Считаем обращения с непрочитанными сообщениями от пользователей
+        from django.db.models import Count
+        tickets_with_unread = SupportTicket.objects.annotate(
+            unread=Count('messages', filter=Q(messages__is_read=False) & ~Q(messages__sender=user))
+        ).filter(unread__gt=0)
+        
+        return Response({'count': tickets_with_unread.count()})
 
-        return Response({
-            'results': result,
-            'total': len(result),
-            'online_count': online_count,
-            'offline_count': offline_count,
-            'all_count': online_count + offline_count,
-        })
-
-
-class UserProfileSettingsViewSet(viewsets.ModelViewSet):
-    """ViewSet для настроек профиля"""
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        from .models import UserProfileSettings
-        return UserProfileSettings.objects.filter(user=self.request.user)
-
-    def list(self, request):
-        return Response({})
-
-
-class NotificationSettingsViewSet(viewsets.ModelViewSet):
-    """ViewSet для настроек уведомлений"""
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return NotificationSettings.objects.filter(user=self.request.user)
-
-    def list(self, request):
-        return Response({})
-
-
-class PrivacySettingsViewSet(viewsets.ModelViewSet):
-    """ViewSet для настроек приватности"""
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return PrivacySettings.objects.filter(user=self.request.user)
-
-    def list(self, request):
-        return Response({})
-
-
-# Сериализаторы для тем и аналитики
-from rest_framework import serializers
-
-class UserThemeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserTheme
-        fields = '__all__'
-
-
-class ChatBackgroundSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ChatBackground
-        fields = '__all__'
-
-
-class UserAnalyticsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserAnalytics
-        fields = '__all__'
-
-
-class UserSettingsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'display_name', 'nickname']
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Отметить сообщения как прочитанные"""
+        try:
+            ticket = SupportTicket.objects.get(pk=pk)
+        except SupportTicket.DoesNotExist:
+            return Response({'error': 'Обращение не найдено'}, status=404)
+        
+        user = request.user
+        
+        # Отмечаем все непрочитанные сообщения как прочитанные
+        updated = ticket.messages.filter(is_read=False).exclude(sender=user).update(
+            is_read=True,
+            read_at=timezone.now()
+        )
+        
+        return Response({'success': True, 'marked_count': updated})

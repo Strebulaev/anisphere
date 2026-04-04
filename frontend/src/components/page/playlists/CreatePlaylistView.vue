@@ -129,7 +129,21 @@
           </div>
 
           <div v-else-if="searchResults.length > 0" class="search-results">
-            <div class="results-label">Результаты поиска:</div>
+            <div class="results-header">
+              <div class="results-label">Результаты поиска:</div>
+              <button 
+                v-if="notAddedCount > 0"
+                @click="addAllResults" 
+                class="btn-add-all"
+                type="button"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Добавить все ({{ notAddedCount }})
+              </button>
+            </div>
             <div
               v-for="anime in searchResults"
               :key="anime.id"
@@ -159,7 +173,12 @@
                   <line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
               </button>
-              <span v-else class="added-badge">✓</span>
+              <button v-else @click.stop="removeAnimeById(anime.id)" class="btn-remove-result" type="button" title="Убрать из плейлиста">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -307,6 +326,17 @@ const isAdded = (animeId: number) => {
   return selectedAnime.value.some(a => a.id === animeId)
 }
 
+const notAddedCount = computed(() => {
+  return searchResults.value.filter(a => !isAdded(a.id)).length
+})
+
+const addAllResults = () => {
+  const toAdd = searchResults.value.filter(a => !isAdded(a.id))
+  for (const anime of toAdd) {
+    addAnime(anime)
+  }
+}
+
 const addAnime = (anime: Anime) => {
   if (isAdded(anime.id)) return
   selectedAnime.value.push(anime)
@@ -319,6 +349,13 @@ const removeAnime = (index: number) => {
     delete animeNotes.value[anime.id]
   }
   selectedAnime.value.splice(index, 1)
+}
+
+const removeAnimeById = (animeId: number) => {
+  const index = selectedAnime.value.findIndex(a => a.id === animeId)
+  if (index !== -1) {
+    removeAnime(index)
+  }
 }
 
 const createPlaylist = async () => {
@@ -379,7 +416,7 @@ const showToast = (msg: string) => {
 
 <style scoped>
 .create-playlist-page {
-  padding: 2rem 1.5rem;
+  padding: 2rem 1rem;
   max-width: 1200px;
   margin: 0 auto;
   min-height: 100vh;
@@ -421,8 +458,8 @@ const showToast = (msg: string) => {
 /* Layout */
 .create-layout {
   display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 1.5rem;
+  grid-template-columns: 380px 1fr;
+  gap: 1rem;
   align-items: start;
 }
 
@@ -611,13 +648,36 @@ const showToast = (msg: string) => {
 }
 
 .search-results { margin-top: 0.25rem; }
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
 .results-label {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
+}
+.btn-add-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(34, 197, 94, 0.15);
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #22c55e;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-add-all:hover {
+  background: rgba(34, 197, 94, 0.25);
+  transform: translateY(-1px);
 }
 .result-item {
   display: flex;
@@ -659,6 +719,14 @@ const showToast = (msg: string) => {
   transition: all 0.2s;
 }
 .btn-add-result:hover { background: var(--color-accent-hover); transform: scale(1.1); }
+.btn-remove-result {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(239,68,68,0.15); border: none; border-radius: 50%;
+  color: #ef4444; cursor: pointer; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.btn-remove-result:hover { background: #ef4444; color: #fff; transform: scale(1.1); }
 .added-badge {
   width: 30px; height: 30px;
   display: flex; align-items: center; justify-content: center;

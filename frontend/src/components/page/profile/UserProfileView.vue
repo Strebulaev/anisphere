@@ -39,8 +39,12 @@
 
         <div class="header-content">
           <div class="avatar-section">
-            <img :src="user.avatar || '/img/default-avatar.svg'" class="avatar" />
-            <div :class="['status-indicator', { online: isOnline }]"></div>
+            <UserAvatar
+              :src="user.avatar || user.avatar_url || '/img/default-avatar.svg'"
+              :is-online="isOnline"
+              size="2xl"
+              shape="circle"
+            />
           </div>
 
           <div class="user-info">
@@ -109,7 +113,7 @@
       </div>
 
       <!-- Вкладки -->
-      <!-- <div class="profile-tabs">
+      <div class="profile-tabs">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -118,10 +122,10 @@
         >
           {{ tab.name }}
         </button>
-      </div> -->
+      </div>
 
       <!-- Контент вкладок -->
-      <!-- <div class="tab-content-container">
+      <div class="tab-content-container">
         <div v-if="activeTab === 'feed'" class="tab-content">
           <UserFeed :user-id="userId" />
         </div>
@@ -138,8 +142,8 @@
           <UserShorts :user-id="userId" />
         </div>
 
-        <div v-if="activeTab === 'achievements'" class="tab-content">
-          <AchievementsView :username="user.username" />
+        <div v-if="activeTab === 'social'" class="tab-content">
+          <ProfileAbout :user="user" :can-edit="isOwnProfile" @edit="openEditModal" />
         </div>
 
         <div v-if="activeTab === 'favorites'" class="tab-content">
@@ -147,10 +151,19 @@
         </div>
 
         <div v-if="activeTab === 'about'" class="tab-content">
-          <ProfileAbout :user="user" />
+          <ProfileAbout :user="user" :can-edit="isOwnProfile" @edit="openEditModal" />
         </div>
-      </div> -->
+      </div>
     </div>
+
+    <!-- Edit Profile Modal -->
+    <EditProfileModal
+      v-if="showEditModal"
+      :is-visible="showEditModal"
+      :user="user"
+      :on-close="() => showEditModal = false"
+      @save="handleProfileUpdate"
+    />
   </div>
 </template>
 
@@ -171,6 +184,8 @@ import UserFavorites from '@/components/Profile/UserFavorites.vue'
 import AchievementsView from '@/components/page/other/AchievementsView.vue'
 import ProfileAbout from '@/components/Profile/ProfileAbout.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import UserAvatar from '@/components/ui/UserAvatar.vue'
+import EditProfileModal from '@/components/modal/profile/EditProfileModal.vue'
 import api from '@/api'
 
 const props = defineProps({
@@ -188,18 +203,19 @@ const routeId = props.id ?? route.params.id
 const userId = ref(NaN)  // будет заполнен после загрузки профиля
 const user = ref({})
 const stats = ref({})
-const isOnline = ref(false)
+const isOnline = ref<boolean | null>(null)
 const isFollowing = ref(false)
 const isFavorite = ref(false)
 const activeTab = ref('feed')
 const loading = ref(true)
+const showEditModal = ref(false)
 
 const tabs = [
   { id: 'feed', name: 'Лента' },
   { id: 'anime', name: 'Аниме' },
   { id: 'playlists', name: 'Плейлисты' },
   { id: 'shorts', name: 'Shorts' },
-  { id: 'achievements', name: 'Достижения' },
+  { id: 'social', name: 'Соцсети' },
   { id: 'favorites', name: 'Избранное' },
   { id: 'about', name: 'О себе' },
 ]
@@ -233,7 +249,7 @@ const loadProfile = async () => {
       const resp = await api.get(`/users/by-nickname/@${nick}/`)
       user.value = resp.data
       userId.value = resp.data.id
-      isOnline.value = resp.data.is_online
+      isOnline.value = resp.data.is_online ?? null
       loading.value = false
       return
     }
@@ -260,7 +276,7 @@ const loadProfile = async () => {
     }
     user.value = response.data
     userId.value = response.data.id  // сохраняем числовой id из ответа
-    isOnline.value = response.data.is_online
+    isOnline.value = response.data.is_online ?? null
   } catch (error) {
     console.error('Ошибка загрузки профиля:', error)
     user.value = {}
@@ -385,6 +401,16 @@ const goToFeed = () => {
   router.push('/feed')
 }
 
+const openEditModal = () => {
+  showEditModal.value = true
+}
+
+const handleProfileUpdate = async (updatedProfile) => {
+  // Обновляем данные профиля сразу после сохранения
+  user.value = { ...user.value, ...updatedProfile }
+  showEditModal.value = false
+}
+
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString('ru-RU', {
     day: 'numeric',
@@ -505,21 +531,6 @@ onMounted(async () => {
   border: 4px solid var(--color-background-surface);
   object-fit: cover;
   box-shadow: var(--shadow-card);
-}
-
-.status-indicator {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  width: 24px;
-  height: 24px;
-  background: var(--color-text-tertiary);
-  border: 3px solid var(--color-background-surface);
-  border-radius: 50%;
-}
-
-.status-indicator.online {
-  background: var(--color-accent-teal);
 }
 
 .user-info {

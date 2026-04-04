@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="float">
       <div
-        v-if="visible"
+        v-if="isPlayerVisible"
         ref="playerContainer"
         class="floating-player"
         :class="{ 
@@ -21,6 +21,21 @@
             <span class="fp-episode" v-if="episodeInfo">Серия {{ episodeInfo }}</span>
           </div>
           <div class="fp-controls">
+            <!-- Кнопка сохранения пропорций -->
+            <button 
+              class="fp-btn" 
+              :class="{ 'fp-btn-active': preserveAspectRatio }"
+              @click.stop="preserveAspectRatio = !preserveAspectRatio" 
+              :title="preserveAspectRatio ? 'Сохранять пропорции (вкл)' : 'Сохранять пропорции (выкл)'"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+                <line x1="15" y1="3" x2="15" y2="21"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="3" y1="15" x2="21" y2="15"/>
+              </svg>
+            </button>
             <button class="fp-btn" @click.stop="toggleFullscreen" :title="isFullscreen ? 'Выйти из полноэкранного' : 'Полноэкранный режим'">
               <svg v-if="isFullscreen" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
@@ -131,18 +146,24 @@ const isDragging = ref(false)
 const isResizing = ref(false)
 const isFullscreen = ref(false)
 const playerReady = ref(false)
+const isVisible = ref(true) // Для отслеживания видимости вкладки
+const preserveAspectRatio = ref(true) // Сохранять пропорции при resize
 
 // Флаг для отслеживания необходимости перемотки
 const needsSeek = ref(false)
 
-// Позиция и размер
+// Позиция и размер (размер включает заголовок)
 const position = ref({ x: 20, y: 20 })
-const size = ref({ width: 480, height: 270 })
+const size = ref({ width: 480, height: 312 }) // 270 (видео) + 42 (заголовок)
+const aspectRatio = ref(16 / 9) // Соотношение сторон по умолчанию
 const dragOffset = ref({ x: 0, y: 0 })
 const resizeStart = ref({ x: 0, y: 0, width: 0, height: 0 })
 
 // Вычисляемые
 const episodeInfo = computed(() => props.episode)
+
+// Итоговая видимость с учётом состояния вкладки
+const isPlayerVisible = computed(() => props.visible && isVisible.value)
 
 const progressPercent = computed(() => {
   if (duration.value === 0) return 0
@@ -248,6 +269,8 @@ const startResize = (e: MouseEvent | TouchEvent) => {
   document.addEventListener('touchend', stopResize)
 }
 
+const HEADER_HEIGHT = 42 // Высота заголовка
+
 const onResize = (e: MouseEvent | TouchEvent) => {
   if (!isResizing.value) return
 
@@ -258,8 +281,21 @@ const onResize = (e: MouseEvent | TouchEvent) => {
   const deltaX = clientX - resizeStart.value.x
   const deltaY = clientY - resizeStart.value.y
 
-  const newWidth = Math.max(320, Math.min(window.innerWidth - position.value.x, resizeStart.value.width + deltaX))
-  const newHeight = Math.max(180, Math.min(window.innerHeight - position.value.y, resizeStart.value.height + deltaY))
+  let newWidth = Math.max(320, Math.min(window.innerWidth - position.value.x, resizeStart.value.width + deltaX))
+  let newHeight: number
+
+  if (preserveAspectRatio.value) {
+    // Сохраняем пропорции видео (16:9) - учитываем что хедер занимает место
+    newHeight = newWidth / aspectRatio.value + HEADER_HEIGHT
+    // Проверяем, чтобы не выходил за границы экрана
+    const maxHeight = window.innerHeight - position.value.y
+    if (newHeight > maxHeight) {
+      newHeight = maxHeight
+      newWidth = (newHeight - HEADER_HEIGHT) * aspectRatio.value
+    }
+  } else {
+    newHeight = Math.max(180 + HEADER_HEIGHT, Math.min(window.innerHeight - position.value.y, resizeStart.value.height + deltaY))
+  }
 
   size.value = { width: newWidth, height: newHeight }
 }
@@ -369,19 +405,29 @@ const isMuted = ref(false)
 const savePosition = () => {
   localStorage.setItem('floating_player_state', JSON.stringify({
     position: position.value,
-    size: size.value
+    size: size.value,
+    aspectRatio: aspectRatio.value
   }))
 }
 
 const saveSize = () => {
+  // Обновляем соотношение сторон после изменения размера (только видео часть без заголовка)
+  if (size.value.width > 0 && size.value.height > HEADER_HEIGHT) {
+    aspectRatio.value = size.value.width / (size.value.height - HEADER_HEIGHT)
+  }
   localStorage.setItem('floating_player_state', JSON.stringify({
     position: position.value,
-    size: size.value
+    size: size.value,
+    aspectRatio: aspectRatio.value
   }))
 }
 
+// Убрано: обработка видимости вкладки - плеер теперь не исчезает при переключении вкладок
+// const handleVisibilityChange = () => { ... }
+
 onMounted(() => {
   document.addEventListener('fullscreenchange', handleFullscreenChange)
+  // Убрано: document.addEventListener('visibilitychange', handleVisibilityChange)
   window.addEventListener('message', handlePlayerMessage)
   
   const saved = localStorage.getItem('floating_player_state')
@@ -390,12 +436,22 @@ onMounted(() => {
       const parsed = JSON.parse(saved)
       position.value = parsed.position || position.value
       size.value = parsed.size || size.value
+      // Загружаем сохранённое соотношение сторон (видео без заголовка)
+      if (parsed.aspectRatio) {
+        aspectRatio.value = parsed.aspectRatio
+      } else if (size.value.width > 0 && size.value.height > HEADER_HEIGHT) {
+        // Рассчитываем из сохранённого размера
+        aspectRatio.value = size.value.width / (size.value.height - HEADER_HEIGHT)
+      }
     } catch {}
   }
+  
+  isVisible.value = true
 })
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  // Убрано: document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('message', handlePlayerMessage)
 })
 
@@ -436,6 +492,7 @@ watch(() => props.startTime, (newTime) => {
   transition: width 0.2s ease, height 0.2s ease;
   cursor: default;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 10001;
 }
 
 .floating-player.is-dragging {
@@ -512,6 +569,11 @@ watch(() => props.startTime, (newTime) => {
 .fp-close:hover {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
+}
+
+.fp-btn-active {
+  color: #4ade80 !important;
+  background: rgba(74, 222, 128, 0.15);
 }
 
 /* Content */

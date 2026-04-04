@@ -1577,3 +1577,82 @@ def index_post_for_search(post_id: int):
     except Exception as e:
         logger.error(f"Error indexing post: {e}")
         return {'error': str(e)}
+
+
+# ==================== LIBRARY TASKS ====================
+
+@shared_task
+def update_library_status_auto():
+    """
+    Автоматическое обновление статусов коллекции:
+    - Просмотрено 100% -> статус 'completed'
+    - Не смотрели больше месяца (для 'started') -> статус 'dropped'
+    """
+    from users.models import UserLibrary
+    from anime.models import Anime, UserEpisodeProgress
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        now = timezone.now()
+        one_month_ago = now - timedelta(days=30)
+        
+        updated_completed = 0
+        updated_dropped = 0
+        
+        # 1. Автоматическое перемещение в "Просмотрено" при 100%
+        library_items = UserLibrary.objects.filter(
+            status='started'
+        ).select_related('anime')
+        
+        for item in library_items:
+            anime = item.anime
+            if not anime or not anime.episodes:
+                continue
+                
+            # Считаем просмотренные эпизоды
+            watched_count = UserEpisodeProgress.objects.filter(
+                user=item.user,
+                anime=anime,
+                status__in=['watched', 'skipped']
+            ).count()
+            
+            # Если просмотрено 100% - помечаем как completed
+            if watched_count >= anime.episodes:
+                item.status = 'completed'
+                item.completed_at = now
+                item.save(update_fields=['status', 'completed_at'])
+                updated_completed += 1
+                logger.info(f"User {item.user_id} anime {anime.id} marked as completed")
+        
+        # 2. Автоматическое перемещение в "Брошено" если не смотрели больше месяца
+        stale_items = UserLibrary.objects.filter(
+            status='started',
+            updated_at__lt=one_month_ago
+        )
+        
+        for item in stale_items:
+            # Проверяем, есть ли прогресс за последний месяц
+            recent_progress = UserEpisodeProgress.objects.filter(
+                user=item.user,
+                anime=item.anime,
+                last_watched__gte=one_month_ago
+            ).exists()
+            
+            if not recent_progress:
+                item.status = 'dropped'
+                item.save(update_fields=['status'])
+                updated_dropped += 1
+                logger.info(f"User {item.user_id} anime {item.anime_id} marked as dropped (inactive)")
+        
+        logger.info(f"Library update completed: {updated_completed} completed, {updated_dropped} dropped")
+        return {
+            'success': True,
+            'updated_completed': updated_completed,
+            'updated_dropped': updated_dropped
+        }
+
+    except Exception as e:
+        logger.error(f"Error updating library status: {e}")
+        return {'error': str(e)}

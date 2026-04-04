@@ -96,17 +96,18 @@ const isActiveRoute = (path: string) => {
   left: 0;
   right: 0;
   height: var(--bottom-nav-height);
-  background-color: var(--surface-2);
-  backdrop-filter: var(--blur-nav);
-  -webkit-backdrop-filter: var(--blur-nav);
+  background: linear-gradient(180deg, rgba(15,11,26,0.95) 0%, var(--surface-2) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-subtle);
   z-index: var(--z-navbar);
-  box-shadow: 0 -1px 0 var(--border-subtle), 0 -8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.5), 0 0 24px rgba(255,126,179,0.05);
 }
 
 .nav-items {
   display: flex;
   height: 100%;
+  padding: 0 var(--space-1);
 }
 
 .nav-item {
@@ -115,21 +116,33 @@ const isActiveRoute = (path: string) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: var(--space-2) 0;
+  gap: 4px;
+  padding: var(--space-2) var(--space-1);
   color: var(--text-tertiary);
   text-decoration: none;
   transition:
-    color var(--duration-base) var(--ease-out),
-    background-color var(--duration-base) var(--ease-out);
+    all var(--duration-base) var(--ease-petal);
   cursor: pointer;
   position: relative;
   -webkit-tap-highlight-color: transparent;
 }
 
+.nav-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 32px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+  border-radius: 0 0 var(--radius-full) var(--radius-full);
+  transition: transform var(--duration-base) var(--ease-petal);
+}
+
 .nav-item svg {
   flex-shrink: 0;
-  transition: transform var(--duration-base) var(--ease-spring);
+  transition: all var(--duration-base) var(--ease-petal);
 }
 
 .nav-item span {
@@ -146,21 +159,13 @@ const isActiveRoute = (path: string) => {
   color: var(--accent);
 }
 
-.nav-item.active svg {
-  transform: scale(1.1) translateY(-1px);
+.nav-item.active::before {
+  transform: translateX(-50%) scaleX(1);
 }
 
-/* Точка-индикатор сверху активного */
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 2px;
-  background-color: var(--accent);
-  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+.nav-item.active svg {
+  transform: scale(1.15) translateY(-2px);
+  filter: drop-shadow(0 0 6px var(--accent-glow-sm));
 }
 
 @media (min-width: 768px) {

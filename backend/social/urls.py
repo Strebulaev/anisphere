@@ -13,6 +13,7 @@ from .views import (
     get_chat_detail,
     FollowViewSet, get_post_likers,
     get_unread_count, get_unread_chats, mark_chat_read, mark_private_chat_read, mark_group_chat_read,
+    MessageListCreateView,
 )
 from .views_all_actions import (
     AchievementViewSet,
@@ -26,8 +27,8 @@ from .views_all_actions import (
     UserAchievementViewSet,
     get_chats_for_forward, forward_post_to_chat,
     get_extended_feed,
-    get_anime_discussion_group, create_anime_discussion_group,
-    get_post_comment_replies, join_anime_discussion_group,
+    get_anime_discussion_group,
+    get_post_comment_replies,
     get_franchise_discussions,
     GroupSearchView,
     get_hashtag_posts, search_hashtags, search_messages, reindex_messages,
@@ -48,6 +49,65 @@ from .views_all_actions import (
     ModerationReportViewSet,
     ReactionViewSet,
 )
+
+# Импорты из _discussion_views_patch
+try:
+    from ._discussion_views_patch import (
+        create_anime_discussion_group,
+        join_anime_discussion_group,
+    )
+except ImportError:
+    # Fallback - определяем функции прямо здесь если файл не существует
+    from rest_framework.decorators import api_view, permission_classes
+    from rest_framework.permissions import IsAuthenticated
+    from rest_framework.response import Response
+    
+    @api_view(['POST'])
+    @permission_classes([IsAuthenticated])
+    def create_anime_discussion_group(request, anime_id):
+        """Создать групповой чат для обсуждения аниме"""
+        from .models import GroupChat, ChatMember
+        from .serializers import GroupChatSerializer
+        try:
+            from anime.models import Anime
+            anime = Anime.objects.get(id=anime_id)
+        except Exception:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        if GroupChat.objects.filter(anime_id=anime_id).exists():
+            return Response({'error': 'Чат для этого аниме уже существует'}, status=400)
+
+        chat = GroupChat.objects.create(
+            name=anime.title_ru or anime.title_en,
+            anime_id=anime_id,
+            created_by=request.user,
+            is_public=True,
+            description=anime.description[:500] if anime.description else '',
+            discussion_type='anime',
+            folder_type='discussions',
+        )
+        ChatMember.objects.get_or_create(user=request.user, chat=chat, defaults={'is_admin': True})
+        serializer = GroupChatSerializer(chat, context={'request': request})
+        return Response(serializer.data, status=201)
+
+    @api_view(['POST'])
+    @permission_classes([IsAuthenticated])
+    def join_anime_discussion_group(request, anime_id):
+        """Присоединиться к групповому чату аниме"""
+        from .models import GroupChat, ChatMember
+        try:
+            chat = GroupChat.objects.get(anime_id=anime_id)
+        except GroupChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=404)
+
+        if ChatMember.objects.filter(chat=chat, user=request.user).exists():
+            return Response({'message': 'Вы уже участник этого чата', 'chat_id': chat.id})
+
+        if chat.members.count() >= chat.max_members:
+            return Response({'error': 'Чат переполнен'}, status=400)
+
+        ChatMember.objects.create(user=request.user, chat=chat)
+        return Response({'success': True, 'chat_id': chat.id})
 from .views_all_actions import (
     AchievementViewSet,
     AttachmentViewSet,
@@ -64,7 +124,7 @@ from .views_all_actions import (
     UserAchievementViewSet,
     get_chats_for_forward, forward_post_to_chat,
     get_extended_feed,
-    get_anime_discussion_group, create_anime_discussion_group, join_anime_discussion_group,
+    get_anime_discussion_group,
     get_franchise_discussion_group, join_franchise_discussion_group,
     get_franchise_discussions,
 )
@@ -148,6 +208,10 @@ router.register(r'chat-backups', ChatBackupViewSet, basename='chat-backup')
 router.register(r'scheduled-messages', ScheduledMessageViewSet, basename='scheduled-message')
 router.register(r'security-logs', SecurityLogViewSet, basename='security-log')
 
+# Мини-чат поддержки
+from .views_support import SupportTicketViewSet
+router.register(r'support', SupportTicketViewSet, basename='support')
+
 urlpatterns = [
     # ==================== ПОЛЬЗОВАТЕЛИ ====================
     path('users/me/', get_current_user, name='current-user'),
@@ -166,6 +230,11 @@ urlpatterns = [
     path('chats/', CombinedChatsView.as_view(), name='combined-chats'),
     path('chats/<int:pk>/', get_chat_detail, name='chat-detail'),
     path('chats/<int:pk>/settings/', get_chat_detail, name='chat-settings'),
+    # Алиас для создания чата (фронтенд использует /api/chats/private/)
+    path('chats/private/', PrivateChatViewSet.as_view({'post': 'create'}), name='create-private-chat'),
+    # Сообщения (фронтенд использует /api/social/messages/)
+    path('chats/<int:chat_id>/messages/', MessageListCreateView.as_view(), name='chat-messages'),
+    path('messages/', MessageListCreateView.as_view(), name='messages-list-create'),
 
     # ==================== НАСТРОЙКИ ЛИЧНОГО ЧАТА ====================
     path('private-chats/<int:chat_id>/settings/', private_chat_user_settings, name='private-chat-settings'),

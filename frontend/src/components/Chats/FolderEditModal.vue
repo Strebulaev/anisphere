@@ -357,8 +357,8 @@ watch(() => props.show, (newShow) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  background-color: rgba(5,4,8,0.88);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -367,8 +367,9 @@ watch(() => props.show, (newShow) => {
 }
 
 .modal-content {
-  background-color: var(--color-background-surface);
-  border-radius: 1rem;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   max-width: 600px;
   width: 100%;
   max-height: 90vh;
@@ -383,13 +384,13 @@ watch(() => props.show, (newShow) => {
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -401,15 +402,15 @@ watch(() => props.show, (newShow) => {
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 0.5rem;
-  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s var(--transition-smooth);
+  transition: all 0.2s var(--ease-petal);
 }
 
 .modal-close:hover {
-  background-color: var(--color-background-active);
-  color: #ef4444;
+  background-color: var(--surface-4);
+  color: var(--danger);
 }
 
 .modal-body {
@@ -421,7 +422,7 @@ watch(() => props.show, (newShow) => {
 .form-section {
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--color-divider-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .form-section:last-child {
@@ -431,19 +432,19 @@ watch(() => props.show, (newShow) => {
 }
 
 .form-section--danger {
-  border-top: 1px solid #fee2e2;
+  border-top: 1px solid var(--danger-subtle);
   padding-top: 1.5rem;
 }
 
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
   margin: 0 0 1rem 0;
 }
 
 .section-title--danger {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .form-group {
@@ -458,30 +459,30 @@ watch(() => props.show, (newShow) => {
   display: block;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .form-label.required::after {
   content: ' *';
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .form-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--color-divider-light);
-  border-radius: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   font-size: 0.9375rem;
-  color: var(--color-text);
-  background-color: var(--color-background-surface);
+  color: var(--text-primary);
+  background-color: var(--surface-4);
   outline: none;
-  transition: all 0.2s var(--transition-smooth);
+  transition: all 0.2s var(--ease-petal);
 }
 
 .form-input:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.1);
+  border-color: var(--accent);
+  box-shadow: var(--border-glow);
 }
 
 .icon-selector {
@@ -496,21 +497,21 @@ watch(() => props.show, (newShow) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-background-active);
-  border: 2px solid var(--color-divider-light);
-  border-radius: 0.5rem;
+  background-color: var(--surface-4);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
   font-size: 1.5rem;
   cursor: pointer;
-  transition: all 0.2s var(--transition-smooth);
+  transition: all 0.2s var(--ease-petal);
 }
 
 .icon-item:hover {
-  border-color: var(--color-accent);
+  border-color: var(--accent);
 }
 
 .icon-item.active {
-  border-color: var(--color-accent);
-  background-color: rgba(58, 134, 255, 0.1);
+  border-color: var(--accent);
+  background-color: var(--accent-subtle);
 }
 
 .color-selector {
@@ -528,7 +529,7 @@ watch(() => props.show, (newShow) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s var(--transition-smooth);
+  transition: all 0.2s var(--ease-petal);
 }
 
 .color-item:hover {
@@ -536,7 +537,7 @@ watch(() => props.show, (newShow) => {
 }
 
 .color-item.active {
-  border-color: var(--color-text);
+  border-color: var(--text-primary);
 }
 
 .color-item svg {
@@ -549,13 +550,13 @@ watch(() => props.show, (newShow) => {
   gap: 0.75rem;
   cursor: pointer;
   font-size: 0.9375rem;
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 
 .checkbox-label input[type="checkbox"] {
   width: 1.125rem;
   height: 1.125rem;
-  accent-color: var(--color-accent);
+  accent-color: var(--accent);
 }
 
 .keywords-input {
@@ -579,10 +580,11 @@ watch(() => props.show, (newShow) => {
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem 0.5rem;
-  background-color: var(--color-accent);
-  color: white;
-  border-radius: 0.25rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  color: var(--text-on-accent);
+  border-radius: var(--radius-sm);
   font-size: 0.8125rem;
+  box-shadow: var(--shadow-petal-sm);
 }
 
 .keyword-tag button {
@@ -602,8 +604,8 @@ watch(() => props.show, (newShow) => {
 }
 
 .preview-list {
-  border: 1px solid var(--color-divider-light);
-  border-radius: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -612,7 +614,7 @@ watch(() => props.show, (newShow) => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-bottom: 1px solid var(--color-divider-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .preview-item:last-child {
@@ -631,7 +633,7 @@ watch(() => props.show, (newShow) => {
 
 .preview-name {
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -639,22 +641,22 @@ watch(() => props.show, (newShow) => {
 
 .preview-meta {
   font-size: 0.8125rem;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .preview-more {
   padding: 0.75rem;
   text-align: center;
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.875rem;
-  background-color: var(--color-background-active);
+  background-color: var(--surface-4);
 }
 
 .modal-footer {
   display: flex;
   gap: 0.75rem;
   padding: 1.25rem 1.5rem;
-  border-top: 1px solid var(--color-divider);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .btn {
@@ -663,49 +665,48 @@ watch(() => props.show, (newShow) => {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  border-radius: 0.625rem;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s var(--transition-smooth);
+  transition: all 0.2s var(--ease-petal);
   border: 1px solid;
 }
 
 .btn-primary {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-text);
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-petal-sm);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow-sm);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(58, 134, 255, 0.3);
 }
 
 .btn-secondary {
   background-color: transparent;
-  border-color: var(--color-divider-light);
-  color: var(--color-text-secondary);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
 
 .btn-secondary:hover {
-  background-color: var(--color-background-active);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+  background-color: var(--surface-4);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .btn-danger {
-  background-color: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
+  background-color: var(--danger-subtle);
+  border-color: var(--danger);
+  color: var(--danger);
   width: 100%;
 }
 
 .btn-danger:hover {
-  background-color: #fecaca;
-  border-color: #f87171;
+  background-color: var(--danger);
+  color: white;
 }
 
 .btn:disabled {

@@ -102,11 +102,11 @@ export default {
   position: fixed;
   z-index: 2000;
   min-width: 180px;
-  background-color: var(--color-background-surface);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  background-color: var(--surface-2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
   padding: 0.375rem;
-  border: 1px solid var(--color-divider);
+  border: 1px solid var(--border-default);
 }
 
 .context-menu__items {
@@ -122,25 +122,25 @@ export default {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-text);
+  color: var(--text-primary);
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.15s var(--transition-smooth);
+  transition: all 0.15s var(--ease-petal);
   text-align: left;
 }
 
 .context-menu__item:hover {
-  background-color: var(--color-background-active);
+  background-color: var(--surface-4);
 }
 
 .context-menu__item--danger {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .context-menu__item--danger:hover {
-  background-color: #fee2e2;
+  background-color: var(--danger-subtle);
 }
 
 .context-menu__item svg {
@@ -149,7 +149,7 @@ export default {
 
 .context-menu__divider {
   height: 1px;
-  background-color: var(--color-divider-light);
+  background-color: var(--border-subtle);
   margin: 0.25rem 0;
 }
 </style>

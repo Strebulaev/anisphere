@@ -1,26 +1,26 @@
 /* ============================================================
-   ANISPHERE — Fonts
+   ANISPHERE — Fonts v4 Sakura Bloom
    Подключение шрифтов и data-атрибуты для настроек.
+   Полная реконструкция с японскими шрифтами.
    ============================================================ */
 
 /* ── Google Fonts ──────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ── Базовые стили шрифта ──────────────────────────────────── */
 body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
   font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
 }
 
 button, input, textarea, select {
@@ -32,10 +32,11 @@ code, pre, kbd, samp {
 }
 
 /* ── data-font-family ──────────────────────────────────────── */
-[data-font-family="Inter"]     { --font-sans: 'Inter', system-ui, sans-serif; }
-[data-font-family="Roboto"]    { --font-sans: 'Roboto', system-ui, sans-serif; }
-[data-font-family="Montserrat"]{ --font-sans: 'Montserrat', system-ui, sans-serif; }
-[data-font-family="system"]    { --font-sans: system-ui, -apple-system, sans-serif; }
+[data-font-family="Inter"]           { --font-sans: 'Inter', system-ui, sans-serif; }
+[data-font-family="Noto Sans JP"]    { --font-sans: 'Noto Sans JP', system-ui, sans-serif; }
+[data-font-family="Zen Kaku Gothic"] { --font-sans: 'Zen Kaku Gothic New', system-ui, sans-serif; }
+[data-font-family="Syne"]            { --font-display: 'Syne', system-ui, sans-serif; }
+[data-font-family="system"]          { --font-sans: system-ui, -apple-system, sans-serif; }
 
 /* ── data-font-size ────────────────────────────────────────── */
 [data-font-size="12"] { --text-base: 0.75rem; }

@@ -174,37 +174,52 @@ const formatDate = (dateString: string) => {
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: var(--color-background);
+  background: var(--surface-1);
+  position: relative;
+}
+
+/* Фоновый узор */
+.chat-invite-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle at 10% 90%, rgba(255,126,179,0.05) 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(168,197,226,0.05) 0%, transparent 40%);
+  pointer-events: none;
 }
 
 .invite-container {
   max-width: 500px;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .invite-loading,
 .invite-error,
 .invite-success,
 .invite-info {
-  background: var(--color-background-surface);
-  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   padding: 2rem;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-modal);
 }
 
 .invite-loading p,
 .invite-error p,
 .invite-success p {
   margin-top: 1rem;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .loading-spinner {
   width: 48px;
   height: 48px;
-  border: 3px solid var(--color-divider-light);
-  border-top-color: var(--color-accent);
+  border: 3px solid var(--surface-4);
+  border-top-color: var(--accent);
   border-radius: 50%;
   margin: 0 auto;
   animation: spin 1s linear infinite;
@@ -221,11 +236,11 @@ const formatDate = (dateString: string) => {
 }
 
 .invite-error h2 {
-  color: #f44336;
+  color: var(--danger);
 }
 
 .invite-success h2 {
-  color: #4caf50;
+  color: var(--success);
 }
 
 .chat-avatar-large {
@@ -234,6 +249,8 @@ const formatDate = (dateString: string) => {
   border-radius: 50%;
   margin: 0 auto 1.5rem;
   overflow: hidden;
+  border: 3px solid var(--accent);
+  box-shadow: var(--shadow-petal);
 }
 
 .chat-avatar-large img {
@@ -247,24 +264,25 @@ const formatDate = (dateString: string) => {
   height: 120px;
   border-radius: 50%;
   margin: 0 auto 1.5rem;
-  background: var(--color-accent);
-  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  color: var(--text-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2.5rem;
   font-weight: 600;
+  box-shadow: var(--shadow-petal);
 }
 
 .chat-name {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .invite-description {
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   margin-bottom: 2rem;
 }
 
@@ -274,8 +292,9 @@ const formatDate = (dateString: string) => {
   gap: 1rem;
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: var(--color-background);
-  border-radius: 12px;
+  background: var(--surface-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
 }
 
 .detail-item {
@@ -288,23 +307,24 @@ const formatDate = (dateString: string) => {
 .detail-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
+  color: var(--accent);
 }
 
 .detail-text {
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .detail-text strong {
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 
 .detail-text.active {
-  color: #4caf50;
+  color: var(--success);
 }
 
 .detail-text.inactive {
-  color: #f44336;
+  color: var(--danger);
 }
 
 .invite-actions {
@@ -317,23 +337,26 @@ const formatDate = (dateString: string) => {
 .btn-go-chat {
   width: 100%;
   padding: 0.875rem 1.5rem;
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-size: 1rem;
   font-weight: 500;
-  color: white;
+  color: var(--text-on-accent);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s var(--ease-petal);
+  box-shadow: var(--shadow-petal-sm);
 }
 
 .btn-join:hover,
 .btn-go-chat:hover {
-  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow-sm);
+  transform: translateY(-1px);
 }
 
 .btn-join:disabled {
-  background: var(--color-text-disabled);
+  background: var(--surface-5);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 
@@ -341,18 +364,20 @@ const formatDate = (dateString: string) => {
 .btn-back {
   width: 100%;
   padding: 0.875rem 1.5rem;
-  background: var(--color-background);
-  border: 1px solid var(--color-divider-light);
-  border-radius: 8px;
+  background: var(--surface-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
   font-size: 1rem;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s var(--ease-petal);
 }
 
 .btn-cancel:hover,
 .btn-back:hover {
-  background: var(--color-background-active);
+  background: var(--surface-5);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 </style>

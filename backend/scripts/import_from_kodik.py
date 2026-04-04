@@ -8,7 +8,7 @@ import sys
 import django
 import requests
 import time
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 # Настройка Django
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -130,6 +130,59 @@ def fetch_all_anime() -> List[Dict[str, Any]]:
     return all_anime
 
 
+def calculate_episode_duration(kodik_anime: Dict[str, Any]) -> Optional[int]:
+    """Рассчитывает среднюю длительность эпизода в минутах на основе данных Kodik"""
+    material_data = kodik_anime.get('material_data', {})
+    
+    # Сначала пробуем получить из material_data (это точнее)
+    duration_from_material = material_data.get('duration')
+    if duration_from_material:
+        duration_minutes = int(duration_from_material)
+        # Проверяем на разумность
+        if 1 <= duration_minutes <= 180:
+            return duration_minutes
+    
+    # Если нет в material_data, пробуем из episodes
+    episodes_data = kodik_anime.get('episodes', [])
+    if not episodes_data:
+        return None
+
+    # Собираем длительности эпизодов в секундах
+    durations = []
+    for episode in episodes_data:
+        duration = episode.get('duration')
+        if duration and duration > 0:
+            durations.append(duration)
+
+    if not durations:
+        return None
+    
+    # Фильтруем выбросы: слишком короткие (менее 30 сек) и слишком длинные (более 2 часов)
+    valid_durations = [d for d in durations if 30 <= d <= 7200]
+    if not valid_durations:
+        return None
+    
+    # Берем медиану для большей устойчивости к выбросам
+    sorted_durations = sorted(valid_durations)
+    n = len(sorted_durations)
+    
+    if n % 2 == 1:
+        median_seconds = sorted_durations[n // 2]
+    else:
+        median_seconds = (sorted_durations[n // 2 - 1] + sorted_durations[n // 2]) / 2
+    
+    # Конвертируем в минуты и округляем
+    average_minutes = int(round(median_seconds / 60))
+    
+    # Проверяем на разумность результата
+    if average_minutes < 5:  # Слишком коротко для аниме
+        average_minutes = 24  # Стандартная длительность
+    elif average_minutes > 180:  # Слишком длинно
+        average_minutes = 60 if kodik_anime.get('type') == 'movie' else 24
+    
+    return average_minutes
+
+
 def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
     """Импорт одного аниме (только новые, без обновления)"""
     material_data = kodik_anime.get('material_data', {})
@@ -140,11 +193,16 @@ def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
         return None  # Пропускаем - уже есть
     
     # Определяем количество эпизодов
+    # ВАЖНО: kodik_anime.get('episodes_count') правильнее чем material_data.get('episodes_total')
     episodes_count = (
-        material_data.get('episodes_total') or
         kodik_anime.get('episodes_count') or
+        kodik_anime.get('last_episode') or
+        material_data.get('episodes_total') or
         1
     )
+    
+    # Определяем длительность эпизода
+    episode_duration = calculate_episode_duration(kodik_anime)
     
     # Определяем количество сезонов
     seasons_data = kodik_anime.get('seasons', {})
@@ -195,6 +253,7 @@ def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
             status=map_status(material_data.get('anime_status', 'released')),
             kind=map_kind(material_data.get('anime_kind') or kodik_anime.get('type', 'tv')),
             episodes=episodes_count,
+            episode_duration=episode_duration,  # Новая длительность эпизода
             score=score,
             poster_url=poster_url,
             genres=genre_names,
@@ -212,7 +271,7 @@ def import_anime(kodik_anime: Dict[str, Any]) -> Anime:
             kodik_id=kodik_anime.get('id', ''),
             quality=kodik_anime.get('quality', ''),
         )
-        print(f"  ✨ Создано: {anime.title_ru}")
+        print(f"  ✨ Создано: {anime.title_ru} (эпизоды: {episodes_count}, длительность: {episode_duration or '?'} мин)")
         return anime
     except Exception as e:
         # Возможно уже есть (дубликат по другому полю)
@@ -274,3 +333,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+

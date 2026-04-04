@@ -1,4 +1,4 @@
-from datetime import timedelta
+﻿from datetime import timedelta
 from urllib import request
 from django.shortcuts import get_object_or_404
 from django.contrib.contenttypes.models import ContentType

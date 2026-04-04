@@ -372,7 +372,7 @@
               v-for="entry in franchise.entries"
               :key="entry.id"
               :class="['franchise-entry', { 'is-current': entry.id === anime!.id }]"
-              @click="entry.id !== anime!.id && $router.push(`/anime/${entry.id}`)"
+              @click="entry.id !== anime!.id && goToAnimePage(entry.id)"
             >
               <div class="fe-poster">
                 <img
@@ -856,6 +856,11 @@
   const kindLabel = (kind: string) => ({
     tv: 'TV', movie: 'Фильм', ova: 'OVA', ona: 'ONA', special: 'Спешл', music: 'Клип'
   }[kind] || kind.toUpperCase())
+
+  // Переход на страницу аниме с полной перезагрузкой
+  const goToAnimePage = (animeId: number) => {
+    window.location.href = `/anime/${animeId}`
+  }
 
   const getPosterUrl = (url: string | null | undefined): string | undefined => {
     if (!url) return undefined

@@ -73,35 +73,39 @@ const applyCustom = () => {
 <style scoped>
 .mute-backdrop {
   position: fixed; inset: 0; z-index: 10000;
-  background: rgba(0,0,0,.55);
+  background: rgba(5,4,8,0.88);
+  backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
 }
 .mute-modal {
-  background: #1e1e1e; border: 1px solid #333; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--border-default); border-radius: var(--radius-lg);
   min-width: 280px; max-width: 340px; width: 100%;
-  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  box-shadow: var(--shadow-modal);
 }
 .mute-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px; border-bottom: 1px solid #2a2a2a;
+  padding: 14px 16px; border-bottom: 1px solid var(--border-subtle);
 }
-.mute-title { color: #e0e0e0; font-weight: 600; font-size: .95rem; }
-.mute-close { background: none; border: none; color: #666; cursor: pointer; font-size: 1rem; }
+.mute-title { color: var(--text-primary); font-weight: 600; font-size: .95rem; }
+.mute-close { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 1rem; transition: color .15s var(--ease-petal); }
+.mute-close:hover { color: var(--accent); }
 .mute-options { display: flex; flex-direction: column; padding: 8px; gap: 2px; }
 .mute-opt {
-  padding: 10px 12px; border: none; border-radius: 8px;
-  background: transparent; color: #ccc; font-size: .9rem;
-  text-align: left; cursor: pointer; transition: background .15s;
+  padding: 10px 12px; border: none; border-radius: var(--radius-lg);
+  background: transparent; color: var(--text-secondary); font-size: .9rem;
+  text-align: left; cursor: pointer; transition: background .15s var(--ease-petal);
 }
-.mute-opt:hover { background: #2a2a2a; color: #fff; }
-.mute-opt.custom { color: #60a5fa; }
+.mute-opt:hover { background: var(--surface-4); color: var(--text-primary); }
+.mute-opt.custom { color: var(--accent); }
 .mute-custom { padding: 8px 4px; display: flex; gap: 8px; flex-wrap: wrap; }
 .mute-date-input {
-  flex: 1; background: #111; border: 1px solid #333; border-radius: 6px;
-  color: #ddd; padding: 6px 8px; font-size: .85rem;
+  flex: 1; background: var(--surface-4); border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  color: var(--text-primary); padding: 6px 8px; font-size: .85rem; transition: all .15s var(--ease-petal);
 }
+.mute-date-input:focus { outline: none; border-color: var(--accent); }
 .mute-apply {
-  background: #3b82f6; color: #fff; border: none; border-radius: 6px;
-  padding: 6px 14px; cursor: pointer; font-size: .85rem;
+  background: var(--accent); color: var(--text-on-accent); border: none; border-radius: var(--radius-md);
+  padding: 6px 14px; cursor: pointer; font-size: .85rem; transition: all .15s var(--ease-petal);
 }
+.mute-apply:hover { box-shadow: var(--shadow-glow-sm); }
 </style>

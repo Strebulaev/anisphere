@@ -81,7 +81,7 @@
         </div>
       </div>
 
-      <!-- Archived chats -->
+      <!-- Archived chats - ЗАКОММЕНТИРОВАНО
       <div v-if="displayArchivedChats.length > 0" class="mb-4">
         <div class="px-4 py-2 text-sm font-medium text-gray-600 flex items-center justify-between cursor-pointer" @click="showArchived = !showArchived">
           <span>
@@ -103,7 +103,7 @@
             @contextmenu="showContextMenu($event, chat)"
           />
         </div>
-      </div>
+      </div> -->
 
       <!-- Empty state -->
       <div v-if="filteredChats.length === 0 && (searchQuery || chatFoldersStore.activeFolderId !== 0)" class="empty-state">
@@ -437,33 +437,34 @@ const filteredChats = computed(() => {
 
   // Apply folder-based type filter using rules
   const activeFolderId = chatFoldersStore.activeFolderId
-  if (activeFolderId && activeFolderId > 0) {
-    // Это пользовательская папка - фильтруем по правилам
-    const folder = chatFoldersStore.folders.find(f => f.id === activeFolderId)
-    if (folder) {
-      if (folder.rules.include_groups && !folder.rules.include_private) {
-        chats = chats.filter(chat => chat.type === 'group')
-      } else if (folder.rules.include_private && !folder.rules.include_groups) {
-        chats = chats.filter(chat => chat.type === 'private')
+  
+  // Применяем правила папки для всех системных папок (включая "Все чаты" с id=0)
+  const activeFolder = chatFoldersStore.activeFolder
+  if (activeFolder && activeFolder.id !== null && activeFolder.id !== undefined) {
+    // Для системных папок применяем базовую фильтрацию по типу
+    if (activeFolderId === -1) {
+      // Личные чаты
+      chats = chats.filter(chat => chat.type === 'private')
+    } else if (activeFolderId === -2) {
+      // Группы — только обычные группы, без франшизных обсуждений
+      chats = chats.filter(chat => chat.type === 'group' && !chat.anime_id && !chat.anime_title)
+    } else if (activeFolderId === -4) {
+      // Обсуждения — чаты с привязкой к аниме/франшизе
+      chats = chats.filter(chat => chat.type === 'group' && (chat.anime_id || chat.anime_title))
+    } else if (activeFolderId === 0 || activeFolderId === null) {
+      // "Все чаты" - показываем все чаты (private + group)
+      // Не применяем дополнительную фильтрацию
+    } else if (activeFolderId > 0) {
+      // Пользовательская папка - фильтруем по правилам
+      const folder = chatFoldersStore.folders.find(f => f.id === activeFolderId)
+      if (folder) {
+        if (folder.rules.include_groups && !folder.rules.include_private) {
+          chats = chats.filter(chat => chat.type === 'group')
+        } else if (folder.rules.include_private && !folder.rules.include_groups) {
+          chats = chats.filter(chat => chat.type === 'private')
+        }
       }
     }
-  }
-
-  // Apply system folder filters
-  if (activeFolderId === -1) {
-    // Личные чаты
-    chats = chats.filter(chat => chat.type === 'private')
-  } else if (activeFolderId === -2) {
-    // Группы — только обычные группы, без франшизных обсуждений
-    chats = chats.filter(chat => chat.type === 'group' && !chat.anime_id && !chat.anime_title)
-  } else if (activeFolderId === -4) {
-    // Обсуждения — чаты с привязкой к аниме/франшизе
-    chats = chats.filter(chat => chat.type === 'group' && (chat.anime_id || chat.anime_title))
-  }
-
-  // Apply folder rules from store
-  const activeFolder = chatFoldersStore.activeFolder
-  if (activeFolder) {
     // Convert LocalChat to FolderChatType for applyFolderRules
     const folderChats: any[] = chats.map(chat => ({
       id: chat.id,
@@ -531,25 +532,26 @@ const contextMenuItems = computed(() => {
 
   const chat = contextMenu.value.chat
   return [
-    {
-      id: 'pin',
-      label: chat.isPinned ? 'Открепить' : 'Закрепить',
-      icon: 'pin',
-      action: 'togglePin'
-    },
-    {
-      id: 'archive',
-      label: chat.isArchived ? 'Разархивировать' : 'Архивировать',
-      icon: 'archive',
-      action: 'toggleArchive'
-    },
-    { type: 'divider' } as any,
-    {
-      id: 'mute',
-      label: 'Заглушить уведомления',
-      icon: 'bell-slash',
-      action: 'mute'
-    },
+    // Закомментировано: Закрепить
+    // {
+    //   id: 'pin',
+    //   label: chat.isPinned ? 'Открепить' : 'Закрепить',
+    //   icon: 'pin',
+    //   action: 'togglePin'
+    // },
+    // {
+    //   id: 'archive',
+    //   label: chat.isArchived ? 'Разархивировать' : 'Архивировать',
+    //   icon: 'archive',
+    //   action: 'toggleArchive'
+    // },
+    // { type: 'divider' } as any,
+    // {
+    //   id: 'mute',
+    //   label: 'Заглушить уведомления',
+    //   icon: 'bell-slash',
+    //   action: 'mute'
+    // },
     {
       id: 'mark-read',
       label: 'Отметить как прочитанное',
@@ -843,8 +845,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: row;
   height: 100%;
-  background: #1a1a1a;
-  border-right: 1px solid #2a2a2a;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  border-right: 1px solid var(--border-subtle);
   position: relative;
 }
 
@@ -857,30 +859,38 @@ onUnmounted(() => {
 
 .chat-list-header {
   flex-shrink: 0;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
 }
 
 .chat-list-header h1 {
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .chat-list-header button {
-  color: #888;
+  color: var(--text-secondary);
+  transition: all var(--duration-base) var(--ease-petal);
 }
 
 .chat-list-header button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #222222;
+  background: var(--surface-4);
+  color: var(--accent);
 }
 
 .chat-list-header input {
-  background: #0f0f0f;
-  border-color: #2a2a2a;
-  color: #e0e0e0;
+  background: var(--surface-4);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  transition: all var(--duration-base) var(--ease-petal);
+}
+
+.chat-list-header input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--border-glow);
 }
 
 .chat-list-header input::placeholder {
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .chat-list-content {
@@ -893,22 +903,22 @@ onUnmounted(() => {
 .chat-list-resizer {
   flex-shrink: 0;
   height: 4px;
-  background: #2a2a2a;
+  background: var(--border-subtle);
   cursor: ns-resize;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
+  transition: background-color var(--duration-base) var(--ease-petal);
 }
 
 .chat-list-resizer:hover {
-  background: #3a3a3a;
+  background: var(--accent);
 }
 
 .resizer-handle {
   width: 40px;
   height: 2px;
-  background: #555;
+  background: var(--text-tertiary);
   border-radius: 1px;
 }
 
@@ -920,13 +930,15 @@ onUnmounted(() => {
   min-height: 200px;
   padding: 2rem;
   text-align: center;
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .empty-state svg {
   width: 48px;
   height: 48px;
   margin-bottom: 0.75rem;
+  color: var(--accent);
+  opacity: 0.6;
 }
 
 .empty-state p {
@@ -934,15 +946,15 @@ onUnmounted(() => {
 }
 
 .chat-list-content .text-gray-600 {
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .chat-list-content .bg-gray-50 {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-4);
 }
 
 .chat-list-content .text-gray-500 {
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 /* Folders integration styles */

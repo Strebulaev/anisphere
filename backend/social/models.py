@@ -625,6 +625,8 @@ class Message(models.Model):
     # Поделиться контентом
     shared_post = models.ForeignKey('Post', on_delete=models.SET_NULL, null=True, blank=True, related_name='shared_in_messages')
     shared_anime = models.ForeignKey('anime.Anime', on_delete=models.SET_NULL, null=True, blank=True, related_name='shared_in_messages')
+    shared_playlist = models.ForeignKey('playlists.Playlist', on_delete=models.SET_NULL, null=True, blank=True, related_name='shared_in_messages')
+    shared_shorts = models.ForeignKey('reactor.ReactorPost', on_delete=models.SET_NULL, null=True, blank=True, related_name='shared_in_messages')
 
     # Статус сообщения
     is_edited = models.BooleanField(default=False)
@@ -1246,7 +1248,7 @@ class Favorite(models.Model):
         ('reactor_post', 'Reactor пост'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='feed_favorites')
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
 
     # Полиморфная связь
@@ -1712,7 +1714,7 @@ class UserNotInterested(models.Model):
 
 class Favorite(models.Model):
     """Избранное (универсальное для любого контента)"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='social_favorites')
 
     # Полиморфная связь
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)

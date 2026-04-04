@@ -4,7 +4,8 @@ from django.utils import timezone
 from .models import (
     FavoriteEpisode, FavoriteTheme, User, UserFavorite, UserSession, UserSettings, UserProfileSettings, TwoFactorAuth,
     ActiveSession, NotificationSettings, PrivacySettings, UserTheme,
-    ChatBackground, EmailLog, MessageNotification, UserAnalytics, UserLibrary
+    ChatBackground, EmailLog, MessageNotification, UserAnalytics, UserLibrary,
+    SupportTicket, SupportMessage
 )
 
 
@@ -38,7 +39,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'unique_id', 'username', 'email', 'first_name', 'last_name', 'display_name',
             'display_name_computed', 'nickname', 'phone_number', 'avatar', 'avatar_url',
-            'cover_image', 'cover_image_url', 'bio', 'favorite_genres',
+            'cover_image', 'cover_image_url', 'cover_position_x', 'cover_position_y', 'bio', 'favorite_genres',
             'website', 'vk_profile', 'telegram', 'email_verified',
             'phone_verified', 'two_factor_enabled', 'is_online', 'last_login',
             'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges',
@@ -148,8 +149,8 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'display_name', 'nickname', 'avatar', 'cover_image', 'bio', 'favorite_genres',
-            'website', 'vk_profile', 'telegram'
+            'display_name', 'nickname', 'avatar', 'cover_image', 'cover_position_x', 'cover_position_y',
+            'bio', 'favorite_genres', 'website', 'vk_profile', 'telegram'
         ]
 
     def validate_nickname(self, value):
@@ -853,3 +854,111 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         from .models import ActiveSession
         ActiveSession.objects.filter(session_key__in=sessions_to_delete).delete()
+
+
+# ==================== ПОДДЕРЖКА ====================
+
+class SupportMessageSerializer(serializers.ModelSerializer):
+    """Сериализатор сообщения поддержки"""
+    sender_username = serializers.CharField(source='sender.username', read_only=True)
+    sender_avatar = serializers.SerializerMethodField()
+    is_from_admin = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = SupportMessage
+        fields = [
+            'id', 'ticket', 'sender', 'sender_username', 'sender_avatar',
+            'message', 'is_from_admin', 'attachments', 'created_at', 'is_read'
+        ]
+        read_only_fields = ['id', 'ticket', 'sender', 'created_at', 'is_read']
+
+    def get_sender_avatar(self, obj):
+        if obj.sender.avatar:
+            return obj.sender.avatar.url
+        return None
+
+
+class SupportTicketSerializer(serializers.ModelSerializer):
+    """Сериализатор обращения в поддержку"""
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_avatar = serializers.SerializerMethodField()
+    messages = SupportMessageSerializer(many=True, read_only=True)
+    unread_count = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id', 'user', 'user_username', 'user_avatar', 'subject', 'description',
+            'category', 'status', 'priority', 'assigned_to', 'chat_id',
+            'messages', 'unread_count', 'last_message',
+            'created_at', 'updated_at', 'resolved_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'chat_id']
+
+    def get_user_avatar(self, obj):
+        if obj.user.avatar:
+            return obj.user.avatar.url
+        return None
+
+    def get_unread_count(self, obj):
+        user = self.context.get('request').user if self.context.get('request') else None
+        if not user:
+            return 0
+        # Для пользователя - непрочитанные свои сообщения (от админа)
+        # Для админа - все непрочитанные
+        if user.is_staff or user.is_superuser:
+            return obj.messages.filter(is_read=False).exclude(sender=user).count()
+        return obj.messages.filter(is_read=False, sender=user).count()
+
+    def get_last_message(self, obj):
+        last_msg = obj.messages.last()
+        if last_msg:
+            return SupportMessageSerializer(last_msg).data
+        return None
+
+
+class SupportTicketCreateSerializer(serializers.ModelSerializer):
+    """Сериализатор создания обращения"""
+
+    class Meta:
+        model = SupportTicket
+        fields = ['subject', 'description', 'category', 'priority']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class SupportTicketListSerializer(serializers.ModelSerializer):
+    """Краткий сериализатор для списка обращений"""
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id', 'user', 'user_username', 'subject', 'category',
+            'status', 'priority', 'last_message', 'unread_count',
+            'created_at', 'updated_at'
+        ]
+
+    def get_last_message(self, obj):
+        last_msg = obj.messages.last()
+        if last_msg:
+            return {
+                'message': last_msg.message[:100] + '...' if len(last_msg.message) > 100 else last_msg.message,
+                'sender_username': last_msg.sender.username,
+                'is_from_admin': last_msg.is_from_admin,
+                'created_at': last_msg.created_at
+            }
+        return None
+
+    def get_unread_count(self, obj):
+        user = self.context.get('request').user if self.context.get('request') else None
+        if not user:
+            return 0
+        if user.is_staff or user.is_superuser:
+            return obj.messages.filter(is_read=False).exclude(sender=user).count()
+        return obj.messages.filter(is_read=False, sender=user).count()

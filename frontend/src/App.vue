@@ -1,5 +1,8 @@
 <template>
   <div class="app" :class="{ 'sidebar-collapsed': isCollapsed }">
+    <!-- Эффект падающих лепестков сакуры -->
+    <SakuraOverlay />
+
     <!-- Боковая навигация (десктоп) -->
     <SidebarNavigation />
     
@@ -32,6 +35,9 @@
       :start-time="floatingPlayerState.startTime"
       @close="closeFloatingPlayer"
     />
+
+    <!-- Мини-чат поддержки -->
+    <MiniSupportChat />
   </div>
 </template>
 
@@ -43,6 +49,8 @@ import MobileNavigation from '@/components/Navigation/MobileNavigation.vue'
 import ToastContainer from '@/components/Notifications/ToastContainer.vue'
 import PwaUpdateNotification from '@/components/Notifications/PwaUpdateNotification.vue'
 import FloatingPlayer from '@/components/Players/FloatingPlayer.vue'
+import MiniSupportChat from '@/components/Chat/MiniSupportChat.vue'
+import SakuraOverlay from '@/components/effects/SakuraOverlay.vue'
 import { useSidebar } from '@/composables/useSidebar'
 import { useAuthStore } from '@/stores/auth'
 import { initGlobalWebSocket } from '@/composables/useGlobalWebSocket'
@@ -120,9 +128,26 @@ onMounted(() => {
 <style scoped>
 .app {
   min-height: 100vh;
-  background-color: var(--surface-1);
+  background: var(--surface-1);
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Фоновый узор сакуры */
+.app::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(255,126,179,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(168,197,226,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(212,165,201,0.02) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .main-content {
@@ -130,6 +155,8 @@ onMounted(() => {
   min-height: 100vh;
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 /* Десктоп: отступ для навбара */
@@ -138,7 +165,7 @@ onMounted(() => {
     padding-bottom: 0;
     padding-left: var(--sidebar-width);
     padding-top: var(--navbar-height);
-    transition: padding-left var(--duration-slow) var(--ease-out);
+    transition: padding-left var(--duration-slow) var(--ease-petal);
   }
 
   .app.sidebar-collapsed .main-content {
@@ -155,7 +182,7 @@ onMounted(() => {
 /* Мобильные устройства: отступ для мобильного меню */
 @media (max-width: 767px) {
   .main-content {
-    padding: 60px 0 0 0;
+    padding: 54px 0 0 0;
   }
   
   /* Все страницы должны иметь отступ сверху */

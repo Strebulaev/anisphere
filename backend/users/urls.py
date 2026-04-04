@@ -153,4 +153,28 @@ urlpatterns = [
 
     # ── Heartbeat: пинг онлайн-статуса с фронта ──
     path('heartbeat/', views.HeartbeatView.as_view(), name='heartbeat'),
+
+    # ==================== ПОДДЕРЖКА ====================
+    path('support/tickets/', views.SupportTicketViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='support_tickets'),
+    path('support/tickets/<int:pk>/', views.SupportTicketViewSet.as_view({
+        'get': 'retrieve'
+    }), name='support_ticket_detail'),
+    path('support/tickets/<int:pk>/reply/', views.SupportTicketViewSet.as_view({
+        'post': 'reply'
+    }), name='support_ticket_reply'),
+    path('support/tickets/<int:pk>/close/', views.SupportTicketViewSet.as_view({
+        'post': 'close'
+    }), name='support_ticket_close'),
+    path('support/tickets/<int:pk>/reopen/', views.SupportTicketViewSet.as_view({
+        'post': 'reopen'
+    }), name='support_ticket_reopen'),
+    path('support/tickets/<int:pk>/mark-read/', views.SupportTicketViewSet.as_view({
+        'post': 'mark_read'
+    }), name='support_ticket_mark_read'),
+    path('support/unread-count/', views.SupportTicketViewSet.as_view({
+        'get': 'unread_count'
+    }), name='support_unread_count'),
 ]

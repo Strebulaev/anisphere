@@ -467,24 +467,37 @@ class PostAttachmentSerializer(serializers.ModelSerializer):
         return None
 
     def get_playlist_data(self, obj):
+        # pylint: disable=import-error,no-name-in-module
         if obj.content_type == 'playlist':
-            from playlists.serializers import PlaylistSerializer
             try:
-                from playlists.models import Playlist
-                playlist = Playlist.objects.get(id=obj.object_id)
-                return PlaylistSerializer(playlist).data
-            except Playlist.DoesNotExist:
+                from playlists.serializers import PlaylistSerializer  # type: ignore[import]
+                try:
+                    from playlists.models import Playlist  # type: ignore[import]
+                    playlist = Playlist.objects.get(id=obj.object_id)
+                    return PlaylistSerializer(playlist).data
+                except (ImportError, Playlist.DoesNotExist):
+                    return None
+            except ImportError:
+                # Playlists app not installed
                 return None
+        """Get playlist data for content attachment - playlists app required"""
+        # Playlists feature requires playlists app to be installed
         return None
 
     def get_shorts_data(self, obj):
+        # pylint: disable=import-error,no-name-in-module
+        """Get shorts data for content attachment"""
         if obj.content_type == 'shorts':
-            from reactor.serializers import ReactorPostSerializer
             try:
-                from reactor.models import ReactorPost
-                shorts = ReactorPost.objects.get(id=obj.object_id)
-                return ReactorPostSerializer(shorts).data
-            except ReactorPost.DoesNotExist:
+                from reactor.serializers import ReactorPostSerializer
+                try:
+                    from reactor.models import ReactorPost
+                    shorts = ReactorPost.objects.get(id=obj.object_id)
+                    return ReactorPostSerializer(shorts).data
+                except (ImportError, ReactorPost.DoesNotExist):
+                    return None
+            except ImportError:
+                # Reactor app not installed
                 return None
         return None
 
@@ -499,6 +512,9 @@ class MessageSerializer(serializers.ModelSerializer):
     shared_post_data = PostSerializer(source='shared_post', read_only=True)
     shared_anime_title = serializers.CharField(source='shared_anime.title_ru', read_only=True)
     shared_anime_poster = serializers.ImageField(source='shared_anime.poster', read_only=True)
+    shared_anime_data = serializers.SerializerMethodField()
+    shared_playlist_data = serializers.SerializerMethodField()
+    shared_shorts_data = serializers.SerializerMethodField()
     pinned_by_username = serializers.CharField(source='pinned_by.username', read_only=True)
     forwarded_from_data = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
@@ -514,7 +530,10 @@ class MessageSerializer(serializers.ModelSerializer):
             'id', 'chat', 'private_chat', 'sender', 'sender_id', 'sender_username', 'sender_avatar',
             'text', 'topic_id', 'media', 'media_type', 'media_url',
             'location_latitude', 'location_longitude', 'location_name',
-            'shared_post', 'shared_post_data', 'shared_anime', 'shared_anime_title', 'shared_anime_poster',
+            'shared_post', 'shared_post_data', 
+            'shared_anime', 'shared_anime_title', 'shared_anime_poster', 'shared_anime_data',
+            'shared_playlist', 'shared_playlist_data',
+            'shared_shorts', 'shared_shorts_data',
             'reply_to', 'reply_text', 'reply_sender_username',
             'is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'deleted_by',
             'is_pinned', 'pinned_by', 'pinned_by_username', 'pinned_at',
@@ -531,7 +550,7 @@ class MessageSerializer(serializers.ModelSerializer):
             'deleted_at', 'deleted_by', 'is_pinned', 'pinned_by', 'pinned_at',
             'forwarded_from', 'created_at', 'updated_at'
         ]
-    
+
     def get_is_read_by_other(self, obj):
         """
         Проверяет, прочитано ли сообщение получателем (для личных чатов)
@@ -608,17 +627,80 @@ class MessageSerializer(serializers.ModelSerializer):
         attachments = obj.attachments.all()
         return AttachmentSerializer(attachments, many=True, context=self.context).data
 
+    def get_shared_anime_data(self, obj):
+        """Получаем данные прикреплённого аниме"""
+        if obj.shared_anime:
+            return {
+                'id': obj.shared_anime.id,
+                'title_ru': obj.shared_anime.title_ru,
+                'title_en': obj.shared_anime.title_en,
+                'poster_url': obj.shared_anime.poster.url if obj.shared_anime.poster else obj.shared_anime.poster_url,
+                'kind': obj.shared_anime.kind,
+                'year': obj.shared_anime.year,
+            }
+        return None
+
+    def get_shared_playlist_data(self, obj):
+        """Получаем данные прикреплённого плейлиста"""
+        if obj.shared_playlist:
+            # Получаем первые 4 постера из плейлиста
+            items = obj.shared_playlist.items.select_related('anime')[:4] if hasattr(obj.shared_playlist, 'items') else []
+            posters = []
+            for item in items:
+                if item.anime:
+                    poster = item.anime.poster.url if item.anime.poster else item.anime.poster_url
+                    if poster:
+                        posters.append(poster)
+
+            return {
+                'id': obj.shared_playlist.id,
+                'title': obj.shared_playlist.title,
+                'description': obj.shared_playlist.description,
+                'poster_url': posters[0] if posters else None,
+                'posters': posters,
+                'items_count': len(items),
+                'user': {
+                    'id': obj.shared_playlist.user.id,
+                    'username': obj.shared_playlist.user.username,
+                } if obj.shared_playlist.user else None,
+            }
+        return None
+
+    def get_shared_shorts_data(self, obj):
+        """Получаем данные прикреплённого shorts (Reactor поста)"""
+        if obj.shared_shorts:
+            return {
+                'id': obj.shared_shorts.id,
+                'video_url': obj.shared_shorts.video_url,
+                'thumbnail_url': obj.shared_shorts.thumbnail_url,
+                'text': obj.shared_shorts.text,
+                'author': {
+                    'id': obj.shared_shorts.author.id,
+                    'username': obj.shared_shorts.author.username,
+                    'avatar_url': obj.shared_shorts.author.avatar.url if obj.shared_shorts.author.avatar else None,
+                } if obj.shared_shorts.author else None,
+                'anime': {
+                    'id': obj.shared_shorts.anime.id,
+                    'title_ru': obj.shared_shorts.anime.title_ru,
+                } if obj.shared_shorts.anime else None,
+                'likes_count': obj.shared_shorts.likes_count,
+                'views_count': obj.shared_shorts.views_count,
+            }
+        return None
+
     def validate(self, data):
         text = data.get('text', '').strip()
         media = data.get('media')
         location_latitude = data.get('location_latitude')
         shared_post = data.get('shared_post')
         shared_anime = data.get('shared_anime')
+        shared_playlist = data.get('shared_playlist')
+        shared_shorts = data.get('shared_shorts')
         
-        # Сообщение должно содержать что-то из: текст, медиа, геолокация, пост, аниме
-        if not any([text, media, location_latitude, shared_post, shared_anime]):
+        # Сообщение должно содержать что-то из: текст, медиа, геолокация, пост, аниме, плейлист, shorts
+        if not any([text, media, location_latitude, shared_post, shared_anime, shared_playlist, shared_shorts]):
             raise serializers.ValidationError(
-                "Сообщение должно содержать текст, медиафайл, геолокацию, пост или аниме"
+                "Сообщение должно содержать текст, медиафайл, геолокацию, пост, аниме, плейлист или шортс"
             )
         
         return data

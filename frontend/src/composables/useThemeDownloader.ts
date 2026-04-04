@@ -70,7 +70,7 @@ export function useThemeDownloader() {
       const themeRes = await apiClient.get(`/anime/${animeId}/themes/`, { params: themeParams })
       const theme = themeRes.data?.[kind]
       if (!theme || theme.start == null || theme.stop == null) {
-        throw new Error(`Тайминги ${kind === 'opening' ? 'опенинга' : 'эндинга'} не найдены`)
+        throw new Error(`У этого аниме нет ${kind === 'opening' ? 'опенинга' : 'эндинга'}`)
       }
 
       state.value.progress = 25

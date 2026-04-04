@@ -452,18 +452,60 @@ class UserLibraryViewSet(viewsets.GenericViewSet,
             total_rewatches=Sum('rewatch_count'),
         )
         
-        # Считаем часы просмотра (24 минуты на серию)
+        # Считаем часы просмотра (24 минуты на серию, 60 минут на фильм)
         episodes_watched = stats['episodes_watched'] or 0
-        hours_watched = round((episodes_watched * 24) / 60, 1)
         
-        # Считаем оставшееся время для аниме в процессе
-        started_items = UserLibrary.objects.filter(user=user, status='started').select_related('anime')
-        remaining_episodes = 0
+        # Получаем все завершённые аниме пользователя для подсчёта времени с учётом типа
+        completed_items = UserLibrary.objects.filter(
+            user=user, 
+            status='completed'
+        ).select_related('anime')
+        
+        total_minutes_watched = 0
+        for item in completed_items:
+            if item.anime:
+                # Используем реальную длительность эпизода из базы, или стандартные значения
+                if item.anime.episode_duration:
+                    episode_duration = item.anime.episode_duration
+                else:
+                    # Для фильмов (movie) считаем 60 минут, для остальных - 24 минуты
+                    episode_duration = 60 if item.anime.kind == 'movie' else 24
+                watched_eps = item.episodes_watched or 0
+                total_minutes_watched += watched_eps * episode_duration
+        
+        # Также учитываем начатые аниме
+        started_items = UserLibrary.objects.filter(
+            user=user, 
+            status='started'
+        ).select_related('anime')
+        
         for item in started_items:
             if item.anime and item.anime.episodes:
-                remaining_episodes += item.anime.episodes - (item.current_episode or 0)
+                # Используем реальную длительность эпизода из базы, или стандартные значения
+                if item.anime.episode_duration:
+                    episode_duration = item.anime.episode_duration
+                else:
+                    # Для фильмов (movie) считаем 60 минут, для остальных - 24 минуты
+                    episode_duration = 60 if item.anime.kind == 'movie' else 24
+                watched_eps = item.episodes_watched or 0
+                total_minutes_watched += watched_eps * episode_duration
         
-        hours_remaining = round((remaining_episodes * 24) / 60, 1)
+        hours_watched = round(total_minutes_watched / 60, 1)
+        
+        # Считаем оставшееся время для аниме в процессе
+        remaining_minutes = 0
+        for item in started_items:
+            if item.anime and item.anime.episodes:
+                # Используем реальную длительность эпизода из базы, или стандартные значения
+                if item.anime.episode_duration:
+                    episode_duration = item.anime.episode_duration
+                else:
+                    # Для фильмов (movie) считаем 60 минут, для остальных - 24 минуты
+                    episode_duration = 60 if item.anime.kind == 'movie' else 24
+                remaining_episodes = item.anime.episodes - (item.current_episode or 0)
+                remaining_minutes += max(0, remaining_episodes) * episode_duration
+        
+        hours_remaining = round(remaining_minutes / 60, 1)
         
         return Response({
             'total': stats['total'] or 0,
@@ -605,6 +647,23 @@ class UserLibraryViewSet(viewsets.GenericViewSet,
         
         if is_favorite is not None:
             item.is_favorite = is_favorite
+            # Синхронизируем с FavoriteAnime
+            try:
+                from playlists.models import FavoriteAnime
+                if is_favorite:
+                    FavoriteAnime.objects.get_or_create(
+                        user=request.user,
+                        anime=item.anime,
+                        defaults={}
+                    )
+                else:
+                    FavoriteAnime.objects.filter(
+                        user=request.user,
+                        anime=item.anime
+                    ).delete()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error syncing FavoriteAnime on update: {e}")
         
         item.save()
         
@@ -615,11 +674,30 @@ class UserLibraryViewSet(viewsets.GenericViewSet,
     def mark_favorite(self, request, pk=None):
         """Отметить/убрать из избранного"""
         from .models import UserLibrary
+        from playlists.models import FavoriteAnime
         
         try:
             item = UserLibrary.objects.get(id=pk, user=request.user)
             item.is_favorite = not item.is_favorite
             item.save(update_fields=['is_favorite', 'updated_at'])
+            
+            # Синхронизируем с FavoriteAnime
+            try:
+                if item.is_favorite:
+                    FavoriteAnime.objects.get_or_create(
+                        user=request.user,
+                        anime=item.anime,
+                        defaults={}
+                    )
+                else:
+                    FavoriteAnime.objects.filter(
+                        user=request.user,
+                        anime=item.anime
+                    ).delete()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error syncing FavoriteAnime: {e}")
+            
             return Response({
                 'is_favorite': item.is_favorite,
                 'message': 'Добавлено в избранное' if item.is_favorite else 'Убрано из избранного'

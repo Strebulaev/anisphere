@@ -202,6 +202,7 @@ class Anime(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='finished', verbose_name='Статус')
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='tv', verbose_name='Тип')
     episodes = models.PositiveIntegerField(null=True, blank=True, verbose_name='Количество эпизодов')
+    episode_duration = models.PositiveIntegerField(null=True, blank=True, verbose_name='Длительность эпизода (мин)')
     score = models.FloatField(null=True, blank=True, verbose_name='Рейтинг')
     poster_url = models.URLField(blank=True, verbose_name='URL постера')
     poster = models.ImageField(upload_to='anime_posters/', null=True, blank=True, verbose_name='Постер аниме')
@@ -538,6 +539,9 @@ class Episode(models.Model):
     title = models.CharField('Название', max_length=255, blank=True)
     title_en = models.CharField('Название (англ.)', max_length=255, blank=True)
     description = models.TextField('Описание', blank=True)
+    
+    # Длительность
+    duration = models.PositiveIntegerField('Длительность (секунды)', null=True, blank=True)
     
     # Даты
     air_date = models.DateField('Дата выхода', null=True, blank=True)

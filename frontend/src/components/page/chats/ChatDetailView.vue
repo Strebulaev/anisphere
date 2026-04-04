@@ -82,6 +82,72 @@
               <a :href="message.media" target="_blank">📎 {{ getFileName(message.media) }}</a>
             </div>
 
+            <!-- Прикреплённый пост -->
+            <div v-if="message.shared_post_data" class="message-shared-content">
+              <div class="shared-label">📝 Пост</div>
+              <div class="shared-post">
+                <img v-if="message.shared_post_data.image_url" :src="message.shared_post_data.image_url" class="shared-image" />
+                <div class="shared-info">
+                  <span class="shared-author">@{{ message.shared_post_data.author_username }}</span>
+                  <span class="shared-text">{{ message.shared_post_data.text?.substring(0, 100) }}...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Прикреплённое аниме -->
+            <div v-if="message.shared_anime_data" class="message-shared-content">
+              <div class="shared-label">🎬 Аниме</div>
+              <div class="shared-anime">
+                <img :src="message.shared_anime_data.poster_url" class="shared-poster" @error="handleImageError" />
+                <div class="shared-info">
+                  <span class="shared-title">{{ message.shared_anime_data.title_ru }}</span>
+                  <span v-if="message.shared_anime_data.title_en" class="shared-subtitle">{{ message.shared_anime_data.title_en }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Прикреплённый плейлист -->
+            <div v-if="message.shared_playlist_data" class="message-shared-content">
+              <div class="shared-label">📋 Плейлист</div>
+              <div class="shared-playlist">
+                <div class="shared-playlist-posters">
+                  <img 
+                    v-for="(poster, idx) in (message.shared_playlist_data.posters || []).slice(0, 4)" 
+                    :key="idx" 
+                    :src="poster" 
+                    class="shared-poster-grid"
+                  />
+                </div>
+                <div class="shared-info">
+                  <span class="shared-title">{{ message.shared_playlist_data.title }}</span>
+                  <span class="shared-subtitle">{{ message.shared_playlist_data.items_count }} аниме</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Прикреплённый shorts -->
+            <div v-if="message.shared_shorts_data" class="message-shared-content">
+              <div class="shared-label">🎥 Shorts</div>
+              <div class="shared-shorts">
+                <video 
+                  v-if="message.shared_shorts_data.video_url" 
+                  :src="message.shared_shorts_data.video_url" 
+                  class="shared-video"
+                  controls
+                />
+                <div v-else-if="message.shared_shorts_data.thumbnail_url" class="shared-shorts-thumb">
+                  <img :src="message.shared_shorts_data.thumbnail_url" class="shared-poster" />
+                  <span class="play-icon">▶</span>
+                </div>
+                <div class="shared-info">
+                  <span class="shared-author">@{{ message.shared_shorts_data.author?.username }}</span>
+                  <span v-if="message.shared_shorts_data.anime" class="shared-anime-tag">
+                    {{ message.shared_shorts_data.anime.title_ru }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <!-- Реакции отображаются внутри блока сообщения -->
             <div v-if="getMessageReactions(message.id).length > 0" class="message-reactions">
               <span
@@ -163,11 +229,13 @@
     <div v-if="showChatInfo" class="chat-info-sidebar" @click.self="showChatInfo = false">
       <div class="sidebar-header">
         <h3>О чате</h3>
-        <button @click="showChatInfo = false" class="close-btn">✕</button>
       </div>
       <div class="sidebar-content">
-        <div class="chat-avatar-large">
-          <img :src="chatAvatar" :alt="chatName">
+        <div class="chat-avatar-large-row">
+          <div class="chat-avatar-large">
+            <img :src="chatAvatar" :alt="chatName">
+          </div>
+          <button @click="showChatInfo = false" class="close-btn" title="Закрыть">✕</button>
         </div>
         <h4>{{ chatName }}</h4>
         <p v-if="chat?.description">{{ chat.description }}</p>
@@ -185,6 +253,8 @@
       v-if="showSettings"
       :chat-id="Number(route.params.id)"
       :chat-type="chat?.type || 'group'"
+      :chat-name="chatName"
+      :chat-avatar="chatAvatar"
       :is-owner="canManageChat"
       @close="showSettings = false"
       @settings-changed="handleSettingsChanged"
@@ -323,7 +393,9 @@ const currentChatId = computed(() => {
   // Иначе берём из route
   const routeId = route.params.id
   if (routeId && routeId !== 'undefined') {
-    return parseInt(routeId as string)
+    const parsed = parseInt(routeId as string)
+    // Проверяем, что получили валидное число
+    return isNaN(parsed) ? undefined : parsed
   }
   return undefined
 })
@@ -467,6 +539,13 @@ const getFileName = (url: string) => {
     return new URL(url).pathname.split('/').pop() || 'Файл'
   } catch {
     return url.split('/').pop() || 'Файл'
+  }
+}
+
+const handleImageError = (e: Event) => {
+  const target = e.target as HTMLImageElement | null
+  if (target) {
+    target.style.display = 'none'
   }
 }
 
@@ -1242,19 +1321,31 @@ watch(currentChatId, async (newId, oldId) => {
 </script>
 
 <style scoped>
-/* Стили остаются без изменений */
+/* Стили обновлены с темой Sakura Bloom */
 .chat-detail-view {
   height: 90vh;
-  background: #0f0f0f;
+  background: var(--surface-1);
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Фоновый узор */
+.chat-detail-view::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle at 10% 90%, rgba(255,126,179,0.03) 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(168,197,226,0.03) 0%, transparent 40%);
+  pointer-events: none;
 }
 
 /* Мобильная адаптация - отступ сверху под мобильную навигацию */
 @media (max-width: 767px) {
   .chat-detail-view {
     height: 100vh;
-    padding-top: 60px;
+    padding-top: 54px;
     box-sizing: border-box;
   }
   
@@ -1268,26 +1359,40 @@ watch(currentChatId, async (newId, oldId) => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: #1a1a1a;
-  border-bottom: 1px solid #2a2a2a;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-3) 100%);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
+
 .back-btn {
   background: none;
   border: none;
   font-size: 1.25rem;
-  color: #888;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0.25rem;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
+.back-btn:hover {
+  background: var(--surface-4);
+  color: var(--accent);
+}
+
 .chat-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  background: #7c4dff;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-press) 100%);
   flex-shrink: 0;
+  border: 2px solid var(--accent-subtle);
+  box-shadow: var(--shadow-petal-sm);
 }
+
 .chat-info {
   flex: 1;
   min-width: 0;
@@ -1295,38 +1400,56 @@ watch(currentChatId, async (newId, oldId) => {
   align-items: center;
   gap: 0.75rem;
 }
+
 .chat-name {
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
+
 .chat-status, .chat-members {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
+
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
 }
-.status-dot.online { background: #4caf50; }
-.status-dot.offline { background: #666; }
+
+.status-dot.online { 
+  background: linear-gradient(135deg, var(--success) 0%, #34d399 100%);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.status-dot.offline { 
+  background: var(--text-tertiary); 
+}
+
 .typing-indicator {
   display: inline-flex;
   gap: 2px;
 }
+
 .typing-indicator .dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #888;
+  background: var(--accent);
   animation: typing 1s infinite;
 }
+
 .typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes typing { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+@keyframes typing { 
+  0%, 100% { opacity: 0.4; } 
+  50% { opacity: 1; } 
+}
+
 .info-btn {
   background: none;
   border: none;
@@ -1335,23 +1458,38 @@ watch(currentChatId, async (newId, oldId) => {
   cursor: pointer;
   opacity: 100;
   transform: translateY(-5px);
-  color: #888;
+  color: var(--text-secondary);
+  transition: color var(--duration-base) var(--ease-petal);
 }
+
+.info-btn:hover {
+  color: var(--accent);
+}
+
 .header-actions { display: flex; gap: 0.5rem; }
+
 .settings-btn {
   background: none;
   border: none;
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0.25rem;
-  color: #888;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
+.settings-btn:hover {
+  background: var(--surface-4);
+  color: var(--accent);
+}
+
 .messages-container {
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
   min-height: 0;
-  background: var(--chat-bg, #0f0f0f);
+  background: var(--surface-1);
   position: relative;
 }
 
@@ -1374,79 +1512,104 @@ watch(currentChatId, async (newId, oldId) => {
   flex-direction: column;
   gap: 0.25rem;
 }
+
 .message-item {
   display: flex;
 }
+
 .message-item.own-message {
   justify-content: flex-end;
 }
+
 .message-content {
   max-width: 70%;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--chat-bubble-radius, 1rem);
-  background: var(--chat-msg-other-bg, #2d2d2d);
-  color: var(--chat-msg-other-text, #ffffff);
-  box-shadow: var(--chat-bubble-shadow, 0 1px 2px rgba(0, 0, 0, 0.4));
+  border-radius: var(--radius-xl);
+  background: var(--surface-4);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
   font-size: var(--chat-font-size, 14px);
   font-family: var(--chat-font-family, system-ui);
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
 .own-message .message-content {
-  background: var(--chat-msg-mine-bg, #1e7cff);
-  color: var(--chat-msg-mine-text, #fff);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-press) 100%);
+  color: var(--text-on-accent);
+  border: none;
+  box-shadow: var(--shadow-petal-sm);
 }
+
 .message-text {
   word-wrap: break-word;
   color: inherit;
   line-height: 1.4;
 }
+
 .message-image {
   max-width: 100%;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
+
 .message-file a {
-  color: #7c4dff;
+  color: var(--accent);
   text-decoration: none;
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
 .message-file a:hover {
   text-decoration: underline;
+  color: var(--accent-press);
 }
+
 .message-time {
   font-size: 0.7rem;
   opacity: 0.9;
   margin-top: 0.15rem;
-  color: #000000 !important;
+  color: var(--text-tertiary) !important;
 }
+
 .own-message .message-time {
-  color: #000000 !important;
+  color: rgba(0,0,0,0.5) !important;
 }
+
 .message-input-area {
   padding: 1rem;
-  background: #1a1a1a;
-  border-top: 1px solid #2a2a2a;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-3) 100%);
+  border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
+
 .message-form {
   display: flex;
   gap: 0.5rem;
   align-items: center;
 }
+
 .message-input {
   flex: 1;
   padding: 1rem;
-  border: 1px solid #2a2a2a;
-  border-radius: 1.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
   outline: none;
-  background: #0f0f0f;
-  color: #ffffff;
+  background: var(--surface-4);
+  color: var(--text-primary);
   height: 3.5rem;
   font-size: 1rem;
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
 .message-input:focus {
-  border-color: #7c4dff;
+  border-color: var(--accent);
+  box-shadow: var(--border-glow);
 }
+
 .message-input::placeholder {
-  color: #666;
+  color: var(--text-tertiary);
 }
+
 .attach-btn, .send-btn {
   width: 44px;
   height: 44px;
@@ -1457,79 +1620,150 @@ watch(currentChatId, async (newId, oldId) => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
 .attach-btn {
-  background: #0f0f0f;
-  color: #888;
+  background: var(--surface-4);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
 }
+
+.attach-btn:hover {
+  background: var(--surface-5);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .send-btn {
-  background: #7c4dff;
-  color: white;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-press) 100%);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-petal-sm);
 }
-.send-btn:disabled { opacity: 0.5; }
+
+.send-btn:hover:not(:disabled) {
+  box-shadow: var(--shadow-glow-sm);
+  transform: scale(1.05);
+}
+
+.send-btn:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+}
+
 .ws-status {
   font-size: 0.75rem;
-  color: #ff9800;
+  color: var(--warning);
   text-align: center;
   padding-top: 0.25rem;
 }
+
 .chat-info-sidebar {
   position: fixed;
   top: 0;
   right: 0;
   width: 280px;
   height: 100vh;
-  background: #1a1a1a;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.4);
+  background: var(--surface-2);
+  border-left: 1px solid var(--border-default);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
   z-index: 100;
 }
+
 .sidebar-header {
   display: flex;
   justify-content: space-between;
   padding: 1rem;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-subtle);
 }
+
 .close-btn {
   background: none;
   border: none;
   font-size: 1.25rem;
   cursor: pointer;
-  color: #888;
+  color: var(--text-secondary);
+  transition: color var(--duration-base) var(--ease-petal);
 }
-.sidebar-content { padding: 1rem; }
+
+.close-btn:hover {
+  color: var(--accent);
+}
+
+.sidebar-content { 
+  padding: 1rem; 
+}
+
 .sidebar-content h3,
 .sidebar-content h4,
 .sidebar-content h5,
 .sidebar-content p {
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
-.chat-avatar-large {
-  text-align: center;
+
+.chat-avatar-large-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 1rem;
 }
+
+.chat-avatar-large {
+  text-align: center;
+}
+
+.chat-avatar-large-row .close-btn {
+  background: var(--surface-4);
+  border: 1px solid var(--border-default);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all var(--duration-base) var(--ease-petal);
+  flex-shrink: 0;
+}
+
+.chat-avatar-large-row .close-btn:hover {
+  background: var(--danger-subtle);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .chat-avatar-large img {
   width: 64px;
   height: 64px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-petal-sm);
 }
-.participants-list { margin-top: 1.5rem; }
+
+.participants-list { 
+  margin-top: 1.5rem; 
+}
+
 .participants-list h5 {
-  color: #888;
+  color: var(--text-tertiary);
   margin-bottom: 0.5rem;
 }
+
 .participant {
   padding: 0.5rem;
-  border-radius: 0.5rem;
-  color: #e0e0e0;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
 .participant:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-4);
 }
+
 .loading, .no-messages {
   text-align: center;
   padding: 2rem;
-  color: #888;
+  color: var(--text-tertiary);
 }
 
 /* Закрепленные сообщения */
@@ -1538,37 +1772,46 @@ watch(currentChatId, async (newId, oldId) => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: rgba(255, 193, 7, 0.12);
-  border-bottom: 1px solid #2a2a2a;
+  background: var(--warning-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 0.875rem;
 }
+
 .pinned-label {
-  color: #ffc107;
+  color: var(--warning);
   font-weight: 500;
 }
+
 .pinned-message-preview {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #aaa;
+  color: var(--text-secondary);
 }
+
 .pinned-close {
   background: none;
   border: none;
-  color: #666;
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 1.25rem;
   padding: 0;
+  transition: color var(--duration-base) var(--ease-petal);
+}
+
+.pinned-close:hover {
+  color: var(--danger);
 }
 
 /* Сообщения */
 .message-sender {
   font-size: 0.75rem;
-  color: #7c4dff;
+  color: var(--accent);
   margin-bottom: 0.25rem;
   font-weight: 500;
 }
+
 .message-footer {
   display: flex;
   align-items: center;
@@ -1577,26 +1820,28 @@ watch(currentChatId, async (newId, oldId) => {
   margin-top: 0.5rem;
   flex-wrap: wrap;
 }
+
 .message-footer.own-footer {
   justify-content: flex-end;
 }
+
 .message-status {
   font-size: 0.75rem;
   font-weight: 600;
   margin-left: 0.25rem;
 }
-.message-status.sent {
-  color: #000000 !important;
-}
-.message-status.read {
-  color: #000000 !important;
-}
+
+.message-status.sent, 
+.message-status.read,
 .message-status.group-read {
-  color: #000000 !important;
+  color: rgba(0,0,0,0.5) !important;
 }
+
 .message-pinned, .message-edited {
   font-size: 0.75rem;
+  color: var(--text-tertiary);
 }
+
 .message-reactions {
   display: flex;
   flex-wrap: wrap;
@@ -1606,34 +1851,40 @@ watch(currentChatId, async (newId, oldId) => {
   max-width: calc(100% - 80px);
   padding-bottom: 0.25rem;
 }
+
 .message-actions {
   display: flex;
   gap: 0.25rem;
   margin-top: 0.5rem;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-base) var(--ease-petal);
 }
+
 .message-item:hover .message-actions {
   opacity: 1;
 }
+
 .action-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.25rem;
+  background: var(--surface-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   padding: 0.25rem 0.5rem;
   cursor: pointer;
   font-size: 0.75rem;
-  color: #e0e0e0;
-  transition: background 0.2s, border-color 0.2s;
+  color: var(--text-secondary);
+  transition: all var(--duration-base) var(--ease-petal);
 }
+
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--surface-5);
+  border-color: var(--accent);
+  color: var(--accent);
 }
+
 .action-btn.delete-btn:hover {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: rgba(244, 67, 54, 0.4);
-  color: #ff6b6b;
+  background: var(--danger-subtle);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 /* Кнопки заголовка */
@@ -1643,21 +1894,23 @@ watch(currentChatId, async (newId, oldId) => {
   font-size: 1.1rem;
   cursor: pointer;
   padding: 0.25rem;
-  color: #888;
-  transition: color 0.2s;
+  color: var(--text-secondary);
+  transition: color var(--duration-base) var(--ease-petal);
 }
+
 .invite-btn:hover, .search-btn:hover {
-  color: #e0e0e0;
+  color: var(--accent);
 }
 
 /* Подсветка сообщения */
 .message-item.highlighted {
-  background: rgba(124, 77, 255, 0.15);
+  background: var(--accent-subtle);
   animation: highlight-pulse 2s ease-out;
 }
+
 @keyframes highlight-pulse {
-  0%, 100% { background: rgba(124, 77, 255, 0.15); }
-  50% { background: rgba(124, 77, 255, 0.25); }
+  0%, 100% { background: var(--accent-subtle); }
+  50% { background: rgba(255,126,179,0.15); }
 }
 
 /* Скрытый input для файлов */
@@ -1669,26 +1922,29 @@ watch(currentChatId, async (newId, oldId) => {
 .messages-container::-webkit-scrollbar {
   width: 6px;
 }
+
 .messages-container::-webkit-scrollbar-track {
-  background: #0f0f0f;
+  background: var(--surface-1);
 }
+
 .messages-container::-webkit-scrollbar-thumb {
-  background: #333;
+  background: var(--surface-5);
   border-radius: 3px;
 }
+
 .messages-container::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: var(--accent-subtle);
 }
 
 .context-menu {
   position: fixed;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 0.5rem;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
   padding: 0.25rem;
   z-index: 1000;
   min-width: 150px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-modal);
 }
 
 .context-menu-item {
@@ -1699,21 +1955,21 @@ watch(currentChatId, async (newId, oldId) => {
   padding: 0.5rem 0.75rem;
   border: none;
   background: none;
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
   cursor: pointer;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   text-align: left;
-  transition: background 0.15s;
+  transition: background var(--duration-base) var(--ease-petal);
 }
 
 .context-menu-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-4);
 }
 
 .context-menu-item.delete:hover {
-  background: rgba(244, 67, 54, 0.2);
-  color: #ff6b6b;
+  background: var(--danger-subtle);
+  color: var(--danger);
 }
 
 .context-menu-icon {
@@ -1723,14 +1979,14 @@ watch(currentChatId, async (newId, oldId) => {
 /* Пикер реакций */
 .reaction-picker {
   position: fixed;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 1rem;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   padding: 0.5rem;
   display: flex;
   gap: 0.25rem;
   z-index: 999;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-modal);
 }
 
 .reaction-emoji-btn {
@@ -1739,23 +1995,23 @@ watch(currentChatId, async (newId, oldId) => {
   font-size: 1.25rem;
   padding: 0.25rem;
   cursor: pointer;
-  border-radius: 0.25rem;
-  transition: background 0.15s, transform 0.1s;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-base) var(--ease-petal), transform 0.1s;
 }
 
 .reaction-emoji-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--surface-4);
   transform: scale(1.2);
 }
 
 /* Единый popup с реакциями и контекстным меню */
 .message-actions-popup {
   position: fixed;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 0.75rem;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   z-index: 1000;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-modal);
   overflow: hidden;
 }
 
@@ -1763,8 +2019,8 @@ watch(currentChatId, async (newId, oldId) => {
   display: flex;
   gap: 0.15rem;
   padding: 0.5rem;
-  background: #252525;
-  border-bottom: 1px solid #3a3a3a;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
   flex-wrap: wrap;
   justify-content: center;
   max-width: 200px;
@@ -1776,12 +2032,12 @@ watch(currentChatId, async (newId, oldId) => {
   background: none;
   border: none;
   cursor: pointer;
-  border-radius: 0.35rem;
-  transition: background 0.15s, transform 0.1s;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-base) var(--ease-petal), transform 0.1s;
 }
 
 .reaction-picker-container .reaction-emoji-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--surface-4);
   transform: scale(1.25);
 }
 
@@ -1799,24 +2055,157 @@ watch(currentChatId, async (newId, oldId) => {
   padding: 0.6rem 0.75rem;
   border: none;
   background: none;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 0.875rem;
   cursor: pointer;
-  border-radius: 0.35rem;
+  border-radius: var(--radius-sm);
   text-align: left;
-  transition: background 0.15s;
+  transition: background var(--duration-base) var(--ease-petal);
 }
 
 .context-menu-actions .context-menu-item:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--surface-4);
 }
 
 .context-menu-actions .context-menu-item.delete:hover {
-  background: rgba(244, 67, 54, 0.25);
-  color: #ff6b6b;
+  background: var(--danger-subtle);
+  color: var(--danger);
 }
 
 .context-menu-actions .context-menu-icon {
   font-size: 1rem;
+}
+
+/* Прикреплённый контент (посты, аниме, плейлисты, shorts) */
+.message-shared-content {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--surface-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.shared-label {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.shared-post,
+.shared-anime,
+.shared-playlist,
+.shared-shorts {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.shared-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.shared-poster {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  background: var(--surface-3);
+}
+
+.shared-poster-grid {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.shared-playlist-posters {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.shared-video {
+  width: 100%;
+  max-width: 200px;
+  border-radius: var(--radius-md);
+  background: #000;
+}
+
+.shared-shorts-thumb {
+  position: relative;
+  width: 80px;
+  height: 120px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.shared-shorts-thumb .play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5rem;
+  color: white;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.shared-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.shared-author {
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.shared-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shared-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.shared-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.shared-anime-tag {
+  font-size: 0.7rem;
+  color: var(--warning);
+  background: var(--warning-subtle);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  width: fit-content;
+  margin-top: 0.25rem;
 }
 </style>

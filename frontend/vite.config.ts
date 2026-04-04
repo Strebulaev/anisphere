@@ -46,7 +46,14 @@ export default defineConfig({
         // ИСКЛЮЧАЕМ изображения из пре-кэша - они будут кэшироваться динамически
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         // Исключаем изображения из прекэша явно
-        globIgnores: ['**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.gif', '**/*.avif'],
+        globIgnores: [
+          '**/*.jpg', 
+          '**/*.jpeg', 
+          '**/*.png',  
+          '**/*.webp', 
+          '**/*.gif', 
+          '**/*.avif'
+        ],
         runtimeCaching: [
           {
             // Динамическое кэширование изображений с ЖЁСТКИМИ ЛИМИТАМИ

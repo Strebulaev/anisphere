@@ -161,13 +161,25 @@ const createGroup = async () => {
 <style scoped>
 .create-group-view {
   min-height: 100vh;
-  background: var(--color-background);
+  background: var(--surface-1);
+  position: relative;
+}
+
+/* Фоновый узор */
+.create-group-view::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle at 10% 90%, rgba(255,126,179,0.03) 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(168,197,226,0.03) 0%, transparent 40%);
+  pointer-events: none;
 }
 
 /* Мобильная адаптация - отступ сверху под мобильную навигацию */
 @media (max-width: 767px) {
   .create-group-view {
-    padding-top: 60px;
+    padding-top: 54px;
     box-sizing: border-box;
   }
 }

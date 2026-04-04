@@ -194,120 +194,232 @@ const banUser = async () => {
 
 <style scoped>
 .modal-overlay {
-  @apply fixed inset-0 bg-black/60 flex items-center justify-center z-50;
+  position: fixed;
+  inset: 0;
+  background: rgba(5,4,8,0.88);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
 }
 
 .modal-content {
-  @apply bg-gray-800 rounded-xl w-full max-w-md mx-4 overflow-hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 1rem;
+  overflow: hidden;
 }
 
 .modal-header {
-  @apply flex items-center justify-between p-4 border-b border-gray-700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-header h3 {
-  @apply text-lg font-semibold text-white;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .close-btn {
-  @apply p-1 rounded hover:bg-gray-700 transition-colors text-gray-400;
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  transition: all 0.2s var(--ease-petal);
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  background: var(--surface-4);
+  color: var(--accent);
 }
 
 .modal-body {
-  @apply p-4 space-y-4;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .user-info {
-  @apply flex items-center gap-4 p-4 bg-gray-700/50 rounded-lg;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--surface-4);
+  border-radius: var(--radius-lg);
 }
 
 .avatar {
-  @apply w-12 h-12 rounded-full;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-subtle);
 }
 
 .username {
-  @apply font-medium text-white;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .user-status {
-  @apply text-sm text-gray-400;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
 }
 
 .form {
-  @apply space-y-4;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .form-group {
-  @apply space-y-2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .form-group label {
-  @apply block text-sm font-medium text-gray-300;
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .input {
-  @apply w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white;
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  transition: all 0.2s var(--ease-petal);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--border-glow);
 }
 
 .textarea {
-  @apply resize-none;
+  resize: none;
 }
 
 .duration-options {
-  @apply grid grid-cols-3 gap-2;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
 }
 
 .duration-btn {
-  @apply px-3 py-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-gray-300 transition-colors;
-  @apply hover:bg-gray-600;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background: var(--surface-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  transition: all 0.2s var(--ease-petal);
+  cursor: pointer;
+}
+
+.duration-btn:hover {
+  background: var(--surface-5);
 }
 
 .duration-btn.active {
-  @apply bg-red-600 border-red-600 text-white;
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
 }
 
 .checkbox-label {
-  @apply flex items-center gap-3 cursor-pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
 }
 
 .checkbox-label input[type="checkbox"] {
-  @apply w-5 h-5 rounded;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--radius-sm);
+  accent-color: var(--accent);
 }
 
 .help-text {
-  @apply text-xs text-gray-400;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
 }
 
 .warning-box {
-  @apply flex gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--warning-subtle);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-lg);
 }
 
 .warning-title {
-  @apply text-sm font-medium text-yellow-500;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--warning);
 }
 
 .warning-text {
-  @apply text-xs text-gray-400;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .modal-footer {
-  @apply flex justify-end gap-3 p-4 border-t border-gray-700;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .btn {
-  @apply px-4 py-2 rounded-lg font-medium transition-colors;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-lg);
+  font-weight: 500;
+  transition: all 0.2s var(--ease-petal);
+  cursor: pointer;
 }
 
 .btn-secondary {
-  @apply bg-gray-700 text-white hover:bg-gray-600;
+  background: var(--surface-4);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-5);
 }
 
 .btn-danger {
-  @apply bg-red-600 text-white hover:bg-red-700;
+  background: var(--danger);
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: var(--danger-press);
 }
 
 .btn-danger:disabled {
-  @apply opacity-50 cursor-not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

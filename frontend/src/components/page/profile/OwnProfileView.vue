@@ -11,7 +11,7 @@
           <input 
             type="file" 
             accept="image/*" 
-            @change="handleCoverUpload" 
+            @change="handleCoverSelect" 
             hidden
           />
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -24,8 +24,12 @@
 
       <div class="header-content">
         <div class="avatar-section">
-          <img :src="user.avatar || '/img/default-avatar.svg'" class="avatar" @click="openSettings" title="Настроить аватар" style="cursor:pointer" />
-          <div :class="['status-indicator', { online: isOnline }]"></div>
+          <UserAvatar
+            :src="user.avatar || user.avatar_url || '/img/default-avatar.svg'"
+            :is-online="isOnline"
+            size="2xl"
+            shape="circle"
+          />
         </div>
 
         <div class="user-info">
@@ -52,76 +56,38 @@
           </button>
         </div>
 
-        <!-- Статистика -->
-        <!-- <div class="stats">
-          <div class="stat-item">
-            <span class="stat-value">{{ stats.followers }}</span>
-            <span class="stat-label">подписчиков</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ stats.following }}</span>
-            <span class="stat-label">подписок</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ stats.posts }}</span>
-            <span class="stat-label">постов</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ stats.playlists }}</span>
-            <span class="stat-label">плейлистов</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ stats.achievements }}</span>
-            <span class="stat-label">достижений</span>
-          </div>
-        </div> -->
+    <!-- Статистика -->
+    <!-- <div class="stats">
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.followers }}</span>
+        <span class="stat-label">подписчиков</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.following }}</span>
+        <span class="stat-label">подписок</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.posts }}</span>
+        <span class="stat-label">постов</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.playlists }}</span>
+        <span class="stat-label">плейлистов</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.achievements }}</span>
+        <span class="stat-label">достижений</span> -->
       </div>
     </div>
-
-    <!-- Вкладки -->
-    <!-- <div class="profile-tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        @click="activeTab = tab.id"
-        :class="['tab-btn', { active: activeTab === tab.id }]"
-      >
-        {{ tab.name }}
-      </button>
-    </div> -->
-
-    <!-- Контент вкладок -->
-    <!-- <div class="profile-content">
-      <div v-if="activeTab === 'feed'" class="tab-content">
-        <UserFeed :user-id="currentUser?.id" />
-      </div>
-
-      <div v-if="activeTab === 'anime'" class="tab-content">
-        <MyCollection />
-      </div>
-
-      <div v-if="activeTab === 'playlists'" class="tab-content">
-        <MyPlaylists />
-      </div>
-
-      <div v-if="activeTab === 'shorts'" class="tab-content">
-        <UserShorts :user-id="currentUser?.id" />
-      </div>
-
-      <div v-if="activeTab === 'achievements'" class="tab-content">
-        <AchievementsView />
-      </div>
-
-      <div v-if="activeTab === 'about'" class="tab-content">
-        <ProfileAbout :user="user" @edit="openEditProfile" />
-      </div>
-
-      <div v-if="activeTab === 'favorites'" class="tab-content">
-        <UserFavorites :user-id="currentUser?.id" />
-      </div>
-    </div> -->
-
   </div>
+  
+  <!-- Модальное окно выбора области обложки -->
+  <CoverCropModal 
+    :show="showCoverModal"
+    :image-url="selectedCoverUrl"
+    @close="handleCoverModalClose"
+    @save="handleCoverSave"
+  />
 </template>
 
 <script setup>
@@ -130,13 +96,20 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { CogIcon } from '@heroicons/vue/24/outline'
 import api from '@/api'
+import CoverCropModal from '@/components/modal/CoverCropModal.vue'
+import UserAvatar from '@/components/ui/UserAvatar.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const user = ref({})
 const stats = ref({})
-const isOnline = ref(false)
+const isOnline = ref<boolean | null>(null)
+
+// Модальное окно обрезки обложки
+const showCoverModal = ref(false)
+const selectedCoverFile = ref(null)
+const selectedCoverUrl = ref('')
 
 // Администраторские права
 const isAdmin = computed(() => {
@@ -149,10 +122,12 @@ const currentUser = computed(() => authStore.user)
 
 const coverImageStyle = computed(() => {
   if (user.value.cover_image_url) {
+    const positionX = user.value.cover_position_x ?? 50
+    const positionY = user.value.cover_position_y ?? 50
     return {
       backgroundImage: `url(${user.value.cover_image_url})`,
       backgroundSize: 'cover',
-      backgroundPosition: 'center'
+      backgroundPosition: `${positionX}% ${positionY}%`
     }
   }
   return {}
@@ -162,7 +137,7 @@ const loadProfile = async () => {
   try {
     const response = await api.get(`/users/profile/${currentUser.value.id}/`)
     user.value = response.data
-    isOnline.value = response.data.is_online
+    isOnline.value = response.data.is_online ?? null
   } catch (error) {
     console.error('Ошибка загрузки профиля:', error)
   }
@@ -181,13 +156,51 @@ const openSettings = () => {
   router.push('/settings')
 }
 
-const handleCoverUpload = async (event) => {
+// Выбор файла обложки - открываем модальное окно
+const handleCoverSelect = (event) => {
   const file = event.target.files[0]
   if (!file) return
 
-  const formData = new FormData()
-  formData.append('cover_image', file)
+  // Проверяем тип файла
+  if (!file.type.startsWith('image/')) {
+    alert('Пожалуйста, выберите изображение')
+    return
+  }
+  
+  // Проверяем размер (макс 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Размер файла не должен превышать 10MB')
+    return
+  }
+  
+  selectedCoverFile.value = file
+  // Создаём URL для предпросмотра
+  selectedCoverUrl.value = URL.createObjectURL(file)
+  showCoverModal.value = true
+  
+  // Сбрасываем input
+  event.target.value = ''
+}
 
+// Закрытие модального окна
+const handleCoverModalClose = () => {
+  showCoverModal.value = false
+  if (selectedCoverUrl.value) {
+    URL.revokeObjectURL(selectedCoverUrl.value)
+  }
+  selectedCoverFile.value = null
+  selectedCoverUrl.value = ''
+}
+
+// Сохранение обложки с позицией
+const handleCoverSave = async (position) => {
+  if (!selectedCoverFile.value) return
+  
+  const formData = new FormData()
+  formData.append('cover_image', selectedCoverFile.value)
+  formData.append('cover_position_x', position.x.toString())
+  formData.append('cover_position_y', position.y.toString())
+  
   try {
     const response = await api.patch(`/users/profile/update/`, formData, {
       headers: {
@@ -196,6 +209,10 @@ const handleCoverUpload = async (event) => {
     })
     user.value.cover_image_url = response.data.cover_image_url
     user.value.cover_image = response.data.cover_image
+    user.value.cover_position_x = position.x
+    user.value.cover_position_y = position.y
+    
+    handleCoverModalClose()
   } catch (error) {
     console.error('Ошибка загрузки обложки:', error)
     alert('Не удалось загрузить обложку')
@@ -292,21 +309,6 @@ onMounted(() => {
 
 .avatar:hover {
   transform: scale(1.05);
-}
-
-.status-indicator {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  width: 24px;
-  height: 24px;
-  background: var(--color-text-tertiary);
-  border: 3px solid var(--color-background-surface);
-  border-radius: 50%;
-}
-
-.status-indicator.online {
-  background: var(--color-accent-teal);
 }
 
 .user-info {
