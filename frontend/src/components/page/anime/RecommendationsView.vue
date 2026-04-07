@@ -5,7 +5,7 @@
     <div class="rec-header">
       <div class="rec-header-row">
         <div>
-          <h2 class="rec-title">⭐ Для вас</h2>
+          <h2 class="rec-title"><SakuraIcon name="star" /> Для вас</h2>
           <p class="rec-subtitle">Подборки на основе вашего вкуса — персональные советы и лучшее аниме</p>
         </div>
         <button class="rec-refresh-btn" @click="loadAll" :disabled="globalLoading" type="button">
@@ -52,14 +52,14 @@ const router    = useRouter()
 const authStore = useAuthStore()
 
 const blocks: Block[] = [
-  { key: 'top_rated',        title: 'Топ аниме',               desc: 'Лучшее по рейтингу сообщества',                icon: '🏆', route: '/anime?ordering=-score'              },
-  { key: 'new_season',       title: 'Новинки',                  desc: 'Аниме за последние 2 года',                   icon: '🆕', route: '/anime?ordering=-year'               },
-  { key: 'based_on_watched', title: 'На основе просмотренного', desc: 'Похожее на то, что вы уже смотрели',          icon: '🎯'                                            },
-  { key: 'seasonal',         title: 'Сезонное',                 desc: 'Онгоинги текущего сезона',                    icon: '🌸', route: '/anime?status=ongoing'               },
-  { key: 'classics',         title: 'Классика',                 desc: 'Легендарные тайтлы до 2010 года',             icon: '📜', route: '/anime?ordering=-score&year_to=2010' },
-  { key: 'explore_new',      title: 'Откройте новое',           desc: 'Неожиданные находки с рейтингом выше 7',      icon: '🔭'                                            },
-  { key: 'short',            title: 'Короткие аниме',           desc: 'До 13 серий — идеально для старта',           icon: '⚡'                                            },
-  { key: 'movies',           title: 'Полнометражные',           desc: 'Фильмы и OVA с высоким рейтингом',            icon: '🎬'                                            },
+  { key: 'top_rated',        title: 'Топ аниме',               desc: 'Лучшее по рейтингу сообщества',                icon: 'trophy', route: '/anime?ordering=-score'              },
+  { key: 'new_season',       title: 'Новинки',                  desc: 'Аниме за последние 2 года',                   icon: 'sparkles', route: '/anime?ordering=-year'               },
+  { key: 'based_on_watched', title: 'На основе просмотренного', desc: 'Похожее на то, что вы уже смотрели',          icon: 'target'                                            },
+  { key: 'seasonal',         title: 'Сезонное',                 desc: 'Онгоинги текущего сезона',                    icon: 'flower', route: '/anime?status=ongoing'               },
+  { key: 'classics',         title: 'Классика',                 desc: 'Легендарные тайтлы до 2010 года',             icon: 'scroll', route: '/anime?ordering=-score&year_to=2010' },
+  { key: 'explore_new',      title: 'Откройте новое',           desc: 'Неожиданные находки с рейтингом выше 7',      icon: 'telescope'                                            },
+  { key: 'short',            title: 'Короткие аниме',           desc: 'До 13 серий — идеально для старта',           icon: 'zap'                                            },
+  { key: 'movies',           title: 'Полнометражные',           desc: 'Фильмы и OVA с высоким рейтингом',            icon: 'play'                                            },
 ]
 
 const blockData:    Record<BlockKey, any[]>   = reactive({} as any)

@@ -814,6 +814,34 @@ class GroupChatCreateSerializer(serializers.ModelSerializer):
     def validate_participants(self, value):
         return value
 
+    def update(self, instance, validated_data):
+        """Обновление чата (включая аватар)"""
+        participants = validated_data.pop('participants', None)
+        avatar = validated_data.pop('avatar', None)
+
+        # Обновляем обычные поля
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Обновляем аватар
+        if avatar is not None:
+            instance.avatar.save(avatar.name, avatar, save=True)
+        elif 'avatar' in validated_data and validated_data['avatar'] is None:
+            # Если передали null - удаляем аватар
+            instance.avatar.delete(save=True)
+
+        instance.save()
+
+        # Логируем изменение
+        ChatAdminLog.objects.create(
+            chat=instance,
+            user=self.context['request'].user,
+            action='chat_updated',
+            details={'updated_fields': list(validated_data.keys())}
+        )
+
+        return instance
+
     def create(self, validated_data):
         participants = validated_data.pop('participants', [])
         avatar = validated_data.pop('avatar', None)
@@ -1151,59 +1179,75 @@ class PrivateChatSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj):
         """Получаем имя чата - display_name пользователя"""
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            other = obj.other_user(request.user)
-            if other:
-                return other.display_name or other.username
+        try:
+            request = self.context.get('request')
+            if request and request.user.is_authenticated:
+                other = obj.other_user(request.user)
+                if other:
+                    return other.display_name or other.username
+        except Exception as e:
+            print(f"Error in get_name: {e}")
         return 'Чат'
 
     def get_other_user(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            other = obj.other_user(request.user)
-            return UserSimpleSerializer(other).data
+        try:
+            request = self.context.get('request')
+            if request and request.user.is_authenticated:
+                other = obj.other_user(request.user)
+                if other:
+                    return UserSimpleSerializer(other).data
+        except Exception as e:
+            print(f"Error in get_other_user: {e}")
         return None
 
     def get_user_settings(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            return obj.get_user_settings(request.user)
+        try:
+            request = self.context.get('request')
+            if request and request.user.is_authenticated:
+                return obj.get_user_settings(request.user)
+        except Exception as e:
+            print(f"Error in get_user_settings: {e}")
         return {}
 
     def get_unread_count(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            # Получаем количество непрочитанных сообщений
-            last_read = MessageReadStatus.objects.filter(
-                user=request.user,
-                message__private_chat=obj
-            ).order_by('-read_at').first()
+        try:
+            request = self.context.get('request')
+            if request and request.user.is_authenticated:
+                # Получаем количество непрочитанных сообщений
+                last_read = MessageReadStatus.objects.filter(
+                    user=request.user,
+                    message__private_chat=obj
+                ).order_by('-read_at').first()
 
-            if last_read:
-                unread_count = Message.objects.filter(
-                    private_chat=obj,
-                    created_at__gt=last_read.read_at
-                ).exclude(sender=request.user).count()
-            else:
-                unread_count = Message.objects.filter(
-                    private_chat=obj
-                ).exclude(sender=request.user).count()
+                if last_read:
+                    unread_count = Message.objects.filter(
+                        private_chat=obj,
+                        created_at__gt=last_read.read_at
+                    ).exclude(sender=request.user).count()
+                else:
+                    unread_count = Message.objects.filter(
+                        private_chat=obj
+                    ).exclude(sender=request.user).count()
 
-            return unread_count
+                return unread_count
+        except Exception as e:
+            print(f"Error in get_unread_count: {e}")
         return 0
 
     def get_last_message(self, obj):
-        last_message = Message.objects.filter(private_chat=obj).order_by('-created_at').first()
-        if last_message:
-            return {
-                'id': last_message.id,
-                'text': last_message.text,
-                'sender': UserSimpleSerializer(last_message.sender).data,
-                'created_at': last_message.created_at,
-                'is_edited': last_message.is_edited,
-                'media_type': last_message.media_type
-            }
+        try:
+            last_message = Message.objects.filter(private_chat=obj).order_by('-created_at').first()
+            if last_message:
+                return {
+                    'id': last_message.id,
+                    'text': last_message.text,
+                    'sender': UserSimpleSerializer(last_message.sender).data,
+                    'created_at': last_message.created_at,
+                    'is_edited': last_message.is_edited,
+                    'media_type': last_message.media_type
+                }
+        except Exception as e:
+            print(f"Error in get_last_message: {e}")
         return None
 
 

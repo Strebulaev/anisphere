@@ -12,58 +12,22 @@
         <h3>Основная информация</h3>
         
         <div v-if="user.display_name" class="info-item">
-          <strong>👤 Отображаемое имя:</strong>
+          <strong><SakuraIcon name="user" /> Отображаемое имя:</strong>
           <span>{{ user.display_name }}</span>
         </div>
 
         <div v-if="user.nickname" class="info-item">
-          <strong>🏷️ Никнейм:</strong>
+          <strong><SakuraIcon name="tag" /> Никнейм:</strong>
           <span>@{{ user.nickname }}</span>
-        </div>
-
-        <div v-if="user.email" class="info-item">
-          <strong>📧 Email:</strong>
-          <span>{{ user.email }}</span>
-          <span v-if="user.email_verified" class="verified-badge">✓ Подтверждён</span>
-          <span v-else class="unverified-badge">✗ Не подтверждён</span>
-        </div>
-
-        <div v-if="user.phone_number" class="info-item">
-          <strong>📱 Телефон:</strong>
-          <span>{{ user.phone_number }}</span>
-          <span v-if="user.phone_verified" class="verified-badge">✓ Подтверждён</span>
-          <span v-else class="unverified-badge">✗ Не подтверждён</span>
         </div>
 
         <div v-if="user.created_at" class="info-item">
           <strong>🗓 На сайте с:</strong>
           <span>{{ formatDate(user.created_at) }}</span>
         </div>
-
-        <div v-if="user.last_login" class="info-item">
-          <strong>🕐 Последний вход:</strong>
-          <span>{{ formatDateTime(user.last_login) }}</span>
-        </div>
       </div>
 
-      <div v-if="user.website || user.vk_profile || user.telegram" class="info-section">
-        <h3>Социальные сети</h3>
-
-        <div v-if="user.website" class="info-item">
-          <strong>🔗 Сайт:</strong>
-          <a :href="user.website" target="_blank" rel="noopener noreferrer">{{ user.website }}</a>
-        </div>
-
-        <div v-if="user.vk_profile" class="info-item">
-          <strong>💬 ВКонтакте:</strong>
-          <a :href="`https://vk.com/${user.vk_profile}`" target="_blank" rel="noopener noreferrer">{{ user.vk_profile }}</a>
-        </div>
-
-        <div v-if="user.telegram" class="info-item">
-          <strong>✈️ Telegram:</strong>
-          <a :href="`https://t.me/${user.telegram}`" target="_blank" rel="noopener noreferrer">@{{ user.telegram }}</a>
-        </div>
-      </div>
+      
 
       <div v-if="user.favorite_genres && user.favorite_genres.length > 0" class="info-section">
         <h3>Любимые жанры</h3>
@@ -124,21 +88,7 @@
         </div>
       </div>
 
-      <div class="info-section">
-        <h3>Безопасность</h3>
-        
-        <div class="info-item">
-          <strong>🔐 Двухфакторная аутентификация:</strong>
-          <span v-if="user.two_factor_enabled" class="enabled-badge">✓ Включена</span>
-          <span v-else class="disabled-badge">✗ Выключена</span>
-        </div>
-
-        <div class="info-item">
-          <strong>🟢 Онлайн статус:</strong>
-          <span v-if="user.is_online" class="online-badge">В сети</span>
-          <span v-else class="offline-badge">Не в сети</span>
-        </div>
-      </div>
+      
 
       <button v-if="canEdit" @click="$emit('edit')" class="btn-edit">
         Редактировать информацию

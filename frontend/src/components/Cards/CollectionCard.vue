@@ -153,7 +153,8 @@
             :class="{ current: item.status === tab.key }"
             @click="changeStatus(tab.key)"
           >
-            {{ tab.icon }} {{ tab.label }}
+            <SakuraIcon v-if="isIconName(tab.icon)" :name="tab.icon" :size="16" />
+            <span v-else>{{ tab.icon }}</span> {{ tab.label }}
           </button>
         </template>
         <div class="ctx-divider"></div>
@@ -229,6 +230,7 @@ import playlistsApi from '@/api/playlists'
 import { animeDiscussionsApi } from '@/api/animeDiscussions'
 import remindersApi from '@/api/reminders'
 import { useToast } from '@/composables/useToast'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 const props = defineProps<{ item: LibraryItem }>()
 const emit = defineEmits<{
@@ -370,15 +372,21 @@ const posterUrl = computed(() => {
 
 // ── Статусы ───────────────────────────────────────────────────
 const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
-  started:   { icon: '▶️', color: 'var(--accent)',  label: 'В процессе'    },
-  completed: { icon: '✅', color: '#22c55e',          label: 'Просмотрено'   },
-  planned:   { icon: '📅', color: '#a78bfa',          label: 'Запланировано' },
-  on_hold:   { icon: '⏸️', color: '#f59e0b',          label: 'Отложено'      },
-  dropped:   { icon: '❌', color: '#ef4444',          label: 'Брошено'       },
-  favorite:  { icon: '⭐', color: '#f59e0b',          label: 'Избранное'     },
+  started:   { icon: 'play', color: 'var(--accent)',  label: 'В процессе'    },
+  completed: { icon: 'check', color: '#22c55e',          label: 'Просмотрено'   },
+  planned:   { icon: 'calendar', color: '#a78bfa',          label: 'Запланировано' },
+  on_hold:   { icon: 'pause', color: '#f59e0b',          label: 'Отложено'      },
+  dropped:   { icon: 'x', color: '#ef4444',          label: 'Брошено'       },
+  favorite:  { icon: 'star', color: '#f59e0b',          label: 'Избранное'     },
 }
 
-const statusIcon  = computed(() => statusConfig[props.item.status]?.icon  ?? '📚')
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
+
+const statusIcon  = computed(() => statusConfig[props.item.status]?.icon  ?? '📖')
 const statusColor = computed(() => statusConfig[props.item.status]?.color ?? 'var(--surface-5)')
 const statusClass = computed(() => `status-${props.item.status}`)
 
@@ -439,11 +447,11 @@ const dateLabel = computed(() => {
 
 // ── Меню ──────────────────────────────────────────────────────
 const statusMenuItems = [
-  { key: 'started'  as LibraryStatus, icon: '▶️', label: 'В процессе'    },
-  { key: 'completed'as LibraryStatus, icon: '✅', label: 'Просмотрено'   },
-  { key: 'planned'  as LibraryStatus, icon: '📅', label: 'Запланировано' },
-  { key: 'on_hold'  as LibraryStatus, icon: '⏸️', label: 'Отложено'      },
-  { key: 'dropped'  as LibraryStatus, icon: '❌', label: 'Брошено'       },
+  { key: 'started'  as LibraryStatus, icon: 'play', label: 'В процессе'    },
+  { key: 'completed'as LibraryStatus, icon: 'check', label: 'Просмотрено'   },
+  { key: 'planned'  as LibraryStatus, icon: 'calendar', label: 'Запланировано' },
+  { key: 'on_hold'  as LibraryStatus, icon: 'pause', label: 'Отложено'      },
+  { key: 'dropped'  as LibraryStatus, icon: 'x', label: 'Брошено'       },
 ]
 
 const openMenu = (e: MouseEvent) => {
@@ -480,7 +488,13 @@ const markCompleted = async () => {
 const changeStatus = async (status: LibraryStatus) => {
   menuOpen.value = false
   try {
-    await libraryApi.updateLibraryItem(props.item.id, { status })
+    const data: any = { status }
+    // Если отмечаем как просмотрено - ставим все эпизоды
+    if (status === 'completed') {
+      data.episodes_watched = totalEpisodes.value || 1
+      data.current_episode = totalEpisodes.value || 1
+    }
+    await libraryApi.updateLibraryItem(props.item.id, data)
     emit('statusChanged')
   } catch (e) { console.error(e) }
 }

@@ -2,12 +2,12 @@
   <div class="wheel-view">
     <div class="page-header">
       <div class="header-content">
-        <h1>🎡 Колесо фортуны</h1>
+        <h1><SakuraIcon name="wheel" /> Колесо фортуны</h1>
         <p class="subtitle">Случайный выбор аниме для просмотра</p>
       </div>
       <div class="header-actions">
-        <router-link to="/wheel/history" class="btn-icon" title="История">📊</router-link>
-        <router-link to="/wheel/settings" class="btn-icon" title="Настройки">⚙️</router-link>
+        <router-link to="/wheel/history" class="btn-icon" title="История"> <SakuraIcon name="chart" /> </router-link>
+        <router-link to="/wheel/settings" class="btn-icon" title="Настройки"> <SakuraIcon name="settings" /> </router-link>
       </div>
     </div>
 
@@ -18,7 +18,7 @@
           {{ r.name }} ({{ r.items_count || 0 }} аниме)
         </option>
       </select>
-      <button v-if="currentRoulette" class="btn-delete" @click="deleteRoulette" title="Удалить рулетку">🗑️</button>
+      <button v-if="currentRoulette" class="btn-delete" @click="deleteRoulette" title="Удалить рулетку"> <SakuraIcon name="trash" /> </button>
     </div>
 
     <div class="wheel-content" v-if="currentRoulette">
@@ -26,19 +26,19 @@
         <transition name="result-fade">
           <div v-if="winner && showResult" class="result-panel">
             <div class="result-header">
-              <span class="result-icon">🎯</span>
+              <span class="result-icon"> <SakuraIcon name="target" /> </span>
               <span class="result-title">Выпало:</span>
             </div>
             <div class="result-anime">
               <img v-if="winner.anime_poster" :src="winner.anime_poster" :alt="winner.anime_title" class="result-poster">
-              <div class="result-poster-placeholder" v-else>🎬</div>
+              <div class="result-poster-placeholder" v-else> <SakuraIcon name="play" /> </div>
               <div class="result-info">
                 <h3>{{ winner.anime_title }}</h3>
                 <div class="result-meta">
-                  <span class="weight-badge">⚖️ {{ winner.weight }}</span>
+                  <span class="weight-badge"><SakuraIcon name="scale" /> {{ winner.weight }}</span>
                 </div>
                 <div class="result-actions">
-                  <router-link :to="`/anime/${winner.anime_id}`" class="btn-primary">🎬 Смотреть</router-link>
+                  <router-link :to="`/anime/${winner.anime_id}`" class="btn-primary"><SakuraIcon name="play" /> Смотреть</router-link>
                 </div>
               </div>
             </div>
@@ -50,13 +50,13 @@
         </div>
 
         <div class="spin-controls">
-          <button class="btn-spin" :disabled="isSpinning || itemsCount === 0" @click="spin">🎲 Крутить</button>
-          <button class="btn-spin-multi" :disabled="isSpinning || itemsCount < 3" @click="spinMultiple(3)">🎲×3</button>
-          <button class="btn-spin-multi" :disabled="isSpinning || itemsCount < 5" @click="spinMultiple(5)">🎲×5</button>
+          <button class="btn-spin" :disabled="isSpinning || itemsCount === 0" @click="spin"><SakuraIcon name="dice" /> Крутить</button>
+          <button class="btn-spin-multi" :disabled="isSpinning || itemsCount < 3" @click="spinMultiple(3)"><SakuraIcon name="dice" />×3</button>
+          <button class="btn-spin-multi" :disabled="isSpinning || itemsCount < 5" @click="spinMultiple(5)"><SakuraIcon name="dice" />×5</button>
         </div>
 
         <div v-if="recentHistory.length > 0" class="recent-history">
-          <h3>📜 Последние</h3>
+          <h3><SakuraIcon name="history" /> Последние</h3>
           <div class="history-list">
             <div v-for="h in recentHistory" :key="h.id" class="history-item">
               <span class="history-title">{{ h.winner?.anime_title || '—' }}</span>
@@ -76,7 +76,7 @@
           <div v-else class="items-list">
             <div v-for="item in currentRoulette.items" :key="item.id" class="item-row">
               <img v-if="item.anime_poster" :src="item.anime_poster" :alt="item.anime_title" class="item-poster">
-              <div class="item-poster-placeholder" v-else>🎬</div>
+              <div class="item-poster-placeholder" v-else> <SakuraIcon name="play" /> </div>
               <div class="item-info">
                 <div class="item-title">{{ item.anime_title }}</div>
                 <div class="item-weight">
@@ -99,10 +99,10 @@
     </div>
 
     <div v-else class="empty-state">
-      <div class="empty-icon">🎡</div>
+      <div class="empty-icon"> <SakuraIcon name="wheel" /> </div>
       <h2>Создайте рулетку</h2>
       <p>Добавьте аниме и крутите колесо!</p>
-      <button class="btn-create" @click="createRoulette">➕ Создать рулетку</button>
+      <button class="btn-create" @click="createRoulette"><SakuraIcon name="plus" /> Создать рулетку</button>
     </div>
   </div>
 </template>

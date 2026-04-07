@@ -90,7 +90,7 @@ export const CommentThreadNode: any = defineComponent({
                     c.likes_count = data.likes_count
                   } catch {}
                 }
-              }, [c.is_liked ? '❤️' : '🤍', ' ', String(c.likes_count || 0)]),
+              }, [c.is_liked ? '❵' : '❵', ' ', String(c.likes_count || 0)]),
               // Кнопка "Ответить" только у корневых комментариев
               !p.isReply ? h('button', {
                 class: 'c-btn',

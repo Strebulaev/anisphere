@@ -57,9 +57,9 @@ const selectedStatuses = ref<string[]>([...props.modelValue])
 
 const statusOptions = [
   { value: 'ongoing', label: 'Онгоинг', icon: '🔄' },
-  { value: 'finished', label: 'Завершён', icon: '✅' },
+  { value: 'finished', label: 'Завершён', icon: '☑️' },
   { value: 'announced', label: 'Анонсирован', icon: '📢' },
-  { value: 'released', label: 'Вышедший', icon: '🎬' }
+  { value: 'released', label: 'Вышедший', icon: '▶' }
 ]
 
 const isSelected = (value: string) => {

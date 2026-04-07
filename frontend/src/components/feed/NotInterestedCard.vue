@@ -11,7 +11,7 @@
 
     <div class="card-actions">
       <button class="btn-unblock" :class="{ loading: isRemoving }" @click.stop="handleRemove" :disabled="isRemoving">
-        <span v-if="!isRemoving">👁 Разблокировать</span>
+        <span v-if="!isRemoving"><SakuraIcon name="eye" /> Разблокировать</span>
         <span v-else>...</span>
       </button>
     </div>

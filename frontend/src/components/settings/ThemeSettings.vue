@@ -71,7 +71,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🎨 Акцентный цвет</h3>
+      <h3><SakuraIcon name="palette" /> Акцентный цвет</h3>
       <div class="color-palette">
         <button
           v-for="color in accentColors"
@@ -80,9 +80,7 @@
           :style="{ backgroundColor: color.value }"
           @click="handleAccentColorChange(color.value)"
         ></button>
-        <button class="color-option custom" @click="showCustomColor = true">
-          🌈
-        </button>
+        <button class="color-option custom" @click="showCustomColor = true"> <SakuraIcon name="rainbow" /> </button>
       </div>
 
       <div v-if="showCustomColor" class="custom-color-input">
@@ -97,7 +95,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🖼️ Фон чатов</h3>
+      <h3><SakuraIcon name="image" /> Фон чатов</h3>
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="useSharedBackground">
@@ -118,14 +116,14 @@
         <div class="preview-container" :class="selectedBackground">
           <div class="preview-chat">
             <div class="preview-message user">Привет! Как дела?</div>
-            <div class="preview-message other">Отлично! Спасибо что спросил 😊</div>
+            <div class="preview-message other">Отлично! Спасибо что спросил <SakuraIcon name="blush" /></div>
           </div>
         </div>
       </div>
 
       <div class="background-actions">
         <button class="action-btn">
-          📁 Мои фоны (3)
+          <SakuraIcon name="folder" /> Мои фоны (3)
         </button>
       </div>
     </div>
@@ -186,7 +184,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🎮 Эффекты и анимации</h3>
+      <h3><SakuraIcon name="gamepad" /> Эффекты и анимации</h3>
       <div class="effect-settings">
         <div class="setting-item">
           <label class="setting-label">
@@ -219,7 +217,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📱 Компактный режим</h3>
+      <h3><SakuraIcon name="phone" /> Компактный режим</h3>
       <div class="compact-settings">
         <div class="setting-item">
           <label class="setting-label">
@@ -252,7 +250,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>👁️ Высокая контрастность</h3>
+      <h3><SakuraIcon name="eye" /> Высокая контрастность</h3>
       <div class="contrast-setting">
         <label class="setting-label">
           <input type="checkbox" v-model="highContrast">
@@ -263,10 +261,10 @@
 
     <div class="settings-actions">
       <button @click="previewSettings" class="preview-btn">
-        👁️ Предпросмотр
+        <SakuraIcon name="eye" /> Предпросмотр
       </button>
       <button @click="saveSettings" :disabled="!hasChanges" class="save-btn">
-        💾 Сохранить
+        <SakuraIcon name="save" /> Сохранить
       </button>
     </div>
   </div>

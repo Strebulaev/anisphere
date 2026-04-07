@@ -15,7 +15,7 @@
 
     <!-- Не найден -->
     <div v-else-if="!playlist" class="not-found">
-      <div class="not-found-icon">🎵</div>
+      <div class="not-found-icon"> <SakuraIcon name="music" /> </div>
       <h2>Плейлист не найден</h2>
       <p>Возможно, он был удалён или у вас нет доступа</p>
       <router-link to="/playlists" class="btn-back-link">← Все плейлисты</router-link>
@@ -52,7 +52,7 @@
             <div v-if="playlist.items_count > 3" class="mosaic-extra">+{{ playlist.items_count - 3 }}</div>
           </div>
           <div class="privacy-hero-badge" :class="`privacy-${currentVisibility}`">
-            <span>{{ privacyIcon }}</span> {{ privacyLabel }}
+            <SakuraIcon :name="privacyIcon" /> {{ privacyLabel }}
           </div>
         </div>
 
@@ -104,7 +104,7 @@
             </button>
 
             <!-- <button v-if="playlist.items_count > 0" @click="spinFromPlaylist" class="action-hero-btn wheel">
-              🎡 Крутить колесо
+              <SakuraIcon name="wheel" /> Крутить колесо
             </button> -->
 
             <template v-if="isOwner">
@@ -243,7 +243,7 @@
               </div>
               <div class="row-meta">
                 <span v-if="item.anime_year" class="row-meta-chip">{{ item.anime_year }}</span>
-                <span v-if="item.anime_score" class="row-meta-chip score">⭐ {{ item.anime_score.toFixed(1) }}</span>
+                <span v-if="item.anime_score" class="row-meta-chip score"><SakuraIcon name="star" /> {{ item.anime_score.toFixed(1) }}</span>
               </div>
             </div>
 
@@ -338,7 +338,7 @@
                     <span class="modal-result-title">{{ anime.title_ru || anime.title_en }}</span>
                     <span class="modal-result-meta">
                       {{ anime.year }}{{ anime.episodes ? ` · ${anime.episodes} эп.` : '' }}
-                      {{ anime.score ? ` · ⭐ ${Number(anime.score).toFixed(1)}` : '' }}
+                      {{ anime.score ? ` · <SakuraIcon name="star" /> ${Number(anime.score).toFixed(1)}` : '' }}
                     </span>
                   </div>
                   <span v-if="isAnimeInPlaylist(anime.id)" class="already-added">✓ Добавлено</span>
@@ -396,7 +396,7 @@
                   </label>
                 </div>
                 <p v-if="editForm.visibility === 'link'" class="visibility-hint">
-                  🔗 После сохранения будет сгенерирована уникальная ссылка
+                  <SakuraIcon name="link" /> После сохранения будет сгенерирована уникальная ссылка
                 </p>
               </div>
             </div>
@@ -490,7 +490,7 @@
               </button>
             </div>
             <div class="modal-body confirm-body">
-              <div class="confirm-icon">🗑️</div>
+              <div class="confirm-icon"> <SakuraIcon name="trash" /> </div>
               <p class="confirm-text">
                 Вы хотите удалить плейлист<br/>
                 <strong>«{{ playlist?.title }}»</strong>?<br/>
@@ -594,7 +594,14 @@ const authStore = useAuthStore()
 const playlist = ref<Playlist | null>(null)
 const loading = ref(true)
 const currentUserId = ref<number | undefined>(undefined)
+const toastMsg = ref('')
 const listRef = ref<HTMLElement | null>(null)
+
+// Computed
+const isOwner = computed(() => {
+  if (!playlist.value || !currentUserId.value) return false
+  return playlist.value.user_id === currentUserId.value
+})
 
 // Модалки
 const showAddAnimeModal = ref(false)
@@ -789,7 +796,7 @@ const itemSaving = ref(false)
 // Экспорт
 const exportFormat = ref<'text' | 'text_links' | 'json' | 'csv' | 'markdown'>('text')
 const exportFormats = [
-  { value: 'text', label: 'Текст', icon: '📝', desc: 'Простой список' },
+  { value: 'text', label: 'Текст', icon: '📄', desc: 'Простой список' },
   { value: 'text_links', label: 'Со ссылками', icon: '🔗', desc: 'Список со ссылками' },
   { value: 'markdown', label: 'Markdown', icon: '✍️', desc: 'Формат .md' },
   { value: 'json', label: 'JSON', icon: '{ }', desc: 'Структурированный JSON' },
@@ -797,17 +804,15 @@ const exportFormats = [
 ]
 
 const visibilityOptions = [
-  { value: 'public', label: 'Публичный', icon: '🌍' },
-  { value: 'private', label: 'Приватный', icon: '🔒' },
-  { value: 'link', label: 'По ссылке', icon: '🔗' },
+  { value: 'public', label: 'Публичный', icon: 'globe' },
+  { value: 'private', label: 'Приватный', icon: 'lock' },
+  { value: 'link', label: 'По ссылке', icon: 'link' },
 ]
 
-const toastMsg = ref('')
-
-// ─── Computed ───
-const isOwner = computed(() => {
-  if (!playlist.value || !currentUserId.value) return false
-  return playlist.value.user_id === currentUserId.value
+const privacyIcon = computed(() => {
+  if (currentVisibility.value === 'private') return 'lock'
+  if (currentVisibility.value === 'link') return 'link'
+  return 'globe'
 })
 
 const sortedItems = computed(() => {
@@ -823,12 +828,6 @@ const coverItems = computed(() => {
 const currentVisibility = computed((): PlaylistVisibility => {
   if (!playlist.value) return 'public'
   return playlist.value.visibility || (playlist.value.is_public ? 'public' : 'private')
-})
-
-const privacyIcon = computed(() => {
-  if (currentVisibility.value === 'private') return '🔒'
-  if (currentVisibility.value === 'link') return '🔗'
-  return '🌍'
 })
 
 const privacyLabel = computed(() => {
@@ -862,7 +861,7 @@ const exportPreview = computed(() => {
       items.map((item, i) => {
         const animeUrl = `${window.location.origin}/anime/${item.anime}`
         let str = `${i + 1}. [${item.anime_title}](${animeUrl})`
-        if (item.anime_year || item.anime_score) str += ` *(${[item.anime_year, item.anime_score ? `⭐${item.anime_score.toFixed(1)}` : ''].filter(Boolean).join(', ')})*`
+        if (item.anime_year || item.anime_score) str += ` *(${[item.anime_year, item.anime_score ? `🌠${item.anime_score.toFixed(1)}` : ''].filter(Boolean).join(', ')})*`
         if (item.notes) str += `\n   > ${item.notes}`
         return str
       }).join('\n')
@@ -948,7 +947,7 @@ const toggleFavorite = async () => {
       await playlistsApi.addPlaylistToFavorites(playlist.value.id)
       playlist.value.is_favorited = true
       playlist.value.favorites_count++
-      showToast('Добавлено в избранное ⭐')
+      showToast('Добавлено в избранное 🌠')
     }
   } catch {}
 }

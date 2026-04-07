@@ -2,7 +2,7 @@
   <div class="studios-page">
     <!-- Заголовок -->
     <div class="page-header">
-      <h1 class="page-title">🏢 Студии</h1>
+      <h1 class="page-title"><SakuraIcon name="building" /> Студии</h1>
       <p class="page-subtitle">
         <template v-if="activeTab === 'anime'">Каталог аниме-студий — {{ totalCount }} студий</template>
         <template v-else>Каталог студий озвучки — {{ totalDubCount }} озвучек</template>
@@ -15,19 +15,19 @@
         :class="['tab-btn', { active: activeTab === 'anime' }]"
         @click="switchTab('anime')"
       >
-        🎬 Аниме-студии
+        <SakuraIcon name="play" /> Аниме-студии
       </button>
       <!-- <button 
         :class="['tab-btn', { active: activeTab === 'dubs' }]"
         @click="switchTab('dubs')"
       >
-        🎤 Озвучка
+        <SakuraIcon name="mic" /> Озвучка
       </button> -->
     </div>
 
     <template v-if="activeTab === 'anime'">
     <section v-if="popularStudios.length > 0" class="popular-section">
-      <h2 class="section-title">🔥 Популярные студии</h2>
+      <h2 class="section-title"><SakuraIcon name="fire" /> Популярные студии</h2>
       <div class="carousel-wrapper">
         <div class="carousel" ref="carouselEl">
           <router-link
@@ -76,7 +76,7 @@
       </div>
       <div class="filter-row filter-selects">
         <div class="filter-group">
-          <label class="filter-label">📊 Рейтинг</label>
+          <label class="filter-label"><SakuraIcon name="chart" /> Рейтинг</label>
           <select v-model="filters.min_rating" @change="applyFilters" class="filter-select">
             <option value="">Любой</option>
             <option value="4.5">4.5+</option>
@@ -85,7 +85,7 @@
           </select>
         </div>
         <div class="filter-group">
-          <label class="filter-label">🌍 Страна</label>
+          <label class="filter-label"><SakuraIcon name="globe" /> Страна</label>
           <select v-model="filters.country" @change="applyFilters" class="filter-select">
             <option value="">Все страны</option>
             <option value="Япония">Япония</option>
@@ -94,7 +94,7 @@
           </select>
         </div>
         <div class="filter-group">
-          <label class="filter-label">📈 Сортировка</label>
+          <label class="filter-label"><SakuraIcon name="trending-up" /> Сортировка</label>
           <select v-model="filters.ordering" @change="applyFilters" class="filter-select">
             <option value="-average_rating">По рейтингу ↓</option>
             <option value="average_rating">По рейтингу ↑</option>
@@ -128,7 +128,7 @@
       </div>
       <div class="filter-row filter-selects">
         <div class="filter-group">
-          <label class="filter-label">📺 Тип</label>
+          <label class="filter-label"><SakuraIcon name="tv" /> Тип</label>
           <select v-model="dubFilters.type" @change="applyDubFilters" class="filter-select">
             <option value="">Все типы</option>
             <option value="voice">Голосовая озвучка</option>
@@ -136,7 +136,7 @@
           </select>
         </div>
         <div class="filter-group">
-          <label class="filter-label">📈 Сортировка</label>
+          <label class="filter-label"><SakuraIcon name="trending-up" /> Сортировка</label>
           <select v-model="dubFilters.ordering" @change="applyDubFilters" class="filter-select">
             <option value="count">По кол-ву аниме ↓</option>
             <option value="title">По названию</option>
@@ -150,7 +150,7 @@
     <!-- Список аниме-студий -->
     <section class="studios-list-section" v-if="activeTab === 'anime'">
       <div class="list-header">
-        <h2 class="section-title">📋 Все студии ({{ totalCount }})</h2>
+        <h2 class="section-title"><SakuraIcon name="clipboard" /> Все студии ({{ totalCount }})</h2>
       </div>
 
       <!-- Скелетон загрузки -->
@@ -199,20 +199,20 @@
                   {{ studio.is_subscribed ? '✓ Подписан' : '+ Подписаться' }}
                 </button>
                 <span class="watchers">
-                  👁 {{ formatCount(studio.subscribers_count) }}
+                  <SakuraIcon name="eye" /> {{ formatCount(studio.subscribers_count) }}
                 </span>
               </div>
             </div>
 
             <div class="studio-meta">
-              <span>🌍 {{ studio.country }}</span>
-              <span v-if="studio.founded_year">📅 {{ studio.founded_year }}</span>
-              <span>🎬 {{ studio.total_anime }} аниме</span>
+              <span><SakuraIcon name="globe" /> {{ studio.country }}</span>
+              <span v-if="studio.founded_year"><SakuraIcon name="calendar" /> {{ studio.founded_year }}</span>
+              <span><SakuraIcon name="play" /> {{ studio.total_anime }} аниме</span>
             </div>
 
             <div class="studio-rating">
               <div class="stars-row">
-                <span v-for="s in 5" :key="s" class="star" :class="{ filled: s <= Math.round(studio.average_rating) }">★</span>
+                <span v-for="s in 5" :key="s" class="star" :class="{ filled: s <= Math.round(studio.average_rating) }"> <SakuraIcon name="star" /> </span>
               </div>
               <span class="rating-value">{{ studio.average_rating?.toFixed(1) || '—' }}</span>
             </div>
@@ -251,7 +251,7 @@
     <!-- Список озвучек -->
     <section class="studios-list-section" v-else>
       <div class="list-header">
-        <h2 class="section-title">📋 Все озвучки ({{ totalDubCount }})</h2>
+        <h2 class="section-title"><SakuraIcon name="clipboard" /> Все озвучки ({{ totalDubCount }})</h2>
       </div>
 
       <!-- Скелетон загрузки -->
@@ -287,13 +287,13 @@
               </div>
               <div class="studio-actions">
                 <span class="type-badge" :class="dub.type">
-                  {{ dub.type === 'voice' ? '🎤 Озвучка' : '📝 Субтитры' }}
+                  {{ dub.type === 'voice' ? '<SakuraIcon name="mic" /> Озвучка' : '<SakuraIcon name="file-text" /> Субтитры' }}
                 </span>
               </div>
             </div>
 
             <div class="studio-meta">
-              <span>🎬 {{ dub.count }} аниме</span>
+              <span><SakuraIcon name="play" /> {{ dub.count }} аниме</span>
             </div>
 
             <div class="studio-known">

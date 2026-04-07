@@ -15,12 +15,12 @@
       </div>
       <div class="apb-actions" v-if="progressPercent < 100">
         <button class="apb-btn continue-btn" v-if="nextEpisode" @click="$emit('select-episode', nextEpisode)">
-          ▶ Продолжить с {{ nextEpisode }}
+          <SakuraIcon name="play" /> Продолжить с {{ nextEpisode }}
         </button>
-        <button class="apb-btn sync-btn" @click="$emit('open-sync')">⚙</button>
+        <button class="apb-btn sync-btn" @click="$emit('open-sync')"> <SakuraIcon name="settings" /> </button>
       </div>
       <div class="apb-completed" v-else>
-        <span class="completed-badge">✅ Просмотрено</span>
+        <span class="completed-badge"><SakuraIcon name="check" /> Просмотрено</span>
         <button class="apb-btn sync-btn" @click="$emit('open-sync')">Пересмотреть</button>
       </div>
     </div>
@@ -39,9 +39,9 @@
         <!-- Номер + иконка статуса -->
         <div class="ep-left">
           <div class="ep-status-wrap">
-            <span v-if="getEp(num).status === 'watched'" class="ep-status-icon watched">✔</span>
+            <span v-if="getEp(num).status === 'watched'" class="ep-status-icon watched"> <SakuraIcon name="heavy-check" /> </span>
             <span v-else-if="getEp(num).status === 'skipped'" class="ep-status-icon skipped">⏭</span>
-            <span v-else-if="getEp(num).status === 'in_progress'" class="ep-status-icon in-progress">▶</span>
+            <span v-else-if="getEp(num).status === 'in_progress'" class="ep-status-icon in-progress"> <SakuraIcon name="play" /> </span>
             <span v-else class="ep-num-plain">{{ num }}</span>
           </div>
         </div>

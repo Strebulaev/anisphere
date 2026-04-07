@@ -36,7 +36,7 @@
             </div>
 
             <div v-if="post.anime" class="anime-info" @click.stop="goToAnime(post.anime.id)">
-              <span class="anime-icon">🎬</span>
+              <span class="anime-icon"> <SakuraIcon name="play" /> </span>
               <span class="anime-title">{{ post.anime.title_ru }}</span>
             </div>
 

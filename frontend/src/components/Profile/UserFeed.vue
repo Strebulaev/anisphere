@@ -21,6 +21,7 @@
 import { ref, onMounted } from 'vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import PostCard from '@/components/Cards/PostCard.vue'
+import { postsApi } from '@/api/feed'
 
 interface Props {
   userId: number
@@ -34,11 +35,11 @@ const posts = ref<any[]>([])
 onMounted(async () => {
   loading.value = true
   try {
-    const response = await fetch(`/api/users/${props.userId}/feed/`)
-    const data = await response.json()
-    posts.value = data.results || data
+    const response = await postsApi.getUserPosts(props.userId)
+    posts.value = response.data.results || response.data
   } catch (error) {
     console.error('Ошибка загрузки ленты:', error)
+    posts.value = []
   } finally {
     loading.value = false
   }

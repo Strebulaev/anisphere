@@ -7,14 +7,14 @@
       </div>
 
       <div v-else-if="error" class="invite-error">
-        <div class="error-icon">❌</div>
+        <div class="error-icon"> <SakuraIcon name="x" /> </div>
         <h2>Ошибка</h2>
         <p>{{ error }}</p>
         <button class="btn-back" @click="goToHome">На главную</button>
       </div>
 
       <div v-else-if="joined" class="invite-success">
-        <div class="success-icon">✅</div>
+        <div class="success-icon"> <SakuraIcon name="check" /> </div>
         <h2>Добро пожаловать!</h2>
         <p>Вы успешно присоединились к чату "{{ chatName }}"</p>
         <button class="btn-go-chat" @click="goToChat">Перейти в чат</button>
@@ -33,28 +33,28 @@
 
         <div class="invite-details">
           <div class="detail-item">
-            <span class="detail-icon">👤</span>
+            <span class="detail-icon"> <SakuraIcon name="user" /> </span>
             <span class="detail-text">
               Приглашает: <strong>{{ invite.created_by.username }}</strong>
             </span>
           </div>
 
           <div class="detail-item">
-            <span class="detail-icon">👥</span>
+            <span class="detail-icon"> <SakuraIcon name="users" /> </span>
             <span class="detail-text">
               Использовано: {{ invite.uses_count }} / {{ invite.max_uses || '∞' }}
             </span>
           </div>
 
           <div v-if="invite.expires_at" class="detail-item">
-            <span class="detail-icon">⏰</span>
+            <span class="detail-icon"> <SakuraIcon name="clock" /> </span>
             <span class="detail-text">
               Истекает: {{ formatDate(invite.expires_at) }}
             </span>
           </div>
 
           <div class="detail-item">
-            <span class="detail-icon">📋</span>
+            <span class="detail-icon"> <SakuraIcon name="clipboard" /> </span>
             <span :class="['detail-text', { 'active': invite.is_active, 'inactive': !invite.is_active }]">
               {{ invite.is_active ? 'Приглашение активно' : 'Приглашение неактивно' }}
             </span>

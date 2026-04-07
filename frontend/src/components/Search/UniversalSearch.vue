@@ -47,7 +47,7 @@
                 class="result-image"
               />
               <div v-else class="result-placeholder">
-                {{ category.type === 'user' ? '👤' : '🎬' }}
+                {{ category.type === 'user' ? '<SakuraIcon name="user" />' : '<SakuraIcon name="play" />' }}
               </div>
               <div class="result-info">
                 <span class="result-title">{{ item.title_ru || item.display_name || item.username || item.name }}</span>
@@ -119,11 +119,11 @@ const resultCategories = computed(() => {
   const categories = []
 
   const categoryConfig = {
-    anime: { icon: '🎬', name: 'Аниме' },
-    users: { icon: '👤', name: 'Пользователи' },
-    posts: { icon: '📝', name: 'Посты' },
+    anime: { icon: '▶', name: 'Аниме' },
+    users: { icon: '🧑', name: 'Пользователи' },
+    posts: { icon: '📄', name: 'Посты' },
     playlists: { icon: '📁', name: 'Плейлисты' },
-    groups: { icon: '👥', name: 'Группы' },
+    groups: { icon: '👭', name: 'Группы' },
   }
 
   props.categories.forEach(type => {

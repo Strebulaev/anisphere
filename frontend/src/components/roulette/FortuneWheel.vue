@@ -47,7 +47,7 @@
             class="result-poster"
             @error="handleImageError"
           >
-          <div class="result-poster-placeholder" v-else>🎬</div>
+          <div class="result-poster-placeholder" v-else> <SakuraIcon name="play" /> </div>
           <div class="result-info">
             <h3>{{ winner.anime_title }}</h3>
             <div class="result-weight">Вес: {{ winner.weight }}</div>

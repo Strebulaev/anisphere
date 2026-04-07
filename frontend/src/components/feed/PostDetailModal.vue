@@ -78,7 +78,7 @@
 
         <!-- Playlist -->
         <div v-if="post.playlist" class="playlist-card">
-          <span>📁 {{ post.playlist.title }}</span>
+          <span><SakuraIcon name="folder" /> {{ post.playlist.title }}</span>
         </div>
 
         <!-- Stats -->
@@ -91,16 +91,16 @@
         <!-- Actions -->
         <div class="actions-bar">
           <button @click="handleLike" :class="{ active: post.is_liked }">
-            {{ post.is_liked ? '❤️' : '🤍' }} {{ formatCount(post.likes_count) }}
+            {{ post.is_liked ? '<SakuraIcon name="heart" />' : '<SakuraIcon name="heart" />' }} {{ formatCount(post.likes_count) }}
           </button>
           <button @click="handleDislike" :class="{ active: post.is_disliked }">
-            {{ post.is_disliked ? '👎' : '👍' }} {{ formatCount(post.dislikes_count) }}
+            {{ post.is_disliked ? '<SakuraIcon name="thumbs-down" />' : '<SakuraIcon name="thumbs-up" />' }} {{ formatCount(post.dislikes_count) }}
           </button>
           <button @click="$emit('comment', post)">
-            💬 {{ formatCount(post.comments_count) }}
+            <SakuraIcon name="message" /> {{ formatCount(post.comments_count) }}
           </button>
           <button @click="$emit('repost', post)">
-            🔁 {{ formatCount(post.reposts_count) }}
+            <SakuraIcon name="refresh" /> {{ formatCount(post.reposts_count) }}
           </button>
         </div>
 
@@ -133,9 +133,7 @@
               placeholder="Написать комментарий..."
               @keyup.enter="submitComment"
             >
-            <button @click="submitComment" :disabled="!newComment.trim()">
-              ➤
-            </button>
+            <button @click="submitComment" :disabled="!newComment.trim()"> <SakuraIcon name="arrow-right" /> </button>
           </div>
 
           <!-- Comments List -->
@@ -154,7 +152,7 @@
                 <p>{{ comment.content }}</p>
                 <div class="comment-actions">
                   <button @click="likeComment(comment)">
-                    {{ comment.is_liked ? '❤️' : '🤍' }} {{ comment.likes_count }}
+                    {{ comment.is_liked ? '<SakuraIcon name="heart" />' : '<SakuraIcon name="heart" />' }} {{ comment.likes_count }}
                   </button>
                   <button @click="replyToComment(comment)">
                     Ответить

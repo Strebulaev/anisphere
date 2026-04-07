@@ -9,7 +9,7 @@
       title="Фото"
       type="button"
     >
-      <slot name="icon-photo">📷</slot>
+      <slot name="icon-photo"> <SakuraIcon name="camera" /> </slot>
     </button>
     <button
       v-if="allowVideo"
@@ -19,7 +19,7 @@
       title="Видео"
       type="button"
     >
-      <slot name="icon-video">🎥</slot>
+      <slot name="icon-video"> <SakuraIcon name="film" /> </slot>
     </button>
     <button
       v-if="allowAnime"
@@ -29,7 +29,7 @@
       title="Аниме"
       type="button"
     >
-      <slot name="icon-anime">🎬</slot>
+      <slot name="icon-anime"> <SakuraIcon name="play" /> </slot>
     </button>
 
     <!-- Скрытые file-инпуты -->
@@ -97,7 +97,7 @@
             @input="debouncedSearch"
             autofocus
           >
-          <span v-if="searching" class="map-search-spinner">⏳</span>
+          <span v-if="searching" class="map-search-spinner"> <SakuraIcon name="hourglass" /> </span>
         </div>
 
         <div class="map-results">

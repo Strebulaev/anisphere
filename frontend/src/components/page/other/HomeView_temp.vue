@@ -20,7 +20,7 @@
           <h2 class="section-title">Возможности</h2>
           <div class="features-grid">
             <div class="feature-card">
-              <div class="feature-icon">📁</div>
+              <div class="feature-icon"> <SakuraIcon name="folder" /> </div>
               <h3>Умные плейлисты</h3>
               <p>Создавай коллекции с живыми ссылками на просмотр. Автоматическое определение аниме по ссылке.</p>
             </div>
@@ -30,12 +30,12 @@
               <p>Полная информация о русских озвучках, актёрах и студиях. Отмечай любимые озвучки.</p>
             </div>
             <div class="feature-card">
-              <div class="feature-icon">🎬</div>
+              <div class="feature-icon"> <SakuraIcon name="play" /> </div>
               <h3>Reactor лента</h3>
               <p>Короткие видео, мемы, реакции от сообщества. Свой TikTok для аниме-тематики.</p>
             </div>
             <div class="feature-card">
-              <div class="feature-icon">👥</div>
+              <div class="feature-icon"> <SakuraIcon name="users" /> </div>
               <h3>Сообщества</h3>
               <p>Группы по интересам, обсуждения, совместные плейлисты. Найди своих!</p>
             </div>

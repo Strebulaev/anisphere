@@ -295,7 +295,7 @@ const AnimeSuggestionItem = {
           props.item.year ? h('span', { class: 'meta-chip' }, props.item.year) : null,
           kindText.value ? h('span', { class: 'meta-chip kind' }, kindText.value) : null,
           props.item.episodes ? h('span', { class: 'meta-chip' }, `${props.item.episodes} эп.`) : null,
-          props.item.score ? h('span', { class: 'meta-chip score' }, `⭐ ${Number(props.item.score).toFixed(1)}`) : null
+          props.item.score ? h('span', { class: 'meta-chip score' }, `🌠 ${Number(props.item.score).toFixed(1)}`) : null
         ].filter(Boolean))
       ])
     ])

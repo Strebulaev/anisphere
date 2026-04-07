@@ -76,18 +76,19 @@
                     @click="likeComment(comment)"
                     :class="{ active: comment.is_liked }"
                   >
-                    {{ comment.is_liked ? '❤️' : '🤍' }}
+                    {{ comment.is_liked ? '<SakuraIcon name="heart" />' : '<SakuraIcon name="heart" />' }}
                     <span v-if="comment.likes_count > 0">{{ comment.likes_count }}</span>
                   </button>
                   <button
                     @click="dislikeComment(comment)"
                     :class="{ active: comment.is_disliked }"
                   >
-                    {{ comment.is_disliked ? '👎' : '👍' }}
+                    <SakuraIcon v-if="comment.is_disliked" name="thumbs-down" />
+                    <SakuraIcon v-else name="thumbs-up" />
                     <span v-if="comment.dislikes_count > 0">{{ comment.dislikes_count }}</span>
                   </button>
                   <button @click="replyTo(comment)" v-if="!comment.is_deleted">
-                    💬 Ответить
+                    <SakuraIcon name="message" /> Ответить
                   </button>
                   <button @click="openMenu(comment)" class="more-btn">
                     ⋯
@@ -122,9 +123,9 @@
                   <p class="comment-text">{{ reply.content }}</p>
                   <div class="comment-actions">
                     <button @click="likeComment(reply)">
-                      {{ reply.is_liked ? '❤️' : '🤍' }} {{ reply.likes_count }}
+                      <SakuraIcon name="heart" /> {{ reply.likes_count }}
                     </button>
-                    <button @click="replyTo(reply)">💬 Ответить</button>
+                    <button @click="replyTo(reply)"><SakuraIcon name="message" /> Ответить</button>
                   </div>
                 </div>
               </div>
@@ -147,9 +148,7 @@
             @click="submitComment"
             :disabled="sending || !newComment.trim()"
             class="send-btn"
-          >
-            ➤
-          </button>
+          > <SakuraIcon name="arrow-right" /> </button>
         </div>
         <button v-if="replyToComment" class="cancel-reply" @click="replyToComment = null">
           ✕

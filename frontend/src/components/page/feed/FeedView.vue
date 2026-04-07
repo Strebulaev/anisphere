@@ -96,13 +96,13 @@
                 :class="['sub-tab-btn', { active: subscriptionsSubTab === 'profiles' }]"
                 @click="subscriptionsSubTab = 'profiles'"
               >
-                👤 Профили
+                <SakuraIcon name="user" /> Профили
               </button>
               <button
                 :class="['sub-tab-btn', { active: subscriptionsSubTab === 'favorites' }]"
                 @click="subscriptionsSubTab = 'favorites'; loadFavoritePosts()"
               >
-                ⭐ Избранные посты
+                <SakuraIcon name="star" /> Избранные посты
               </button>
             </div>
             
@@ -133,7 +133,7 @@
               </div>
 
               <div v-else-if="subscriptions.length === 0" class="empty-state">
-                <div class="empty-icon">👥</div>
+                <div class="empty-icon"> <SakuraIcon name="users" /> </div>
                 <h3>Нет подписок</h3>
                 <p>Подпишитесь на интересных авторов!</p>
               </div>
@@ -150,9 +150,7 @@
                     <button class="btn-following" @click="unfollowUser(user.id)">
                       ✓ Подписан
                     </button>
-                    <button class="btn-message" @click="openChat(user.id)">
-                      💬
-                    </button>
+                    <button class="btn-message" @click="openChat(user.id)"> <SakuraIcon name="message" /> </button>
                   </div>
                 </div>
               </div>
@@ -179,7 +177,7 @@
               </div>
 
               <div v-else-if="favoritePosts.length === 0" class="empty-state">
-                <div class="empty-icon">⭐</div>
+                <div class="empty-icon"> <SakuraIcon name="star" /> </div>
                 <h3>Нет избранных постов</h3>
                 <p>Добавляйте посты в избранное, чтобы они появились здесь</p>
               </div>
@@ -219,7 +217,7 @@
               </div>
             </div>
             <div v-else-if="filteredBookmarks.length === 0" class="empty-state">
-              <div class="empty-icon">★</div>
+              <div class="empty-icon"> <SakuraIcon name="star" /> </div>
               <h3>Нет избранных постов</h3>
               <p>Добавляйте посты в избранное, чтобы они появились здесь</p>
             </div>
@@ -252,7 +250,7 @@
               </div>
             </div>
             <div v-else-if="pinnedPosts.length === 0" class="empty-state">
-              <div class="empty-icon">📌</div>
+              <div class="empty-icon"> <SakuraIcon name="pin" /> </div>
               <h3>Нет закреплённых постов</h3>
               <p>Закрепляйте посты через меню поста, чтобы они появились здесь</p>
             </div>
@@ -267,7 +265,7 @@
                   @repost="openRepostModal"
                   @comment="openComments"
                 />
-                <button class="btn-unpin" @click="unpinPostFromTab(post)">📌 Открепить</button>
+                <button class="btn-unpin" @click="unpinPostFromTab(post)"><SakuraIcon name="pin" /> Открепить</button>
               </div>
             </div>
           </div>
@@ -280,13 +278,13 @@
                 :class="['sub-tab-btn', { active: notInterestedSubTab === 'profiles' }]"
                 @click="notInterestedSubTab = 'profiles'"
               >
-                👤 Скрытые профили
+                <SakuraIcon name="user" /> Скрытые профили
               </button>
               <button
                 :class="['sub-tab-btn', { active: notInterestedSubTab === 'posts' }]"
                 @click="notInterestedSubTab = 'posts'; loadHiddenPosts()"
               >
-                📝 Скрытые посты
+                <SakuraIcon name="file-text" /> Скрытые посты
               </button>
             </div>
 
@@ -312,7 +310,7 @@
               </div>
 
               <div v-else-if="notInterestedUsers.length === 0" class="empty-state">
-                <div class="empty-icon">🙈</div>
+                <div class="empty-icon"> <SakuraIcon name="eye-off" /> </div>
                 <h3>Нет скрытых профилей</h3>
                 <p>Профили, которые вы скроете, появятся здесь</p>
               </div>
@@ -323,7 +321,7 @@
                   <div class="user-info">
                     <h4>{{ user.display_name || user.username }}</h4>
                     <span class="username">@{{ user.username }}</span>
-                    <span class="hidden-date">🚫 Заблокирован: {{ formatDate(user.hidden_at) }}</span>
+                    <span class="hidden-date"><SakuraIcon name="ban" /> Заблокирован: {{ formatDate(user.hidden_at) }}</span>
                     <span v-if="user.reason" class="reason">{{ user.reason }}</span>
                   </div>
                   <div class="user-actions" @click.stop>
@@ -350,7 +348,7 @@
               </div>
 
               <div v-else-if="hiddenPosts.length === 0" class="empty-state">
-                <div class="empty-icon">📝</div>
+                <div class="empty-icon"> <SakuraIcon name="file-text" /> </div>
                 <h3>Нет скрытых постов</h3>
                 <p>Посты, которые вы отметите как "Не интересно", появятся здесь</p>
               </div>
@@ -393,7 +391,7 @@
             </div>
 
             <div v-else-if="popularPosts.length === 0" class="empty-state">
-              <div class="empty-icon">🔥</div>
+              <div class="empty-icon"> <SakuraIcon name="fire" /> </div>
               <h3>Нет популярных постов</h3>
               <p>Популярные посты появятся здесь</p>
             </div>
@@ -439,7 +437,7 @@
             </div>
             
             <div v-else-if="reports.length === 0" class="empty-state">
-              <div class="empty-icon">📋</div>
+              <div class="empty-icon"> <SakuraIcon name="clipboard" /> </div>
               <h3>Нет жалоб</h3>
               <p>Нет жалоб для рассмотрения</p>
             </div>
@@ -500,7 +498,7 @@
 
               <!-- Empty State -->
               <div v-else-if="!loading && posts.length === 0" class="empty-state">
-                <div class="empty-icon">📝</div>
+                <div class="empty-icon"> <SakuraIcon name="file-text" /> </div>
                 <h3>Пока нет постов</h3>
                 <p>Подпишитесь на интересных авторов или создайте свой первый пост!</p>
                 <button @click="openCreatePostModal()" class="btn-primary">Создать пост</button>
@@ -540,7 +538,7 @@
         <!-- 
         <aside class="feed-right-sidebar">
           <div class="sidebar-card trending">
-            <h3>🔥 Популярное</h3>
+            <h3><SakuraIcon name="fire" /> Популярное</h3>
             <div class="trending-posts">
               <div v-for="trend in trendingPosts" :key="trend.id" class="trending-item" @click="openTrendingPost(trend)">
                 <span class="trend-rank">{{ trend.rank }}</span>
@@ -749,7 +747,7 @@ const feedTabs = computed(() => {
     { id: 'feed',        label: 'Лента' },
     { id: 'popular',     label: 'Популярное' },
     { id: 'subscriptions', label: 'Подписки' },
-    // { id: 'bookmarks',   label: '★ Избранное' },
+    // { id: 'bookmarks',   label: '🌠 Избранное' },
     { id: 'pinned',      label: 'Пины' },
     { id: 'not_interested', label: 'Не интересно' }
   ]
@@ -1612,13 +1610,17 @@ onUnmounted(() => { window.removeEventListener('scroll', handleScroll) })
   box-shadow: var(--shadow-petal-sm);
 }
 
+.sub-tab-btn.active :deep(.sakura-icon) {
+  color: var(--text-on-accent) !important;
+}
+
 /* Subscription cards */
 .subscription-card.clickable { 
   cursor: pointer; 
 }
 
 .subscription-card.clickable:hover { 
-  background: var(--surface-4); 
+  background: var(--surface-4);
 }
 
 .subscription-card.blocked { 
@@ -1666,7 +1668,7 @@ onUnmounted(() => { window.removeEventListener('scroll', handleScroll) })
   display: flex; 
   flex-direction: column; 
   gap: 0.25rem; 
-  cursor: pointer; 
+  cursor: pointer;
 }
 
 .hidden-post-info:hover .hidden-post-title { 

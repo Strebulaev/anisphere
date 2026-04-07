@@ -3,7 +3,7 @@
     <!-- Toggle Button -->
     <div class="filters-header" @click="isOpen = !isOpen">
       <span class="filters-title">
-        🔧 Фильтры
+        <SakuraIcon name="wrench" /> Фильтры
         <span v-if="activeCount > 0" class="active-badge">{{ activeCount }}</span>
       </span>
       <span class="toggle-icon">{{ isOpen ? '▲' : '▼' }}</span>

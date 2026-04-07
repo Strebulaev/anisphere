@@ -182,9 +182,7 @@
                 v-for="n in 5"
                 :key="n"
                 :class="['star', { filled: n <= Math.round(dub.qualityRating) }]"
-              >
-                ★
-              </span>
+              > <SakuraIcon name="star" /> </span>
             </div>
             <span class="rating-text">{{ dub.qualityRating.toFixed(1) }}</span>
           </div>

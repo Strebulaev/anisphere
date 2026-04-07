@@ -14,9 +14,7 @@
           {{ r.name }} ({{ r.items_count }})
         </option>
       </select>
-      <button v-if="selectedRouletteId" class="rt-delete-btn" @click="deleteRoulette">
-        🗑️
-      </button>
+      <button v-if="selectedRouletteId" class="rt-delete-btn" @click="deleteRoulette"> <SakuraIcon name="trash" /> </button>
       <button class="rt-clear-btn" @click="clearRoulette" title="Очистить">
         🧹
       </button>
@@ -70,7 +68,7 @@
             class="rt-item-poster"
             @error="handleImageError"
           >
-          <div class="rt-item-poster-placeholder" v-else>🎬</div>
+          <div class="rt-item-poster-placeholder" v-else> <SakuraIcon name="play" /> </div>
           <div class="rt-item-info">
             <div class="rt-item-title">{{ item.anime_title }}</div>
             <div class="rt-item-meta">

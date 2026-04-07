@@ -122,7 +122,7 @@ const handleImageError = () => {
   justify-content: center;
   background-color: var(--color-background-surface);
   border: 2px solid var(--color-divider);
-  overflow: visible;
+  overflow: hidden;
   flex-shrink: 0;
 }
 
@@ -182,6 +182,13 @@ const handleImageError = () => {
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: inherit;
+}
+
+:deep(.avatar-image img),
+:deep(.avatar-image picture),
+:deep(.avatar-image source) {
+  border-radius: inherit;
 }
 
 .avatar-placeholder {

@@ -128,7 +128,7 @@ const statusClass = computed(() => {
 })
 
 const userStatus = computed(() => {
-  if (props.user.is_online) return '🟢 В сети'
+  if (props.user.is_online) return '❍ В сети'
   
   const status = props.user.status
   if (status?.custom_status) return status.custom_status

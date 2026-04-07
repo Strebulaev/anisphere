@@ -46,7 +46,10 @@
         :class="{ active: activeTab === tab.key }"
         @click="setTab(tab.key)"
       >
-        <span class="stat-icon">{{ tab.icon }}</span>
+        <span class="stat-icon">
+          <SakuraIcon v-if="isIconName(tab.icon)" :name="tab.icon" :size="16" />
+          <span v-else>{{ tab.icon }}</span>
+        </span>
         <span class="stat-label">{{ tab.label }}</span>
         <span class="stat-num">{{ getStatCount(tab.key) }}</span>
       </div>
@@ -116,14 +119,17 @@
 
     <!-- ══ Ошибка ══════════════════════════════════════════════ -->
     <div v-else-if="error" class="empty-state">
-      <div class="empty-icon">⚠️</div>
+      <div class="empty-icon"><SakuraIcon name="warning" />️</div>
       <p class="empty-title">Не удалось загрузить коллекцию</p>
       <button class="empty-btn" @click="loadItems">Повторить</button>
     </div>
 
     <!-- ══ Пусто ════════════════════════════════════════════════ -->
     <div v-else-if="!loading && items.length === 0" class="empty-state">
-      <div class="empty-icon">{{ currentTab?.icon }}</div>
+      <div class="empty-icon">
+        <SakuraIcon v-if="currentTab && isIconName(currentTab.icon)" :name="currentTab.icon" :size="48" />
+        <span v-else>{{ currentTab?.icon }}</span>
+      </div>
       <p class="empty-title">{{ emptyMessage }}</p>
       <p class="empty-sub">Добавляйте аниме в коллекцию прямо на их страницах</p>
       <button class="empty-btn accent" @click="router.push('/anime')">Найти аниме</button>
@@ -158,6 +164,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { libraryApi, type LibraryItem, type LibraryStatus, type LibraryStats, type CollectionTab } from '@/api/library'
 import CollectionCard from '@/components/Cards/CollectionCard.vue'
 import EditLibraryModal from '@/components/Modals/EditLibraryModal.vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 const router = useRouter()
 const route  = useRoute()
@@ -174,13 +187,13 @@ const activeTab  = ref<CollectionTab | ''>('')
 
 // ── Вкладки ──────────────────────────────────────────────────
 const tabs = [
-  { key: '' as const,          label: 'Все',           icon: '📚' },
-  { key: 'started' as const,   label: 'В процессе',    icon: '▶️' },
-  { key: 'completed' as const, label: 'Просмотрено',   icon: '✅' },
-  { key: 'planned' as const,   label: 'Запланировано', icon: '📅' },
-  { key: 'on_hold' as const,   label: 'Отложено',      icon: '⏸️' },
-  { key: 'dropped' as const,   label: 'Брошено',       icon: '❌' },
-  { key: 'favorite' as const,  label: 'Избранное',     icon: '⭐' },
+  { key: '' as const,          label: 'Все',           icon: 'book' },
+  { key: 'started' as const,   label: 'В процессе',    icon: 'play' },
+  { key: 'completed' as const, label: 'Просмотрено',   icon: 'check' },
+  { key: 'planned' as const,   label: 'Запланировано', icon: 'calendar' },
+  { key: 'on_hold' as const,   label: 'Отложено',      icon: 'pause' },
+  { key: 'dropped' as const,   label: 'Брошено',       icon: 'x' },
+  { key: 'favorite' as const,  label: 'Избранное',     icon: 'star' },
 ]
 
 const currentTab = computed(() => tabs.find(t => t.key === activeTab.value))
@@ -454,7 +467,7 @@ onMounted(() => {
   color: var(--accent);
 }
 
-.stat-icon { font-size: 14px; line-height: 1; }
+.stat-icon { font-size: 14px; line-height: 1; color: inherit; }
 .stat-label { font-weight: 500; }
 .stat-num {
   background: var(--surface-5);

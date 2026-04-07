@@ -37,7 +37,7 @@
           <!-- В ленту -->
           <label class="option" :class="{ selected: destination === 'feed' }">
             <input type="radio" value="feed" v-model="destination">
-            <span class="icon">📱</span>
+            <span class="icon"> <SakuraIcon name="phone" /> </span>
             <div class="option-content">
               <span class="title">В мою ленту</span>
               <span class="desc">Пост появится в вашем профиле</span>
@@ -47,7 +47,7 @@
           <!-- В группу -->
           <label class="option" :class="{ selected: destination === 'group' }">
             <input type="radio" value="group" v-model="destination">
-            <span class="icon">👥</span>
+            <span class="icon"> <SakuraIcon name="users" /> </span>
             <div class="option-content">
               <span class="title">В группу</span>
               <span class="desc">Опубликовать в ленте группы</span>
@@ -57,7 +57,7 @@
           <!-- В сообщение (чат) -->
           <label class="option" :class="{ selected: destination === 'chat' }">
             <input type="radio" value="chat" v-model="destination">
-            <span class="icon">💬</span>
+            <span class="icon"> <SakuraIcon name="message" /> </span>
             <div class="option-content">
               <span class="title">Сообщение</span>
               <span class="desc">Отправить в личку или группу</span>

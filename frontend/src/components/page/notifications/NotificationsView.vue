@@ -4,9 +4,9 @@
 
       <!-- Заголовок -->
       <div class="page-header">
-        <h1>🔔 Уведомления</h1>
+        <h1><SakuraIcon name="bell" /> Уведомления</h1>
         <div class="header-actions">
-          <router-link to="/notifications/settings" class="btn-action btn-dim" title="Настройки">⚙️ Настройки</router-link>
+          <router-link to="/notifications/settings" class="btn-action btn-dim" title="Настройки"><SakuraIcon name="settings" /> Настройки</router-link>
           <button
             v-if="store.unreadCount > 0"
             class="btn-action btn-green"
@@ -20,14 +20,14 @@
             @click="handleCleanRead"
             title="Удалить все прочитанные"
           >
-            🗑 Прочитанные
+            <SakuraIcon name="trash" /> Прочитанные
           </button>
           <button
             class="btn-action btn-danger"
             @click="confirmDeleteAll"
             title="Удалить все (кроме важных)"
           >
-            🗑 Все
+            <SakuraIcon name="trash" /> Все
           </button>
         </div>
       </div>
@@ -35,7 +35,7 @@
       <!-- Диалог подтверждения -->
       <div v-if="showDeleteConfirm" class="confirm-overlay" @click.self="showDeleteConfirm = false">
         <div class="confirm-box">
-          <p>Удалить все уведомления? Важные (⭐) сохранятся.</p>
+          <p>Удалить все уведомления? Важные (<SakuraIcon name="star" />) сохранятся.</p>
           <div class="confirm-btns">
             <button class="btn-action btn-danger" @click="executeDeleteAll">Удалить</button>
             <button class="btn-action btn-dim" @click="showDeleteConfirm = false">Отмена</button>
@@ -46,7 +46,7 @@
       <!-- Табы с общим счётчиком непрочитанных -->
       <div class="tabs-wrapper">
         <div v-if="store.unreadCount > 0" class="total-unread-badge" title="Всего непрочитанных">
-          🔔 {{ store.unreadCount }}
+          <SakuraIcon name="bell" /> {{ store.unreadCount }}
         </div>
         <div class="tabs">
           <button
@@ -87,7 +87,7 @@
         </div>
 
         <div v-else-if="shownList.length === 0" class="state-empty">
-          <div class="empty-icon">{{ activeTab === 'reminders' ? '⏰' : '🔔' }}</div>
+          <div class="empty-icon">{{ activeTab === 'reminders' ? '<SakuraIcon name="clock" />' : '<SakuraIcon name="bell" />' }}</div>
           <h3>{{ emptyLabel }}</h3>
           <p>{{ emptyHint }}</p>
         </div>
@@ -105,7 +105,7 @@
               }]"
             >
               <div class="notif-avatar" style="background: rgba(245,158,11,0.15)">
-                <span class="avatar-icon">⏰</span>
+                <span class="avatar-icon"> <SakuraIcon name="clock" /> </span>
               </div>
 
               <div class="notif-body">
@@ -130,7 +130,7 @@
                   class="action-btn watch-btn" 
                   title="Смотреть"
                   @click="store.acknowledgeReminder(r.id)"
-                >▶</router-link>
+                > <SakuraIcon name="play" /> </router-link>
                 <button
                   v-if="r.is_active"
                   class="action-btn deact-btn"
@@ -141,7 +141,7 @@
                   class="action-btn del-btn"
                   @click="store.deleteReminder(r.id)"
                   title="Удалить"
-                >🗑</button>
+                > <SakuraIcon name="trash" /> </button>
               </div>
             </div>
           </template>
@@ -165,7 +165,7 @@
                   <div class="notif-top">
                     <p class="notif-title">{{ n.title }}</p>
                     <span v-if="!n.is_read" class="unread-dot" />
-                    <span v-if="n.is_important" class="star-badge" title="Важное">⭐</span>
+                    <span v-if="n.is_important" class="star-badge" title="Важное"> <SakuraIcon name="star" /> </span>
                   </div>
                   <p v-if="n.content" class="notif-text">{{ n.content }}</p>
                   <span class="notif-time">{{ formatTimeAgo(n.created_at) }}</span>
@@ -183,12 +183,12 @@
                     :class="{ 'is-important': n.is_important }"
                     @click.stop="store.toggleImportant(n.id)"
                     title="Важное"
-                  >⭐</button>
+                  > <SakuraIcon name="star" /> </button>
                   <button
                     class="action-btn del-btn"
                     @click.stop="store.deleteNotification(n.id)"
                     title="Удалить"
-                  >🗑</button>
+                  > <SakuraIcon name="trash" /> </button>
                 </div>
               </div>
             </template>
@@ -236,21 +236,50 @@ const tabs = [
 ] as const
 
 const notificationFilters = [
-  { key: 'all',             icon: '🔔', label: 'Все' },
-  { key: 'like',            icon: '❤️', label: 'Лайки' },
-  { key: 'comment',         icon: '💬', label: 'Комментарии' },
-  { key: 'follow',          icon: '👥', label: 'Подписки' },
-  { key: 'mention',         icon: '@',  label: 'Упоминания' },
-  { key: 'contest_win',     icon: '👑', label: 'Конкурсы' },
-  { key: 'system',          icon: '⚙️', label: 'Системные' },
-  { key: 'warning',         icon: '⚠️', label: 'Предупреждения' },
+  { key: 'all',             icon: 'bell', label: 'Все' },
+  { key: 'like',            icon: 'heart', label: 'Лайки' },
+  { key: 'comment',         icon: 'message', label: 'Комментарии' },
+  { key: 'follow',          icon: 'users', label: 'Подписки' },
+  { key: 'mention',         icon: 'at',  label: 'Упоминания' },
+  { key: 'contest_win',     icon: 'crown', label: 'Конкурсы' },
+  { key: 'system',          icon: 'settings', label: 'Системные' },
+  { key: 'warning',         icon: 'alert-triangle', label: 'Предупреждения' },
 ]
+
+// ── Icons / Colors ─────────────────────────────────────────────────
+
+const ICONS: Record<string, string> = {
+  like: 'heart', dislike: 'thumbs-down', heart: 'heart',
+  comment: 'message', reply: 'reply', mention: 'at',
+  follow: 'users', repost: 'refresh',
+  message: 'mail', group_message: 'users', group_invite: 'inbox',
+  achievement: 'trophy', contest: 'medal', contest_vote: 'vote',
+  contest_results: 'chart', contest_win: 'crown',
+  reminder_episode: 'clock', reminder_event: 'calendar', reminder_contest: 'hourglass',
+  system: 'settings', warning: 'alert-triangle', security: 'lock',
+}
+
+const COLORS: Record<string, string> = {
+  like: 'rgba(244,67,54,0.15)',    dislike: 'rgba(158,158,158,0.15)',
+  heart: 'rgba(236,72,153,0.15)',  comment: 'rgba(33,150,243,0.15)',
+  reply: 'rgba(33,150,243,0.15)',  mention: 'rgba(255,152,0,0.15)',
+  follow: 'rgba(76,175,80,0.15)',  repost: 'rgba(156,39,176,0.15)',
+  message: 'rgba(0,188,212,0.15)', achievement: 'rgba(255,193,7,0.15)',
+  contest_win: 'rgba(255,193,7,0.15)', warning: 'rgba(245,158,11,0.15)',
+  security: 'rgba(239,68,68,0.15)', system: 'rgba(96,125,139,0.15)',
+}
+
+const getIcon   = (type: string) => ICONS[type] || 'bell'
+const iconStyle = (type: string) => ({ background: COLORS[type] || 'rgba(102,126,234,0.15)' })
+
+// ── Active reminders count ────────────────────────────────────────
 
 const activeRemindersCount = computed(() =>
   store.reminders.filter(r => r.is_active).length
 )
 
-// Фильтрованный список уведомлений
+// ── Computed lists ─────────────────────────────────────────────────
+
 const filteredList = computed(() => {
   let list = store.notifications
 
@@ -258,7 +287,7 @@ const filteredList = computed(() => {
   if (activeTab.value === 'important') list = list.filter(n => n.is_important)
 
   if (activeFilter.value !== 'all') {
-    list = list.filter(n => {
+    list = list.filter((n: NotificationItem) => {
       if (activeFilter.value === 'contest_win') {
         return ['contest', 'contest_vote', 'contest_results', 'contest_win'].includes(n.type)
       }
@@ -308,7 +337,7 @@ const emptyLabel = computed(() => {
 const emptyHint = computed(() => {
   if (activeTab.value === 'reminders') return 'Добавляйте напоминания на страницах аниме'
   if (activeTab.value === 'unread')    return 'Новые уведомления появятся здесь'
-  if (activeTab.value === 'important') return 'Помечайте уведомления звёздочкой ⭐'
+  if (activeTab.value === 'important') return 'Помечайте уведомления звёздочкой 🌠'
   return 'Когда появятся уведомления, они будут здесь'
 })
 
@@ -349,31 +378,6 @@ const handleScroll = () => {
     if (scrollTop + clientHeight >= scrollHeight - 200) loadMore()
   }, 100)
 }
-
-// ── Icons / Colors ─────────────────────────────────────────────────
-
-const ICONS: Record<string, string> = {
-  like: '❤️', dislike: '👎', heart: '💖',
-  comment: '💬', reply: '↩️', mention: '@',
-  follow: '👥', repost: '🔁',
-  message: '✉️', group_message: '👥', group_invite: '📨',
-  achievement: '🏆', contest: '🏅', contest_vote: '🗳️',
-  contest_results: '📊', contest_win: '👑',
-  reminder_episode: '⏰', reminder_event: '📅', reminder_contest: '⏳',
-  system: '⚙️', warning: '⚠️', security: '🔒',
-}
-const COLORS: Record<string, string> = {
-  like: 'rgba(244,67,54,0.15)',    dislike: 'rgba(158,158,158,0.15)',
-  heart: 'rgba(236,72,153,0.15)',  comment: 'rgba(33,150,243,0.15)',
-  reply: 'rgba(33,150,243,0.15)',  mention: 'rgba(255,152,0,0.15)',
-  follow: 'rgba(76,175,80,0.15)',  repost: 'rgba(156,39,176,0.15)',
-  message: 'rgba(0,188,212,0.15)', achievement: 'rgba(255,193,7,0.15)',
-  contest_win: 'rgba(255,193,7,0.15)', warning: 'rgba(245,158,11,0.15)',
-  security: 'rgba(239,68,68,0.15)', system: 'rgba(96,125,139,0.15)',
-}
-
-const getIcon   = (type: string) => ICONS[type] || '🔔'
-const iconStyle = (type: string) => ({ background: COLORS[type] || 'rgba(102,126,234,0.15)' })
 
 // ── Date formatting ────────────────────────────────────────────────
 

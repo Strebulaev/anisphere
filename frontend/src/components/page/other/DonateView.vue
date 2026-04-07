@@ -42,9 +42,9 @@ const copyCryptoAddress = (address: string) => {
           Каждый ваш донат помогает нам:
         </p>
         <ul class="reason-list">
-          <li>🚀 Оплачивать серверы и хостинг</li>
-          <li>💾 Обеспечивать резервное копирование данных</li>
-          <li>✨ Добавлять новые функции</li>
+          <li><SakuraIcon name="rocket" /> Оплачивать серверы и хостинг</li>
+          <li><SakuraIcon name="save" /> Обеспечивать резервное копирование данных</li>
+          <li><SakuraIcon name="sparkles" /> Добавлять новые функции</li>
           <li>🐛 Улучшать производительность</li>
         </ul>
       </section>
@@ -56,7 +56,7 @@ const copyCryptoAddress = (address: string) => {
         <div class="methods-grid">
           <!-- Donation Alerts -->
           <div class="donate-card main">
-            <div class="card-icon">🎁</div>
+            <div class="card-icon"> <SakuraIcon name="gift" /> </div>
             <h3>Donation Alerts</h3>
             <p>Официальная платформа для приёма донатов с поддержкой автоматических пожертвований и отображения ваших имён в донатерском списке.</p>
             <a 
@@ -80,7 +80,7 @@ const copyCryptoAddress = (address: string) => {
 
           <!-- Qiwi -->
           <!-- <div class="donate-card">
-            <div class="card-icon">💚</div>
+            <div class="card-icon"> <SakuraIcon name="heart" /> </div>
             <h3>Qiwi Кошелёк</h3>
             <p>Быстрый и удобный способ перевести деньги через Qiwi или любой банк.</p>
             <div class="wallet-info">

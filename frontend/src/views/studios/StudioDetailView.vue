@@ -48,10 +48,10 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                   {{ studio.average_rating?.toFixed(1) || '—' }}
                 </span>
-                <span v-if="studio.founded_year">📅 {{ studio.founded_year }}</span>
-                <span>🌍 {{ studio.country }}</span>
-                <span>🎬 {{ studio.total_anime }} аниме</span>
-                <span v-if="studio.employees_count">🏢 {{ studio.employees_count }} сотрудников</span>
+                <span v-if="studio.founded_year"><SakuraIcon name="calendar" /> {{ studio.founded_year }}</span>
+                <span><SakuraIcon name="globe" /> {{ studio.country }}</span>
+                <span><SakuraIcon name="play" /> {{ studio.total_anime }} аниме</span>
+                <span v-if="studio.employees_count"><SakuraIcon name="building" /> {{ studio.employees_count }} сотрудников</span>
               </div>
 
               <div class="hero-actions">
@@ -59,7 +59,7 @@
                   @click="toggleSubscribe"
                   :class="['sub-btn', { subscribed: studio.is_subscribed }]"
                 >
-                  <span>{{ studio.is_subscribed ? '✓ Подписан' : '👍 Подписаться' }}</span>
+                  <span>{{ studio.is_subscribed ? '✓ Подписан' : '<SakuraIcon name="thumbs-up" /> Подписаться' }}</span>
                   <span class="sub-count">{{ formatCount(studio.subscribers_count) }}</span>
                 </button>
                 <a v-if="studio.website" :href="studio.website" target="_blank" class="hero-link-btn" title="Официальный сайт">
@@ -93,12 +93,12 @@
           <div v-if="activeTab === 'about'" class="tab-content">
             <!-- Рейтинги -->
             <div class="content-card">
-              <h2 class="card-title">📊 Рейтинг студии</h2>
+              <h2 class="card-title"><SakuraIcon name="chart" /> Рейтинг студии</h2>
               <div class="rating-overview">
                 <div class="rating-big">{{ studio.average_rating?.toFixed(1) || '—' }}</div>
                 <div class="rating-bars">
                   <div v-for="(val, star) in ratingDistribution" :key="star" class="rating-bar-row">
-                    <span class="bar-label">{{ star }} ★</span>
+                    <span class="bar-label">{{ star }} <SakuraIcon name="star" /></span>
                     <div class="bar-track">
                       <div class="bar-fill" :style="{ width: val + '%' }"></div>
                     </div>
@@ -232,12 +232,12 @@
             <div v-if="newsLoading" class="loading-indicator">Загрузка...</div>
             <div v-else-if="news.length > 0" class="news-list">
               <div v-for="item in news" :key="item.id" class="news-card">
-                <div class="news-date">📢 {{ formatDate(item.created_at) }}</div>
+                <div class="news-date"><SakuraIcon name="megaphone" /> {{ formatDate(item.created_at) }}</div>
                 <h3 class="news-title">{{ item.title }}</h3>
                 <p class="news-preview">{{ item.content.slice(0, 200) }}{{ item.content.length > 200 ? '...' : '' }}</p>
                 <div class="news-footer">
                   <span>💭 {{ item.comments_count }}</span>
-                  <span>👍 {{ item.likes_count }}</span>
+                  <span><SakuraIcon name="thumbs-up" /> {{ item.likes_count }}</span>
                 </div>
               </div>
             </div>
@@ -247,7 +247,7 @@
           <!-- Вкладка: ОБСУЖДЕНИЯ -->
           <div v-if="activeTab === 'discussions'" class="tab-content">
             <div class="discussions-toolbar">
-              <button @click="showDiscussionForm = !showDiscussionForm" class="new-disc-btn">➕ Новая тема</button>
+              <button @click="showDiscussionForm = !showDiscussionForm" class="new-disc-btn"><SakuraIcon name="plus" /> Новая тема</button>
               <select v-model="discussionOrdering" @change="fetchDiscussions" class="works-select">
                 <option value="-created_at">По дате</option>
                 <option value="-likes_count">По лайкам</option>
@@ -288,7 +288,7 @@
                 <div class="disc-body">
                   <div class="disc-header">
                     <span class="disc-author">@{{ disc.author_name }}</span>
-                    <span v-if="disc.is_pinned" class="disc-pin-badge">📌 Закреплено</span>
+                    <span v-if="disc.is_pinned" class="disc-pin-badge"><SakuraIcon name="pin" /> Закреплено</span>
                     <span class="disc-time">{{ timeAgo(disc.created_at) }}</span>
                   </div>
                   <h3 class="disc-title" @click="openDiscussion(disc)" style="cursor:pointer">{{ disc.title }}</h3>
@@ -296,11 +296,9 @@
 
                   <!-- Действия -->
                   <div class="disc-actions">
-                    <button @click="likeDiscussion(disc)" :class="['disc-action-btn', { active: (disc as any).liked }]">
-                      👍 <span>{{ disc.likes_count }}</span>
+                    <button @click="likeDiscussion(disc)" :class="['disc-action-btn', { active: (disc as any).liked }]"> <SakuraIcon name="thumbs-up" /> <span>{{ disc.likes_count }}</span>
                     </button>
-                    <button @click="dislikeDiscussion(disc)" :class="['disc-action-btn', { active: (disc as any).disliked }]">
-                      👎 <span>{{ disc.dislikes_count }}</span>
+                    <button @click="dislikeDiscussion(disc)" :class="['disc-action-btn', { active: (disc as any).disliked }]"> <SakuraIcon name="thumbs-down" /> <span>{{ disc.dislikes_count }}</span>
                     </button>
                     <button @click="openDiscussion(disc)" class="disc-action-btn">
                       💭 <span>{{ disc.replies_count }} ответов</span>
@@ -349,7 +347,7 @@
               <div class="review-overall">
                 <span class="review-score">{{ studio.average_rating?.toFixed(1) || '—' }}</span>
                 <div class="stars-lg">
-                  <span v-for="s in 5" :key="s" class="star-lg" :class="{ filled: s <= Math.round(studio.average_rating || 0) }">★</span>
+                  <span v-for="s in 5" :key="s" class="star-lg" :class="{ filled: s <= Math.round(studio.average_rating || 0) }"> <SakuraIcon name="star" /> </span>
                 </div>
               </div>
               <button @click="showReviewForm = !showReviewForm" class="leave-review-btn">Оставить отзыв</button>
@@ -366,7 +364,7 @@
                       :key="s"
                       @click="newReview[cat.key] = s"
                       :class="['cat-star', { filled: s <= newReview[cat.key] }]"
-                    >★</span>
+                    > <SakuraIcon name="star" /> </span>
                   </div>
                 </div>
               </div>
@@ -390,7 +388,7 @@
                   </div>
                   <span class="review-date">{{ timeAgo(rev.created_at) }}</span>
                 </div>
-                <div class="review-overall-badge">⭐ Общая оценка: {{ rev.overall_rating.toFixed(1) }}/5</div>
+                <div class="review-overall-badge"><SakuraIcon name="star" /> Общая оценка: {{ rev.overall_rating.toFixed(1) }}/5</div>
                 <div class="review-cats">
                   <span>Анимация: <b>{{ rev.animation_quality }}</b></span>
                   <span>Режиссура: <b>{{ rev.directing }}</b></span>
@@ -433,7 +431,7 @@
         <!-- Боковая панель -->
         <aside class="studio-sidebar">
           <div class="sidebar-card">
-            <h3 class="sidebar-title">📊 Статистика</h3>
+            <h3 class="sidebar-title"><SakuraIcon name="chart" /> Статистика</h3>
             <div class="stat-row"><span>Всего аниме</span><b>{{ studio.total_anime }}</b></div>
             <div class="stat-row"><span>ТВ сериалов</span><b>{{ studio.tv_count }}</b></div>
             <div class="stat-row"><span>Фильмов</span><b>{{ studio.movie_count }}</b></div>
@@ -443,7 +441,7 @@
           </div>
 
           <div v-if="studio.top_anime?.length > 0" class="sidebar-card">
-            <h3 class="sidebar-title">🏆 Лучшая работа</h3>
+            <h3 class="sidebar-title"><SakuraIcon name="trophy" /> Лучшая работа</h3>
             <router-link :to="studio.top_anime![0]!.anime_url ?? `/anime?search=${encodeURIComponent(studio.top_anime![0]!.anime_title)}`" class="best-work-link">
               <div class="best-work-poster">
                 <img v-if="studio.top_anime![0]!.anime_poster" :src="studio.top_anime![0]!.anime_poster" :alt="studio.top_anime![0]!.anime_title" class="best-poster-img" @error="(e) => (e.target as HTMLImageElement).style.display='none'" />
@@ -451,14 +449,14 @@
               <div class="best-work-info">
                 <div class="best-title">{{ studio.top_anime![0]!.anime_title }}</div>
                 <div class="best-score" v-if="studio.top_anime![0]!.anime_score">
-                  ★ {{ studio.top_anime![0]!.anime_score!.toFixed(1) }}
+                  <SakuraIcon name="star" /> {{ studio.top_anime![0]!.anime_score!.toFixed(1) }}
                 </div>
               </div>
             </router-link>
           </div>
 
           <div v-if="genreStats.length > 0" class="sidebar-card">
-            <h3 class="sidebar-title">🔥 Популярные жанры</h3>
+            <h3 class="sidebar-title"><SakuraIcon name="fire" /> Популярные жанры</h3>
             <div v-for="g in genreStats.slice(0, 5)" :key="g.name" class="genre-tag-row">
               <span class="genre-tag">#{{ g.name }}</span>
               <span class="genre-tag-pct">{{ g.pct }}%</span>
@@ -580,11 +578,11 @@ const staffGroups = computed(() => {
   const roles = [
     { key: 'founder', label: 'Основатели', icon: '🏛' },
     { key: 'ceo', label: 'Руководство', icon: '👔' },
-    { key: 'director', label: 'Режиссёры', icon: '🎬' },
+    { key: 'director', label: 'Режиссёры', icon: '▶' },
     { key: 'animator', label: 'Аниматоры', icon: '🎨' },
     { key: 'composer', label: 'Композиторы', icon: '🎵' },
     { key: 'voice_actor', label: 'Актёры озвучки (Сейю)', icon: '🎙️' },
-    { key: 'other', label: 'Другие', icon: '👥' },
+    { key: 'other', label: 'Другие', icon: '👭' },
   ]
   return roles
     .map(r => ({ ...r, members: staff.value.filter(s => s.role === r.key) }))

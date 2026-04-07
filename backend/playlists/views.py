@@ -57,7 +57,7 @@ class PlaylistViewSet(viewsets.ModelViewSet):
     queryset = Playlist.objects.all()
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['user']
+    # Убрано filterset_fields - используем ручную фильтрацию в get_queryset
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -96,6 +96,39 @@ class PlaylistViewSet(viewsets.ModelViewSet):
                 # Все плейлисты из избранного пользователя (любая видимость)
                 fav_ids = FavoritePlaylist.objects.filter(user=user).values_list('playlist_id', flat=True)
                 queryset = queryset.filter(id__in=fav_ids)
+                return self._apply_common_filters(queryset)
+
+            # --- Плейлисты конкретного пользователя (для профиля) ---
+            user_id = self.request.query_params.get('user')
+            if user_id:
+                try:
+                    target_user_id = int(user_id)
+                except (ValueError, TypeError):
+                    return Playlist.objects.none()
+                
+                # Проверяем фильтр по visibility
+                visibility = self.request.query_params.get('visibility')
+                
+                # Если смотрим свой профиль - все плейлисты с фильтром по visibility
+                if user.is_authenticated and user.id == target_user_id:
+                    queryset = queryset.filter(user_id=target_user_id)
+                    if visibility in ('public', 'private', 'link'):
+                        queryset = queryset.filter(visibility=visibility)
+                else:
+                    # Чужой профиль - только публичные и по ссылке
+                    if visibility == 'public':
+                        queryset = queryset.filter(
+                            user_id=target_user_id,
+                            visibility='public'
+                        )
+                    else:
+                        # Без фильтра или visibility=link - публичные и по ссылке
+                        queryset = queryset.filter(
+                            user_id=target_user_id,
+                            visibility__in=['public', 'link']
+                        )
+                
+                # Возвращаем с пагинацией но с большим лимитом
                 return self._apply_common_filters(queryset)
 
             # --- Публичные (все пользователи) ---

@@ -10,7 +10,7 @@
       </div>
     
       <div v-else-if="error" class="error-state">
-        <div class="error-icon">⚠️</div>
+        <div class="error-icon"><SakuraIcon name="warning" />️</div>
         <p class="error-message">{{ error }}</p>
         <router-link to="/anime" class="btn btn-primary back-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -46,7 +46,7 @@
                 :alt="anime.title_ru || anime.title_en"
                 class="poster-image"
               />
-              <div v-else class="poster-placeholder">🎬</div>
+              <div v-else class="poster-placeholder"> <SakuraIcon name="play" /> </div>
             </div>
 
             <div class="rating-section" v-if="anime.score || anime.rank || anime.popularity">
@@ -149,7 +149,7 @@
                   class="studio-tag studio-tag-link"
                   :title="`Перейти на страницу студии ${studio.name}`"
                 >
-                  🏢 {{ studio.name }}
+                  <SakuraIcon name="building" /> {{ studio.name }}
                 </router-link>
               </div>
             </div>
@@ -224,7 +224,7 @@
                 :anime-poster="anime.poster || undefined"
               />
               <!-- <button class="btn btn-wheel" @click="addToWheel">
-                🎡 В колесо
+                <SakuraIcon name="wheel" /> В колесо
               </button> -->
             </div>
           </div>
@@ -389,7 +389,7 @@
                 <span class="fe-title">{{ entry.title_ru || entry.title_en }}</span>
                 <span class="fe-meta">
                   <span v-if="entry.year">{{ entry.year }}</span>
-                  <span v-if="entry.score" class="fe-score">★ {{ Number(entry.score).toFixed(1) }}</span>
+                  <span v-if="entry.score" class="fe-score"><SakuraIcon name="star" /> {{ Number(entry.score).toFixed(1) }}</span>
                 </span>
               </div>
             </div>

@@ -27,7 +27,7 @@
       >
         <div class="discussion-poster">
           <img v-if="discussion.anime_poster" :src="getPosterUrl(discussion.anime_poster)" :alt="discussion.anime_title" />
-          <div v-else class="poster-placeholder">🎬</div>
+          <div v-else class="poster-placeholder"> <SakuraIcon name="play" /> </div>
         </div>
 
         <div class="discussion-info">

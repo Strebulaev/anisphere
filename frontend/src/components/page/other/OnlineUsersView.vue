@@ -2,7 +2,7 @@
   <div class="online-users-page">
     <div class="container">
       <div class="page-header">
-        <h1>👥 Люди онлайн</h1>
+        <h1><SakuraIcon name="users" /> Люди онлайн</h1>
         <p class="page-subtitle">Найди единомышленников и новых друзей</p>
       </div>
 
@@ -17,7 +17,7 @@
             placeholder="Поиск по имени или nickname..."
             class="search-input"
           />
-          <div class="search-icon">🔍</div>
+          <div class="search-icon"> <SakuraIcon name="search" /> </div>
         </div>
 
         <!-- Genre Filters -->
@@ -109,9 +109,9 @@
               </div>
 
               <div v-if="user.show_stats" class="user-stats">
-                <span class="stat">📝 {{ user.posts_count || 0 }}</span>
-                <span class="stat">💬 {{ user.comments_count || 0 }}</span>
-                <span class="stat">❤️ {{ user.likes_received || 0 }}</span>
+                <span class="stat"><SakuraIcon name="file-text" /> {{ user.posts_count || 0 }}</span>
+                <span class="stat"><SakuraIcon name="message" /> {{ user.comments_count || 0 }}</span>
+                <span class="stat"><SakuraIcon name="heart" /> {{ user.likes_received || 0 }}</span>
               </div>
             </div>
           </div>

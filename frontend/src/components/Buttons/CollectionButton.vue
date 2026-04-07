@@ -62,10 +62,10 @@ const props = defineProps<{
 
 const STATUS_LIST = [
   { key: 'started',   icon: '▶️', label: 'В процессе',    color: 'var(--accent)'  },
-  { key: 'completed', icon: '✅', label: 'Просмотрено',   color: '#22c55e'        },
+  { key: 'completed', icon: '☑️', label: 'Просмотрено',   color: '#22c55e'        },
   { key: 'planned',   icon: '📅', label: 'Запланировано', color: '#a78bfa'        },
   { key: 'on_hold',   icon: '⏸️', label: 'Отложено',      color: '#f59e0b'        },
-  { key: 'dropped',   icon: '❌', label: 'Брошено',       color: '#ef4444'        },
+  { key: 'dropped',   icon: '✖️', label: 'Брошено',       color: '#ef4444'        },
 ]
 
 const libraryStatus = ref<string | null>(null)

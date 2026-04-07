@@ -36,7 +36,7 @@
 
     <!-- Репост -->
     <div v-if="post.post_type === 'repost' && post.original_post_data" class="repost-header">
-      <span class="repost-icon">🔁</span>
+      <span class="repost-icon"> <SakuraIcon name="refresh" /> </span>
       <span>{{ post.author_username }} репостнул(а)</span>
     </div>
 
@@ -71,7 +71,7 @@
       <!-- Плейлист -->
       <div v-if="post.post_type === 'playlist' && post.playlist" class="post-playlist">
         <div class="playlist-info">
-          <span class="playlist-icon">📁</span>
+          <span class="playlist-icon"> <SakuraIcon name="folder" /> </span>
           <span class="playlist-title">{{ post.playlist_title }}</span>
         </div>
         <div class="playlist-anime">
@@ -95,7 +95,7 @@
           <h4 class="anime-title-text">{{ post.anime_title || getAnimeTitle(post.anime) }}</h4>
           <p v-if="post.text" class="anime-description">{{ post.text }}</p>
         </div>
-        <button @click.stop="openPlaylistSelector" class="btn-add-playlist" title="Добавить в плейлист">📁</button>
+        <button @click.stop="openPlaylistSelector" class="btn-add-playlist" title="Добавить в плейлист"> <SakuraIcon name="folder" /> </button>
         <button @click.stop="removeAnimeAttachment" class="btn-remove" title="Удалить">✕</button>
       </div>
 

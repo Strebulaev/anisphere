@@ -11,7 +11,7 @@
     </div>
 
     <div class="page-title-wrap">
-      <div class="page-title-icon">📁</div>
+      <div class="page-title-icon"> <SakuraIcon name="folder" /> </div>
       <div>
         <h1 class="page-title">Создание нового плейлиста</h1>
         <p class="page-subtitle">Соберите подборку аниме и поделитесь ей с сообществом</p>
@@ -62,7 +62,10 @@
                 :class="['privacy-option', { active: form.visibility === opt.value }]"
               >
                 <input type="radio" :value="opt.value" v-model="form.visibility" style="display:none" />
-                <div class="privacy-option-icon">{{ opt.icon }}</div>
+                <div class="privacy-option-icon">
+                  <SakuraIcon v-if="isIconName(opt.icon)" :name="opt.icon" :size="20" />
+                  <span v-else>{{ opt.icon }}</span>
+                </div>
                 <div class="privacy-option-info">
                   <span class="privacy-option-label">{{ opt.label }}</span>
                   <span class="privacy-option-desc">{{ opt.desc }}</span>
@@ -98,7 +101,7 @@
       <div class="anime-column">
         <div class="form-card">
           <h2 class="form-card-title">
-            🔍 Поиск аниме
+            <SakuraIcon name="search" /> Поиск аниме
             <span class="req">*</span>
           </h2>
 
@@ -163,7 +166,7 @@
                 <span class="result-title">{{ anime.title_ru || anime.title_en }}</span>
                 <span class="result-meta">
                   {{ anime.year }}{{ anime.episodes ? ` · ${anime.episodes} эп.` : '' }}
-                  {{ anime.score ? ` · ⭐ ${anime.score.toFixed(1)}` : '' }}
+                  {{ anime.score ? ` · <SakuraIcon name="star" /> ${anime.score.toFixed(1)}` : '' }}
                 </span>
               </div>
 
@@ -265,6 +268,13 @@ import { useRouter } from 'vue-router'
 import apiClient, { getMediaUrl } from '@/api/client'
 import playlistsApi from '@/api/playlists'
 import type { Anime } from '@/types'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 const router = useRouter()
 
@@ -275,9 +285,9 @@ const form = ref({
 })
 
 const privacyOptions = [
-  { value: 'public', label: 'Публичный', icon: '🌍', desc: 'Виден всем пользователям' },
-  { value: 'private', label: 'Приватный', icon: '🔒', desc: 'Только для вас' },
-  { value: 'link', label: 'По ссылке', icon: '🔗', desc: 'Доступен по уникальной ссылке' }
+  { value: 'public', label: 'Публичный', icon: 'globe', desc: 'Виден всем пользователям' },
+  { value: 'private', label: 'Приватный', icon: 'lock', desc: 'Только для вас' },
+  { value: 'link', label: 'По ссылке', icon: 'link', desc: 'Доступен по уникальной ссылке' }
 ]
 
 const searchQuery = ref('')

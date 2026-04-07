@@ -10,7 +10,7 @@
 
     <!-- Аватар -->
     <div class="settings-group">
-      <h3>📸 Аватар</h3>
+      <h3><SakuraIcon name="camera" /> Аватар</h3>
       <div class="avatar-row">
         <div class="avatar-preview">
           <img v-if="form.avatar_url" :src="form.avatar_url" alt="Аватар" />
@@ -20,10 +20,10 @@
           <input ref="avatarInput" type="file" accept="image/jpeg,image/png,image/webp"
                  class="hidden-input" @change="handleAvatarUpload" />
           <button class="btn-primary" @click="avatarInput?.click()" :disabled="saving.avatar">
-            {{ saving.avatar ? 'Загрузка...' : '📁 Загрузить фото' }}
+            {{ saving.avatar ? 'Загрузка...' : '<SakuraIcon name="folder" /> Загрузить фото' }}
           </button>
           <button v-if="form.avatar_url" class="btn-danger" @click="removeAvatar" :disabled="saving.avatar">
-            🗑 Удалить
+            <SakuraIcon name="trash" /> Удалить
           </button>
         </div>
         <p class="hint">JPEG / PNG / WebP, до 5 МБ</p>
@@ -32,7 +32,7 @@
 
     <!-- Имя -->
     <div class="settings-group">
-      <h3>👤 Имя</h3>
+      <h3><SakuraIcon name="user" /> Имя</h3>
       <div class="field">
         <label>Отображаемое имя</label>
         <input v-model="form.display_name" type="text" placeholder="Твоё имя"
@@ -44,7 +44,7 @@
 
     <!-- О себе -->
     <div class="settings-group">
-      <h3>📝 О себе</h3>
+      <h3><SakuraIcon name="file-text" /> О себе</h3>
       <textarea v-model="form.bio" class="textarea" rows="4" maxlength="500"
                 placeholder="Расскажи о себе..."></textarea>
       <div class="char-count">{{ form.bio?.length || 0 }} / 500</div>
@@ -52,7 +52,7 @@
 
     <!-- Социальные сети -->
     <div class="settings-group">
-      <h3>🟢 Социальные сети</h3>
+      <h3><SakuraIcon name="circle" /> Социальные сети</h3>
       <div class="social-list">
         <div v-for="(link, idx) in form.social_links" :key="idx" class="social-item">
           <select v-model="link.platform" class="select">
@@ -67,7 +67,7 @@
           <input v-model="link.url" type="url" placeholder="https://..." class="input" />
           <button class="btn-icon-danger" @click="removeSocialLink(idx)" title="Удалить">✕</button>
         </div>
-        <button class="btn-dashed" @click="addSocialLink">➕ Добавить ссылку</button>
+        <button class="btn-dashed" @click="addSocialLink"><SakuraIcon name="plus" /> Добавить ссылку</button>
       </div>
     </div>
 
@@ -84,7 +84,7 @@
     <div class="settings-group locked">
       <h3>
         <span class="lock-icon"><i class="fas fa-lock"></i></span>
-        🟢 Статус
+        <SakuraIcon name="circle" /> Статус
       </h3>
       <div class="status-row">
         <label v-for="opt in statusOptions" :key="opt.value"
@@ -100,8 +100,8 @@
     <div class="actions">
       <button class="btn-save" @click="saveProfile"
               :disabled="!hasChanges || saving.profile || !isValid">
-        <span v-if="saving.profile">⏳ Сохранение...</span>
-        <span v-else>💾 Сохранить изменения</span>
+        <span v-if="saving.profile"><SakuraIcon name="hourglass" /> Сохранение...</span>
+        <span v-else><SakuraIcon name="save" /> Сохранить изменения</span>
       </button>
       <button class="btn-reset" @click="resetForm" :disabled="!hasChanges">
         ↺ Отменить

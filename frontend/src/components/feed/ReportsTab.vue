@@ -22,7 +22,7 @@
 
     <!-- Empty -->
     <div v-else-if="reports.length === 0" class="empty-state">
-      <span class="empty-icon">✅</span>
+      <span class="empty-icon"> <SakuraIcon name="check" /> </span>
       <p>Жалоб нет</p>
     </div>
 
@@ -36,7 +36,7 @@
       >
         <div class="report-header">
           <span class="report-type-badge">
-            {{ report.content_type === 'post' ? '📄 Пост' : '💬 Комментарий' }} #{{ report.content_id }}
+            {{ report.content_type === 'post' ? '<SakuraIcon name="file-text" /> Пост' : '<SakuraIcon name="message" /> Комментарий' }} #{{ report.content_id }}
           </span>
           <span class="status-badge" :class="report.status">
             {{ statusLabels[report.status] }}
@@ -85,14 +85,14 @@
               @click="resolveReport(report, 'delete_content')"
               :disabled="processingId === report.id"
             >
-              🗑️ Удалить контент
+              <SakuraIcon name="trash" /> Удалить контент
             </button>
             <button
               class="btn-action warn"
               @click="resolveReport(report, 'warn')"
               :disabled="processingId === report.id"
             >
-              ⚠️ Предупреждение
+              <SakuraIcon name="warning" />️ Предупреждение
             </button>
             <button
               class="btn-action reject"
@@ -107,7 +107,7 @@
         <!-- Already resolved -->
         <div v-else class="resolved-info">
           <span class="resolved-label">
-            {{ report.status === 'resolved' ? '✅ Рассмотрено' : '❌ Отклонено' }}
+            {{ report.status === 'resolved' ? '<SakuraIcon name="check" /> Рассмотрено' : '<SakuraIcon name="x" /> Отклонено' }}
             <span v-if="report.moderation_comment"> — {{ report.moderation_comment }}</span>
           </span>
         </div>

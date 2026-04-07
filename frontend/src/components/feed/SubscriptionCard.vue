@@ -14,9 +14,7 @@
     </div>
 
     <div class="card-actions">
-      <button class="btn-message" @click.stop="goToChat" title="Написать">
-        💬
-      </button>
+      <button class="btn-message" @click.stop="goToChat" title="Написать"> <SakuraIcon name="message" /> </button>
       <button
         class="btn-unfollow"
         :class="{ loading: isUnfollowing, confirmed: confirmUnfollow }"

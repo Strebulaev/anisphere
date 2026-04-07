@@ -141,7 +141,7 @@
         <!-- Управление плеером -->
         <div class="control-section player-actions">
           <button @click="togglePlay" class="control-btn" :title="isPlaying ? 'Пауза' : 'Воспроизвести'">
-            {{ isPlaying ? '⏸' : '▶' }}
+            {{ isPlaying ? '⏸' : '<SakuraIcon name="play" />' }}
           </button>
           <button @click="seekBackward" class="control-btn" title="-10 сек">
             -10
@@ -150,7 +150,7 @@
             +10
           </button>
           <button @click="toggleMute" class="control-btn" :title="isMuted ? 'Включить звук' : 'Отключить звук'">
-            {{ isMuted ? '🔇' : '🔊' }}
+            {{ isMuted ? '<SakuraIcon name="volume-x" />' : '<SakuraIcon name="volume" />' }}
           </button>
         </div>
       </div>

@@ -50,11 +50,11 @@
               class="card-poster"
               @error="handleImageError"
             >
-            <div class="card-poster-placeholder" v-else>🎬</div>
+            <div class="card-poster-placeholder" v-else> <SakuraIcon name="play" /> </div>
             <div class="card-info">
               <div class="card-title">{{ anime.title_ru || anime.title }}</div>
               <div class="card-meta">
-                <span v-if="anime.score">★ {{ anime.score }}</span>
+                <span v-if="anime.score"><SakuraIcon name="star" /> {{ anime.score }}</span>
                 <span v-if="anime.kind">{{ formatKind(anime.kind) }}</span>
               </div>
             </div>
@@ -90,11 +90,11 @@
               class="card-poster"
               @error="handleImageError"
             >
-            <div class="card-poster-placeholder" v-else>🎬</div>
+            <div class="card-poster-placeholder" v-else> <SakuraIcon name="play" /> </div>
             <div class="card-info">
               <div class="card-title">{{ anime.title_ru || anime.title }}</div>
               <div class="card-meta">
-                <span v-if="anime.score">★ {{ anime.score }}</span>
+                <span v-if="anime.score"><SakuraIcon name="star" /> {{ anime.score }}</span>
                 <span v-if="anime.status" class="status-badge" :class="anime.status">{{ formatStatus(anime.status) }}</span>
               </div>
             </div>
@@ -119,7 +119,7 @@
             class="playlist-item"
             @click="loadPlaylistItems(Number(playlist.id))"
           >
-            <span class="playlist-icon">📋</span>
+            <span class="playlist-icon"> <SakuraIcon name="clipboard" /> </span>
               <div class="playlist-info">
               <!-- Используем title вместо name -->
               <div class="playlist-name">{{ playlist.title || 'Без названия' }}</div>
@@ -153,11 +153,11 @@
               class="card-poster"
               @error="handleImageError"
             >
-            <div class="card-poster-placeholder" v-else>🎬</div>
+            <div class="card-poster-placeholder" v-else> <SakuraIcon name="play" /> </div>
             <div class="card-info">
               <div class="card-title">{{ anime.title_ru || anime.title }}</div>
               <div class="card-meta">
-                <span v-if="anime.score">★ {{ anime.score }}</span>
+                <span v-if="anime.score"><SakuraIcon name="star" /> {{ anime.score }}</span>
               </div>
             </div>
           </div>
@@ -181,7 +181,7 @@
         :disabled="selectedItems.length === 0"
         @click="addSelected"
       >
-        ➕ Добавить в колесо ({{ selectedItems.length }})
+        <SakuraIcon name="plus" /> Добавить в колесо ({{ selectedItems.length }})
       </button>
     </div> -->
   </div>
@@ -215,10 +215,10 @@ const emit = defineEmits<{
 const toast = useToast()
 
 const tabs = [
-  { id: 'search', label: 'Поиск', icon: '🔍' },
-  { id: 'collection', label: 'Коллекция', icon: '📚' },
+  { id: 'search', label: 'Поиск', icon: '🔎' },
+  { id: 'collection', label: 'Коллекция', icon: '📖' },
   { id: 'playlists', label: 'Плейлисты', icon: '📋' },
-  { id: 'favorites', label: 'Избранное', icon: '⭐' }
+  { id: 'favorites', label: 'Избранное', icon: '🌠' }
 ]
 
 const activeTab = ref('search')

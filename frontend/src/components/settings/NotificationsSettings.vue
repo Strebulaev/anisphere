@@ -6,7 +6,7 @@
     </transition>
 
     <div class="sg">
-      <h3>🔔 Push-уведомления</h3>
+      <h3><SakuraIcon name="bell" /> Push-уведомления</h3>
 
       <div class="row toggle-row">
         <span>Push-уведомления</span>
@@ -44,7 +44,7 @@
     </div>
 
     <div class="sg">
-      <h3>📱 Типы уведомлений</h3>
+      <h3><SakuraIcon name="phone" /> Типы уведомлений</h3>
 
       <div class="row">
         <label>Личные сообщения</label>
@@ -100,7 +100,7 @@
     </div>
 
     <div class="sg">
-      <h3>⏰ Не беспокоить</h3>
+      <h3><SakuraIcon name="clock" /> Не беспокоить</h3>
 
       <div class="row toggle-row">
         <span>Режим «Не беспокоить»</span>
@@ -124,7 +124,7 @@
 
     <div class="actions">
       <button class="btn-save" @click="save" :disabled="saving || !dirty">
-        {{ saving ? '⏳ Сохранение...' : '💾 Сохранить' }}
+        {{ saving ? '<SakuraIcon name="hourglass" /> Сохранение...' : '<SakuraIcon name="save" /> Сохранить' }}
       </button>
       <button class="btn-reset" @click="reset" :disabled="!dirty">↺ Отменить</button>
     </div>

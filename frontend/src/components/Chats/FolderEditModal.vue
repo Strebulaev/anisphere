@@ -142,7 +142,7 @@
           <h3 class="section-title">Предпросмотр ({{ previewChats.length }} чатов)</h3>
           <div class="preview-list">
             <div v-for="chat in previewChats.slice(0, 10)" :key="chat.id" class="preview-item">
-              <div class="preview-icon">{{ chat.type === 'private' ? '👤' : '👥' }}</div>
+              <div class="preview-icon">{{ chat.type === 'private' ? '<SakuraIcon name="user" />' : '<SakuraIcon name="users" />' }}</div>
               <div class="preview-info">
                 <div class="preview-name">{{ getChatTitle(chat) }}</div>
                 <div class="preview-meta">

@@ -43,14 +43,14 @@
             <!-- ============ ОБОИ ============ -->
             <section v-if="activeSection === 'wallpaper'" class="settings-section">
               <div class="section-header">
-                <h2>🖼️ Обои чата</h2>
+                <h2><SakuraIcon name="image" /> Обои чата</h2>
                 <button v-if="hasCustomWallpaper" @click="resetWallpaper" class="btn-ghost-sm">Сбросить</button>
               </div>
 
               <!-- Живой предпросмотр обоев -->
               <div class="wallpaper-preview" :style="wallpaperPreviewStyle">
                 <div class="wp-msg wp-msg--other">
-                  <div class="wp-bubble" :style="otherBubbleStyle">Привет! 👋</div>
+                  <div class="wp-bubble" :style="otherBubbleStyle">Привет! <SakuraIcon name="wave" /></div>
                 </div>
                 <div class="wp-msg wp-msg--mine">
                   <div class="wp-bubble" :style="mineBubbleStyle">Привет! Смотрю аниме</div>
@@ -175,7 +175,7 @@
                       <button @click.stop="clearWallpaperImage" class="clear-btn">✕</button>
                     </div>
                     <div v-else class="upload-placeholder">
-                      <div class="upload-icon-big">🖼️</div>
+                      <div class="upload-icon-big"> <SakuraIcon name="image" /> </div>
                       <p>Нажмите или перетащите файл</p>
                       <p class="upload-hint">JPG, PNG, WEBP — максимум 5MB</p>
                     </div>
@@ -207,7 +207,40 @@
               <div class="section-actions">
                 <button @click="saveWallpaper" class="btn-primary" :disabled="saving">
                   <span v-if="saving" class="btn-spinner"></span>
-                  {{ saving ? 'Сохранение...' : '💾 Сохранить обои' }}
+                  {{ saving ? 'Сохранение...' : '<SakuraIcon name="save" /> Сохранить обои' }}
+                </button>
+              </div>
+            </section>
+
+            <!-- ============ АВАТАР ============ -->
+            <section v-if="activeSection === 'avatar'" class="settings-section">
+              <div class="section-header">
+                <h2><SakuraIcon name="user" /> Аватар группы</h2>
+              </div>
+
+              <div class="avatar-preview-section">
+                <div class="avatar-preview-large" @click="triggerAvatarInput">
+                  <img v-if="avatarPreview || chatAvatar" :src="avatarPreview || chatAvatar" alt="Avatar" />
+                  <div v-else class="avatar-placeholder-large">
+                    {{ (chatName || '?')[0] }}
+                  </div>
+                  <div class="avatar-overlay">
+                    <span> <SakuraIcon name="camera" /> </span>
+                  </div>
+                </div>
+                <input ref="avatarFileRef" type="file" accept="image/*" @change="handleAvatarFile" style="display:none" />
+              </div>
+
+              <div class="field-group">
+                <p class="field-hint">Нажмите на аватар, чтобы загрузить новое изображение</p>
+                <p class="field-hint">JPG, PNG, WEBP — максимум 5MB</p>
+              </div>
+
+              <div v-if="avatarPreview" class="section-actions">
+                <button @click="clearAvatar" class="btn-secondary" type="button">Отменить</button>
+                <button @click="saveAvatar" class="btn-primary" :disabled="saving">
+                  <span v-if="saving" class="btn-spinner"></span>
+                  {{ saving ? 'Сохранение...' : '<SakuraIcon name="save" /> Сохранить аватар' }}
                 </button>
               </div>
             </section>
@@ -215,7 +248,7 @@
             <!-- ============ ТЕМА ============ -->
             <section v-if="activeSection === 'theme'" class="settings-section">
               <div class="section-header">
-                <h2>🎨 Тема и стиль</h2>
+                <h2><SakuraIcon name="palette" /> Тема и стиль</h2>
                 <button @click="resetTheme" class="btn-ghost-sm">Сбросить</button>
               </div>
 
@@ -230,7 +263,7 @@
                       <div class="tp-bubble" :style="otherBubblePreviewStyle">Привет!</div>
                     </div>
                     <div class="tp-row tp-row--mine">
-                      <div class="tp-bubble" :style="mineBubblePreviewStyle">Как дела? 😊</div>
+                      <div class="tp-bubble" :style="mineBubblePreviewStyle">Как дела? <SakuraIcon name="blush" /></div>
                     </div>
                     <div class="tp-row tp-row--other">
                       <div class="tp-bubble" :style="otherBubblePreviewStyle">Всё хорошо!</div>
@@ -265,7 +298,7 @@
 
               <!-- ЦВЕТА СООБЩЕНИЙ -->
               <div class="settings-group-card">
-                <div class="sgc-title">💬 Цвета сообщений</div>
+                <div class="sgc-title"><SakuraIcon name="message" /> Цвета сообщений</div>
                 <div class="two-col">
                   <div class="field-group">
                     <label class="field-label">Мои (фон)</label>
@@ -370,7 +403,7 @@
 
               <!-- ЦВЕТА ИНТЕРФЕЙСА -->
               <div class="settings-group-card">
-                <div class="sgc-title">🎨 Цвета интерфейса</div>
+                <div class="sgc-title"><SakuraIcon name="palette" /> Цвета интерфейса</div>
                 <div class="interface-colors-grid">
                   <div v-for="ci in interfaceColors" :key="ci.key" class="ic-field">
                     <label class="field-label">{{ ci.label }}</label>
@@ -384,7 +417,7 @@
 
               <!-- ФОРМАТ ВРЕМЕНИ -->
               <div class="settings-group-card">
-                <div class="sgc-title">🕐 Время</div>
+                <div class="sgc-title"><SakuraIcon name="one-oclock" /> Время</div>
                 <div class="field-group">
                   <label class="field-label">Формат</label>
                   <div class="type-tabs">
@@ -400,7 +433,7 @@
 
               <!-- АНИМАЦИИ -->
               <div class="settings-group-card">
-                <div class="sgc-title">✨ Анимации</div>
+                <div class="sgc-title"><SakuraIcon name="sparkles" /> Анимации</div>
                 <div class="field-group">
                   <label class="field-label">Появление сообщений</label>
                   <div class="type-tabs">
@@ -435,7 +468,7 @@
 
               <!-- ЭМОДЗИ -->
               <div class="settings-group-card">
-                <div class="sgc-title">😊 Эмодзи</div>
+                <div class="sgc-title"><SakuraIcon name="blush" /> Эмодзи</div>
                 <div class="field-group">
                   <label class="field-label">Набор</label>
                   <div class="type-tabs">
@@ -460,7 +493,7 @@
 
               <!-- ДОПОЛНИТЕЛЬНО -->
               <div class="settings-group-card">
-                <div class="sgc-title">⚙️ Дополнительно</div>
+                <div class="sgc-title"><SakuraIcon name="settings" /> Дополнительно</div>
                 <div class="toggle-list">
                   <div v-for="tog in themeToggles" :key="tog.key" class="toggle-row">
                     <div class="tr-info">
@@ -477,7 +510,7 @@
 
               <!-- КАСТОМНЫЙ CSS -->
               <div class="settings-group-card">
-                <div class="sgc-title">💻 Кастомный CSS</div>
+                <div class="sgc-title"><SakuraIcon name="laptop" /> Кастомный CSS</div>
                 <textarea
                   v-model="themeForm.custom_css"
                   class="css-textarea"
@@ -489,14 +522,14 @@
               <div class="section-actions">
                 <button @click="saveTheme" class="btn-primary" :disabled="saving">
                   <span v-if="saving" class="btn-spinner"></span>
-                  {{ saving ? 'Сохранение...' : '💾 Сохранить тему' }}
+                  {{ saving ? 'Сохранение...' : '<SakuraIcon name="save" /> Сохранить тему' }}
                 </button>
               </div>
             </section>
 
             <!-- ============ УВЕДОМЛЕНИЯ ============ -->
             <section v-if="activeSection === 'notifications'" class="settings-section">
-              <div class="section-header"><h2>🔔 Уведомления</h2></div>
+              <div class="section-header"><h2><SakuraIcon name="bell" /> Уведомления</h2></div>
 
               <div class="settings-group-card">
                 <div class="toggle-list">
@@ -540,7 +573,7 @@
               </div>
 
               <div class="settings-group-card">
-                <div class="sgc-title">🔇 Заглушить</div>
+                <div class="sgc-title"><SakuraIcon name="volume-x" /> Заглушить</div>
                 <div class="mute-grid">
                   <button v-for="opt in muteOptions" :key="opt.value"
                     @click="muteChat(opt.value)"
@@ -549,27 +582,27 @@
                   </button>
                 </div>
                 <div v-if="notifForm.muted_until || notifForm.notifications_enabled === false" class="mute-status">
-                  <span>🔇 {{ notifForm.muted_until ? `Заглушено до ${formatMuteDate(notifForm.muted_until)}` : 'Навсегда заглушено' }}</span>
+                  <span><SakuraIcon name="volume-x" /> {{ notifForm.muted_until ? `Заглушено до ${formatMuteDate(notifForm.muted_until)}` : 'Навсегда заглушено' }}</span>
                   <button @click="unmuteChat" class="btn-link">Включить звук</button>
                 </div>
               </div>
 
               <div class="section-actions">
                 <button @click="saveNotifSettings" class="btn-primary" :disabled="saving">
-                  {{ saving ? 'Сохранение...' : '💾 Сохранить' }}
+                  {{ saving ? 'Сохранение...' : '<SakuraIcon name="save" /> Сохранить' }}
                 </button>
               </div>
             </section>
 
             <!-- ============ ОРГАНИЗАЦИЯ ============ -->
             <section v-if="activeSection === 'organize'" class="settings-section">
-              <div class="section-header"><h2>📂 Организация</h2></div>
+              <div class="section-header"><h2><SakuraIcon name="folder-open" /> Организация</h2></div>
 
               <div class="settings-group-card">
                 <div class="toggle-list">
                   <div class="toggle-row">
                     <div class="tr-info">
-                      <span class="tr-label">📌 Закрепить чат</span>
+                      <span class="tr-label"><SakuraIcon name="pin" /> Закрепить чат</span>
                       <span class="tr-desc">Показывать вверху списка</span>
                     </div>
                     <label class="switch">
@@ -579,7 +612,7 @@
                   </div>
                   <div class="toggle-row">
                     <div class="tr-info">
-                      <span class="tr-label">📦 Архивировать</span>
+                      <span class="tr-label"><SakuraIcon name="package" /> Архивировать</span>
                       <span class="tr-desc">Скрыть из основного списка</span>
                     </div>
                     <label class="switch">
@@ -589,7 +622,7 @@
                   </div>
                   <div v-if="chatType === 'private'" class="toggle-row">
                     <div class="tr-info">
-                      <span class="tr-label">🙈 Скрыть чат</span>
+                      <span class="tr-label"><SakuraIcon name="eye-off" /> Скрыть чат</span>
                       <span class="tr-desc">Не показывать в списке</span>
                     </div>
                     <label class="switch">
@@ -601,17 +634,17 @@
               </div>
 
               <div class="settings-group-card">
-                <div class="sgc-title">📁 Папка</div>
+                <div class="sgc-title"><SakuraIcon name="folder" /> Папка</div>
                 <select v-model="organizeForm.folder_id" class="select-field" @change="saveOrganizeSettings">
                   <option :value="null">Без папки</option>
                   <option v-for="folder in chatFolders" :key="folder.id" :value="folder.id">
-                    {{ folder.icon || '📁' }} {{ folder.name }}
+                    {{ folder.icon || '<SakuraIcon name="folder" />' }} {{ folder.name }}
                   </option>
                 </select>
               </div>
 
               <div v-if="chatType === 'private'" class="settings-group-card">
-                <div class="sgc-title">✏️ Кастомное название</div>
+                <div class="sgc-title"><SakuraIcon name="edit" /> Кастомное название</div>
                 <div class="field-group">
                   <input v-model="organizeForm.custom_name" class="text-field"
                     placeholder="Персональное название..." maxlength="255" />
@@ -621,7 +654,7 @@
               </div>
 
               <div v-if="chatType === 'private'" class="settings-group-card">
-                <div class="sgc-title">🗑️ Автоудаление</div>
+                <div class="sgc-title"><SakuraIcon name="trash" /> Автоудаление</div>
                 <div class="toggle-row">
                   <div class="tr-info">
                     <span class="tr-label">Автоудаление сообщений</span>
@@ -642,12 +675,12 @@
 
             <!-- ============ ПРИВАТНОСТЬ ============ -->
             <section v-if="activeSection === 'privacy' && chatType === 'private'" class="settings-section">
-              <div class="section-header"><h2>🔒 Приватность</h2></div>
+              <div class="section-header"><h2><SakuraIcon name="lock" /> Приватность</h2></div>
 
               <div class="settings-group-card">
                 <div class="danger-row">
                   <div class="dr-info">
-                    <span class="dr-title">{{ privacyForm.is_blocked ? '✅ Разблокировать' : '🚫 Заблокировать пользователя' }}</span>
+                    <span class="dr-title">{{ privacyForm.is_blocked ? '<SakuraIcon name="check" /> Разблокировать' : '<SakuraIcon name="ban" /> Заблокировать пользователя' }}</span>
                     <span class="dr-desc">{{ privacyForm.is_blocked ? 'Снять блокировку' : 'Пользователь не сможет писать вам' }}</span>
                   </div>
                   <button v-if="!privacyForm.is_blocked" @click="blockUser" class="danger-btn">Заблокировать</button>
@@ -656,7 +689,7 @@
               </div>
 
               <div class="settings-group-card danger-card">
-                <div class="sgc-title" style="color:#ef4444">⚠️ Опасная зона</div>
+                <div class="sgc-title" style="color:#ef4444"><SakuraIcon name="warning" />️ Опасная зона</div>
                 <div class="danger-list">
                   <div class="danger-row">
                     <div class="dr-info">
@@ -681,7 +714,7 @@
               <div class="section-header"><h2>🛡️ Модерация</h2></div>
 
               <div class="settings-group-card">
-                <div class="sgc-title">⏱️ Медленный режим</div>
+                <div class="sgc-title"><SakuraIcon name="timer" /> Медленный режим</div>
                 <div class="toggle-row">
                   <div class="tr-info">
                     <span class="tr-label">Медленный режим</span>
@@ -708,7 +741,7 @@
               </div>
 
               <div class="settings-group-card">
-                <div class="sgc-title">✉️ Разрешённый контент</div>
+                <div class="sgc-title"><SakuraIcon name="mail" /> Разрешённый контент</div>
                 <div class="toggle-list">
                   <div v-for="perm in contentPermissions" :key="perm.key" class="toggle-row">
                     <div class="tr-info"><span class="tr-label">{{ perm.label }}</span></div>
@@ -721,7 +754,7 @@
               </div>
 
               <div class="settings-group-card">
-                <div class="sgc-title">🔐 Приватность группы</div>
+                <div class="sgc-title"><SakuraIcon name="lock" /> Приватность группы</div>
                 <div class="toggle-list">
                   <div class="toggle-row">
                     <div class="tr-info">
@@ -929,18 +962,21 @@ const groupSettings = ref<GroupSettingsForm>({
   can_pin_messages: true,
 })
 
+// ── Avatar upload ──
+const avatarFileRef = ref<HTMLInputElement | null>(null)
+const avatarPreview = ref<string | null>(null)
+const avatarFile = ref<File | null>(null)
+
 // ── Computed ──
 const availableSections = computed(() => {
-  // Закомментировано: Тема, Уведомления, Организация, Модерация
   const s = [
     { id: 'wallpaper', name: 'Обои', icon: '🖼️' },
-    // { id: 'theme', name: 'Тема', icon: '🎨' },
-    // { id: 'notifications', name: 'Уведомления', icon: '🔔' },
-    // { id: 'organize', name: 'Организация', icon: '📂' },
   ]
-  if (props.chatType === 'private') s.push({ id: 'privacy', name: 'Приватность', icon: '🔒' })
-  // if (props.chatType === 'group' && (props.isAdmin || props.isOwner))
-  //   s.push({ id: 'moderation', name: 'Модерация', icon: '🛡️' })
+  // Аватар доступен только для групп и только админам/владельцам
+  if (props.chatType === 'group' && (props.isAdmin || props.isOwner)) {
+    s.push({ id: 'avatar', name: 'Аватар', icon: '🧑' })
+  }
+  if (props.chatType === 'private') s.push({ id: 'privacy', name: 'Приватность', icon: '🔐' })
   return s
 })
 
@@ -1209,7 +1245,7 @@ async function saveWallpaper() {
       await apiClient.post(`${apiBase.value}/wallpaper/set/`, wallpaperForm.value)
     }
     hasCustomWallpaper.value = true
-    showToast('✅ Обои сохранены')
+    showToast('☑️ Обои сохранены')
     emit('settings-saved', { type: 'wallpaper', wallpaper: wallpaperForm.value })
   } catch (err: any) {
     showToast(err.response?.data?.error || 'Ошибка сохранения', 'error')
@@ -1244,7 +1280,7 @@ async function saveTheme() {
   saving.value = true
   try {
     await apiClient.post(`${apiBase.value}/theme/set/`, themeForm.value)
-    showToast('✅ Тема сохранена')
+    showToast('☑️ Тема сохранена')
     emit('settings-saved', { type: 'theme', theme: { ...themeForm.value } })
     applyThemeToDom()
   } catch (err: any) {
@@ -1306,7 +1342,7 @@ async function saveNotifSettings() {
       ? `/social/private-chats/${props.chatId}/user-settings/`
       : `/social/group-chats/${props.chatId}/member-settings/`
     await apiClient.put(url, notifForm.value)
-    showToast('✅ Уведомления сохранены')
+    showToast('☑️ Уведомления сохранены')
   } catch { showToast('Ошибка', 'error') }
   finally { saving.value = false }
 }
@@ -1374,7 +1410,7 @@ async function saveOrganizeSettings() {
       await Promise.all(tasks)
     }
 
-    showToast('✅ Сохранено')
+    showToast('☑️ Сохранено')
     emit('settings-saved', { type: 'organize', ...organizeForm.value })
   } catch { showToast('Ошибка', 'error') }
 }
@@ -1392,7 +1428,7 @@ async function unblockUser() {
   try {
     await apiClient.post(`/social/private-chats/${props.chatId}/unblock/`)
     privacyForm.value.is_blocked = false
-    showToast('✅ Пользователь разблокирован')
+    showToast('☑️ Пользователь разблокирован')
   } catch { showToast('Ошибка', 'error') }
 }
 
@@ -1413,7 +1449,7 @@ async function deleteChat() {
 async function saveGroupSettings() {
   try {
     await apiClient.put(`/social/group-chats/${props.chatId}/settings/`, groupSettings.value)
-    showToast('✅ Настройки сохранены')
+    showToast('☑️ Настройки сохранены')
   } catch { showToast('Ошибка', 'error') }
 }
 
@@ -1441,6 +1477,57 @@ function clearWallpaperImage() {
   wallpaperImageFile.value = null
   wallpaperImagePreview.value = null
   if (wallpaperFileRef.value) wallpaperFileRef.value.value = ''
+}
+
+// ── Avatar methods ──
+function triggerAvatarInput() {
+  avatarFileRef.value?.click()
+}
+
+function handleAvatarFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Файл слишком большой (макс. 5MB)', 'error')
+    return
+  }
+  
+  avatarFile.value = file
+  const reader = new FileReader()
+  reader.onload = () => { avatarPreview.value = reader.result as string }
+  reader.readAsDataURL(file)
+}
+
+function clearAvatar() {
+  avatarFile.value = null
+  avatarPreview.value = null
+  if (avatarFileRef.value) avatarFileRef.value.value = ''
+}
+
+async function saveAvatar() {
+  if (!avatarFile.value) return
+  
+  saving.value = true
+  try {
+    const fd = new FormData()
+    fd.append('avatar', avatarFile.value)
+    
+    await apiClient.patch(`/social/group-chats/${props.chatId}/`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    
+    showToast('Аватар обновлён', 'success')
+    emit('settings-saved', { type: 'avatar' })
+    
+    // Очищаем превью после успешного сохранения
+    clearAvatar()
+  } catch (error) {
+    console.error('Error saving avatar:', error)
+    showToast('Ошибка при сохранении', 'error')
+  } finally {
+    saving.value = false
+  }
 }
 
 // ── Style helpers ──
@@ -1559,7 +1646,7 @@ onMounted(loadSettings)
 }
 .nav-item:hover { background: var(--surface-4); color: var(--text-primary); }
 .nav-item.active { background: var(--accent-subtle); color: var(--accent); font-weight: 500; }
-.nav-icon { font-size: 16px; flex-shrink: 0; }
+.nav-icon { font-size: 16px; flex-shrink: 0; color: inherit; }
 .nav-label { flex: 1; }
 
 /* ── Content ── */
@@ -1665,6 +1752,69 @@ onMounted(loadSettings)
 .wp-msg--mine { justify-content: flex-end; }
 .wp-msg--other { justify-content: flex-start; }
 .wp-bubble { padding: 6px 12px; font-size: 13px; line-height: 1.4; }
+
+/* ── Avatar section ── */
+.avatar-preview-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.avatar-preview-large {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid var(--accent-subtle);
+  box-shadow: var(--shadow-petal);
+  transition: all 0.2s var(--ease-petal);
+}
+
+.avatar-preview-large:hover {
+  border-color: var(--accent);
+  transform: scale(1.02);
+}
+
+.avatar-preview-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder-large {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--text-on-accent);
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-petal);
+}
+
+.avatar-preview-large:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-overlay span {
+  font-size: 32px;
+}
 
 /* ── Gradient presets ── */
 .angle-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }

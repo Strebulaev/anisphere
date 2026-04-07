@@ -14,6 +14,13 @@ import '@/utils/debugAuth'
 
 // Глобальные компоненты
 import OptimizedImage from '@/components/common/OptimizedImage.vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
+import EmojiReplacer from '@/components/ui/EmojiReplacer.vue'
+import StarRating from '@/components/ui/StarRating.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
+
+// Глобальные директивы
+import { sakuraEmoji } from '@/directives/sakuraEmoji'
 
 const app = createApp(App)
 
@@ -22,6 +29,13 @@ app.use(router)
 
 // Глобальная регистрация компонентов
 app.component('OptimizedImage', OptimizedImage)
+app.component('SakuraIcon', SakuraIcon)
+app.component('EmojiReplacer', EmojiReplacer)
+app.component('StarRating', StarRating)
+app.component('StatusBadge', StatusBadge)
+
+// Глобальная регистрация директив
+app.directive('sakura-emoji', sakuraEmoji)
 
 // Initialize auth check
 import { useAuthStore } from '@/stores/auth'

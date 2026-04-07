@@ -3,14 +3,14 @@
     <h2>Активные сессии</h2>
 
     <div class="current-session" v-if="currentSession">
-      <h3>📱 Это устройство (текущее)</h3>
+      <h3><SakuraIcon name="phone" /> Это устройство (текущее)</h3>
       <div class="session-info">
         <div class="session-details">
           <div class="device-name">{{ currentSession.device_name || 'Неизвестное устройство' }}</div>
           <div class="device-location">{{ currentSession.location || 'Неизвестно' }}</div>
           <div class="last-activity">Активно сейчас</div>
         </div>
-        <div class="device-icon">📱</div>
+        <div class="device-icon"> <SakuraIcon name="phone" /> </div>
       </div>
     </div>
 
@@ -38,7 +38,7 @@
     </div>
 
     <div class="security-settings">
-      <h3>⚙️ Настройки безопасности</h3>
+      <h3><SakuraIcon name="settings" /> Настройки безопасности</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -164,9 +164,9 @@ const formatLastActivity = (lastActivity: string) => {
 const getDeviceIcon = (deviceInfo: any) => {
   if (deviceInfo?.device?.toLowerCase().includes('mobile') ||
       deviceInfo?.device?.toLowerCase().includes('phone')) {
-    return '📱'
+    return '☎'
   } else if (deviceInfo?.device?.toLowerCase().includes('tablet')) {
-    return '📱'
+    return '☎'
   } else {
     return '💻'
   }

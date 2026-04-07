@@ -52,7 +52,7 @@
           <template v-else-if="shownItems.length > 0">
             <!-- Напоминания (только на вкладке "все") -->
             <template v-if="activeTab === 'all' && store.upcomingReminders.length > 0">
-              <div class="section-label">⏰ Напоминания</div>
+              <div class="section-label"><SakuraIcon name="clock" /> Напоминания</div>
               <div
                 v-for="r in store.upcomingReminders"
                 :key="`rem-${r.id}`"
@@ -63,10 +63,10 @@
                 @click="goToAnime(r)"
               >
                 <div class="notif-icon" :style="store.isReminderRinging(r.id) ? 'background: rgba(239,68,68,0.2); color: #ef4444;' : r.is_triggered ? 'background: rgba(107,114,128,0.2); color: #6b7280;' : 'background: rgba(245,158,11,0.2); color: #f59e0b;'">
-                  {{ store.isReminderRinging(r.id) ? '🔔' : r.is_triggered ? '🔔' : '⏰' }}
+                  {{ store.isReminderRinging(r.id) ? '<SakuraIcon name="bell" />' : r.is_triggered ? '<SakuraIcon name="bell" />' : '<SakuraIcon name="clock" />' }}
                 </div>
                 <div class="notif-body">
-                  <p class="notif-title">{{ store.isReminderRinging(r.id) ? '⏰ Сработало напоминание!' : r.is_triggered ? 'Напоминание сработало' : 'Напоминание о просмотре' }}</p>
+                  <p class="notif-title">{{ store.isReminderRinging(r.id) ? '<SakuraIcon name="clock" /> Сработало напоминание!' : r.is_triggered ? 'Напоминание сработало' : 'Напоминание о просмотре' }}</p>
                   <p class="notif-text">
                     {{ r.anime_detail?.title_ru || 'Аниме' }}
                     <span v-if="r.comment"> — {{ r.comment }}</span>
@@ -75,7 +75,7 @@
                 </div>
                 <button v-if="!r.is_triggered && !store.isReminderRinging(r.id)" class="notif-del" @click.stop="store.deactivateReminder(r.id)" title="Отклонить">✕</button>
               </div>
-              <div class="section-label">🔔 Уведомления</div>
+              <div class="section-label"><SakuraIcon name="bell" /> Уведомления</div>
             </template>
 
             <!-- Обычные уведомления -->
@@ -186,10 +186,10 @@ const formatTime = (raw: string | null | undefined): string => {
 
 // ── Иконки и цвета ───────────────────────────────────────
 const ICONS: Record<string, string> = {
-  like: '❤️', dislike: '👎', comment: '💬', mention: '@',
-  follow: '👥', repost: '🔁', message: '✉️', group_message: '👥',
+  like: '❵', dislike: '👎', comment: '💬', mention: '@',
+  follow: '👭', repost: '🔄', message: '💌', group_message: '👭',
   achievement: '🏆', contest: '🏅', system: '⚙️', group_invite: '📨',
-  reminder_episode: '🔔', reminder_event: '📅', reminder_contest: '⏳',
+  reminder_episode: '🔔', reminder_event: '📅', reminder_contest: '⌛',
 }
 const COLORS: Record<string, string> = {
   like: 'rgba(244,67,54,0.2)', dislike: 'rgba(158,158,158,0.2)',

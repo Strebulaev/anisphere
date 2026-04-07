@@ -54,7 +54,7 @@
               </svg>
             </span>
             <!-- Архив
-            <span v-if="chat.isArchived" title="Из архива" class="text-indigo-400 text-xs">📦</span>
+            <span v-if="chat.isArchived" title="Из архива" class="text-indigo-400 text-xs"> <SakuraIcon name="package" /> </span>
             -->
             <!-- Непрочитанные -->
             <div

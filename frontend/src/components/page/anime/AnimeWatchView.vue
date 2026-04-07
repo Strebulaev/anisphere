@@ -44,12 +44,12 @@
               <p>Загрузка плеера...</p>
             </div>
             <div v-else-if="error" class="player-placeholder error">
-              <div class="error-icon">⚠️</div>
+              <div class="error-icon"><SakuraIcon name="warning" />️</div>
               <p>{{ error }}</p>
               <button @click="retryLoad" class="btn-retry">Попробовать снова</button>
             </div>
             <div v-else class="player-placeholder">
-              <div class="no-video-icon">🎬</div>
+              <div class="no-video-icon"> <SakuraIcon name="play" /> </div>
               <p>Видео недоступно</p>
             </div>
 
@@ -136,9 +136,9 @@
           </button>
 
           <!-- Ошибки под кнопками -->
-          <p v-if="openingState.error" class="qdl-err-text">⚠ Опенинг: {{ openingState.error }}</p>
-          <p v-if="endingState.error" class="qdl-err-text">⚠ Эндинг: {{ endingState.error }}</p>
-          <p v-if="episodeDownloadState.error" class="qdl-err-text">⚠ Серия: {{ episodeDownloadState.error }}</p>
+          <p v-if="openingState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Опенинг: {{ openingState.error }}</p>
+          <p v-if="endingState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Эндинг: {{ endingState.error }}</p>
+          <p v-if="episodeDownloadState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Серия: {{ episodeDownloadState.error }}</p>
         </div>
 
         <!-- Форма произвольного отрезка (inline под кнопками) -->
@@ -176,7 +176,7 @@
             </button>
             <button class="clip-cancel-btn" @click="showClipModal = false" :disabled="customState.loading">✕</button>
           </div>
-          <p v-if="customState.error" class="tdc-error-text">⚠ {{ customState.error }}</p>
+          <p v-if="customState.error" class="tdc-error-text"><SakuraIcon name="warning" /> {{ customState.error }}</p>
         </div>
 
         <!-- Информация под плеером -->
@@ -254,9 +254,9 @@
             </div>
           </div>
           <div v-else class="no-translations">
-            <span>🎤</span>
+            <span> <SakuraIcon name="mic" /> </span>
             <p>Озвучки недоступны</p>
-            <button @click="showAddDubModal = true" class="btn-primary-sm">Добавить первую</button>
+            <!-- <button @click="showAddDubModal = true" class="btn-primary-sm">Добавить первую</button> -->
           </div>
         </div>
 
@@ -316,7 +316,7 @@
               </svg>
               Серии
             </h3>
-            <button class="btn-sync-sm" @click="showSyncModal = true">⚙</button>
+            <button class="btn-sync-sm" @click="showSyncModal = true"> <SakuraIcon name="settings" /> </button>
           </div>
 
           <EpisodeList
@@ -356,7 +356,7 @@
             :disabled="favoriteLoading"
           >
             <span v-if="favoriteLoading" class="action-spinner"></span>
-            <span v-else-if="isInFavorites" class="action-icon-filled">❤</span>
+            <span v-else-if="isInFavorites" class="action-icon-filled"> <SakuraIcon name="heart" /> </span>
             <span v-else class="action-icon">♡</span>
             <span class="action-label">{{ isInFavorites ? 'В избранном' : 'В избранное' }}</span>
           </button>
@@ -394,7 +394,7 @@
               :src="getMediaUrl(entry.poster_image_url) || entry.poster_image_url"
               :alt="entry.title_ru || entry.title_en"
             />
-            <div v-else class="fci-poster-placeholder">🎬</div>
+            <div v-else class="fci-poster-placeholder"> <SakuraIcon name="play" /> </div>
           </div>
           <div class="fci-info">
             <span class="fci-title">{{ entry.title_ru || entry.title_en }}</span>
@@ -866,6 +866,11 @@ const loadAnime = async () => {
       await epProgress.loadProgress()
       syncEpRefs()
 
+      // Синхронизация: если в библиотеке статус "completed" - отмечаем все эпизоды
+      if (authStore.isAuthenticated && isInLibrary.value && libraryItemId.value) {
+        await syncCompletedStatusFromLibrary()
+      }
+
       // Загружаем франшизу, если есть franchise_id
       if (anime.value.franchise_id) {
         await loadFranchise(anime.value.franchise_id)
@@ -912,6 +917,7 @@ const checkLibraryStatus = async () => {
       isInLibrary.value = true
       libraryItemId.value = item.id
       addedToLibrary.value = true
+      
       const savedEp = item.current_episode ?? 0
       if (savedEp > 0 && !route.query.episode) {
         currentEpisode.value = savedEp
@@ -921,6 +927,37 @@ const checkLibraryStatus = async () => {
       libraryItemId.value = null
     }
   } catch { isInLibrary.value = false }
+}
+
+// Синхронизация прогресса: если статус в библиотеке "completed" - отмечаем все эпизоды
+const syncCompletedStatusFromLibrary = async () => {
+  if (!libraryItemId.value || !epProgress) return
+  
+  try {
+    const response = await apiClient.get(`/users/library/${libraryItemId.value}/`)
+    const item = response.data
+    
+    console.log('[AnimeWatch] Статус из библиотеки:', item.status, 'current_ep:', item.current_episode, 'episodes_watched:', item.episodes_watched, 'total:', anime.value?.episodes)
+    
+    const totalEps = anime.value?.episodes || 0
+    
+    // Синхронизируем если:
+    // 1. Статус completed ИЛИ
+    // 2. episodes_watched >= totalEpisodes (все эпизоды просмотрены)
+    const shouldSync = item.status === 'completed' || 
+                       (item.episodes_watched && totalEps && item.episodes_watched >= totalEps)
+    
+    if (shouldSync && totalEps > 0) {
+      console.log('[AnimeWatch] Синхронизация прогресса...')
+      
+      // Используем bulkSyncUpTo для эффективной синхронизации
+      await epProgress.bulkSyncUpTo(totalEps)
+      syncEpRefs()
+      console.log(`[AnimeWatch] Отмечено ${totalEps} эпизодов как просмотренные`)
+    }
+  } catch (e) {
+    console.warn('[AnimeWatch] Ошибка синхронизации completed статуса:', e)
+  }
 }
 
 const addToLibraryAutomatically = async () => {
@@ -942,10 +979,10 @@ const updateLibraryProgress = async () => {
   if (!libraryItemId.value) return
   try {
     const episodesWatched = Object.values(watchProgress.value).filter(p => p >= 85).length
+    // Не меняем статус на 'started' - сохраняем текущий
     await apiClient.patch(`/users/library/${libraryItemId.value}/`, {
       current_episode: currentEpisode.value,
       episodes_watched: episodesWatched,
-      status: 'started',
     })
   } catch { /* silent */ }
 }
@@ -1292,6 +1329,10 @@ onUnmounted(() => {
 })
 
 watch(() => route.params.id, () => { loadAnime() })
+watch(libraryItemId, () => {
+  // При изменении libraryItemId перезагружаем прогресс
+  if (libraryItemId.value) checkLibraryStatus()
+})
 watch(selectedTranslation, (v) => {
   if (v && !v.is_custom && v.kodik_link) kodikLink.value = normalizeKodikPlayerLink(v.kodik_link)
 })

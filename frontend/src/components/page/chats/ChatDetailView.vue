@@ -39,8 +39,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <button v-if="isGroup && canManageChat" @click="handleInvite" class="invite-btn" title="Пригласить участников">👥</button>
-        <button @click="showSearch = true" class="search-btn" title="Поиск сообщений">🔍</button>
+        <button v-if="isGroup && canManageChat" @click="handleInvite" class="invite-btn" title="Пригласить участников"> <SakuraIcon name="users" /> </button>
+        <button @click="showSearch = true" class="search-btn" title="Поиск сообщений"> <SakuraIcon name="search" /> </button>
         <button @click="showChatInfo = !showChatInfo" class="info-btn" title="Информация о чате">⋮</button>
       </div>  
     </div>
@@ -50,7 +50,7 @@
       <div class="wallpaper-bg" :style="wallpaperBgStyle"></div>
       <!-- Панель закрепленных сообщений -->
       <div v-if="pinnedMessages.length > 0 && showPinnedBar" class="pinned-messages-bar">
-        <span class="pinned-label">📌 Закреплено:</span>
+        <span class="pinned-label"><SakuraIcon name="pin" /> Закреплено:</span>
         <div class="pinned-message-preview">
           {{ pinnedMessages[0].text || 'Медиа-сообщение' }}
         </div>
@@ -84,7 +84,7 @@
 
             <!-- Прикреплённый пост -->
             <div v-if="message.shared_post_data" class="message-shared-content">
-              <div class="shared-label">📝 Пост</div>
+              <div class="shared-label"><SakuraIcon name="file-text" /> Пост</div>
               <div class="shared-post">
                 <img v-if="message.shared_post_data.image_url" :src="message.shared_post_data.image_url" class="shared-image" />
                 <div class="shared-info">
@@ -96,7 +96,7 @@
 
             <!-- Прикреплённое аниме -->
             <div v-if="message.shared_anime_data" class="message-shared-content">
-              <div class="shared-label">🎬 Аниме</div>
+              <div class="shared-label"><SakuraIcon name="play" /> Аниме</div>
               <div class="shared-anime">
                 <img :src="message.shared_anime_data.poster_url" class="shared-poster" @error="handleImageError" />
                 <div class="shared-info">
@@ -108,7 +108,7 @@
 
             <!-- Прикреплённый плейлист -->
             <div v-if="message.shared_playlist_data" class="message-shared-content">
-              <div class="shared-label">📋 Плейлист</div>
+              <div class="shared-label"><SakuraIcon name="clipboard" /> Плейлист</div>
               <div class="shared-playlist">
                 <div class="shared-playlist-posters">
                   <img 
@@ -127,7 +127,7 @@
 
             <!-- Прикреплённый shorts -->
             <div v-if="message.shared_shorts_data" class="message-shared-content">
-              <div class="shared-label">🎥 Shorts</div>
+              <div class="shared-label"><SakuraIcon name="film" /> Shorts</div>
               <div class="shared-shorts">
                 <video 
                   v-if="message.shared_shorts_data.video_url" 
@@ -137,7 +137,7 @@
                 />
                 <div v-else-if="message.shared_shorts_data.thumbnail_url" class="shared-shorts-thumb">
                   <img :src="message.shared_shorts_data.thumbnail_url" class="shared-poster" />
-                  <span class="play-icon">▶</span>
+                  <span class="play-icon"> <SakuraIcon name="play" /> </span>
                 </div>
                 <div class="shared-info">
                   <span class="shared-author">@{{ message.shared_shorts_data.author?.username }}</span>
@@ -163,8 +163,8 @@
 
             <!-- Информация о сообщении: время и галочки -->
             <div class="message-footer" :class="{ 'own-footer': message.sender_id === user?.id }">
-              <span v-if="message.is_pinned" class="message-pinned">📌</span>
-              <span v-if="message.is_edited" class="message-edited">✏️</span>
+              <span v-if="message.is_pinned" class="message-pinned"> <SakuraIcon name="pin" /> </span>
+              <span v-if="message.is_edited" class="message-edited"> <SakuraIcon name="edit" /> </span>
               <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
               
               <!-- Статусы сообщения - ТОЛЬКО для своих сообщений -->
@@ -218,7 +218,7 @@
         <input ref="fileInput" type="file" @change="handleFileSelect" style="display:none" accept="image/*,video/*,audio/*,.pdf,.doc*" />
         <button type="button" @click="attachFile" class="attach-btn" :disabled="sending || !wsConnected">📎</button>
         <button type="submit" class="send-btn" :disabled="!newMessage.trim() || sending || !wsConnected">
-          {{ sending ? '⏳' : '📤' }}
+          {{ sending ? '<SakuraIcon name="hourglass" />' : '<SakuraIcon name="export" />' }}
         </button>
       </form>
       <div v-if="!wsConnected && reconnectAttempts > 0" class="ws-status">
@@ -250,8 +250,8 @@
 
     <!-- Модальное окно настроек чата -->
     <ChatSettingsModal
-      v-if="showSettings"
-      :chat-id="Number(route.params.id)"
+      v-if="showSettings && currentChatId"
+      :chat-id="currentChatId"
       :chat-type="chat?.type || 'group'"
       :chat-name="chatName"
       :chat-avatar="chatAvatar"
@@ -263,7 +263,7 @@
     <!-- Модальное окно поиска сообщений -->
     <MessageSearchModal
       :is-open="showSearch"
-      :chat-id="Number(route.params.id)"
+      :chat-id="currentChatId || 0"
       @close="showSearch = false"
       @message-selected="(id) => scrollToMessage(id)"
     />
@@ -280,7 +280,7 @@
     <!-- Модальное окно приглашений -->
     <ChatInviteModal
       :is-open="showInvite"
-      :chat-id="Number(route.params.id)"
+      :chat-id="currentChatId || 0"
       @close="showInvite = false"
     />
 
@@ -309,10 +309,10 @@
           <span class="context-menu-icon">↩️</span> Ответить
         </button>
         <button class="context-menu-item" @click="handleForward(selectedMessage)">
-          <span class="context-menu-icon">↗️</span> Переслать
+          <span class="context-menu-icon"> <SakuraIcon name="arrow-up-right" /> </span> Переслать
         </button>
         <button class="context-menu-item delete" v-if="selectedMessage?.sender_id === user?.id" @click="handleDelete(selectedMessage.id)">
-          <span class="context-menu-icon">🗑️</span> Удалить
+          <span class="context-menu-icon"> <SakuraIcon name="trash" /> </span> Удалить
         </button>
       </div>
     </div>
@@ -382,7 +382,7 @@ const contextMenu = ref({
 // Единая позиция для popup
 const popupPosition = ref({ x: 0, y: 0 })
 
-const reactionEmojis = ['👍', '❤️', '😢', '😮', '😡', '🎉', '🔥', '👀', '🙏']
+const reactionEmojis = ['👍', '❵', '😢', '😮', '😠', '🎉', '🔥', '👀', '🙏']
 
 // Computed для получения ID чата - из prop или route
 const currentChatId = computed(() => {
@@ -1499,6 +1499,12 @@ watch(currentChatId, async (newId, oldId) => {
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+  /* Изолируем blur от дочерних элементов */
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
 
 /* Контент сообщений поверх фона */

@@ -10,9 +10,9 @@
         <p v-if="playlist.description" class="description">{{ playlist.description }}</p>
 
         <div class="playlist-meta">
-          <span v-if="playlist.user">👤 {{ playlist.user.username }}</span>
-          <span>📊 {{ playlist.items_count || playlist.items?.length || 0 }} аниме</span>
-          <span>❤️ {{ playlist.favorites_count || 0 }} в избранном</span>
+          <span v-if="playlist.user"><SakuraIcon name="user" /> {{ playlist.user.username }}</span>
+          <span><SakuraIcon name="chart" /> {{ playlist.items_count || playlist.items?.length || 0 }} аниме</span>
+          <span><SakuraIcon name="heart" /> {{ playlist.favorites_count || 0 }} в избранном</span>
         </div>
 
         <div class="playlist-actions" v-if="currentUserId">

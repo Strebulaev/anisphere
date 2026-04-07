@@ -3,7 +3,7 @@
     <h2>Email уведомления</h2>
 
     <div class="settings-group">
-      <h3>📧 Основные настройки</h3>
+      <h3><SakuraIcon name="mail" /> Основные настройки</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -19,16 +19,16 @@
 
       <div class="setting-item">
         <label>Дополнительный email:</label>
-        <button class="add-email-btn">➕ Добавить</button>
+        <button class="add-email-btn"><SakuraIcon name="plus" /> Добавить</button>
       </div>
 
       <div class="setting-item">
-        <button class="verify-email-btn">✅ Подтвердить email</button>
+        <button class="verify-email-btn"><SakuraIcon name="check" /> Подтвердить email</button>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>⏰ Частота и время</h3>
+      <h3><SakuraIcon name="clock" /> Частота и время</h3>
 
       <div class="setting-item">
         <label>Частота уведомлений:</label>
@@ -67,7 +67,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📋 Что уведомлять</h3>
+      <h3><SakuraIcon name="clipboard" /> Что уведомлять</h3>
 
       <div class="checkbox-grid">
         <label class="setting-label">
@@ -113,7 +113,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🎨 Формат писем</h3>
+      <h3><SakuraIcon name="palette" /> Формат писем</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -152,7 +152,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🚫 Исключения</h3>
+      <h3><SakuraIcon name="ban" /> Исключения</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -190,7 +190,7 @@
     </div>
 
     <div class="stats-section">
-      <h3>📊 Статистика за месяц</h3>
+      <h3><SakuraIcon name="chart" /> Статистика за месяц</h3>
       <div class="stats-grid">
         <div class="stat-item">
           <span class="stat-label">Отправлено писем:</span>
@@ -213,10 +213,10 @@
 
     <div class="settings-actions">
       <button @click="sendTestEmail" class="test-btn">
-        ✉️ Тестовое письмо
+        <SakuraIcon name="mail" /> Тестовое письмо
       </button>
       <button @click="viewHistory" class="history-btn">
-        📥 История отправок
+        <SakuraIcon name="import" /> История отправок
       </button>
     </div>
   </div>

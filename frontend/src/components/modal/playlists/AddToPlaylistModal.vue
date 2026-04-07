@@ -80,8 +80,8 @@
         <div class="anime-info">
           <h4 class="anime-title">{{ anime.title_ru }}</h4>
           <div class="anime-meta">
-            <span v-if="anime.year">📅 {{ anime.year }}</span>
-            <span v-if="anime.score">⭐ {{ anime.score?.toFixed(1) }}</span>
+            <span v-if="anime.year"><SakuraIcon name="calendar" /> {{ anime.year }}</span>
+            <span v-if="anime.score"><SakuraIcon name="star" /> {{ anime.score?.toFixed(1) }}</span>
           </div>
         </div>
       </div>

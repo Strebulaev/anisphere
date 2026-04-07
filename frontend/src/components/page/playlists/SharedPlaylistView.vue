@@ -98,7 +98,7 @@
             <div class="anime-meta">
               <span v-if="item.anime_year">{{ item.anime_year }}</span>
               <span v-if="item.anime_year && item.anime_score">·</span>
-              <span v-if="item.anime_score" class="anime-score">★ {{ item.anime_score }}</span>
+              <span v-if="item.anime_score" class="anime-score"><SakuraIcon name="star" /> {{ item.anime_score }}</span>
             </div>
             <div v-if="item.notes" class="anime-notes">{{ item.notes }}</div>
           </div>

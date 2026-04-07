@@ -2,20 +2,20 @@
   <div class="wheel-settings-view">
     <div class="page-header">
       <router-link to="/wheel" class="btn-back">← Назад</router-link>
-      <h1>⚙️ Настройки колеса</h1>
+      <h1><SakuraIcon name="settings" /> Настройки колеса</h1>
     </div>
 
     <div v-if="currentRoulette" class="settings-content">
       <!-- Внешний вид -->
       <section class="settings-section">
-        <h2>🎨 Внешний вид</h2>
+        <h2><SakuraIcon name="palette" /> Внешний вид</h2>
         <div class="settings-grid">
           <div class="setting-item">
             <label>Тема колеса</label>
             <select v-model="settings.theme" @change="saveSettings">
-              <option value="light">🌞 Светлая</option>
-              <option value="dark">🌙 Тёмная</option>
-              <option value="anime">🎨 Аниме-тема</option>
+              <option value="light"><SakuraIcon name="sun" /> Светлая</option>
+              <option value="dark"><SakuraIcon name="moon" /> Тёмная</option>
+              <option value="anime"><SakuraIcon name="palette" /> Аниме-тема</option>
             </select>
           </div>
 
@@ -31,27 +31,27 @@
           <div class="setting-item">
             <label>Отображение</label>
             <select v-model="settings.display_mode" @change="saveSettings">
-              <option value="posters">🖼️ Постеры</option>
-              <option value="titles">📝 Названия</option>
-              <option value="both">🖼️+📝 И то и другое</option>
+              <option value="posters"><SakuraIcon name="image" /> Постеры</option>
+              <option value="titles"><SakuraIcon name="file-text" /> Названия</option>
+              <option value="both"><SakuraIcon name="image" />+<SakuraIcon name="file-text" /> И то и другое</option>
             </select>
           </div>
 
           <div class="setting-item">
             <label>Цветовая схема</label>
             <select v-model="settings.color_scheme" @change="saveSettings">
-              <option value="rainbow">🌈 Радуга</option>
-              <option value="rating">🎯 По рейтингу</option>
-              <option value="monochrome">🎨 Монохром</option>
+              <option value="rainbow"><SakuraIcon name="rainbow" /> Радуга</option>
+              <option value="rating"><SakuraIcon name="target" /> По рейтингу</option>
+              <option value="monochrome"><SakuraIcon name="palette" /> Монохром</option>
             </select>
           </div>
 
           <div class="setting-item">
             <label>Анимация кручения</label>
             <select v-model="settings.animation_style" @change="saveSettings">
-              <option value="smooth">💫 Плавная</option>
-              <option value="fast">⚡ Быстрая</option>
-              <option value="cinematic">🎬 Кинематографичная</option>
+              <option value="smooth"><SakuraIcon name="sparkle" /> Плавная</option>
+              <option value="fast"><SakuraIcon name="zap" /> Быстрая</option>
+              <option value="cinematic"><SakuraIcon name="play" /> Кинематографичная</option>
             </select>
           </div>
 
@@ -62,13 +62,13 @@
                 :class="['toggle-btn', { active: settings.sound_enabled }]"
                 @click="settings.sound_enabled = true; saveSettings()"
               >
-                🔊 Вкл
+                <SakuraIcon name="volume" /> Вкл
               </button>
               <button
                 :class="['toggle-btn', { active: !settings.sound_enabled }]"
                 @click="settings.sound_enabled = false; saveSettings()"
               >
-                🔇 Выкл
+                <SakuraIcon name="volume-x" /> Выкл
               </button>
             </div>
           </div>
@@ -77,7 +77,7 @@
 
       <!-- Поведение -->
       <section class="settings-section">
-        <h2>🎲 Поведение</h2>
+        <h2><SakuraIcon name="dice" /> Поведение</h2>
         <div class="settings-grid">
           <div class="setting-item">
             <label>Количество по умолчанию</label>
@@ -94,9 +94,9 @@
           <div class="setting-item">
             <label>Расчёт весов</label>
             <select v-model="settings.weight_mode" @change="saveSettings">
-              <option value="proportional">⚖️ Пропорционально</option>
-              <option value="rating">🎯 Только рейтинг</option>
-              <option value="manual">📊 Ручные</option>
+              <option value="proportional"><SakuraIcon name="scale" /> Пропорционально</option>
+              <option value="rating"><SakuraIcon name="target" /> Только рейтинг</option>
+              <option value="manual"><SakuraIcon name="chart" /> Ручные</option>
             </select>
           </div>
 
@@ -107,13 +107,13 @@
                 :class="['toggle-btn', { active: settings.exclude_recent }]"
                 @click="settings.exclude_recent = true; saveSettings()"
               >
-                🔄 Да
+                <SakuraIcon name="refresh" /> Да
               </button>
               <button
                 :class="['toggle-btn', { active: !settings.exclude_recent }]"
                 @click="settings.exclude_recent = false; saveSettings()"
               >
-                ❌ Нет
+                <SakuraIcon name="x" /> Нет
               </button>
             </div>
           </div>
@@ -132,7 +132,7 @@
 
       <!-- Лимиты -->
       <section class="settings-section">
-        <h2>📊 Лимиты</h2>
+        <h2><SakuraIcon name="chart" /> Лимиты</h2>
         <div class="settings-grid">
           <div class="setting-item">
             <label>Максимум аниме в колесе</label>
@@ -159,7 +159,7 @@
             <select v-model.number="settings.history_limit" @change="saveSettings">
               <option :value="100">Да, 100 записей</option>
               <option :value="500">Да, 500 записей</option>
-              <option :value="0">❌ Нет</option>
+              <option :value="0"><SakuraIcon name="x" /> Нет</option>
             </select>
           </div>
         </div>
@@ -167,7 +167,7 @@
 
       <!-- Автоматическое добавление -->
       <section class="settings-section">
-        <h2>🔄 Автоматическое добавление</h2>
+        <h2><SakuraIcon name="refresh" /> Автоматическое добавление</h2>
         <div class="settings-grid">
           <div class="setting-item">
             <label>Из коллекции</label>
@@ -176,13 +176,13 @@
                 :class="['toggle-btn', { active: settings.auto_add_from_collection }]"
                 @click="settings.auto_add_from_collection = true; saveSettings()"
               >
-                📚 Да
+                <SakuraIcon name="book" /> Да
               </button>
               <button
                 :class="['toggle-btn', { active: !settings.auto_add_from_collection }]"
                 @click="settings.auto_add_from_collection = false; saveSettings()"
               >
-                ❌ Нет
+                <SakuraIcon name="x" /> Нет
               </button>
             </div>
           </div>
@@ -194,13 +194,13 @@
                 :class="['toggle-btn', { active: settings.auto_add_from_playlists }]"
                 @click="settings.auto_add_from_playlists = true; saveSettings()"
               >
-                📁 Да
+                <SakuraIcon name="folder" /> Да
               </button>
               <button
                 :class="['toggle-btn', { active: !settings.auto_add_from_playlists }]"
                 @click="settings.auto_add_from_playlists = false; saveSettings()"
               >
-                ❌ Нет
+                <SakuraIcon name="x" /> Нет
               </button>
             </div>
           </div>
@@ -209,14 +209,14 @@
 
       <!-- Сохранённые наборы -->
       <section class="settings-section">
-        <h2>💾 Сохранённые наборы</h2>
+        <h2><SakuraIcon name="save" /> Сохранённые наборы</h2>
         <div class="presets-grid">
           <div
             v-for="preset in presets"
             :key="preset.id"
             class="preset-card"
           >
-            <div class="preset-icon">📁</div>
+            <div class="preset-icon"> <SakuraIcon name="folder" /> </div>
             <div class="preset-info">
               <h3>{{ preset.name }}</h3>
               <p>{{ preset.items_count }} аниме</p>
@@ -228,22 +228,20 @@
               <button class="btn-icon-sm" @click="editPreset(preset.id)" title="Редактировать">
                 ✎
               </button>
-              <button class="btn-icon-sm btn-danger" @click="deletePreset(preset.id)" title="Удалить">
-                ✖️
-              </button>
+              <button class="btn-icon-sm btn-danger" @click="deletePreset(preset.id)" title="Удалить"> <SakuraIcon name="x" /> </button>
             </div>
           </div>
         </div>
 
         <div class="presets-actions">
           <button class="btn-secondary" @click="saveCurrentAsPreset">
-            ➕ Сохранить текущий набор
+            <SakuraIcon name="plus" /> Сохранить текущий набор
           </button>
           <button class="btn-secondary" @click="exportPresets">
-            📤 Экспорт
+            <SakuraIcon name="export" /> Экспорт
           </button>
           <button class="btn-secondary" @click="importPresets">
-            📥 Импорт
+            <SakuraIcon name="import" /> Импорт
           </button>
         </div>
       </section>
@@ -251,7 +249,7 @@
 
     <!-- Сохранение -->
     <div class="save-indicator" :class="{ visible: isSaving }">
-      💾 Сохранение...
+      <SakuraIcon name="save" /> Сохранение...
     </div>
   </div>
 </template>

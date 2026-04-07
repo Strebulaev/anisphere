@@ -3,7 +3,7 @@
     <h2>Расширенные настройки</h2>
 
     <div class="settings-group">
-      <h3>⚡ Производительность</h3>
+      <h3><SakuraIcon name="zap" /> Производительность</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -72,7 +72,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>💾 Хранилище</h3>
+      <h3><SakuraIcon name="save" /> Хранилище</h3>
 
       <div class="setting-item">
         <label>Автоочистка кэша:</label>
@@ -110,7 +110,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🔒 Безопасность</h3>
+      <h3><SakuraIcon name="lock" /> Безопасность</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -142,7 +142,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🛠️ Отладка</h3>
+      <h3><SakuraIcon name="tools" /> Отладка</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -174,7 +174,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🔄 Автоматизация</h3>
+      <h3><SakuraIcon name="refresh" /> Автоматизация</h3>
 
       <div class="automation-item">
         <span>Автоответчик</span>
@@ -193,7 +193,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>⚙️ Экспериментальные функции</h3>
+      <h3><SakuraIcon name="settings" /> Экспериментальные функции</h3>
 
       <div class="setting-item">
         <label class="setting-label">
@@ -217,10 +217,10 @@
     </div>
 
     <div class="danger-zone">
-      <h3>⚠️ Сброс настроек</h3>
+      <h3><SakuraIcon name="warning" />️ Сброс настроек</h3>
       <p>Это действие сбросит все настройки к значениям по умолчанию. Действие нельзя отменить.</p>
       <button @click="showResetConfirm = true" class="reset-btn">
-        🔄 Сбросить все настройки
+        <SakuraIcon name="refresh" /> Сбросить все настройки
       </button>
     </div>
 

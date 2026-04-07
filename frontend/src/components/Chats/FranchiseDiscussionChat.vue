@@ -9,7 +9,7 @@
         :alt="franchiseName"
         @error="posterError = true"
       />
-      <div v-else class="fc-poster fc-poster-placeholder">🎬</div>
+      <div v-else class="fc-poster fc-poster-placeholder"> <SakuraIcon name="play" /> </div>
       <div class="fc-header-info">
         <h2 class="fc-title">{{ franchiseName }}</h2>
         <span class="fc-subtitle">{{ topics.length }} {{ topicsWord(topics.length) }}</span>
@@ -35,17 +35,17 @@
           </svg>
         </button>
         <!-- Архивация -->
-        <button
+        <!-- <button
           :class="['fc-action-btn', { archived: isArchived }]"
           :title="isArchived ? 'Разархивировать' : 'Архивировать'"
           @click="toggleArchive"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        > -->
+          <!-- <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="21 8 21 21 3 21 3 8"/>
             <rect x="1" y="3" width="22" height="5"/>
             <line x1="10" y1="12" x2="14" y2="12"/>
           </svg>
-        </button>
+        </button> -->
       </div>
     </div>
 
@@ -56,19 +56,19 @@
     </div>
 
     <!-- Баннер если архивирован -->
-    <div v-if="isArchived" class="fc-archived-banner">
-      📦 Чат в архиве
+    <!-- <div v-if="isArchived" class="fc-archived-banner">
+      <SakuraIcon name="package" /> Чат в архиве
       <button class="fc-unarchive-btn" @click="toggleArchive">Разархивировать</button>
-    </div>
+    </div> -->
 
     <!-- Баннер ошибки slug -->
     <div v-if="slugValidationError" class="fc-error-banner">
-      ⚠️ Топик не найден — показывается общее обсуждение
+      <SakuraIcon name="warning" />️ Топик не найден — показывается общее обсуждение
     </div>
 
     <!-- Темы (топики) с постерами -->
     <div class="fc-topics-header" @click="topicsCollapsed = !topicsCollapsed">
-      <span class="fc-topics-title">📋 Темы ({{ topics.length }})</span>
+      <span class="fc-topics-title"><SakuraIcon name="clipboard" /> Темы ({{ topics.length }})</span>
       <span class="fc-topics-chevron" :class="{ collapsed: topicsCollapsed }">▾</span>
     </div>
     <div class="fc-topics" v-show="!topicsCollapsed">
@@ -88,7 +88,7 @@
             @error="topicPosterErrors[topic.id] = true"
           />
           <div v-else class="topic-poster topic-poster-fallback">
-            {{ topic.animeId ? '📺' : '💬' }}
+            {{ topic.animeId ? '<SakuraIcon name="tv" />' : '<SakuraIcon name="message" />' }}
           </div>
         </div>
         <span class="topic-name">{{ topic.name }}</span>
@@ -100,7 +100,7 @@
     <div class="fc-messages" ref="messagesEl">
       <div v-if="loadingMessages" class="fc-loading">Загрузка...</div>
       <div v-else-if="messages.length === 0" class="fc-empty">
-        <span>💬</span>
+        <span> <SakuraIcon name="message" /> </span>
         <p>Начните обсуждение в теме «{{ activeTopic?.name }}»</p>
       </div>
       <div v-else class="fc-messages-list">

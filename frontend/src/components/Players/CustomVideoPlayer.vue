@@ -110,7 +110,7 @@
 
     <!-- Ошибка -->
     <div v-if="error" class="error-overlay">
-      <div class="error-icon">⚠️</div>
+      <div class="error-icon"><SakuraIcon name="warning" />️</div>
       <p>{{ error }}</p>
     </div>
 

@@ -38,7 +38,7 @@
         </div>
 
         <div v-else-if="searchResults.length === 0 && searchQuery" class="no-results">
-          <div class="no-results-icon">🔍</div>
+          <div class="no-results-icon"> <SakuraIcon name="search" /> </div>
           <p>Ничего не найдено</p>
         </div>
 
@@ -56,7 +56,7 @@
               <div class="result-meta">
                 <span v-if="anime.year">{{ anime.year }}</span>
                 <span v-if="anime.episodes">{{ anime.episodes }} эп.</span>
-                <span v-if="anime.score" class="rating">★ {{ anime.score.toFixed(1) }}</span>
+                <span v-if="anime.score" class="rating"><SakuraIcon name="star" /> {{ anime.score.toFixed(1) }}</span>
               </div>
             </div>
             <svg v-if="selectedAnime?.id === anime.id" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="check-icon">
@@ -67,7 +67,7 @@
 
         <!-- Подсказка, если нет поиска -->
         <div v-else class="search-hint">
-          <div class="hint-icon">📚</div>
+          <div class="hint-icon"> <SakuraIcon name="book" /> </div>
           <h3>Найдите аниме</h3>
           <p>Введите название аниме, чтобы добавить его в свой список</p>
         </div>

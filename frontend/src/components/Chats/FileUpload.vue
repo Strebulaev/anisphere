@@ -11,7 +11,7 @@
 
     <button class="upload-btn" @click="triggerFileInput" :disabled="loading">
       <span v-if="!loading" class="btn-icon">📎</span>
-      <span v-else class="btn-spinner">⏳</span>
+      <span v-else class="btn-spinner"> <SakuraIcon name="hourglass" /> </span>
       <span class="btn-text">{{ loading ? 'Загрузка...' : buttonText }}</span>
     </button>
 
@@ -155,10 +155,10 @@ const removeFile = (index: number) => {
 }
 
 const getFileIcon = (mimeType: string) => {
-  if (mimeType.startsWith('video/')) return '🎬'
+  if (mimeType.startsWith('video/')) return '▶'
   if (mimeType.startsWith('audio/')) return '🎵'
   if (mimeType.includes('pdf')) return '📄'
-  if (mimeType.includes('word')) return '📝'
+  if (mimeType.includes('word')) return '📄'
   return '📎'
 }
 

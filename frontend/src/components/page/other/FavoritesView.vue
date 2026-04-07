@@ -271,7 +271,7 @@ onMounted(() => {
     </div>
 
     <div v-else-if="filteredPlaylists.length === 0" class="empty-state">
-      <span class="icon">⭐</span>
+      <span class="icon"> <SakuraIcon name="star" /> </span>
       <h3>{{ playlists.length === 0 ? 'В избранном пусто' : 'Ничего не найдено' }}</h3>
       <p>{{ playlists.length === 0 ? 'Добавляйте плейлисты в избранное, чтобы они появились здесь' : 'Попробуйте изменить параметры фильтрации' }}</p>
     </div>

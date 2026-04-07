@@ -11,7 +11,7 @@
     <!-- Blocked user state -->
     <div v-if="isBlocked" class="blocked-user">
       <div class="blocked-content">
-        <div class="blocked-icon">🚫</div>
+        <div class="blocked-icon"> <SakuraIcon name="ban" /> </div>
         <h2>Этот пользователь вами заблокирован</h2>
         <p>Вы не видите его контент и не получаете уведомления.</p>
         <button class="btn-primary" @click="handleUnblock">Разблокировать</button>
@@ -21,7 +21,7 @@
     <!-- User not found -->
     <div v-else-if="!user && !loading" class="user-not-found">
       <div class="not-found-content">
-        <div class="not-found-icon">👤</div>
+        <div class="not-found-icon"> <SakuraIcon name="user" /> </div>
         <h2>Пользователь не найден</h2>
         <p>Пользователь с таким никнеймом не существует или был удалён.</p>
         <router-link to="/feed" class="btn-primary">Вернуться в ленту</router-link>
@@ -210,7 +210,7 @@
             <line x1="15" y1="9" x2="9" y2="15"/>
             <line x1="9" y1="9" x2="15" y2="15"/>
           </svg>
-          🔴 Отписаться
+          <SakuraIcon name="circle" /> Отписаться
         </div>
       </div>
     </div>

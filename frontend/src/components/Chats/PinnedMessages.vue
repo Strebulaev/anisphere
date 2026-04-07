@@ -1,7 +1,7 @@
 <template>
   <div v-if="pinnedMessages.length > 0" class="pinned-messages">
     <div class="pinned-header">
-      <span class="pinned-icon">📌</span>
+      <span class="pinned-icon"> <SakuraIcon name="pin" /> </span>
       <span class="pinned-title">Закреплённые сообщения ({{ pinnedMessages.length }})</span>
     </div>
 

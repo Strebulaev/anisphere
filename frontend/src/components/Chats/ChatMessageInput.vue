@@ -52,7 +52,7 @@
         />
       </div>
       <div class="playlist-preview-info">
-        <span class="playlist-icon">📋</span>
+        <span class="playlist-icon"> <SakuraIcon name="clipboard" /> </span>
         <span class="playlist-title">{{ sharedPlaylist.title }}</span>
         <span class="playlist-count">{{ sharedPlaylist.items_count || sharedPlaylist.items?.length || 0 }} аниме</span>
       </div>
@@ -333,8 +333,8 @@ const onChatAnime = (anime: any) => {
 const chatMediaFiles = ref<MediaFile[]>([])
 
 const commonEmojis = [
-  '😀', '😂', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎',
-  '❤️', '🔥', '✨', '🎉', '💯', '👀', '💪', '🙏', '👋'
+  '😀', '😂', '🥰', '😎', '🤔', '😢', '😠', '👍', '👎',
+  '❵', '🔥', '✨', '🎉', '💯', '👀', '💪', '🙏', '〰️'
 ]
 
 const canSend = computed(() => {

@@ -10,9 +10,7 @@
       <span class="reaction-count">{{ reaction.count }}</span>
     </div>
 
-    <button class="add-reaction-btn" @click="showEmojiPicker = !showEmojiPicker" title="Добавить реакцию">
-      😊
-    </button>
+    <button class="add-reaction-btn" @click="showEmojiPicker = !showEmojiPicker" title="Добавить реакцию"> <SakuraIcon name="blush" /> </button>
 
     <div v-if="showEmojiPicker" class="emoji-picker" @click.stop>
       <div
@@ -47,7 +45,7 @@ const authStore = useAuthStore()
 const showEmojiPicker = ref(false)
 
 const commonEmojis = [
-  '❤️', '👍', '👎', '😂', '😮', '😢', '😡', '🔥', '🎉', '👏',
+  '❵', '👍', '👎', '😂', '😮', '😢', '😠', '🔥', '🎉', '👏',
   '🤔', '😍', '🥳', '😎', '🤗', '😱', '🙏', '💯', '✨', '💪'
 ]
 

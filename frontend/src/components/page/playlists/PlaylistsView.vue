@@ -27,7 +27,10 @@
           @click="switchMainTab(tab.id)"
           :class="['tab-btn', { active: activeTab === tab.id }]"
         >
-          <span class="tab-icon">{{ tab.icon }}</span>
+          <span class="tab-icon">
+            <SakuraIcon v-if="isIconName(tab.icon)" :name="tab.icon" :size="16" />
+            <span v-else>{{ tab.icon }}</span>
+          </span>
           {{ tab.label }}
           <span v-if="tab.count !== undefined" class="tab-count">{{ tab.count }}</span>
         </button>
@@ -89,7 +92,7 @@
 
     <!-- Ошибка -->
     <div v-else-if="error" class="empty-state">
-      <div class="empty-icon">⚠️</div>
+      <div class="empty-icon"><SakuraIcon name="warning" />️</div>
       <h3>Не удалось загрузить плейлисты</h3>
       <p>{{ error }}</p>
       <button @click="loadPlaylists" class="btn-retry">Попробовать снова</button>
@@ -97,7 +100,10 @@
 
     <!-- Пустой список -->
     <div v-else-if="playlists.length === 0" class="empty-state">
-      <div class="empty-icon">{{ emptyIcon }}</div>
+      <div class="empty-icon">
+        <SakuraIcon v-if="isIconName(emptyIcon)" :name="emptyIcon" :size="48" />
+        <span v-else>{{ emptyIcon }}</span>
+      </div>
       <h3>{{ emptyTitle }}</h3>
       <p>{{ emptyMessage }}</p>
       <button v-if="activeTab === 'my'" @click="router.push('/playlists/create')" class="btn-create-empty">
@@ -166,6 +172,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import playlistsApi, { type Playlist, type PlaylistVisibility } from '@/api/playlists'
 import PlaylistCard from '@/components/Cards/PlaylistCard.vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -198,10 +205,16 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null
 const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
 
 const mainTabs = computed(() => [
-  { id: 'my', label: 'Мои плейлисты', icon: '📁', count: myAllCount.value },
-  { id: 'public', label: 'Публичные', icon: '🌍', count: undefined },
-  { id: 'favorites', label: 'Избранное', icon: '⭐', count: favCount.value },
+  { id: 'my', label: 'Мои плейлисты', icon: 'folder', count: myAllCount.value },
+  { id: 'public', label: 'Публичные', icon: 'globe', count: undefined },
+  { id: 'favorites', label: 'Избранное', icon: 'star', count: favCount.value },
 ])
+
+// Проверка - является ли icon именем иконки
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 const mySubTabs = computed(() => [
   { id: 'all', label: 'Все', count: myAllCount.value },
@@ -228,11 +241,11 @@ const visiblePages = computed(() => {
 
 // Пустое состояние
 const emptyIcon = computed(() => {
-  if (activeTab.value === 'favorites') return '⭐'
-  if (activeTab.value === 'public') return '🌍'
-  if (mySubTab.value === 'private') return '🔒'
-  if (mySubTab.value === 'link') return '🔗'
-  return '📁'
+  if (activeTab.value === 'favorites') return 'star'
+  if (activeTab.value === 'public') return 'globe'
+  if (mySubTab.value === 'private') return 'lock'
+  if (mySubTab.value === 'link') return 'link'
+  return 'folder'
 })
 const emptyTitle = computed(() => {
   if (searchQuery.value) return 'Ничего не найдено'
@@ -472,7 +485,7 @@ onMounted(async () => {
 }
 .tab-btn:hover { color: var(--color-text); }
 .tab-btn.active { color: var(--color-accent); border-bottom-color: var(--color-accent); }
-.tab-icon { font-size: 0.95rem; }
+.tab-icon { font-size: 0.95rem; color: inherit; }
 .tab-count {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; padding: 0 4px;

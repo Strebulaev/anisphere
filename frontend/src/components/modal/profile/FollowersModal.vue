@@ -23,7 +23,7 @@
       </div>
 
       <div v-else-if="filteredUsers.length === 0" class="empty-state">
-        <div class="empty-icon">👥</div>
+        <div class="empty-icon"> <SakuraIcon name="users" /> </div>
         <h3>
           {{ isFollowers ? 'Здесь пока никого нет' : 'Вы ещё не подписались ни на кого' }}
         </h3>

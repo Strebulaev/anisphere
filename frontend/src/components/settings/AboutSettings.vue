@@ -25,13 +25,13 @@
           @click="checkForUpdates"
           class="check-update-btn"
         >
-          🔍 Проверить обновления
+          <SakuraIcon name="search" /> Проверить обновления
         </button>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>📄 Лицензия и права</h3>
+      <h3><SakuraIcon name="file-text" /> Лицензия и права</h3>
       
       <div class="license-info">
         <p class="copyright">© 2024 anisphere. Все права защищены.</p>
@@ -49,20 +49,20 @@
 
         <div class="legal-links">
           <button @click="showTerms = true" class="legal-link">
-            📄 Пользовательское соглашение
+            <SakuraIcon name="file-text" /> Пользовательское соглашение
           </button>
           <button @click="showPrivacy = true" class="legal-link">
-            🔒 Политика конфиденциальности
+            <SakuraIcon name="lock" /> Политика конфиденциальности
           </button>
           <button @click="showLicense = true" class="legal-link">
-            ⚖️ Лицензионное соглашение
+            <SakuraIcon name="scale" /> Лицензионное соглашение
           </button>
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>👥 Команда</h3>
+      <h3><SakuraIcon name="users" /> Команда</h3>
       
       <div class="team-info">
         <div class="team-section">
@@ -89,17 +89,17 @@
 
         <div class="contact-links">
           <button @click="contactSupport" class="contact-btn">
-            📧 Связаться с поддержкой
+            <SakuraIcon name="mail" /> Связаться с поддержкой
           </button>
           <button @click="joinDevChat" class="contact-btn">
-            💬 Чат сообщества разработчиков
+            <SakuraIcon name="message" /> Чат сообщества разработчиков
           </button>
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <h3>🙏 Благодарности</h3>
+      <h3><SakuraIcon name="pray" /> Благодарности</h3>
       
       <div class="acknowledgments">
         <div class="ack-section">
@@ -135,29 +135,29 @@
     </div>
 
     <div class="settings-group">
-      <h3>📊 Статистика проекта</h3>
+      <h3><SakuraIcon name="chart" /> Статистика проекта</h3>
       
       <div class="project-stats">
         <div class="stat-card">
-          <div class="stat-icon">👥</div>
+          <div class="stat-icon"> <SakuraIcon name="users" /> </div>
           <div class="stat-value">{{ formatNumber(stats.users) }}</div>
           <div class="stat-label">Пользователей</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon">📺</div>
+          <div class="stat-icon"> <SakuraIcon name="tv" /> </div>
           <div class="stat-value">{{ formatNumber(stats.anime) }}</div>
           <div class="stat-label">Аниме в базе</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon">📋</div>
+          <div class="stat-icon"> <SakuraIcon name="clipboard" /> </div>
           <div class="stat-value">{{ formatNumber(stats.playlists) }}</div>
           <div class="stat-label">Плейлистов</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon">🎬</div>
+          <div class="stat-icon"> <SakuraIcon name="play" /> </div>
           <div class="stat-value">{{ formatNumber(stats.shorts) }}</div>
           <div class="stat-label">Shorts</div>
         </div>
@@ -165,7 +165,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🔗 Ссылки</h3>
+      <h3><SakuraIcon name="link" /> Ссылки</h3>
       
       <div class="links-grid">
         <a href="#" class="link-item">
@@ -177,7 +177,7 @@
         </a>
 
         <a href="#" class="link-item">
-          <span class="link-icon">📱</span>
+          <span class="link-icon"> <SakuraIcon name="phone" /> </span>
           <div class="link-info">
             <span class="link-name">Мобильное приложение</span>
             <span class="link-url">App Store / Google Play</span>
@@ -185,7 +185,7 @@
         </a>
 
         <a href="#" class="link-item">
-          <span class="link-icon">🐦</span>
+          <span class="link-icon"> <SakuraIcon name="bird" /> </span>
           <div class="link-info">
             <span class="link-name">Twitter</span>
             <span class="link-url">@anisphere</span>
@@ -193,7 +193,7 @@
         </a>
 
         <a href="#" class="link-item">
-          <span class="link-icon">💬</span>
+          <span class="link-icon"> <SakuraIcon name="message" /> </span>
           <div class="link-info">
             <span class="link-name">Discord</span>
             <span class="link-url">discord.gg/anisphere</span>
@@ -201,7 +201,7 @@
         </a>
 
         <a href="#" class="link-item">
-          <span class="link-icon">📺</span>
+          <span class="link-icon"> <SakuraIcon name="tv" /> </span>
           <div class="link-info">
             <span class="link-name">YouTube</span>
             <span class="link-url">anisphere Official</span>
@@ -219,7 +219,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📝 Журнал изменений</h3>
+      <h3><SakuraIcon name="file-text" /> Журнал изменений</h3>
       
       <div class="changelog">
         <div v-for="version in changelog" :key="version.version" class="changelog-item">
@@ -230,14 +230,14 @@
           
           <div class="changelog-content">
             <div v-if="version.features.length > 0" class="changelog-section">
-              <span class="section-label new">✨ Новое:</span>
+              <span class="section-label new"><SakuraIcon name="sparkles" /> Новое:</span>
               <ul class="changelog-list">
                 <li v-for="feature in version.features" :key="feature">{{ feature }}</li>
               </ul>
             </div>
 
             <div v-if="version.improvements.length > 0" class="changelog-section">
-              <span class="section-label improved">🔧 Улучшения:</span>
+              <span class="section-label improved"><SakuraIcon name="wrench" /> Улучшения:</span>
               <ul class="changelog-list">
                 <li v-for="improvement in version.improvements" :key="improvement">{{ improvement }}</li>
               </ul>
@@ -259,7 +259,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🐞 Сообщить о проблеме</h3>
+      <h3><SakuraIcon name="lady-beetle" /> Сообщить о проблеме</h3>
       
       <div class="bug-report">
         <p class="bug-info">
@@ -271,10 +271,10 @@
             🐛 Сообщить об ошибке
           </button>
           <button @click="makeSuggestion" class="report-btn">
-          💡 Сделать предложение
+          <SakuraIcon name="lightbulb" /> Сделать предложение
           </button>
           <button @click="requestFeature" class="report-btn">
-            📋 Запросить функцию
+            <SakuraIcon name="clipboard" /> Запросить функцию
           </button>
         </div>
       </div>
@@ -380,10 +380,10 @@ const updateStatusClass = computed(() => {
 
 const updateStatusIcon = computed(() => {
   switch (updateStatus.value) {
-    case 'up-to-date': return '✅'
+    case 'up-to-date': return '☑️'
     case 'available': return '🆕'
     case 'checking': return '🔄'
-    case 'error': return '❌'
+    case 'error': return '✖️'
     default: return 'ℹ️'
   }
 })

@@ -1,14 +1,14 @@
 <template>
   <div class="kodik-import-page">
     <div class="page-header">
-      <h1>📦 Импорт аниме из Kodik</h1>
+      <h1><SakuraIcon name="package" /> Импорт аниме из Kodik</h1>
       <p class="page-description">Импортируйте все аниме из базы Kodik API в вашу базу данных</p>
     </div>
 
     <!-- Статистика -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon">📊</div>
+        <div class="stat-icon"> <SakuraIcon name="chart" /> </div>
         <div class="stat-info">
           <div class="stat-label">Всего аниме в базе</div>
           <div class="stat-value">{{ stats.total_anime }}</div>
@@ -16,7 +16,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">🎬</div>
+        <div class="stat-icon"> <SakuraIcon name="play" /> </div>
         <div class="stat-info">
           <div class="stat-label">Аниме из Kodik</div>
           <div class="stat-value">{{ stats.kodik_anime }}</div>
@@ -24,7 +24,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">⏳</div>
+        <div class="stat-icon"> <SakuraIcon name="hourglass" /> </div>
         <div class="stat-info">
           <div class="stat-label">Последнее обновление</div>
           <div class="stat-value">{{ stats.last_update }}</div>
@@ -32,7 +32,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">✅</div>
+        <div class="stat-icon"> <SakuraIcon name="check" /> </div>
         <div class="stat-info">
           <div class="stat-label">Статус</div>
           <div class="stat-value status-ok">OK</div>
@@ -42,7 +42,7 @@
 
     <!-- Панель управления -->
     <div class="control-panel">
-      <h2>🎮 Управление импортом</h2>
+      <h2><SakuraIcon name="gamepad" /> Управление импортом</h2>
       
       <div class="import-options">
         <div class="option-group">
@@ -81,8 +81,8 @@
           :disabled="importing"
           class="btn btn-primary"
         >
-          <span v-if="!importing">🚀 Начать импорт</span>
-          <span v-else>⏳ Импорт...</span>
+          <span v-if="!importing"><SakuraIcon name="rocket" /> Начать импорт</span>
+          <span v-else><SakuraIcon name="hourglass" /> Импорт...</span>
         </button>
         
         <button 
@@ -90,8 +90,8 @@
           :disabled="loadingFilters"
           class="btn btn-secondary"
         >
-          <span v-if="!loadingFilters">📥 Загрузить фильтры</span>
-          <span v-else>⏳ Загрузка...</span>
+          <span v-if="!loadingFilters"><SakuraIcon name="import" /> Загрузить фильтры</span>
+          <span v-else><SakuraIcon name="hourglass" /> Загрузка...</span>
         </button>
       </div>
     </div>
@@ -99,7 +99,7 @@
     <!-- Прогресс импорта -->
     <div v-if="importing || progress.total > 0" class="progress-section">
       <div class="progress-header">
-        <h3>📊 Прогресс импорта</h3>
+        <h3><SakuraIcon name="chart" /> Прогресс импорта</h3>
         <div class="progress-stats">
           <span>{{ progress.current }} / {{ progress.total }}</span>
           <span>{{ Math.round((progress.current / progress.total) * 100) }}%</span>
@@ -148,7 +148,7 @@
 
     <!-- Фильтры -->
     <div v-if="filtersLoaded && filters.genres.length > 0" class="filters-section">
-      <h2>🎨 Доступные фильтры</h2>
+      <h2><SakuraIcon name="palette" /> Доступные фильтры</h2>
       
       <div class="filters-grid">
         <div class="filter-card">
@@ -191,7 +191,7 @@
 
     <!-- Логи -->
     <div class="logs-section">
-      <h2>📜 Логи</h2>
+      <h2><SakuraIcon name="history" /> Логи</h2>
       <div class="logs-container">
         <div 
           v-for="(log, index) in logs.slice(-20)" 

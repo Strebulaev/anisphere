@@ -24,7 +24,7 @@
     </div>
 
     <div v-else-if="filteredThemes.length === 0" class="empty-state">
-      <div class="empty-icon">🎵</div>
+      <div class="empty-icon"> <SakuraIcon name="music" /> </div>
       <h3>Пока ничего нет</h3>
       <p>Добавляйте опенинги и эндинги в избранное на странице просмотра аниме</p>
       <router-link to="/anime" class="btn-primary">Смотреть аниме</router-link>
@@ -42,7 +42,7 @@
             :src="getPosterUrl(theme.anime_poster)" 
             :alt="theme.anime_title_ru || theme.anime_title_en"
           />
-          <div v-else class="poster-placeholder">🎬</div>
+          <div v-else class="poster-placeholder"> <SakuraIcon name="play" /> </div>
           
           <!-- Бейдж типа -->
           <span class="theme-type-badge" :class="theme.theme_type">

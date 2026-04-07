@@ -19,10 +19,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import PlaylistCard from '@/components/Cards/PlaylistCard.vue'
+import apiClient from '@/api/client'
 
 interface Props {
   userId: number
@@ -33,21 +34,79 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const playlists = ref<any[]>([])
-const currentUserId = ref<number | undefined>(authStore.user?.id)
+const currentUserId = computed(() => authStore.user?.id)
 
-onMounted(async () => {
+const loadUserPlaylists = async () => {
   loading.value = true
   try {
-    const response = await fetch(`/api/users/${props.userId}/public-playlists/`)
-    const data = await response.json()
-    playlists.value = data.results || data
-  } catch (error) {
-    console.error('Ошибка загрузки плейлистов:', error)
+    // Запрашиваем публичные плейлисты пользователя
+    // Важно: используем правильный endpoint - /playlists/playlists/
+    const response = await apiClient.get(`/playlists/playlists/`, {
+      params: {
+        user: props.userId,
+        visibility: 'public',
+        ordering: '-updated_at'
+      }
+    })
+    
+    // Обрабатываем ответ
+    const rawData = response.data
+    
+    let dataArray: any[] = []
+    
+    if (Array.isArray(rawData)) {
+      dataArray = rawData
+    } else if (rawData?.results) {
+      dataArray = rawData.results
+    } else {
+      dataArray = []
+    }
+    
+    // Фильтруем валидные плейлисты
+    playlists.value = dataArray.filter(p => p && p.id && typeof p.id === 'number')
+    
+  } catch (error: any) {
+    console.error('Error loading playlists:', error)
+    playlists.value = []
   } finally {
     loading.value = false
   }
-})
+}
+
+watch(
+  () => props.userId,
+  (newUserId) => {
+    if (newUserId && !isNaN(newUserId)) {
+      loadUserPlaylists()
+    } else {
+      playlists.value = []
+    }
+  },
+  { immediate: true }
+)
 </script>
+
+<style scoped>
+.user-public-playlists {
+  min-height: 400px;
+}
+
+.loading,
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--color-text-secondary);
+}
+
+.playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+</style>
 
 <style scoped>
 .user-public-playlists {

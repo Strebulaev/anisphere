@@ -1,7 +1,7 @@
 <template>
   <div class="admin-dashboard">
     <div class="admin-header">
-      <h1>🛡️ Панель администратора</h1>
+      <h1>Панель администратора</h1>
       <p class="admin-subtitle">Добро пожаловать, <strong>@{{ currentUser?.nickname || currentUser?.username }}</strong></p>
     </div>
 
@@ -20,33 +20,33 @@
     </div>
 
     <!-- Загрузка -->
-    <div v-if="loading" class="loading-state">⏳ Загрузка...</div>
+    <div v-if="loading" class="loading-state"><SakuraIcon name="hourglass" /> Загрузка...</div>
 
     <!-- Вкладка: Статистика -->
     <div v-else-if="activeTab === 'stats'" class="tab-content">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon">👥</div>
+          <div class="stat-icon"> <SakuraIcon name="users" /> </div>
           <div class="stat-value">{{ stats.total_users || 0 }}</div>
           <div class="stat-label">Всего пользователей</div>
         </div>
         <div class="stat-card green">
-          <div class="stat-icon">🟢</div>
+          <div class="stat-icon"> <SakuraIcon name="circle" /> </div>
           <div class="stat-value">{{ stats.online_now || 0 }}</div>
           <div class="stat-label">Онлайн сейчас</div>
         </div>
         <div class="stat-card blue">
-          <div class="stat-icon">📅</div>
+          <div class="stat-icon"> <SakuraIcon name="calendar" /> </div>
           <div class="stat-value">{{ stats.registered_today || 0 }}</div>
           <div class="stat-label">Зарегистрировались сегодня</div>
         </div>
         <div class="stat-card purple">
-          <div class="stat-icon">📊</div>
+          <div class="stat-icon"> <SakuraIcon name="chart" /> </div>
           <div class="stat-value">{{ stats.registered_this_week || 0 }}</div>
           <div class="stat-label">За последнюю неделю</div>
         </div>
         <div class="stat-card red">
-          <div class="stat-icon">⚠️</div>
+          <div class="stat-icon"><SakuraIcon name="warning" />️</div>
           <div class="stat-value">{{ stats.pending_complaints || 0 }}</div>
           <div class="stat-label">Необработанных жалоб</div>
         </div>
@@ -91,7 +91,7 @@
         </div>
         <div v-for="u in onlineUsers" :key="u.id" class="table-row">
           <div class="user-cell">
-            <span class="online-indicator">🟢</span>
+            <span class="online-indicator"> <SakuraIcon name="circle" /> </span>
             <router-link :to="`/profile/@${u.nickname || u.username}`" class="user-link">
               @{{ u.nickname || u.username }}
             </router-link>
@@ -112,18 +112,29 @@
       <div class="section-title">
         Аниме добавленные сегодня ({{ todayAddedAnime.length }})
       </div>
-      <div class="anime-grid">
-        <div v-for="a in todayAddedAnime" :key="a.id" class="anime-card">
-          <div class="anime-poster">
+      <div class="anime-grid-compact">
+        <div v-for="a in todayAddedAnime" :key="a.id" class="anime-card-compact">
+          <div class="anime-poster-compact">
             <img v-if="a.poster_url" :src="a.poster_url" :alt="a.title_ru" />
-            <div v-else class="no-poster">🎬</div>
+            <div v-else class="no-poster-compact"> <SakuraIcon name="play" /> </div>
           </div>
-          <div class="anime-info">
-            <div class="anime-title">{{ a.title_ru }}</div>
-            <div class="anime-meta">
-              {{ a.year }} · {{ a.kind }} · {{ a.episodes || '?' }} эп.
+          <div class="anime-info-compact">
+            <div class="anime-title-compact">{{ a.title_ru }}</div>
+            <div class="anime-meta-compact">
+              <span class="anime-year">{{ a.year }}</span>
+              <span class="anime-kind">{{ a.kind }}</span>
+              <span class="anime-episodes">{{ a.episodes || '?' }} эп.</span>
             </div>
-            <div class="anime-status" :class="a.status">{{ a.status }}</div>
+            <div class="anime-status-compact" :class="a.status">{{ a.status }}</div>
+            <div v-if="a.description" class="anime-description-compact">
+              {{ truncateText(a.description, 120) }}
+            </div>
+            <div v-if="a.genres?.length" class="anime-genres-compact">
+              <span v-for="g in a.genres.slice(0, 3)" :key="g" class="genre-tag">{{ typeof g === 'object' ? g.name : g }}</span>
+            </div>
+            <div class="anime-score-compact" v-if="a.score">
+              <SakuraIcon name="star" /> {{ Number(a.score).toFixed(1) }}
+            </div>
           </div>
         </div>
         <div v-if="!todayAddedAnime.length" class="empty-state">
@@ -147,7 +158,7 @@
         </div>
       </div>
 
-      <div v-if="complaintsLoading" class="loading-state">⏳ Загрузка жалоб...</div>
+      <div v-if="complaintsLoading" class="loading-state"><SakuraIcon name="hourglass" /> Загрузка жалоб...</div>
       <div v-else class="complaints-list">
         <div v-for="c in complaints" :key="c.id" class="complaint-card" :class="c.status">
           <div class="complaint-header">
@@ -165,17 +176,17 @@
               v-if="c.status === 'pending'"
               @click="resolveComplaint(c.id, 'investigating')"
               class="btn-action blue"
-            >🔍 Расследовать</button>
+            ><SakuraIcon name="search" /> Расследовать</button>
             <button
               v-if="c.status !== 'resolved'"
               @click="resolveComplaint(c.id, 'resolved')"
               class="btn-action green"
-            >✅ Решена</button>
+            ><SakuraIcon name="check" /> Решена</button>
             <button
               v-if="c.status !== 'dismissed'"
               @click="resolveComplaint(c.id, 'dismissed')"
               class="btn-action gray"
-            >❌ Отклонить</button>
+            ><SakuraIcon name="x" /> Отклонить</button>
           </div>
         </div>
         <div v-if="!complaints.length" class="empty-state">Жалоб нет 🎉</div>
@@ -185,7 +196,7 @@
     <!-- Refresh -->
     <div class="refresh-bar">
       <button @click="loadAll" class="btn-refresh" :disabled="loading">
-        🔄 Обновить данные
+        <SakuraIcon name="refresh" /> Обновить данные
       </button>
       <span class="refresh-time" v-if="lastRefresh">Обновлено: {{ lastRefresh }}</span>
     </div>
@@ -218,17 +229,17 @@ const complaintFilter = ref('pending')
 
 const tabs = [
   { id: 'stats',         icon: '📊', label: 'Статистика' },
-  { id: 'registrations', icon: '👤', label: 'Регистрации' },
-  { id: 'online',        icon: '🟢', label: 'Онлайн' },
+  { id: 'registrations', icon: '🧑', label: 'Регистрации' },
+  { id: 'online',        icon: '❍', label: 'Онлайн' },
   { id: 'today_added',   icon: '📺', label: 'Добавлено сегодня' },
   { id: 'complaints',    icon: '⚠️', label: 'Жалобы' },
 ]
 
 const complaintStatuses = [
-  { value: 'pending',      label: '⏳ На рассмотрении' },
-  { value: 'investigating',label: '🔍 Расследуется' },
-  { value: 'resolved',     label: '✅ Решённые' },
-  { value: 'dismissed',    label: '❌ Отклонённые' },
+  { value: 'pending',      label: '⌛ На рассмотрении' },
+  { value: 'investigating',label: '🔎 Расследуется' },
+  { value: 'resolved',     label: '☑️ Решённые' },
+  { value: 'dismissed',    label: '✖️ Отклонённые' },
   { value: 'all',          label: '📋 Все' },
 ]
 
@@ -302,6 +313,12 @@ const formatDate = (d: string) => {
   })
 }
 
+const truncateText = (text: string, maxLength: number) => {
+  if (!text) return ''
+  if (text.length <= maxLength) return text
+  return text.substring(0, maxLength).trim() + '...'
+}
+
 const complaintTypeLabel = (t: string) => ({
   playlist: 'Плейлист', comment: 'Комментарий', reactor_post: 'Пост',
   user: 'Пользователь', dub: 'Озвучка', group: 'Группа', playlist_item: 'Эл. плейлиста'
@@ -314,8 +331,8 @@ const complaintReasonLabel = (r: string) => ({
 }[r] || r)
 
 const complaintStatusLabel = (s: string) => ({
-  pending: '⏳ На рассмотрении', investigating: '🔍 Расследуется',
-  resolved: '✅ Решена', dismissed: '❌ Отклонена'
+  pending: '⌛ На рассмотрении', investigating: '🔎 Расследуется',
+  resolved: '☑️ Решена', dismissed: '✖️ Отклонена'
 }[s] || s)
 
 onMounted(() => {
@@ -679,4 +696,123 @@ onMounted(() => {
 .anime-status.finished { background: #3b82f622; color: #3b82f6; }
 .anime-status.announced { background: #f59e0b22; color: #f59e0b; }
 .anime-status.canceled { background: #ef444422; color: #ef4444; }
+
+/* Anime Grid Compact */
+.anime-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.anime-card-compact {
+  background: var(--surface-3, #252525);
+  border: 1px solid var(--border-default, #3a3a3a);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  display: flex;
+  transition: all 0.2s var(--ease-petal, ease);
+}
+
+.anime-card-compact:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent, #6c5ce7);
+  box-shadow: var(--shadow-petal-sm);
+}
+
+.anime-poster-compact {
+  width: 70px;
+  min-height: 100px;
+  background: var(--surface-4, #2a2a2a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.anime-poster-compact img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-poster-compact {
+  font-size: 24px;
+  opacity: 0.5;
+}
+
+.anime-info-compact {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.anime-title-compact {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--text-primary, #fff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anime-meta-compact {
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.anime-meta-compact span {
+  background: var(--surface-4, #333);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.anime-status-compact {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.anime-status-compact.ongoing { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.anime-status-compact.finished { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+.anime-status-compact.announced { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.anime-status-compact.canceled { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+.anime-description-compact {
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.anime-genres-compact {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.genre-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--accent-subtle, rgba(108, 92, 231, 0.2));
+  color: var(--accent, #6c5ce7);
+  border-radius: 4px;
+}
+
+.anime-score-compact {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning, #fbbf24);
+  margin-top: auto;
+}
 </style>

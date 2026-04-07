@@ -7,7 +7,7 @@
 
     <!-- Пользователь не найден -->
     <div v-else-if="!user.id" class="not-found">
-      <h2>👤 Пользователь не найден</h2>
+      <h2><SakuraIcon name="user" /> Пользователь не найден</h2>
       <p>Пользователь с таким никнеймом не существует или был удалён.</p>
       <button @click="goToFeed" class="btn-back">Вернуться в ленту</button>
     </div>
@@ -53,7 +53,7 @@
             <p class="bio">{{ user.bio || 'Пользователь пока ничего не написал о себе' }}</p>
 
             <div class="user-meta">
-              <span v-if="user.experience" class="exp-badge">✨ {{ user.experience }} опыта</span>
+              <span v-if="user.experience" class="exp-badge"><SakuraIcon name="sparkles" /> {{ user.experience }} опыта</span>
               <span v-if="user.created_at">🗓 На сайте с {{ formatDate(user.created_at) }}</span>
             </div>
           </div>
@@ -138,12 +138,8 @@
           <UserPublicPlaylists :user-id="userId" />
         </div>
 
-        <div v-if="activeTab === 'shorts'" class="tab-content">
-          <UserShorts :user-id="userId" />
-        </div>
-
         <div v-if="activeTab === 'social'" class="tab-content">
-          <ProfileAbout :user="user" :can-edit="isOwnProfile" @edit="openEditModal" />
+          <UserSocialNetworks :user="user" :can-edit="isOwnProfile" @edit="openEditModal" />
         </div>
 
         <div v-if="activeTab === 'favorites'" class="tab-content">
@@ -167,7 +163,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -179,7 +175,7 @@ import {
 import UserFeed from '@/components/Profile/UserFeed.vue'
 import UserAnimeCollection from '@/components/Profile/UserAnimeCollection.vue'
 import UserPublicPlaylists from '@/components/Profile/UserPublicPlaylists.vue'
-import UserShorts from '@/components/Profile/UserShorts.vue'
+import UserSocialNetworks from '@/components/Profile/UserSocialNetworks.vue'
 import UserFavorites from '@/components/Profile/UserFavorites.vue'
 import AchievementsView from '@/components/page/other/AchievementsView.vue'
 import ProfileAbout from '@/components/Profile/ProfileAbout.vue'
@@ -188,10 +184,33 @@ import UserAvatar from '@/components/ui/UserAvatar.vue'
 import EditProfileModal from '@/components/modal/profile/EditProfileModal.vue'
 import api from '@/api'
 
-const props = defineProps({
-  id: { type: [String, Number], default: null },
-  nickname: { type: String, default: null },
-})
+interface UserProfile {
+  id?: number
+  avatar?: string
+  avatar_url?: string
+  display_name?: string
+  nickname?: string
+  username?: string
+  bio?: string
+  experience?: number
+  created_at?: string
+  cover_image_url?: string
+  cover_image?: string
+  is_online?: boolean
+}
+
+interface UserStats {
+  followers?: number
+  following?: number
+  posts?: number
+  playlists?: number
+  achievements?: number
+}
+
+const props = defineProps<{
+  id?: string | number | null
+  nickname?: string | null
+}>()
 
 const route = useRoute()
 const router = useRouter()
@@ -199,10 +218,10 @@ const authStore = useAuthStore()
 
 // route.params.id может быть username (строка) или числовой id
 // Приоритет: prop nickname > prop id > route.params.id
-const routeId = props.id ?? route.params.id
-const userId = ref(NaN)  // будет заполнен после загрузки профиля
-const user = ref({})
-const stats = ref({})
+const routeId = String(props.id ?? route.params.id ?? '')
+const userId = ref<number>(NaN)  // будет заполнен после загрузки профиля
+const user = ref<UserProfile>({})
+const stats = ref<UserStats>({})
 const isOnline = ref<boolean | null>(null)
 const isFollowing = ref(false)
 const isFavorite = ref(false)
@@ -214,7 +233,6 @@ const tabs = [
   { id: 'feed', name: 'Лента' },
   { id: 'anime', name: 'Аниме' },
   { id: 'playlists', name: 'Плейлисты' },
-  { id: 'shorts', name: 'Shorts' },
   { id: 'social', name: 'Соцсети' },
   { id: 'favorites', name: 'Избранное' },
   { id: 'about', name: 'О себе' },
@@ -376,10 +394,10 @@ const reportUser = () => {
   }
 }
 
-const handleCoverUpload = async (event) => {
-  const file = event.target.files[0]
+const handleCoverUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
   if (!file) return
-
   const formData = new FormData()
   formData.append('cover_image', file)
 
@@ -405,13 +423,14 @@ const openEditModal = () => {
   showEditModal.value = true
 }
 
-const handleProfileUpdate = async (updatedProfile) => {
+const handleProfileUpdate = async (updatedProfile: Partial<UserProfile>) => {
   // Обновляем данные профиля сразу после сохранения
   user.value = { ...user.value, ...updatedProfile }
   showEditModal.value = false
 }
 
-const formatDate = (date) => {
+const formatDate = (date: string | Date | undefined) => {
+  if (!date) return ''
   return new Date(date).toLocaleDateString('ru-RU', {
     day: 'numeric',
     month: 'long',
@@ -522,15 +541,6 @@ onMounted(async () => {
 .avatar-section {
   position: relative;
   display: inline-block;
-}
-
-.avatar {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 4px solid var(--color-background-surface);
-  object-fit: cover;
-  box-shadow: var(--shadow-card);
 }
 
 .user-info {
@@ -731,10 +741,7 @@ onMounted(async () => {
     padding: 0 16px 16px;
   }
 
-  .avatar {
-    width: 120px;
-    height: 120px;
-  }
+  
 
   .user-info h1 {
     font-size: 24px;

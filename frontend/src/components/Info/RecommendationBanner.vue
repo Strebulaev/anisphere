@@ -54,7 +54,7 @@
               <h4 class="recommendation-title">{{ anime.title_ru || anime.title_en }}</h4>
               <div class="recommendation-meta">
                 <span v-if="anime.year">{{ anime.year }}</span>
-                <span v-if="'score' in anime && anime.score" class="rating">★ {{ (anime.score as number).toFixed(1) }}</span>
+                <span v-if="'score' in anime && anime.score" class="rating"><SakuraIcon name="star" /> {{ (anime.score as number).toFixed(1) }}</span>
               </div>
             </div>
           </div>

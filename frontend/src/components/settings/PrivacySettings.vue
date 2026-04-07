@@ -3,7 +3,7 @@
     <h2>Конфиденциальность</h2>
 
     <div class="settings-group">
-      <h3>👤 Кто может видеть мой номер телефона</h3>
+      <h3><SakuraIcon name="user" /> Кто может видеть мой номер телефона</h3>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" v-model="privacySettings.who_can_see_phone" value="everyone" @change="onSettingsChange">
@@ -21,7 +21,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📧 Кто может видеть мой email</h3>
+      <h3><SakuraIcon name="mail" /> Кто может видеть мой email</h3>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" v-model="privacySettings.who_can_see_email" value="everyone" @change="onSettingsChange">
@@ -39,7 +39,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🕐 Время последнего посещения</h3>
+      <h3><SakuraIcon name="one-oclock" /> Время последнего посещения</h3>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" v-model="privacySettings.who_can_see_last_seen" value="everyone" @change="onSettingsChange">
@@ -57,7 +57,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📸 Фотография профиля</h3>
+      <h3><SakuraIcon name="camera" /> Фотография профиля</h3>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" v-model="privacySettings.who_can_see_profile_photo" value="everyone" @change="onSettingsChange">
@@ -75,7 +75,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📞 Звонки</h3>
+      <h3><SakuraIcon name="phone" /> Звонки</h3>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" v-model="privacySettings.who_can_call" value="everyone" @change="onSettingsChange">
@@ -93,7 +93,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>👥 Группы и каналы</h3>
+      <h3><SakuraIcon name="users" /> Группы и каналы</h3>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" v-model="privacySettings.who_can_add_to_groups" value="everyone" @change="onSettingsChange">
@@ -111,7 +111,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🔗 Пересылка сообщений</h3>
+      <h3><SakuraIcon name="link" /> Пересылка сообщений</h3>
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="privacySettings.allow_message_forwarding" @change="onSettingsChange">
@@ -131,7 +131,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📍 Данные о местоположении</h3>
+      <h3><SakuraIcon name="map-pin" /> Данные о местоположении</h3>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" v-model="locationSharing" value="auto" @change="onSettingsChange">
@@ -149,7 +149,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🔍 Поиск по номеру телефона</h3>
+      <h3><SakuraIcon name="search" /> Поиск по номеру телефона</h3>
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="allowPhoneSearch" @change="onSettingsChange">
@@ -159,7 +159,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🎯 Рекламные рассылки</h3>
+      <h3><SakuraIcon name="target" /> Рекламные рассылки</h3>
       <div class="setting-item">
         <label class="setting-label">
           <input type="checkbox" v-model="allowTargetedAds" @change="onSettingsChange">
@@ -170,7 +170,7 @@
 
     <div class="settings-actions">
       <button @click="saveSettings" :disabled="!hasChanges || isSaving" class="save-btn">
-        {{ isSaving ? 'Сохранение...' : '💾 Сохранить настройки' }}
+        {{ isSaving ? 'Сохранение...' : '<SakuraIcon name="save" /> Сохранить настройки' }}
       </button>
     </div>
 

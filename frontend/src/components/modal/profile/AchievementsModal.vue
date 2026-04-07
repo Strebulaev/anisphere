@@ -61,7 +61,7 @@
         </div>
 
         <div v-if="allAchievements.length === 0" class="empty-state">
-          <div class="empty-icon">🏆</div>
+          <div class="empty-icon"> <SakuraIcon name="trophy" /> </div>
           <h3>Пока нет достижений</h3>
           <p>Выполняйте активности, чтобы получать достижения!</p>
         </div>

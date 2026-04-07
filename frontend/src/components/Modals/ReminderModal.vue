@@ -32,7 +32,7 @@
                 :alt="anime.title_ru || anime.title_en"
                 @error="handlePosterError"
               />
-              <span v-else class="poster-fallback">🎬</span>
+              <span v-else class="poster-fallback"> <SakuraIcon name="play" /> </span>
             </div>
             <div class="preview-info">
               <p class="preview-title">{{ anime.title_ru || anime.title_en }}</p>

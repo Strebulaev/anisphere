@@ -33,7 +33,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🌍 Регион</h3>
+      <h3><SakuraIcon name="globe" /> Регион</h3>
       <div class="region-options">
         <label class="region-option" :class="{ active: selectedRegion === 'ru' }">
           <input type="radio" v-model="selectedRegion" value="ru">
@@ -59,7 +59,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>📅 Формат даты</h3>
+      <h3><SakuraIcon name="calendar" /> Формат даты</h3>
       <div class="format-options">
         <label class="format-option">
           <input type="radio" v-model="dateFormat" value="dd.mm.yyyy">
@@ -77,7 +77,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🕐 Формат времени</h3>
+      <h3><SakuraIcon name="one-oclock" /> Формат времени</h3>
       <div class="format-options">
         <label class="format-option">
           <input type="radio" v-model="timeFormat" value="24">
@@ -109,7 +109,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>💵 Валюта</h3>
+      <h3><SakuraIcon name="dollar" /> Валюта</h3>
       <div class="currency-options">
         <label class="currency-option" :class="{ active: currency === 'RUB' }">
           <input type="radio" v-model="currency" value="RUB">
@@ -131,7 +131,7 @@
     </div>
 
     <div class="settings-group">
-      <h3>🌡️ Температура</h3>
+      <h3><SakuraIcon name="thermometer" /> Температура</h3>
       <div class="temperature-options">
         <label class="temperature-option">
           <input type="radio" v-model="temperature" value="celsius">
@@ -150,7 +150,7 @@
 
     <div class="settings-actions">
       <button @click="saveSettings" :disabled="!hasChanges" class="save-btn">
-        💾 Сохранить
+        <SakuraIcon name="save" /> Сохранить
       </button>
       <button @click="suggestTranslation" class="suggest-btn">
         🌐 Предложить перевод

@@ -103,7 +103,7 @@
         </div>
 
         <div v-else-if="feedStore.error" class="error-state">
-          <span class="error-icon">⚠️</span>
+          <span class="error-icon"><SakuraIcon name="warning" />️</span>
           <p>{{ feedStore.error }}</p>
           <button class="btn-retry" @click="feedStore.loadFeed(feedStore.feedType)">Повторить</button>
         </div>
@@ -124,10 +124,10 @@
       <!-- Sub-tabs: Профили / Избранные посты -->
       <div class="sub-tabs">
         <button class="sub-tab-btn" :class="{ active: subTab === 'profiles' }" @click="subTab = 'profiles'">
-          👥 Профили
+          <SakuraIcon name="users" /> Профили
         </button>
         <button class="sub-tab-btn" :class="{ active: subTab === 'bookmarks' }" @click="switchSubTab('bookmarks')">
-          ⭐ Избранные посты
+          <SakuraIcon name="star" /> Избранные посты
         </button>
       </div>
 
@@ -150,7 +150,7 @@
           <div class="spinner"></div>
         </div>
         <div v-else-if="subscriptions.length === 0" class="empty-feed">
-          <span class="empty-icon">👥</span>
+          <span class="empty-icon"> <SakuraIcon name="users" /> </span>
           <p class="empty-title">Нет подписок</p>
           <p class="empty-desc">Вы пока ни на кого не подписаны</p>
         </div>
@@ -175,7 +175,7 @@
           <div class="spinner"></div>
         </div>
         <div v-else-if="bookmarkedPosts.length === 0" class="empty-feed">
-          <span class="empty-icon">⭐</span>
+          <span class="empty-icon"> <SakuraIcon name="star" /> </span>
           <p class="empty-title">Нет сохранённых постов</p>
           <p class="empty-desc">Сохраняйте посты через ☆ или меню поста</p>
         </div>
@@ -206,10 +206,10 @@
       <!-- Sub-tabs: Профили / Посты -->
       <div class="sub-tabs">
         <button class="sub-tab-btn" :class="{ active: niTab === 'profiles' }" @click="niTab = 'profiles'">
-          👤 Профили
+          <SakuraIcon name="user" /> Профили
         </button>
         <button class="sub-tab-btn" :class="{ active: niTab === 'posts' }" @click="switchNiTab('posts')">
-          📰 Посты
+          <SakuraIcon name="newspaper" /> Посты
         </button>
       </div>
 
@@ -226,7 +226,7 @@
           <div class="spinner"></div>
         </div>
         <div v-else-if="notInterested.length === 0" class="empty-feed">
-          <span class="empty-icon">🙈</span>
+          <span class="empty-icon"> <SakuraIcon name="eye-off" /> </span>
           <p class="empty-title">Список пуст</p>
           <p class="empty-desc">Вы не скрывали ни одного профиля</p>
         </div>
@@ -264,9 +264,7 @@
                 <span class="hp-text">{{ (post.text || '').slice(0, 80) }}{{ (post.text || '').length > 80 ? '...' : '' }}</span>
               </div>
             </div>
-            <button class="btn-unblock-post" @click="unhidePost(post.id)" title="Показывать снова">
-              👁
-            </button>
+            <button class="btn-unblock-post" @click="unhidePost(post.id)" title="Показывать снова"> <SakuraIcon name="eye" /> </button>
           </div>
         </div>
         <div v-if="hiddenPostsHasMore" class="load-more-wrap">
@@ -285,7 +283,7 @@
 
       <!-- Боковая панель: Популярное -->
       <!-- <aside class="feed-sidebar" v-if="activeTab === 'feed'">
-        <div class="sidebar-title">🔥 Популярное</div>
+        <div class="sidebar-title"><SakuraIcon name="fire" /> Популярное</div>
         <div v-if="popularLoading" class="popular-loading">
           <div class="spinner-sm"></div>
         </div>
@@ -305,7 +303,7 @@
             </div>
             <div class="popular-text">{{ truncateText(post.text, 80) }}</div>
             <div class="popular-stats">
-              <span>❤️ {{ post.likes_count }}</span>
+              <span><SakuraIcon name="heart" /> {{ post.likes_count }}</span>
               <span>💭 {{ post.comments_count }}</span>
             </div>
           </div>
@@ -390,8 +388,8 @@ const defaultAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 const mainTabs = computed(() => {
   const tabs = [
     { id: 'feed', label: '📰 Лента' },
-    { id: 'subscriptions', label: '👥 Подписки' },
-    { id: 'not_interested', label: '🙈 Не интересно' },
+    { id: 'subscriptions', label: '👭 Подписки' },
+    { id: 'not_interested', label: '🙊 Не интересно' },
   ]
   if (isModerator.value) tabs.push({ id: 'reports', label: '🚨 Жалобы' })
   return tabs
@@ -401,9 +399,9 @@ const activeTab = ref('feed')
 
 const feedSubTabs = [
   { type: 'weighted' as FeedType, label: '✨ Для вас' },
-  { type: 'followers' as FeedType, label: '👥 Подписки' },
-  { type: 'popular' as FeedType, label: '⭐ Популярное' },
-  { type: 'trending' as FeedType, label: '📈 Тренды' },
+  { type: 'followers' as FeedType, label: '👭 Подписки' },
+  { type: 'popular' as FeedType, label: '🌠 Популярное' },
+  { type: 'trending' as FeedType, label: '💹 Тренды' },
   { type: 'hot' as FeedType, label: '🔥 Горячее' },
 ]
 

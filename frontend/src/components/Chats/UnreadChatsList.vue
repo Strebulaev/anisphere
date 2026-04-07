@@ -6,7 +6,7 @@
     </div>
 
     <div v-else-if="unreadChats.length === 0" class="empty-state">
-      <div class="empty-icon">✅</div>
+      <div class="empty-icon"> <SakuraIcon name="check" /> </div>
       <p>Нет непрочитанных сообщений</p>
     </div>
 

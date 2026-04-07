@@ -54,7 +54,6 @@ SECRET_KEY = (
     or 'django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e'
 )
 
-# DEBUG: read boolean-like env var
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
 ALLOWED_HOSTS = parse_env_list(

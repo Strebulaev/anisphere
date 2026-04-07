@@ -40,7 +40,7 @@
           <p class="bio">{{ user.bio || 'Напишите что-то о себе...' }}</p>
 
           <div class="user-meta">
-            <span v-if="user.experience" class="exp-badge">✨ {{ user.experience }} опыта</span>
+            <span v-if="user.experience" class="exp-badge"><SakuraIcon name="sparkles" /> {{ user.experience }} опыта</span>
             <span v-if="user.created_at">🗓 На сайте с {{ formatDate(user.created_at) }}</span>
           </div>
         </div>
@@ -90,7 +90,7 @@
   />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -99,16 +99,39 @@ import api from '@/api'
 import CoverCropModal from '@/components/modal/CoverCropModal.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 
+interface UserProfile {
+  avatar?: string
+  avatar_url?: string
+  display_name?: string
+  nickname?: string
+  username?: string
+  bio?: string
+  experience?: number
+  created_at?: string
+  cover_image_url?: string
+  cover_image?: string
+  cover_position_x?: number
+  cover_position_y?: number
+}
+
+interface UserStats {
+  followers?: number
+  following?: number
+  posts?: number
+  playlists?: number
+  achievements?: number
+}
+
 const router = useRouter()
 const authStore = useAuthStore()
 
-const user = ref({})
-const stats = ref({})
+const user = ref<UserProfile>({})
+const stats = ref<UserStats>({})
 const isOnline = ref<boolean | null>(null)
 
 // Модальное окно обрезки обложки
 const showCoverModal = ref(false)
-const selectedCoverFile = ref(null)
+const selectedCoverFile = ref<File | null>(null)
 const selectedCoverUrl = ref('')
 
 // Администраторские права
@@ -134,6 +157,7 @@ const coverImageStyle = computed(() => {
 })
 
 const loadProfile = async () => {
+  if (!currentUser.value?.id) return
   try {
     const response = await api.get(`/users/profile/${currentUser.value.id}/`)
     user.value = response.data
@@ -144,6 +168,7 @@ const loadProfile = async () => {
 }
 
 const loadStats = async () => {
+  if (!currentUser.value?.id) return
   try {
     const response = await api.get(`/users/${currentUser.value.id}/stats/`)
     stats.value = response.data
@@ -157,8 +182,10 @@ const openSettings = () => {
 }
 
 // Выбор файла обложки - открываем модальное окно
-const handleCoverSelect = (event) => {
-  const file = event.target.files[0]
+const handleCoverSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (!target.files?.length) return
+  const file = target.files[0]
   if (!file) return
 
   // Проверяем тип файла
@@ -179,7 +206,7 @@ const handleCoverSelect = (event) => {
   showCoverModal.value = true
   
   // Сбрасываем input
-  event.target.value = ''
+  target.value = ''
 }
 
 // Закрытие модального окна
@@ -193,7 +220,12 @@ const handleCoverModalClose = () => {
 }
 
 // Сохранение обложки с позицией
-const handleCoverSave = async (position) => {
+interface CoverPosition {
+  x: number
+  y: number
+}
+
+const handleCoverSave = async (position: CoverPosition) => {
   if (!selectedCoverFile.value) return
   
   const formData = new FormData()
@@ -220,7 +252,8 @@ const handleCoverSave = async (position) => {
 }
 
 
-const formatDate = (date) => {
+const formatDate = (date: string | Date | undefined) => {
+  if (!date) return ''
   return new Date(date).toLocaleDateString('ru-RU', {
     day: 'numeric',
     month: 'long',
@@ -294,21 +327,6 @@ onMounted(() => {
 .avatar-section {
   position: relative;
   display: inline-block;
-}
-
-.avatar {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 4px solid var(--color-background-surface);
-  object-fit: cover;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-  transition: transform 0.15s ease;
-}
-
-.avatar:hover {
-  transform: scale(1.05);
 }
 
 .user-info {
@@ -490,10 +508,7 @@ onMounted(() => {
     padding: 0 16px 16px;
   }
 
-  .avatar {
-    width: 120px;
-    height: 120px;
-  }
+
 
   .user-info h1 {
     font-size: 24px;

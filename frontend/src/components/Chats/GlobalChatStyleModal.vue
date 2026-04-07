@@ -4,7 +4,7 @@
       <div class="gs-modal" @click.stop>
 
         <div class="gs-header">
-          <span class="gs-title">⚙️ Настройки стиля чатов</span>
+          <span class="gs-title"><SakuraIcon name="settings" /> Настройки стиля чатов</span>
           <button class="gs-close" @click="$emit('close')">✕</button>
         </div>
 

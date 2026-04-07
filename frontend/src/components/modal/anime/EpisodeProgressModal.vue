@@ -6,14 +6,14 @@
 
           <!-- Хедер -->
           <div class="modal-header">
-            <span class="modal-icon">⚙️</span>
+            <span class="modal-icon"> <SakuraIcon name="settings" /> </span>
             <h2>Настройка прогресса</h2>
             <button class="close-btn" @click="$emit('close')">✕</button>
           </div>
 
           <!-- Аниме -->
           <div class="anime-label">
-            🎬 {{ animeTitle }}
+            <SakuraIcon name="play" /> {{ animeTitle }}
             <span class="ep-count">(всего {{ totalEpisodes }} серий)</span>
           </div>
 
@@ -63,7 +63,7 @@
 
           <!-- Инфо -->
           <div class="info-row" v-if="mode !== 'new'">
-            <span class="info-icon">📌</span>
+            <span class="info-icon"> <SakuraIcon name="pin" /> </span>
             <span v-if="mode === 'continue'">
               Отметить серии 1–{{ continueFrom - 1 }} как просмотренные
             </span>

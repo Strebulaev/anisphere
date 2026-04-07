@@ -3,7 +3,7 @@
     <div class="modal-content">
       <!-- Заголовок -->
       <!-- <div class="modal-header">
-        <h2>🎡 Добавить аниме в колесо</h2>
+        <h2><SakuraIcon name="wheel" /> Добавить аниме в колесо</h2>
         <button class="btn-close" @click="$emit('close')">×</button>
       </div> -->
 
@@ -30,19 +30,19 @@
           :class="['source-tab', { active: activeSource === 'collection' }]"
           @click="loadFromCollection"
         >
-          📚 Моя коллекция
+          <SakuraIcon name="book" /> Моя коллекция
         </button>
         <button
           :class="['source-tab', { active: activeSource === 'playlists' }]"
           @click="loadFromPlaylists"
         >
-          📁 Мои плейлисты
+          <SakuraIcon name="folder" /> Мои плейлисты
         </button>
         <button
           :class="['source-tab', { active: activeSource === 'favorites' }]"
           @click="loadFromFavorites"
         >
-          ⭐ Избранное
+          <SakuraIcon name="star" /> Избранное
         </button>
       </div>
 
@@ -58,7 +58,7 @@
               @click="selectAllVisible"
               :disabled="filteredResults.length === 0"
             >
-              ☑️ Выбрать все
+              <SakuraIcon name="check" /> Выбрать все
             </button>
             <button
               class="btn-deselect-all"
@@ -78,7 +78,7 @@
             @click="toggleSelection(anime)"
           >
             <div class="card-checkbox">
-              <span v-if="isSelected(anime.id)">☑️</span>
+              <span v-if="isSelected(anime.id)"> <SakuraIcon name="check" /> </span>
               <span v-else>☐</span>
             </div>
             <img
@@ -91,7 +91,7 @@
               <h4 class="card-title">{{ anime.title_ru || anime.title }}</h4>
               <div class="card-meta">
                 <span v-if="anime.score" class="meta-item">
-                  ★ {{ anime.score }}
+                  <SakuraIcon name="star" /> {{ anime.score }}
                 </span>
                 <span v-if="anime.kind" class="meta-item">
                   {{ formatKind(anime.kind) }}
@@ -124,26 +124,26 @@
 
       <!-- Настройки весов -->
       <div v-if="selectedItems.length > 0" class="weights-section">
-        <h3>⚖️ Настройки весов для выбранных ({{ selectedItems.length }})</h3>
+        <h3><SakuraIcon name="scale" /> Настройки весов для выбранных ({{ selectedItems.length }})</h3>
 
         <div class="weight-modes">
           <button
             :class="['weight-mode-btn', { active: weightMode === 'equal' }]"
             @click="setWeightMode('equal')"
           >
-            ⚖️ Равные веса
+            <SakuraIcon name="scale" /> Равные веса
           </button>
           <button
             :class="['weight-mode-btn', { active: weightMode === 'rating' }]"
             @click="setWeightMode('rating')"
           >
-            ★ По рейтингу
+            <SakuraIcon name="star" /> По рейтингу
           </button>
           <button
             :class="['weight-mode-btn', { active: weightMode === 'custom' }]"
             @click="weightMode = 'custom'"
           >
-            ✍️ Ручные
+            <SakuraIcon name="writing-hand" /> Ручные
           </button>
         </div>
 
@@ -182,7 +182,7 @@
             :disabled="selectedItems.length === 0"
             @click="addSelected"
           >
-            ➕ Добавить выбранные ({{ selectedItems.length }})
+            <SakuraIcon name="plus" /> Добавить выбранные ({{ selectedItems.length }})
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 <template>
   <div v-if="show" class="modal-overlay" @click="$emit('close')">
     <div class="modal danger-modal" @click.stop>
-      <h3>⚠️ Сбросить все настройки?</h3>
+      <h3><SakuraIcon name="warning" />️ Сбросить все настройки?</h3>
       <p>Это действие сбросит все настройки приложения к значениям по умолчанию. Это действие нельзя отменить.</p>
       
       <div class="modal-warning">

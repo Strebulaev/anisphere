@@ -23,7 +23,10 @@
           :disabled="item.key === 'random' && randomLoading"
           type="button"
         >
-          <span class="nav-icon" :class="{ spin: item.key === 'random' && randomLoading }">{{ item.icon }}</span>
+          <span class="nav-icon" :class="{ spin: item.key === 'random' && randomLoading }">
+            <SakuraIcon v-if="isIconName(item.icon)" :name="item.icon" :size="18" />
+            <span v-else>{{ item.icon }}</span>
+          </span>
           <span class="nav-label">{{ item.label }}</span>
         </button>
       </div>
@@ -77,9 +80,7 @@
                   >
                     ✓ Все
                   </button>
-                    <!-- <router-link to="/notifications/settings" class="notif-settings-btn" @click="showNotifications = false" title="Настройки">
-                    ⚙️
-                  </router-link> -->
+                    <!-- <router-link to="/notifications/settings" class="notif-settings-btn" @click="showNotifications = false" title="Настройки"> <SakuraIcon name="settings" /> </router-link> -->
                 </div>
               </div>
               <div class="notif-list" v-if="notificationStore.recentNotifications.length > 0">
@@ -156,11 +157,16 @@ const searchCategories = [
 ]
 
 const navigationItems = [
-  { key: 'ongoings',         label: 'Онгоинги',    icon: '🔥', to: '/anime?section=ongoings'         },
-  { key: 'recommendations', label: 'Рекомендации', icon: '⭐', to: '/anime?section=recommendations' },
-  { key: 'announcements',   label: 'Анонсы',       icon: '📢', to: '/anime?section=announcements'   },
-  { key: 'random',          label: 'Рандом',        icon: '🎲', to: null },
+  { key: 'ongoings',         label: 'Онгоинги',    icon: 'fire', to: '/anime?section=ongoings'         },
+  { key: 'recommendations', label: 'Рекомендации', icon: 'sparkles', to: '/anime?section=recommendations' },
+  { key: 'announcements',   label: 'Анонсы',       icon: 'megaphone', to: '/anime?section=announcements'   },
+  { key: 'random',          label: 'Рандом',        icon: 'dice', to: null },
 ]
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string): boolean => {
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 const randomLoading = ref(false)
 
@@ -216,14 +222,14 @@ const getNotifIcon = (notif: any) => {
   // If backend already sent an icon emoji, use it
   if (notif.icon && notif.icon.length <= 4) return notif.icon
   const icons: Record<string, string> = {
-    like: '❤️', dislike: '👎', heart: '💖',
+    like: '❵', dislike: '👎', heart: '💖',
     comment: '💬', reply: '↩️', mention: '@',
-    follow: '👥', repost: '🔁',
-    message: '✉️', group_message: '👥', group_invite: '📨',
+    follow: '👭', repost: '🔄',
+    message: '💌', group_message: '👭', group_invite: '📨',
     achievement: '🏆', contest: '🏅', contest_vote: '🗳️',
     contest_results: '📊', contest_win: '👑',
-    reminder_episode: '⏰', reminder_event: '📅', reminder_contest: '⏳',
-    reminder: '⏰', system: '⚙️', warning: '⚠️', security: '🔒',
+    reminder_episode: '🕛', reminder_event: '📅', reminder_contest: '⌛',
+    reminder: '🕛', system: '⚙️', warning: '⚠️', security: '🔐',
   }
   return icons[notif.type || notif.kind] || '🔔'
 }
@@ -290,7 +296,7 @@ const stopTabBlink = () => {
 // Добавляет уведомление в store, запускает сверкание колокольчика на 1 минуту
 const triggerReminderNotification = (reminderId: number, animeName: string, comment?: string) => {
   const notifId = Date.now()
-  const text = `⏰ Напоминание: ${animeName}${comment ? ` — ${comment}` : ''}`
+  const text = `🕛 Напоминание: ${animeName}${comment ? ` — ${comment}` : ''}`
 
   // Добавляем уведомление в store (попадает в дропдаун и в список)
   notificationStore.addNotification({
@@ -302,14 +308,14 @@ const triggerReminderNotification = (reminderId: number, animeName: string, comm
     content: text,
     is_read: false,
     created_at: new Date().toISOString(),
-    icon: '⏰',
+    icon: '🕛',
   } as any)
 
   // Запускаем сверкание колокольчика на 1 минуту
   notificationStore.startRinging(reminderId)
 
   // Моргаем вкладкой тоже 1 минуту
-  startTabBlink(`⏰ ${animeName}`)
+  startTabBlink(`🕛 ${animeName}`)
 }
 
 // Проверяем напоминания каждую минуту
@@ -468,7 +474,7 @@ onUnmounted(() => {
   transform: translateX(-50%) scaleX(1);
 }
 
-.nav-icon { font-size: var(--text-md); display: inline-block; }
+.nav-icon { font-size: var(--text-md); display: inline-block; color: inherit; }
 .nav-link.loading { opacity: .6; cursor: not-allowed; }
 .spin { animation: nb-spin .7s linear infinite; }
 @keyframes nb-spin { to { transform: rotate(360deg); } }

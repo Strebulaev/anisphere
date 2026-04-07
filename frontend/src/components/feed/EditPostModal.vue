@@ -92,10 +92,10 @@ const saving = ref(false)
 const textArea = ref<HTMLTextAreaElement | null>(null)
 
 const visibilityOptions: Record<string, { icon: string; label: string }> = {
-  public:    { icon: '🌍', label: 'Публично' },
-  followers: { icon: '👥', label: 'Подписчики' },
-  friends:   { icon: '👫', label: 'Друзья' },
-  private:   { icon: '🔒', label: 'Только я' },
+  public:    { icon: 'globe', label: 'Публично' },
+  followers: { icon: 'users', label: 'Подписчики' },
+  friends:   { icon: 'users', label: 'Друзья' },
+  private:   { icon: 'lock', label: 'Только я' },
 }
 
 const canSubmit = computed(() => text.value.trim().length > 0 && text.value.length <= 5000)

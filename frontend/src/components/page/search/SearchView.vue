@@ -54,7 +54,7 @@
               @error="handleImageError"
             />
             <div class="poster-overlay">
-              <button class="play-btn">▶</button>
+              <button class="play-btn"> <SakuraIcon name="play" /> </button>
             </div>
           </div>
 
@@ -76,7 +76,7 @@
                 {{ getStatusText(anime.status) }}
               </span>
 
-              <span v-if="anime.score" class="score">★ {{ anime.score }}</span>
+              <span v-if="anime.score" class="score"><SakuraIcon name="star" /> {{ anime.score }}</span>
             </div>
           </div>
         </div>
@@ -108,9 +108,9 @@
             <p>{{ truncateText(post.text, 200) }}</p>
           </div>
           <div class="post-stats">
-            <span>❤️ {{ post.likes_count }}</span>
-            <span>💬 {{ post.comments_count }}</span>
-            <span>🔁 {{ post.reposts_count }}</span>
+            <span><SakuraIcon name="heart" /> {{ post.likes_count }}</span>
+            <span><SakuraIcon name="message" /> {{ post.comments_count }}</span>
+            <span><SakuraIcon name="refresh" /> {{ post.reposts_count }}</span>
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@
               @error="handleImageError"
             />
             <div class="poster-overlay">
-              <button class="play-btn">▶</button>
+              <button class="play-btn"> <SakuraIcon name="play" /> </button>
             </div>
           </div>
 

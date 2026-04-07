@@ -195,8 +195,8 @@ const categoryNames = {
 
 const levelIcons = {
   bronze: '🥉',
-  silver: '🥈',
-  gold: '🥇',
+  silver: '🏅',
+  gold: '🏅',
   legendary: '👑',
 }
 

@@ -45,7 +45,7 @@
           </div>
           
           <div v-else class="cover-placeholder">
-            <span class="placeholder-icon">📁</span>
+            <span class="placeholder-icon"> <SakuraIcon name="folder" /> </span>
             <p>Нет обложки</p>
             <p class="placeholder-text">Обложка будет автоматически создана из постеров аниме</p>
           </div>
@@ -62,7 +62,7 @@
               :value="true"
             />
             <span class="radio-label">
-              <span class="radio-icon">🌍</span>
+              <span class="radio-icon"> <SakuraIcon name="globe" /> </span>
               <span>Публичный</span>
               <span class="radio-desc">Виден всем пользователям</span>
             </span>
@@ -74,7 +74,7 @@
               :value="false"
             />
             <span class="radio-label">
-              <span class="radio-icon">🔒</span>
+              <span class="radio-icon"> <SakuraIcon name="lock" /> </span>
               <span>Приватный</span>
               <span class="radio-desc">Только для вас</span>
             </span>

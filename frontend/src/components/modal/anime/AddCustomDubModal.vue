@@ -14,7 +14,7 @@ $<template>
       <div class="modal-body">
         <div class="anime-info">
           <img v-if="animePoster" :src="animePoster" :alt="animeTitle" class="anime-poster">
-          <div v-else class="anime-poster-placeholder">🎬</div>
+          <div v-else class="anime-poster-placeholder"> <SakuraIcon name="play" /> </div>
           <div class="anime-details">
             <span class="anime-title">{{ animeTitle }}</span>
           </div>

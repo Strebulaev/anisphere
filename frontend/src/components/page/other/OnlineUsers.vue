@@ -63,7 +63,7 @@
           <p class="username">@{{ user.username }}</p>
           <p class="stats">{{ user.followers_count }} подписчиков</p>
           <p class="last-seen">
-            {{ user.is_online ? '🟢 В сети' : getLastSeenText(user.last_seen) }}
+            {{ user.is_online ? '<SakuraIcon name="circle" /> В сети' : getLastSeenText(user.last_seen) }}
           </p>
         </div>
         <div class="actions">

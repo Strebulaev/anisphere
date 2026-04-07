@@ -13,7 +13,7 @@
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               ]"
             >
-              🎬 Reactor
+              <SakuraIcon name="play" /> Reactor
             </button>
             <button
               @click="switchTab('competitions')"
@@ -24,7 +24,7 @@
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               ]"
             >
-              🏆 Конкурсы
+              <SakuraIcon name="trophy" /> Конкурсы
             </button>
           </nav>
         </div>
@@ -76,7 +76,7 @@
             </div>
 
             <div v-if="contest.prize_1st || contest.prize_2nd || contest.prize_3rd" class="mb-4">
-              <p class="text-sm text-gray-700 mb-1">🎁 Призы:</p>
+              <p class="text-sm text-gray-700 mb-1"><SakuraIcon name="gift" /> Призы:</p>
               <ul class="text-sm text-gray-600 list-disc list-inside">
                 <li v-if="contest.prize_1st">1 место: {{ contest.prize_1st }}</li>
                 <li v-if="contest.prize_2nd">2 место: {{ contest.prize_2nd }}</li>
@@ -159,7 +159,7 @@
                   Статус: {{ getEntryStatus(entry) }}
                 </p>
                 <p v-if="entry.is_winner" class="text-sm text-green-600 font-medium">
-                  🏆 {{ entry.winner_place }} место!
+                  <SakuraIcon name="trophy" /> {{ entry.winner_place }} место!
                 </p>
               </div>
               <span :class="getEntryStatusClass(entry)" class="px-3 py-1 rounded-full text-sm">

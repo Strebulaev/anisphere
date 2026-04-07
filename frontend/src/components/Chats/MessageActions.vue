@@ -13,12 +13,12 @@
 
         <div class="menu-items">
           <button v-if="canPin" class="menu-item" @click="handlePin" :disabled="loading">
-            <span class="item-icon">{{ message.is_pinned ? '📌' : '📍' }}</span>
+            <span class="item-icon">{{ message.is_pinned ? '<SakuraIcon name="pin" />' : '<SakuraIcon name="map-pin" />' }}</span>
             <span class="item-text">{{ message.is_pinned ? 'Открепить' : 'Закрепить' }}</span>
           </button>
 
           <button class="menu-item" @click="handleForward" :disabled="loading">
-            <span class="item-icon">↗️</span>
+            <span class="item-icon"> <SakuraIcon name="arrow-up-right" /> </span>
             <span class="item-text">Переслать</span>
           </button>
 
@@ -28,22 +28,22 @@
           </button>
 
           <button v-if="message.sender_id === currentUserId" class="menu-item" @click="handleEdit" :disabled="loading">
-            <span class="item-icon">✏️</span>
+            <span class="item-icon"> <SakuraIcon name="edit" /> </span>
             <span class="item-text">Редактировать</span>
           </button>
 
           <button v-if="message.sender_id === currentUserId" class="menu-item delete" @click="handleDelete" :disabled="loading">
-            <span class="item-icon">🗑️</span>
+            <span class="item-icon"> <SakuraIcon name="trash" /> </span>
             <span class="item-text">Удалить</span>
           </button>
 
           <button class="menu-item" @click="handleCopy" :disabled="loading">
-            <span class="item-icon">📋</span>
+            <span class="item-icon"> <SakuraIcon name="clipboard" /> </span>
             <span class="item-text">Копировать текст</span>
           </button>
 
           <button class="menu-item" @click="handleReport" :disabled="loading">
-            <span class="item-icon">⚠️</span>
+            <span class="item-icon"><SakuraIcon name="warning" />️</span>
             <span class="item-text">Пожаловаться</span>
           </button>
         </div>

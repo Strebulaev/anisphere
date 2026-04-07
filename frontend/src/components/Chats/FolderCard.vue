@@ -12,7 +12,8 @@
     @contextmenu="handleContextMenu"
   >
     <div class="folder-card__icon">
-      {{ folder.icon }}
+      <SakuraIcon v-if="isIconName(folder.icon)" :name="folder.icon" :size="24" />
+      <span v-else>{{ folder.icon }}</span>
     </div>
 
     <div class="folder-card__content">
@@ -38,7 +39,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 import type { ChatFolder } from '@/types/chat'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 interface Props {
   folder: ChatFolder

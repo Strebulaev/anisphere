@@ -2,7 +2,7 @@
   <div class="create-competition-view">
     <div class="container mx-auto px-4 py-8 max-w-2xl">
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">🏆 Создать конкурс</h1>
+        <h1 class="text-3xl font-bold text-gray-900 mb-2"><SakuraIcon name="trophy" /> Создать конкурс</h1>
         <p class="text-gray-600">Организуйте конкурс для аниме-сообщества</p>
       </div>
 

@@ -3,7 +3,10 @@
     <!-- Заголовок -->
     <div class="rc-header">
       <div class="rc-meta">
-        <span class="rc-icon">{{ icon }}</span>
+        <span class="rc-icon">
+          <SakuraIcon v-if="isIconName(icon)" :name="icon || ''" :size="22" />
+          <span v-else>{{ icon }}</span>
+        </span>
         <div class="rc-texts">
           <h3 class="rc-title">{{ title }}</h3>
           <p v-if="description" class="rc-desc">{{ description }}</p>
@@ -84,6 +87,13 @@
 import { ref, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AnimeCard from './AnimeCard.vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 interface AnimeItem {
   id: number

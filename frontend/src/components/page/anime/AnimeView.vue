@@ -12,7 +12,10 @@
           @click="tab.key === 'currently_watching' ? switchCurrentlyWatching() : handleSwitchSection(tab.key)"
           type="button"
         >
-          <span class="av-tab-icon">{{ tab.icon }}</span>
+          <span class="av-tab-icon">
+            <SakuraIcon v-if="isIconName(tab.icon)" :name="tab.icon" :size="16" />
+            <span v-else>{{ tab.icon }}</span>
+          </span>
           <span>{{ tab.label }}</span>
           <span v-if="tab.key === 'ongoings' && ongoingCount" class="av-tab-badge">{{ ongoingCount }}</span>
         </button>
@@ -21,7 +24,7 @@
       <!-- ══ Контент ════════════════════════════════════════════ -->
       <transition name="av-fade" mode="out-in">
 
-        <!-- 📚 Каталог -->
+        <!-- <SakuraIcon name="book" /> Каталог -->
         <div v-if="currentSection === 'catalog'" key="catalog">
           <CatalogView
             :anime-list="catalogAnime"
@@ -42,7 +45,7 @@
           />
         </div>
 
-        <!-- 🔥 Онгоинги -->
+        <!-- <SakuraIcon name="fire" /> Онгоинги -->
         <div v-else-if="currentSection === 'ongoings'" key="ongoings">
           <OngoingsView
             :anime="ongoings"
@@ -53,12 +56,12 @@
           />
         </div>
 
-        <!-- ⭐ Рекомендации -->
+        <!-- <SakuraIcon name="star" /> Рекомендации -->
         <div v-else-if="currentSection === 'recommendations'" key="recommendations">
           <RecommendationsView />
         </div>
 
-        <!-- 📢 Анонсы -->
+        <!-- <SakuraIcon name="megaphone" /> Анонсы -->
         <div v-else-if="currentSection === 'announcements'" key="announcements">
           <AnnouncementsView
             :anime="announcements"
@@ -68,7 +71,7 @@
           />
         </div>
 
-        <!-- 👁 Сейчас смотрят -->
+        <!-- <SakuraIcon name="eye" /> Сейчас смотрят -->
         <div v-else-if="(currentSection as string) === 'currently_watching'" key="currently_watching">
           <CurrentlyWatchingView
             :anime="currentlyWatching"
@@ -192,12 +195,17 @@ const viewersMap = computed<Record<number, number>>(() => {
 })
 
 const tabs = [
-  { key: 'catalog'           as SectionType, label: 'Каталог',         icon: '📚' },
-  { key: 'ongoings'          as SectionType, label: 'Онгоинги',        icon: '🔥' },
-  { key: 'recommendations'   as SectionType, label: 'Для вас',         icon: '⭐' },
-  { key: 'announcements'     as SectionType, label: 'Анонсы',          icon: '📢' },
-  { key: 'currently_watching' as any,        label: 'Сейчас смотрят',  icon: '👁' },
+  { key: 'catalog'           as SectionType, label: 'Каталог',         icon: 'book' },
+  { key: 'ongoings'          as SectionType, label: 'Онгоинги',        icon: 'fire' },
+  { key: 'recommendations'   as SectionType, label: 'Для вас',         icon: 'sparkles' },
+  { key: 'announcements'     as SectionType, label: 'Анонсы',          icon: 'megaphone' },
+  { key: 'currently_watching' as any,        label: 'Сейчас смотрят',  icon: 'eye' },
 ]
+
+// Проверка - является ли icon именем иконки
+const isIconName = (icon: string): boolean => {
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 // Каталог
 const currentCatalogFilters = ref<FilterState>({})
@@ -282,7 +290,12 @@ const startWatching = (anime: Anime) => router.push(`/anime/${anime.id}/watch`)
   color: white;
 }
 
-.av-tab-icon { font-size: 16px; line-height: 1; }
+.av-tab.active .av-tab-icon,
+.av-tab.active :deep(.sakura-icon) {
+  color: white !important;
+}
+
+.av-tab-icon { font-size: 16px; line-height: 1; color: inherit; }
 
 .av-tab-badge {
   min-width: 20px;

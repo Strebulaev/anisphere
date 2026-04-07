@@ -1,7 +1,7 @@
 <template>
   <div v-if="show" class="modal-overlay" @click="$emit('close')">
     <div class="modal danger-modal" @click.stop>
-      <h3>⚠️ Отключить двухфакторную аутентификацию?</h3>
+      <h3><SakuraIcon name="warning" />️ Отключить двухфакторную аутентификацию?</h3>
       
       <p>Отключение 2FA сделает ваш аккаунт менее защищенным. Мы не рекомендуем это делать.</p>
       

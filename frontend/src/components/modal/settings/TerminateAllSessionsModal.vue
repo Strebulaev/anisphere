@@ -1,7 +1,7 @@
 <template>
   <div v-if="show" class="modal-overlay" @click="$emit('close')">
     <div class="modal danger-modal" @click.stop>
-      <h3>⚠️ Завершить все сессии?</h3>
+      <h3><SakuraIcon name="warning" />️ Завершить все сессии?</h3>
       
       <p>Это действие завершит все активные сессии на всех устройствах, кроме текущего. Вам нужно будет заново авторизоваться.</p>
       

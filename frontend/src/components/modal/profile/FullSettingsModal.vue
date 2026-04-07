@@ -498,7 +498,7 @@
                 Для входа потребуется код из приложения аутентификатора.
               </p>
               <p class="field-hint" v-if="!authStore.user?.email_verified">
-                ⚠️ Для включения 2FA необходимо подтвердить email
+                <SakuraIcon name="warning" />️ Для включения 2FA необходимо подтвердить email
               </p>
 
               <div v-if="twoFactorSetup.step === 0">
@@ -572,8 +572,8 @@
                   <button type="button" @click="toggleBackupCodes" class="btn-secondary">
                     {{ twoFactorSetup.showBackupCodes ? 'Скрыть' : 'Показать' }}
                   </button>
-                  <button type="button" @click="copyBackupCodes" class="btn-secondary" :disabled="twoFactorSetup.backupCodes.length === 0">📋 Копировать</button>
-                  <button type="button" @click="showRegenerateModal = true" class="btn-secondary">🔄 Новые коды</button>
+                  <button type="button" @click="copyBackupCodes" class="btn-secondary" :disabled="twoFactorSetup.backupCodes.length === 0"><SakuraIcon name="clipboard" /> Копировать</button>
+                  <button type="button" @click="showRegenerateModal = true" class="btn-secondary"><SakuraIcon name="refresh" /> Новые коды</button>
                 </div>
               </div>
 
@@ -606,7 +606,7 @@
               <h4 class="section-title">Смена пароля</h4>
 
               <p class="password-warning">
-                ⚠️ После смены пароля все другие сессии будут завершены. Вам нужно будет снова войти на всех устройствах.
+                <SakuraIcon name="warning" />️ После смены пароля все другие сессии будут завершены. Вам нужно будет снова войти на всех устройствах.
               </p>
 
               <div class="form-group">
@@ -700,7 +700,7 @@
               </div>
 
               <div class="password-tips">
-                <h5>💡 Советы по созданию надежного пароля:</h5>
+                <h5><SakuraIcon name="lightbulb" /> Советы по созданию надежного пароля:</h5>
                 <ul>
                   <li>Используйте комбинацию букв, цифр и специальных символов</li>
                   <li>Не используйте личную информацию (имя, дата рождения)</li>
@@ -789,10 +789,10 @@ const errors = ref<Record<string, string>>({})
 const activeTab = ref('basic')
 
 const tabs = [
-  { id: 'basic', label: 'Основное', icon: '👤' },
+  { id: 'basic', label: 'Основное', icon: '🧑' },
   { id: 'appearance', label: 'Внешний вид', icon: '🎨' },
   { id: 'notifications', label: 'Уведомления', icon: '🔔' },
-  { id: 'privacy', label: 'Приватность', icon: '🔒' },
+  { id: 'privacy', label: 'Приватность', icon: '🔐' },
   { id: 'security', label: 'Безопасность', icon: '🛡️' },
   { id: 'password', label: 'Сменить пароль', icon: '🔑' },
 ]
@@ -907,11 +907,11 @@ const animeGenres = [
 ]
 
 const themeOptions = [
-  { value: 'light', label: 'Светлая', icon: '☀️' },
+  { value: 'light', label: 'Светлая', icon: '☀' },
   { value: 'dark', label: 'Тёмная', icon: '🌙' },
   { value: 'system', label: 'Как в системе', icon: '💻' },
-  { value: 'blue', label: 'Синяя', icon: '🔵' },
-  { value: 'green', label: 'Зелёная', icon: '🟢' },
+  { value: 'blue', label: 'Синяя', icon: '❍' },
+  { value: 'green', label: 'Зелёная', icon: '❍' },
 ]
 
 const accentColors = [
@@ -1544,16 +1544,17 @@ async function changePassword() {
 /* Tabs */
 .tabs {
   display: flex;
+  flex-direction: column;
   gap: 0.25rem;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--color-divider);
+  padding: 1.5rem 0;
+  border-right: 1px solid var(--color-divider);
   flex-shrink: 0;
-  overflow-x: auto;
+  width: 200px;
   background: var(--color-background);
 }
 
 .tab-btn {
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.25rem;
   background: transparent;
   border: none;
   border-radius: var(--radius-button);
@@ -1561,10 +1562,11 @@ async function changePassword() {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
   transition: all 0.15s ease;
-  white-space: nowrap;
+  text-align: left;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  border-left: 3px solid transparent;
 }
 
 .tab-btn:hover {
@@ -1573,8 +1575,9 @@ async function changePassword() {
 }
 
 .tab-btn.active {
-  background: var(--color-accent);
-  color: var(--color-text);
+  background: var(--color-background-active);
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
 }
 
 /* Modal Body */
@@ -1582,10 +1585,16 @@ async function changePassword() {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
+  display: flex;
+  flex-direction: row;
+  min-height: 500px;
 }
 
 .tab-content {
+  flex: 1;
   min-height: 400px;
+  overflow-y: auto;
+  padding-left: 1rem;
 }
 
 /* Form Elements */
@@ -2025,7 +2034,7 @@ async function changePassword() {
 }
 
 .password-tips li::before {
-  content: '💡';
+  content: '<SakuraIcon name="lightbulb" />';
   position: absolute;
   left: 0;
 }
@@ -2337,15 +2346,32 @@ async function changePassword() {
 
   .modal-body {
     padding: 1rem;
+    flex-direction: column;
   }
 
   .tabs {
+    flex-direction: row;
     padding: 0.5rem;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-divider);
+    overflow-x: auto;
   }
 
   .tab-btn {
     padding: 0.5rem 0.75rem;
     font-size: 0.75rem;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+
+  .tab-btn.active {
+    border-left: none;
+    border-bottom-color: var(--color-accent);
+  }
+
+  .tab-content {
+    padding-left: 0;
   }
 
   .theme-options {

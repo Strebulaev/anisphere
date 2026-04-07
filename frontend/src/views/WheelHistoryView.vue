@@ -2,9 +2,9 @@
   <div class="wheel-history-view">
     <div class="page-header">
       <router-link to="/wheel" class="btn-back">← Назад к колесу</router-link>
-      <h1>📊 История кручений</h1>
+      <h1><SakuraIcon name="chart" /> История кручений</h1>
       <button class="btn-export" @click="exportHistory">
-        📥 Экспорт
+        <SakuraIcon name="import" /> Экспорт
       </button>
     </div>
 
@@ -44,7 +44,7 @@
     <!-- Статистика -->
     <div v-if="statistics" class="statistics-section">
       <div class="stat-card">
-        <div class="stat-icon">🎲🎲🎲</div>
+        <div class="stat-icon"><SakuraIcon name="dice" /> <SakuraIcon name="dice" /> <SakuraIcon name="dice" /></div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.total_spins }}</div>
           <div class="stat-label">Всего кручений</div>
@@ -52,7 +52,7 @@
       </div>
 
       <div class="stat-card highlight">
-        <div class="stat-icon">👑</div>
+        <div class="stat-icon"> <SakuraIcon name="crown" /> </div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.most_spun_count }}</div>
           <div class="stat-label">
@@ -62,7 +62,7 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon">🎯</div>
+        <div class="stat-icon"> <SakuraIcon name="target" /> </div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.unique_anime_spun }}</div>
           <div class="stat-label">Уникальных аниме</div>
@@ -70,7 +70,7 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon">📅</div>
+        <div class="stat-icon"> <SakuraIcon name="calendar" /> </div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.last_7_days_spins }}</div>
           <div class="stat-label">За последние 7 дней</div>
@@ -102,10 +102,10 @@
 
             <div class="item-type">
               <span v-if="item.spin_type === 'single'" class="type-badge single">
-                🎲 Одиночное
+                <SakuraIcon name="dice" /> Одиночное
               </span>
               <span v-else-if="item.spin_type === 'multiple'" class="type-badge multiple">
-                🎲🎲 Множественное ({{ item.items_count }})
+                <SakuraIcon name="dice" /> <SakuraIcon name="dice" /> Множественное ({{ item.items_count }})
               </span>
               <span v-else class="type-badge marathon">
                 🏃 Марафон ({{ item.items_count }})
@@ -147,11 +147,9 @@
                 @click="toggleFavorite(item)"
                 :title="item.is_favorite ? 'Убрать из избранного' : 'В избранное'"
               >
-                {{ item.is_favorite ? '⭐' : '☆' }}
+                {{ item.is_favorite ? '<SakuraIcon name="star" />' : '☆' }}
               </button>
-              <button class="btn-action" @click="copyResult(item)" title="Копировать">
-                📋
-              </button>
+              <button class="btn-action" @click="copyResult(item)" title="Копировать"> <SakuraIcon name="clipboard" /> </button>
             </div>
           </div>
         </div>
@@ -159,11 +157,11 @@
 
       <!-- Пустое состояние -->
       <div v-if="Object.keys(groupedHistory).length === 0 && !isLoading" class="empty-state">
-        <div class="empty-icon">📊</div>
+        <div class="empty-icon"> <SakuraIcon name="chart" /> </div>
         <h2>История пуста</h2>
         <p>Покрутите колесо, чтобы увидеть историю</p>
         <router-link to="/wheel" class="btn-primary">
-          🎡 К колесу
+          <SakuraIcon name="wheel" /> К колесу
         </router-link>
       </div>
 

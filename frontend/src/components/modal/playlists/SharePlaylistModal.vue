@@ -5,19 +5,19 @@
       
       <div class="modal-share-options">
         <button class="share-option" @click="shareTo('telegram')">
-          <span class="icon">📱</span>
+          <span class="icon"> <SakuraIcon name="phone" /> </span>
           <span>Telegram</span>
         </button>
         <button class="share-option" @click="shareTo('vk')">
-          <span class="icon">🔵</span>
+          <span class="icon"> <SakuraIcon name="circle" /> </span>
           <span>VK</span>
         </button>
         <button class="share-option" @click="shareTo('whatsapp')">
-          <span class="icon">💬</span>
+          <span class="icon"> <SakuraIcon name="message" /> </span>
           <span>WhatsApp</span>
         </button>
         <button class="share-option" @click="copyLink">
-          <span class="icon">🔗</span>
+          <span class="icon"> <SakuraIcon name="link" /> </span>
           <span>Скопировать ссылку</span>
         </button>
       </div>

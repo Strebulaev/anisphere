@@ -4,7 +4,7 @@
 
     <div class="twofa-status">
       <div class="status-header">
-        <h3>🔒 Двухфакторная аутентификация</h3>
+        <h3><SakuraIcon name="lock" /> Двухфакторная аутентификация</h3>
         <div class="status-indicator" :class="{ enabled: twofaStatus.is_enabled }">
           <span v-if="twofaStatus.is_enabled">● Включена</span>
           <span v-else>○ Отключена</span>
@@ -16,21 +16,21 @@
 
     <!-- Setup Section -->
     <div v-if="!twofaStatus.is_enabled" class="setup-section">
-      <h3>1. 📱 Установите приложение</h3>
+      <h3>1. <SakuraIcon name="phone" /> Установите приложение</h3>
       <p>Установите приложение Google Authenticator, Authy или Microsoft Authenticator</p>
 
       <div v-if="!authStore.user?.email_verified" class="warning-box">
-        <p>⚠️ Для включения 2FA необходимо подтвердить email</p>
+        <p><SakuraIcon name="warning" />️ Для включения 2FA необходимо подтвердить email</p>
       </div>
 
       <div v-if="showSetup" class="setup-steps">
-        <h3>2. 📷 Отсканируйте QR-код</h3>
+        <h3>2. <SakuraIcon name="camera" /> Отсканируйте QR-код</h3>
         <div class="qr-container">
           <img v-if="qrCode" :src="qrCode" alt="QR Code" class="qr-code">
           <p>Или введите этот код вручную в приложении:</p>
           <div class="secret-code-wrapper">
             <code class="secret-code">{{ secret }}</code>
-            <button @click="copySecret" class="copy-secret-btn" title="Копировать">📋</button>
+            <button @click="copySecret" class="copy-secret-btn" title="Копировать"> <SakuraIcon name="clipboard" /> </button>
           </div>
         </div>
 
@@ -46,7 +46,7 @@
             :disabled="isVerifying"
           >
           <button @click="verifyCode" :disabled="!verificationCode || verificationCode.length !== 6 || isVerifying" class="verify-btn">
-            {{ isVerifying ? 'Проверка...' : '✅ Подтвердить' }}
+            {{ isVerifying ? 'Проверка...' : '<SakuraIcon name="check" /> Подтвердить' }}
           </button>
         </div>
         <p v-if="verifyError" class="error-message">{{ verifyError }}</p>
@@ -61,7 +61,7 @@
     <!-- Enabled Section -->
     <div v-else class="enabled-section">
       <div class="settings-group">
-        <h3>⚙️ Дополнительные настройки</h3>
+        <h3><SakuraIcon name="settings" /> Дополнительные настройки</h3>
 
         <div class="setting-item">
           <label class="setting-label">
@@ -79,7 +79,7 @@
       </div>
 
       <div class="backup-codes-section">
-        <h3>📋 Резервные коды (осталось: {{ backupCodesCount }})</h3>
+        <h3><SakuraIcon name="clipboard" /> Резервные коды (осталось: {{ backupCodesCount }})</h3>
         <p class="section-description">
           Сохраните эти коды в безопасном месте. Они позволят вам войти в аккаунт, если вы потеряете доступ к приложению аутентификатора.
         </p>
@@ -94,24 +94,24 @@
           <button @click="showBackupCodes = !showBackupCodes" class="toggle-btn">
             {{ showBackupCodes ? 'Скрыть' : 'Показать' }} коды
           </button>
-          <button @click="copyBackupCodes" class="copy-btn">📋 Скопировать все</button>
-          <button @click="showRegenerateConfirm = true" class="regenerate-btn">🔄 Сгенерировать новые</button>
+          <button @click="copyBackupCodes" class="copy-btn"><SakuraIcon name="clipboard" /> Скопировать все</button>
+          <button @click="showRegenerateConfirm = true" class="regenerate-btn"><SakuraIcon name="refresh" /> Сгенерировать новые</button>
         </div>
       </div>
 
       <div class="alternative-methods">
-        <h3>📞 Альтернативные методы</h3>
+        <h3><SakuraIcon name="phone" /> Альтернативные методы</h3>
 
         <div class="method-item">
           <label class="method-label">
             <input type="checkbox" v-model="emailBackupEnabled" @change="updateSettings">
-            📧 Email коды на {{ userEmail }}
+            <SakuraIcon name="mail" /> Email коды на {{ userEmail }}
           </label>
         </div>
       </div>
 
       <div class="security-log-section">
-        <h3>📜 Лог безопасности</h3>
+        <h3><SakuraIcon name="history" /> Лог безопасности</h3>
         <button @click="showSecurityLog = !showSecurityLog" class="toggle-btn">
           {{ showSecurityLog ? 'Скрыть' : 'Показать' }} историю
         </button>
@@ -131,9 +131,9 @@
       </div>
 
       <div class="danger-zone">
-        <h3>⚠️ Опасная зона</h3>
+        <h3><SakuraIcon name="warning" />️ Опасная зона</h3>
         <button @click="showDisableConfirm = true" class="disable-btn">
-          🚫 Отключить двухфакторную аутентификацию
+          <SakuraIcon name="ban" /> Отключить двухфакторную аутентификацию
         </button>
       </div>
     </div>

@@ -163,7 +163,7 @@
             <div class="anime-meta">
               <span v-if="anime.year" class="meta-item">{{ anime.year }}</span>
               <span v-if="anime.episodes" class="meta-item">{{ anime.episodes }} эп.</span>
-              <span v-if="(anime as any).score" class="meta-item rating">⭐ {{ (anime as any).score.toFixed(1) }}</span>
+              <span v-if="(anime as any).score" class="meta-item rating"><SakuraIcon name="star" /> {{ (anime as any).score.toFixed(1) }}</span>
             </div>
           </div>
           <div class="anime-overlay">

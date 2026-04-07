@@ -48,11 +48,13 @@ const formatDate = (date: string) => {
 onMounted(async () => {
   loading.value = true
   try {
-    const response = await fetch(`/api/users/${props.userId}/shorts/`)
+    const response = await fetch(`/api/reactor/posts/?user=${props.userId}`)
+    if (!response.ok) throw new Error('Failed to load shorts')
     const data = await response.json()
     shorts.value = data.results || data
   } catch (error) {
     console.error('Ошибка загрузки шортов:', error)
+    shorts.value = []
   } finally {
     loading.value = false
   }

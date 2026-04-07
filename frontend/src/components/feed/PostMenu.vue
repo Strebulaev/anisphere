@@ -4,7 +4,7 @@
       <!-- Подписаться/Отписаться (всегда видна, если не свой пост) -->
       <template v-if="!isOwnPost">
         <button @click="handleFollowToggle" class="menu-item" :disabled="followLoading">
-          <span class="icon">{{ isFollowing ? '🔕' : '🔔' }}</span>
+          <span class="icon">{{ isFollowing ? '🔕' : '<SakuraIcon name="bell" />' }}</span>
           <span>{{ followLoading ? '...' : (isFollowing ? 'Отписаться' : 'Подписаться') }}</span>
         </button>
         <div class="menu-divider"></div>
@@ -13,20 +13,20 @@
       <!-- Author actions -->
       <template v-if="post.can_edit || post.can_delete || isOwnPost">
         <button v-if="isOwnPost && !post.is_pinned" @click="handlePin" class="menu-item">
-          <span class="icon">📌</span>
+          <span class="icon"> <SakuraIcon name="pin" /> </span>
           <span>Закрепить в профиле</span>
         </button>
         <button v-if="isOwnPost && post.is_pinned" @click="handleUnpin" class="menu-item">
-          <span class="icon">📍</span>
+          <span class="icon"> <SakuraIcon name="map-pin" /> </span>
           <span>Открепить</span>
         </button>
         <button v-if="post.can_edit" @click="emit('edit', post); emit('close')" class="menu-item">
-          <span class="icon">✏️</span>
+          <span class="icon"> <SakuraIcon name="edit" /> </span>
           <span>Редактировать</span>
           <span class="hint">5 мин</span>
         </button>
         <button v-if="post.can_delete" @click="confirmDelete" class="menu-item danger">
-          <span class="icon">🗑️</span>
+          <span class="icon"> <SakuraIcon name="trash" /> </span>
           <span>Удалить</span>
         </button>
         <div class="menu-divider"></div>
@@ -34,40 +34,40 @@
 
       <!-- Common actions -->
       <button @click="handleBookmark" class="menu-item" :disabled="bookmarkLoading">
-        <span class="icon">{{ post.is_bookmarked ? '⭐' : '☆' }}</span>
+        <span class="icon">{{ post.is_bookmarked ? '<SakuraIcon name="star" />' : '☆' }}</span>
         <span>{{ post.is_bookmarked ? 'Убрать из закладок' : 'В закладки' }}</span>
       </button>
 
       <button v-if="!isOwnPost" @click="handleHide" class="menu-item">
-        <span class="icon">🙈</span>
+        <span class="icon"> <SakuraIcon name="eye-off" /> </span>
         <span>Не интересно</span>
       </button>
 
       <button @click="handleForward" class="menu-item">
-        <span class="icon">📨</span>
+        <span class="icon"> <SakuraIcon name="inbox" /> </span>
         <span>Переслать</span>
       </button>
 
       <button @click="handleRepost" class="menu-item">
-        <span class="icon">🔁</span>
+        <span class="icon"> <SakuraIcon name="refresh" /> </span>
         <span>Репост</span>
       </button>
 
       <div class="menu-divider"></div>
 
       <button v-if="!isOwnPost" @click="handleReport" class="menu-item warn">
-        <span class="icon">🚩</span>
+        <span class="icon"> <SakuraIcon name="flag" /> </span>
         <span>Пожаловаться</span>
       </button>
 
       <div v-if="!isOwnPost" class="menu-divider"></div>
 
       <button @click="copyLink" class="menu-item">
-        <span class="icon">🔗</span>
+        <span class="icon"> <SakuraIcon name="link" /> </span>
         <span>Копировать ссылку</span>
       </button>
       <button v-if="post.text" @click="copyText" class="menu-item">
-        <span class="icon">📋</span>
+        <span class="icon"> <SakuraIcon name="clipboard" /> </span>
         <span>Копировать текст</span>
       </button>
     </div>
@@ -89,10 +89,10 @@
       <p class="confirm-text">Скрыть этот пост?</p>
       <div class="hide-options">
         <button class="hide-option" @click="doHide('post')">
-          <span>🚫</span> Только этот пост
+          <span> <SakuraIcon name="ban" /> </span> Только этот пост
         </button>
         <button class="hide-option" @click="doHide('author')">
-          <span>👤</span> Все посты от @{{ post.author_username }}
+          <span> <SakuraIcon name="user" /> </span> Все посты от @{{ post.author_username }}
         </button>
       </div>
       <button class="btn-cancel" @click="showHideDialog = false">Отмена</button>

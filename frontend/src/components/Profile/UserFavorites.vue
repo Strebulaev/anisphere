@@ -15,17 +15,22 @@
         v-for="anime in favorites"
         :key="anime.id"
         :anime="anime"
+        :watch-status="anime.watchStatus"
+        :watch-progress="anime.watchProgress"
+        :total-episodes="anime.totalEpisodes"
+        :show-progress="anime.showProgress"
         :show-actions="true"
+        :show-genres="true"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import AnimeCard from '@/components/Cards/AnimeCard.vue'
-import api from '@/api'
+import apiClient from '@/api/client'
 
 const props = defineProps<{
   userId: number
@@ -34,24 +39,59 @@ const props = defineProps<{
 const loading = ref(true)
 const favorites = ref<any[]>([])
 
-onMounted(async () => {
+// Маппинг статусов библиотеки в статусы для карточки
+const mapLibraryStatusToWatchStatus = (status: string): 'watching' | 'completed' | 'planned' | 'dropped' | 'onhold' => {
+  switch (status) {
+    case 'started': return 'watching'
+    case 'completed': return 'completed'
+    case 'planned': return 'planned'
+    case 'dropped': return 'dropped'
+    case 'on_hold': return 'onhold'
+    default: return 'planned'
+  }
+}
+
+// Преобразование элемента библиотеки в данные для карточки аниме
+const transformLibraryItemToAnimeCard = (item: any) => {
+  return {
+    id: item.anime_id || item.anime,
+    title_ru: item.anime_title_ru || '',
+    title_en: item.anime_title_en || '',
+    poster_url: item.anime_poster || null,
+    poster_image_url: item.anime_poster || null,
+    episodes: item.anime_episodes_count || 0,
+    type: item.anime_kind || '',
+    year: item.anime_year || null,
+    // Данные о прогрессе
+    watchStatus: mapLibraryStatusToWatchStatus(item.status),
+    watchProgress: item.current_episode || 0,
+    totalEpisodes: item.anime_episodes_count || 0,
+    showProgress: item.status === 'started' && (item.current_episode || 0) > 0
+  }
+}
+
+const loadFavorites = async () => {
   loading.value = true
   try {
-    const response = await api.get(`/users/${props.userId}/favorites/`)
-    favorites.value = response.data.results || response.data || []
+    // Используем библиотеку с фильтром is_favorite=true
+    const response = await apiClient.get(`/users/library/?user_id=${props.userId}&is_favorite=true`)
+    const items = response.data.results || response.data || []
+    favorites.value = items.map(transformLibraryItemToAnimeCard)
   } catch (error) {
-    console.error('Ошибка загрузки избранного:', error)
-    // Пробуем альтернативный эндпоинт
-    try {
-      const altResponse = await api.get(`/anime/favorites/?user=${props.userId}`)
-      favorites.value = altResponse.data.results || altResponse.data || []
-    } catch (altError) {
-      console.error('Альтернативный эндпоинт тоже не работает:', altError)
-    }
+    console.error('Error loading favorites:', error)
+    favorites.value = []
   } finally {
     loading.value = false
   }
-})
+}
+
+watch(
+  () => props.userId,
+  () => {
+    loadFavorites()
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>

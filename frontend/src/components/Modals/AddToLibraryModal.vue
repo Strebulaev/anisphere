@@ -170,8 +170,8 @@ const saving = ref(false)
 const statusOptions = [
   { value: 'planned', label: 'Запланировано', icon: '📋' },
   { value: 'started', label: 'Смотрю', icon: '👀' },
-  { value: 'completed', label: 'Просмотрено', icon: '✅' },
-  { value: 'dropped', label: 'Брошено', icon: '❌' },
+  { value: 'completed', label: 'Просмотрено', icon: '☑️' },
+  { value: 'dropped', label: 'Брошено', icon: '✖️' },
 ]
 
 const handleClose = () => {

@@ -147,7 +147,7 @@ export const SYSTEM_FOLDERS: Partial<ChatFolder>[] = [
   {
     id: 0,
     name: 'Все чаты',
-    icon: '🗯️',
+    icon: 'message-circle',
     is_system: true,
     position: 0,
     rules: {
@@ -162,7 +162,7 @@ export const SYSTEM_FOLDERS: Partial<ChatFolder>[] = [
   {
     id: -1,
     name: 'Личные',
-    icon: '👤',
+    icon: 'user',
     is_system: true,
     position: 1,
     rules: {
@@ -177,7 +177,7 @@ export const SYSTEM_FOLDERS: Partial<ChatFolder>[] = [
   {
     id: -2,
     name: 'Группы',
-    icon: '👥',
+    icon: 'users',
     is_system: true,
     position: 2,
     rules: {
@@ -192,7 +192,7 @@ export const SYSTEM_FOLDERS: Partial<ChatFolder>[] = [
   {
     id: -4,
     name: 'Обсуждения',
-    icon: '🎬',
+    icon: 'play',
     is_system: true,
     position: 3,
     rules: {

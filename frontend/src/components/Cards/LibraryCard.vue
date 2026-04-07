@@ -148,7 +148,7 @@
         <div class="ctx-sep"></div>
 
         <button class="ctx-item" @click="toggleFav">
-          <span>{{ item.is_favorite ? '💛' : '⭐' }}</span>
+          <span>{{ item.is_favorite ? '<SakuraIcon name="heart" />' : '<SakuraIcon name="star" />' }}</span>
           {{ item.is_favorite ? 'Убрать из избранного' : 'В избранное' }}
         </button>
         <button class="ctx-item" @click="openEdit">
@@ -285,7 +285,7 @@
             <!-- Избранное -->
             <div class="em-field">
               <label class="em-toggle-row" @click="editForm.is_favorite = !editForm.is_favorite">
-                <span class="em-label" style="margin:0">⭐ В избранном</span>
+                <span class="em-label" style="margin:0"><SakuraIcon name="star" /> В избранном</span>
                 <div class="toggle" :class="{ on: editForm.is_favorite }">
                   <div class="toggle-thumb"></div>
                 </div>
@@ -335,11 +335,11 @@ const router = useRouter()
 // ── Статусы ───────────────────────────────────────────────────
 const STATUS: Record<string, { icon: string; color: string; label: string }> = {
   started:   { icon: '▶️', color: 'var(--accent)',  label: 'В процессе'    },
-  completed: { icon: '✅', color: '#22c55e',         label: 'Просмотрено'   },
+  completed: { icon: '☑️', color: '#22c55e',         label: 'Просмотрено'   },
   planned:   { icon: '📅', color: '#a78bfa',         label: 'Запланировано' },
   on_hold:   { icon: '⏸️', color: '#f59e0b',         label: 'Отложено'      },
-  dropped:   { icon: '❌', color: '#ef4444',         label: 'Брошено'       },
-  favorite:  { icon: '⭐', color: '#f59e0b',         label: 'Избранное'     },
+  dropped:   { icon: '✖️', color: '#ef4444',         label: 'Брошено'       },
+  favorite:  { icon: '🌠', color: '#f59e0b',         label: 'Избранное'     },
 }
 
 const STATUS_LIST = [

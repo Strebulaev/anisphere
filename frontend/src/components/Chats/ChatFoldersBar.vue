@@ -17,7 +17,10 @@
         :style="getIconStyle(folder)"
         type="button"
       >
-        <span class="folder-icon__emoji">{{ folder.icon }}</span>
+        <span class="folder-icon__emoji">
+          <SakuraIcon v-if="isIconName(folder.icon)" :name="folder.icon" :size="22" />
+          <span v-else>{{ folder.icon }}</span>
+        </span>
         <span v-if="getUnreadCount(folder.id) > 0" class="folder-icon__badge">
           {{ getUnreadCount(folder.id) > 99 ? '99+' : getUnreadCount(folder.id) }}
         </span>
@@ -100,7 +103,14 @@ import FolderCreateModal from './FolderCreateModal.vue'
 import FolderEditModal from './FolderEditModal.vue'
 import FolderContextMenu from './FolderContextMenu.vue'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal.vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 import type { ChatFolder } from '@/types/chat'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 interface Props {
   showSearch?: boolean

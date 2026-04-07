@@ -1,7 +1,7 @@
 <template>
   <div class="post-card" :class="{ pinned: post.is_pinned }">
     <!-- Pin indicator -->
-    <div v-if="post.is_pinned" class="pinned-badge">📌 Закреплён</div>
+    <div v-if="post.is_pinned" class="pinned-badge"><SakuraIcon name="pin" /> Закреплён</div>
 
     <!-- Header -->
     <div class="post-header">
@@ -13,10 +13,13 @@
             <span v-if="post.author_display_name" class="username">@{{ post.author_username }}</span>
           </div>
           <div class="post-meta">
-            <span v-if="post.group" class="group-badge">📁 {{ post.group.name }}</span>
+            <span v-if="post.group" class="group-badge"><SakuraIcon name="folder" /> {{ post.group.name }}</span>
             <span class="time">{{ formatTime(post.created_at) }}</span>
             <span v-if="post.edited_at" class="edited">(ред.)</span>
-            <span class="visibility-badge">{{ visibilityIcon(post.visibility) }}</span>
+            <span class="visibility-badge">
+              <SakuraIcon v-if="isIconName(visibilityIcon(post.visibility))" :name="visibilityIcon(post.visibility)" :size="14" />
+              <span v-else>{{ visibilityIcon(post.visibility) }}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -105,13 +108,13 @@
             >
             </OptimizedImage>
 
-            <div v-else class="anime-poster-placeholder">🎬</div>
+            <div v-else class="anime-poster-placeholder"> <SakuraIcon name="play" /> </div>
           </div>
           <div class="anime-info">
             <span class="anime-title">{{ post.anime.title_ru || post.anime.title_en || 'Название не известно' }}</span>
             <span v-if="shouldShowEnglishTitle(post.anime)" class="anime-title-en">{{ post.anime.title_en }}</span>
             <span v-if="post.anime.year" class="anime-year">{{ post.anime.year }}</span>
-            <span v-if="post.anime_rating" class="anime-rating">⭐ {{ post.anime_rating }}/10</span>
+            <span v-if="post.anime_rating" class="anime-rating"><SakuraIcon name="star" /> {{ post.anime_rating }}/10</span>
             <span v-if="post.anime.description" class="anime-desc">{{ truncateText(post.anime.description, 150) }}</span>
           </div>
         </div>
@@ -127,7 +130,7 @@
               @error="onPlaylistPosterError($event)"
             >
             </OptimizedImage>
-            <div v-else class="playlist-poster-placeholder">📁</div>
+            <div v-else class="playlist-poster-placeholder"> <SakuraIcon name="folder" /> </div>
           </div>
           <div class="playlist-info">
             <span class="playlist-title">{{ post.playlist.title || 'Плейлист' }}</span>
@@ -159,24 +162,23 @@
     <div class="post-actions">
       <div class="action-group">
         <button class="action-btn" :class="{ liked: post.is_liked }" @click.stop="$emit('like', post)">
-          {{ post.is_liked ? '❤️' : '🤍' }} <span>{{ fmt(post.likes_count) }}</span>
+          <SakuraIcon name="heart" /> <span>{{ fmt(post.likes_count) }}</span>
         </button>
         <button class="action-btn" :class="{ disliked: post.is_disliked }" @click.stop="$emit('dislike', post)">
-          {{ post.is_disliked ? '👎' : '👎🏻' }} <span>{{ fmt(post.dislikes_count) }}</span>
+          <SakuraIcon name="thumbs-down" /> <span>{{ fmt(post.dislikes_count) }}</span>
         </button>
       </div>
       <div class="action-group">
-        <button class="action-btn" @click.stop="toggleComments">
-          💬 <span>{{ fmt(post.comments_count) }}</span>
+        <button class="action-btn" @click.stop="toggleComments"> <SakuraIcon name="message" /> <span>{{ fmt(post.comments_count) }}</span>
         </button>
-        <button class="action-btn" @click.stop="$emit('repost', post)">
-          🔁 <span>{{ fmt(post.reposts_count) }}</span>
+        <button class="action-btn" @click.stop="$emit('repost', post)"> <SakuraIcon name="refresh" /> <span>{{ fmt(post.reposts_count) }}</span>
         </button>
       </div>
       <div class="action-group">
-        <button class="action-btn" @click.stop="$emit('share', post)">📤</button>
+        <button class="action-btn" @click.stop="$emit('share', post)"> <SakuraIcon name="export" /> </button>
         <button class="action-btn" :class="{ bookmarked: post.is_bookmarked }" @click.stop="$emit('bookmark', post)">
-          {{ post.is_bookmarked ? '⭐' : '☆' }}
+          <SakuraIcon v-if="post.is_bookmarked" name="star" />
+          <span v-else>☆</span>
         </button>
       </div>
     </div>
@@ -227,6 +229,13 @@ import { commentsApi } from '@/api/feed'
 import { normalizeComment } from '@/utils/normalizers'
 import { getMediaUrl } from '@/api/client'
 import CommentThreadNode from '@/components/feed/CommentThreadNode.vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 type Post = FeedPost & { image_file?: string | null; video_file?: string | null; is_following?: boolean }
 
@@ -293,8 +302,8 @@ const formatTime = (s: string) => {
 }
 
 const visibilityIcon = (v?: string) => {
-  const map: Record<string, string> = { public: '🌍', followers: '👥', friends: '👫', private: '🔒' }
-  return map[v || 'public'] || '🌍'
+  const map: Record<string, string> = { public: 'globe', followers: 'users', friends: 'users', private: 'lock' }
+  return map[v || 'public'] || 'globe'
 }
 
 const goToProfile = () => router.push(`/profile/${props.post.author_username}`)
@@ -363,7 +372,7 @@ const onPosterError = (event: Event, anime: any) => {
     if (parent && !parent.querySelector('.anime-poster-placeholder')) {
       const placeholder = document.createElement('div')
       placeholder.className = 'anime-poster-placeholder'
-      placeholder.textContent = '🎬'
+      placeholder.textContent = '▶'
       parent.appendChild(placeholder)
     }
   }

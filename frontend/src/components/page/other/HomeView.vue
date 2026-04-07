@@ -59,11 +59,11 @@
     <!-- ══ Контент ════════════════════════════════════════════ -->
     <div v-else class="home-content">
 
-      <!-- ▶ Продолжить просмотр -->
+      <!-- <SakuraIcon name="play" /> Продолжить просмотр -->
       <section v-if="homeData.continue_watching?.length > 0" class="home-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <span class="section-icon">▶</span>
+            <span class="section-icon"> <SakuraIcon name="play" /> </span>
             <h2 class="section-title">Продолжить просмотр</h2>
             <span class="section-count">{{ homeData.continue_watching.length }}</span>
           </div>
@@ -90,11 +90,11 @@
         </div>
       </section>
 
-      <!-- 🔁 Пересмотреть -->
+      <!-- <SakuraIcon name="refresh" /> Пересмотреть -->
       <section v-if="homeData.rewatch?.length > 0" class="home-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <span class="section-icon">🔁</span>
+            <span class="section-icon"> <SakuraIcon name="refresh" /> </span>
             <h2 class="section-title">Пересмотреть</h2>
             <span class="section-count">{{ homeData.rewatch.length }}</span>
           </div>
@@ -120,11 +120,11 @@
         </div>
       </section>
 
-      <!-- 🎯 Рекомендации -->
+      <!-- <SakuraIcon name="target" /> Рекомендации -->
       <section class="home-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <span class="section-icon">🎯</span>
+            <span class="section-icon"> <SakuraIcon name="target" /> </span>
             <h2 class="section-title">Рекомендации для вас</h2>
           </div>
           <button class="view-all-btn" @click="router.push('/anime')">
@@ -165,11 +165,11 @@
         </div>
       </section>
 
-      <!-- 🔥 Популярное -->
+      <!-- <SakuraIcon name="fire" /> Популярное -->
       <section class="home-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <span class="section-icon">🔥</span>
+            <span class="section-icon"> <SakuraIcon name="fire" /> </span>
             <h2 class="section-title">Популярное на этой неделе</h2>
           </div>
           <button class="view-all-btn" @click="router.push('/anime?ordering=-score')">

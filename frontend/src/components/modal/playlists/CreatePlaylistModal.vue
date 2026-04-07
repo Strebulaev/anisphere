@@ -31,15 +31,15 @@
           <div class="visibility-options">
             <label class="radio-option">
               <input type="radio" v-model="form.visibility" value="public" />
-              <span>🌍 Публичный</span>
+              <span><SakuraIcon name="globe" /> Публичный</span>
             </label>
             <label class="radio-option">
               <input type="radio" v-model="form.visibility" value="private" />
-              <span>🔒 Приватный</span>
+              <span><SakuraIcon name="lock" /> Приватный</span>
             </label>
             <label class="radio-option">
               <input type="radio" v-model="form.visibility" value="link" />
-              <span>🔗 По ссылке</span>
+              <span><SakuraIcon name="link" /> По ссылке</span>
             </label>
           </div>
         </div>

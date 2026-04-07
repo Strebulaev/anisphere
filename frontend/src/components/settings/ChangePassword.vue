@@ -7,7 +7,7 @@
 
     <!-- Успех -->
     <div v-if="done" class="success-card">
-      <div class="success-icon">✅</div>
+      <div class="success-icon"> <SakuraIcon name="check" /> </div>
       <h3>Пароль изменён!</h3>
       <p>Все остальные сессии завершены. На других устройствах нужно войти заново.</p>
       <button class="btn-primary" @click="resetForm">Понятно</button>
@@ -26,14 +26,14 @@
             @input="clearError('old_password')"
           />
           <button class="eye-btn" @click="show.old = !show.old" type="button">
-            {{ show.old ? '🙈' : '👁' }}
+            {{ show.old ? '<SakuraIcon name="eye-off" />' : '<SakuraIcon name="eye" />' }}
           </button>
         </div>
         <span v-if="errors.old_password" class="err">{{ errors.old_password }}</span>
       </div>
 
       <div class="sg">
-        <h3>🔒 Новый пароль</h3>
+        <h3><SakuraIcon name="lock" /> Новый пароль</h3>
 
         <div class="pw-field">
           <input
@@ -45,7 +45,7 @@
             @input="clearError('new_password')"
           />
           <button class="eye-btn" @click="show.new = !show.new" type="button">
-            {{ show.new ? '🙈' : '👁' }}
+            {{ show.new ? '<SakuraIcon name="eye-off" />' : '<SakuraIcon name="eye" />' }}
           </button>
         </div>
         <span v-if="errors.new_password" class="err">{{ errors.new_password }}</span>
@@ -67,7 +67,7 @@
       </div>
 
       <div class="sg">
-        <h3>🔁 Подтверждение</h3>
+        <h3><SakuraIcon name="refresh" /> Подтверждение</h3>
         <div class="pw-field">
           <input
             v-model="form.confirm_password"
@@ -78,7 +78,7 @@
             @input="clearError('confirm_password')"
           />
           <button class="eye-btn" @click="show.confirm = !show.confirm" type="button">
-            {{ show.confirm ? '🙈' : '👁' }}
+            {{ show.confirm ? '<SakuraIcon name="eye-off" />' : '<SakuraIcon name="eye" />' }}
           </button>
         </div>
         <span v-if="form.confirm_password && !passwordsMatch" class="err">Пароли не совпадают</span>
@@ -87,7 +87,7 @@
 
       <div class="actions">
         <button class="btn-save" @click="submit" :disabled="!canSubmit || saving">
-          {{ saving ? '⏳ Сохранение...' : '💾 Изменить пароль' }}
+          {{ saving ? '<SakuraIcon name="hourglass" /> Сохранение...' : '<SakuraIcon name="save" /> Изменить пароль' }}
         </button>
         <button class="btn-reset" @click="resetForm" :disabled="saving">↺ Очистить</button>
       </div>

@@ -4,7 +4,7 @@
 
       <div class="page-header">
         <router-link to="/notifications" class="back-btn">← Уведомления</router-link>
-        <h1>⚙️ Настройки уведомлений</h1>
+        <h1><SakuraIcon name="settings" /> Настройки уведомлений</h1>
       </div>
 
       <div v-if="loading" class="state-loading">
@@ -16,7 +16,7 @@
 
         <!-- Каналы -->
         <div class="section-card">
-          <h2 class="section-title">📡 Каналы</h2>
+          <h2 class="section-title"><SakuraIcon name="satellite" /> Каналы</h2>
           <div class="toggle-list">
             <label class="toggle-row">
               <span>Push-уведомления</span>
@@ -38,7 +38,7 @@
 
         <!-- По типам -->
         <div class="section-card">
-          <h2 class="section-title">🔔 По типам</h2>
+          <h2 class="section-title"><SakuraIcon name="bell" /> По типам</h2>
           <div class="toggle-list">
             <label v-for="t in notifTypes" :key="t.key" class="toggle-row">
               <span>{{ t.icon }} {{ t.label }}</span>
@@ -52,7 +52,7 @@
               <span class="toggle-switch" :class="{ locked: t.locked }"></span>
             </label>
           </div>
-          <p class="hint">🔒 Победа в конкурсе и уведомления безопасности всегда включены</p>
+          <p class="hint"><SakuraIcon name="lock" /> Победа в конкурсе и уведомления безопасности всегда включены</p>
         </div>
 
         <!-- Режим "Не беспокоить" -->
@@ -97,18 +97,18 @@
               <option :value="180">180 дней</option>
             </select>
           </div>
-          <p class="hint">⭐ Важные уведомления не удаляются автоматически</p>
+          <p class="hint"><SakuraIcon name="star" /> Важные уведомления не удаляются автоматически</p>
         </div>
 
         <!-- Кнопки -->
         <div class="actions-row">
           <button class="btn-save" :disabled="saving" @click="saveAll">
-            {{ saving ? 'Сохранение...' : '💾 Сохранить' }}
+            {{ saving ? 'Сохранение...' : '<SakuraIcon name="save" /> Сохранить' }}
           </button>
           <button class="btn-reset" @click="resetForm">Сбросить</button>
         </div>
 
-        <div v-if="saved" class="save-toast">✅ Настройки сохранены</div>
+        <div v-if="saved" class="save-toast"><SakuraIcon name="check" /> Настройки сохранены</div>
 
       </template>
 
@@ -138,24 +138,24 @@ const form = reactive({
 })
 
 const notifTypes = [
-  { key: 'like',           icon: '❤️',  label: 'Лайки' },
+  { key: 'like',           icon: '❵',  label: 'Лайки' },
   { key: 'dislike',        icon: '👎',  label: 'Дизлайки' },
   { key: 'comment',        icon: '💬',  label: 'Комментарии' },
   { key: 'reply',          icon: '↩️',  label: 'Ответы на комментарии' },
   { key: 'mention',        icon: '@',   label: 'Упоминания' },
-  { key: 'follow',         icon: '👥',  label: 'Подписки' },
-  { key: 'repost',         icon: '🔁',  label: 'Репосты' },
-  { key: 'message',        icon: '✉️',  label: 'Личные сообщения' },
-  { key: 'group_message',  icon: '👥',  label: 'Сообщения в группах' },
+  { key: 'follow',         icon: '👭',  label: 'Подписки' },
+  { key: 'repost',         icon: '🔄',  label: 'Репосты' },
+  { key: 'message',        icon: '💌',  label: 'Личные сообщения' },
+  { key: 'group_message',  icon: '👭',  label: 'Сообщения в группах' },
   { key: 'achievement',    icon: '🏆',  label: 'Достижения' },
   { key: 'contest',        icon: '🏅',  label: 'Новые конкурсы' },
   { key: 'contest_vote',   icon: '🗳️', label: 'Начало голосования' },
   { key: 'contest_results',icon: '📊',  label: 'Результаты конкурсов' },
   { key: 'contest_win',    icon: '👑',  label: 'Победа в конкурсе', locked: true },
-  { key: 'reminder_episode',icon: '⏰', label: 'Новые серии (напоминание)' },
+  { key: 'reminder_episode',icon: '🕛', label: 'Новые серии (напоминание)' },
   { key: 'system',         icon: '⚙️',  label: 'Системные обновления' },
   { key: 'warning',        icon: '⚠️',  label: 'Предупреждения модератора' },
-  { key: 'security',       icon: '🔒',  label: 'Безопасность', locked: true },
+  { key: 'security',       icon: '🔐',  label: 'Безопасность', locked: true },
 ]
 
 const getTypeEnabled = (key: string) => {

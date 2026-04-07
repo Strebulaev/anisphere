@@ -4,7 +4,7 @@
 
     <!-- Упрощённая версия - только кнопка удаления с подтверждением -->
     <div class="settings-group danger-zone">
-      <div class="warning-icon">⚠️</div>
+      <div class="warning-icon"><SakuraIcon name="warning" />️</div>
       <h3>ВНИМАНИЕ!</h3>
       <p class="warning-text">
         Вы собираетесь удалить аккаунт. Это действие <strong>НЕОБРАТИМО</strong>.
@@ -12,7 +12,7 @@
       </p>
 
       <div class="important-note">
-        <strong>⚠️ Важно:</strong>
+        <strong><SakuraIcon name="warning" />️ Важно:</strong>
         <ul>
           <li>Имя пользователя освобождается для других</li>
           <li>Есть 7 дней на восстановление после удаления</li>
@@ -32,7 +32,7 @@
           :disabled="!finalConfirmation || isDeleting"
           class="danger-btn"
         >
-          {{ isDeleting ? 'Удаление...' : '🗑 Удалить аккаунт' }}
+          {{ isDeleting ? 'Удаление...' : '<SakuraIcon name="trash" /> Удалить аккаунт' }}
         </button>
       </div>
 

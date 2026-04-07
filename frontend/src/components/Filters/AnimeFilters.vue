@@ -65,7 +65,7 @@
     <div class="af-two-col">
       <div class="af-block">
         <div class="af-block-label">
-          <span class="af-label-icon">📅</span>
+          <span class="af-label-icon"> <SakuraIcon name="calendar" /> </span>
           Год выпуска
         </div>
         <div class="af-range-row">
@@ -84,7 +84,7 @@
 
       <div class="af-block">
         <div class="af-block-label">
-          <span class="af-label-icon">★</span>
+          <span class="af-label-icon"> <SakuraIcon name="star" /> </span>
           Рейтинг
         </div>
         <div class="af-range-row">
@@ -185,7 +185,7 @@
           <!-- СТУДИЯ -->
           <div class="af-block">
             <div class="af-block-label">
-              <span class="af-label-icon">🏠</span>
+              <span class="af-label-icon"> <SakuraIcon name="home" /> </span>
               Студия
               <span v-if="selectedStudios.length" class="af-badge">{{ selectedStudios.length }}</span>
             </div>
@@ -212,7 +212,7 @@
           <!-- ЭПИЗОДЫ -->
           <div class="af-block">
             <div class="af-block-label">
-              <span class="af-label-icon">🎬</span>
+              <span class="af-label-icon"> <SakuraIcon name="play" /> </span>
               Количество эпизодов
             </div>
             <div class="af-range-row">
@@ -257,7 +257,7 @@
           <div class="af-two-col">
             <div class="af-block">
               <div class="af-block-label">
-                <span class="af-label-icon">🎥</span>
+                <span class="af-label-icon"> <SakuraIcon name="film" /> </span>
                 Режиссёр
               </div>
               <input v-model="localFilters.director" @input="debouncedEmit"
@@ -278,7 +278,7 @@
           <!-- СТРАНА -->
           <div class="af-block">
             <div class="af-block-label">
-              <span class="af-label-icon">🌍</span>
+              <span class="af-label-icon"> <SakuraIcon name="globe" /> </span>
               Страна производства
               <span v-if="selectedCountries.length" class="af-badge">{{ selectedCountries.length }}</span>
             </div>
@@ -294,7 +294,7 @@
           <!-- ВОЗРАСТНОЙ РЕЙТИНГ -->
           <div class="af-block">
             <div class="af-block-label">
-              <span class="af-label-icon">🔞</span>
+              <span class="af-label-icon"> <SakuraIcon name="no-one-under-18" /> </span>
               Возрастной рейтинг
               <span v-if="selectedAgeRatings.length" class="af-badge">{{ selectedAgeRatings.length }}</span>
             </div>
@@ -310,7 +310,7 @@
           <!-- СЕЗОН -->
           <div class="af-block">
             <div class="af-block-label">
-              <span class="af-label-icon">🌸</span>
+              <span class="af-label-icon"> <SakuraIcon name="flower" /> </span>
               Сезон выхода
             </div>
             <div class="af-chips">
@@ -450,9 +450,9 @@ const AGE_OPTIONS = [
 ]
 
 const SEASON_OPTIONS = [
-  { value: 'winter', label: '❄️ Зима'  },
-  { value: 'spring', label: '🌸 Весна' },
-  { value: 'summer', label: '☀️ Лето'  },
+  { value: 'winter', label: '❆ Зима'  },
+  { value: 'spring', label: '❁ Весна' },
+  { value: 'summer', label: '☀ Лето'  },
   { value: 'fall',   label: '🍂 Осень' },
 ]
 

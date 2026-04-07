@@ -83,7 +83,7 @@
           <div class="field-group">
             <label class="toggle-row">
               <span class="toggle-label">
-                <span>⭐</span> В избранном
+                <span> <SakuraIcon name="star" /> </span> В избранном
               </span>
               <div class="toggle-switch" :class="{ on: form.is_favorite }" @click="form.is_favorite = !form.is_favorite">
                 <div class="toggle-thumb"></div>
@@ -140,10 +140,10 @@ const form = reactive({
 
 const statusOptions = [
   { key: 'started'   as LibraryStatus, icon: '▶️', label: 'В процессе'    },
-  { key: 'completed' as LibraryStatus, icon: '✅', label: 'Просмотрено'   },
+  { key: 'completed' as LibraryStatus, icon: '☑️', label: 'Просмотрено'   },
   { key: 'planned'   as LibraryStatus, icon: '📅', label: 'Запланировано' },
   { key: 'on_hold'   as LibraryStatus, icon: '⏸️', label: 'Отложено'      },
-  { key: 'dropped'   as LibraryStatus, icon: '❌', label: 'Брошено'       },
+  { key: 'dropped'   as LibraryStatus, icon: '✖️', label: 'Брошено'       },
 ]
 
 const showEpisodeField = computed(() =>

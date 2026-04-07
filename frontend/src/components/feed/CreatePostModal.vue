@@ -14,7 +14,9 @@
           <span class="name">{{ userDisplayName }}</span>
           <div class="visibility-selector">
             <button @click="showVisibilityMenu = !showVisibilityMenu" class="visibility-btn">
-              {{ visibilityOptions[visibility]?.icon }} {{ visibilityOptions[visibility]?.label }} ▼
+              <SakuraIcon v-if="isIconName(visibilityOptions[visibility]?.icon)" :name="visibilityOptions[visibility]?.icon || ''" :size="14" />
+              <span v-else>{{ visibilityOptions[visibility]?.icon }}</span>
+              {{ visibilityOptions[visibility]?.label }} ▼
             </button>
             <div v-if="showVisibilityMenu" class="visibility-menu">
               <button
@@ -23,7 +25,9 @@
                 @click="setVisibility(key)"
                 :class="{ active: visibility === key }"
               >
-                {{ option.icon }} {{ option.label }}
+                <SakuraIcon v-if="isIconName(option.icon)" :name="option.icon" :size="14" />
+                <span v-else>{{ option.icon }}</span>
+                {{ option.label }}
               </button>
             </div>
           </div>
@@ -57,7 +61,7 @@
         <!-- Attached anime — мультивыбор -->
         <div v-if="attachedAnimes.length > 0" class="attached-list">
           <div v-for="(a, idx) in attachedAnimes" :key="a.id" class="attached-block">
-            <span class="attached-icon">🎬</span>
+            <span class="attached-icon"> <SakuraIcon name="play" /> </span>
             <span class="attached-label">{{ a.title_ru }}</span>
             <div class="rating-input">
               <label>Оценка:</label>
@@ -70,7 +74,7 @@
         <!-- Attached playlists — мультивыбор -->
         <div v-if="attachedPlaylists.length > 0" class="attached-list">
           <div v-for="(p, idx) in attachedPlaylists" :key="p.id" class="attached-block">
-            <span class="attached-icon">📁</span>
+            <span class="attached-icon"> <SakuraIcon name="folder" /> </span>
             <span class="attached-label">{{ p.title || p.name }}</span>
             <button class="remove-btn" @click="removePlaylist(idx)">✕</button>
           </div>
@@ -79,7 +83,7 @@
         <!-- Attached shorts — мультивыбор -->
         <div v-if="attachedShortsList.length > 0" class="attached-list">
           <div v-for="(s, idx) in attachedShortsList" :key="s.id" class="attached-block">
-            <span class="attached-icon">⚡</span>
+            <span class="attached-icon"> <SakuraIcon name="zap" /> </span>
             <span class="attached-label">{{ s.title || 'Shorts #' + s.id }}</span>
             <button class="remove-btn" @click="removeShorts(idx)">✕</button>
           </div>
@@ -140,16 +144,16 @@
         </div>
 
         <div class="attach-tabs">
-          <button :class="{ active: attachTab === 'media' }" @click="attachTab = 'media'">📷 Фото/Видео</button>
-          <button :class="{ active: attachTab === 'anime' }" @click="attachTab = 'anime'">🎬 Аниме</button>
-          <button :class="{ active: attachTab === 'playlist' }" @click="switchToPlaylist">📁 Плейлист</button>
-          <!-- <button :class="{ active: attachTab === 'shorts' }" @click="attachTab = 'shorts'; loadShorts()">⚡ Shorts</button> -->
+          <button :class="{ active: attachTab === 'media' }" @click="attachTab = 'media'"><SakuraIcon name="camera" /> Фото/Видео</button>
+          <button :class="{ active: attachTab === 'anime' }" @click="attachTab = 'anime'"><SakuraIcon name="play" /> Аниме</button>
+          <button :class="{ active: attachTab === 'playlist' }" @click="switchToPlaylist"><SakuraIcon name="folder" /> Плейлист</button>
+          <!-- <button :class="{ active: attachTab === 'shorts' }" @click="attachTab = 'shorts'; loadShorts()"><SakuraIcon name="zap" /> Shorts</button> -->
         </div>
 
         <!-- ФОТО/ВИДЕО -->
         <div v-if="attachTab === 'media'" class="tab-content">
           <div class="media-upload-area" @click="triggerMediaPick">
-            <div class="upload-icon">📷</div>
+            <div class="upload-icon"> <SakuraIcon name="camera" /> </div>
             <div class="upload-text">Нажмите для выбора фото или видео</div>
             <div class="upload-hint">Поддерживается мультивыбор</div>
           </div>
@@ -204,7 +208,7 @@
               @click="togglePlaylist(p)"
             >
               <img v-if="getPlaylistPoster(p)" :src="getPlaylistPoster(p)" alt="" class="playlist-thumb">
-              <span v-else class="result-icon">📁</span>
+              <span v-else class="result-icon"> <SakuraIcon name="folder" /> </span>
               <div class="result-info">
                 <span class="result-title">{{ p.title || p.name }}</span>
                 <span class="result-sub">{{ p.anime_count || p.items_count || p.animes_count || 0 }} аниме</span>
@@ -226,7 +230,7 @@
               :class="{ selected: attachedShortsList.some(x => x.id === s.id) }"
               @click="toggleShorts(s)"
             >
-              <span class="result-icon">⚡</span>
+              <span class="result-icon"> <SakuraIcon name="zap" /> </span>
               <div class="result-info">
                 <span class="result-title">{{ s.title || 'Shorts #' + s.id }}</span>
                 <span class="result-sub">@{{ s.user?.username }}</span>
@@ -248,6 +252,13 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import apiClient, { getMediaUrl } from '@/api/client'
 import playlistsApi from '@/api/playlists'
 import { normalizePost } from '@/utils/normalizers'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 const props = defineProps<{ initialType?: string | null }>()
 const emit = defineEmits<{ close: []; created: [post: any] }>()
@@ -269,10 +280,10 @@ const submitting = ref(false)
 const textArea = ref<HTMLTextAreaElement | null>(null)
 
 const visibilityOptions: Record<string, { icon: string; label: string }> = {
-  public:    { icon: '🌍', label: 'Публично' },
-  followers: { icon: '👥', label: 'Только подписчики' },
-  friends:   { icon: '👫', label: 'Только друзья' },
-  private:   { icon: '🔒', label: 'Только я' },
+  public:    { icon: 'globe', label: 'Публично' },
+  followers: { icon: 'users', label: 'Только подписчики' },
+  friends:   { icon: 'users', label: 'Только друзья' },
+  private:   { icon: 'lock', label: 'Только я' },
 }
 
 const setVisibility = (key: string) => { visibility.value = key; showVisibilityMenu.value = false }
@@ -764,6 +775,7 @@ onMounted(async () => {
 .attach-tabs button {
   flex: 1; background: none; border: none; color: #777;
   padding: 0.75rem; font-size: 0.875rem; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 0.375rem;
 }
 .attach-tabs button:hover { color: #aaa; }
 .attach-tabs button.active { color: #fff; border-bottom: 2px solid #667eea; }

@@ -10,11 +10,11 @@
       />
       <div v-else-if="attachment.type === 'video'" class="attachment-video" @click="openPreview(attachment)">
         <img v-if="attachment.thumbnail_url" :src="attachment.thumbnail_url" class="video-thumbnail" />
-        <div class="video-play-btn">▶️</div>
+        <div class="video-play-btn"><SakuraIcon name="play" />️</div>
         <span class="video-duration">{{ formatDuration(attachment.duration) }}</span>
       </div>
       <div v-else-if="attachment.type === 'audio'" class="attachment-audio">
-        <div class="audio-icon">🎵</div>
+        <div class="audio-icon"> <SakuraIcon name="music" /> </div>
         <div class="audio-info">
           <span class="audio-name">{{ attachment.file_name }}</span>
           <span class="audio-duration">{{ formatDuration(attachment.duration) }}</span>
@@ -26,7 +26,7 @@
           <span class="file-name">{{ attachment.file_name }}</span>
           <span class="file-size">{{ formatFileSize(attachment.file_size) }}</span>
         </div>
-        <a :href="attachment.file_url" download class="file-download" title="Скачать">⬇️</a>
+        <a :href="attachment.file_url" download class="file-download" title="Скачать"> <SakuraIcon name="arrow-down" /> </a>
       </div>
     </div>
   </div>

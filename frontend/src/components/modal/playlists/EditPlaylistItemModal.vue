@@ -15,8 +15,8 @@
         <div class="preview-info">
           <h3 class="preview-title">{{ item.anime_title }}</h3>
           <div class="preview-meta">
-            <span v-if="item.anime_year">📅 {{ item.anime_year }}</span>
-            <span v-if="item.anime_score">⭐ {{ item.anime_score.toFixed(1) }}</span>
+            <span v-if="item.anime_year"><SakuraIcon name="calendar" /> {{ item.anime_year }}</span>
+            <span v-if="item.anime_score"><SakuraIcon name="star" /> {{ item.anime_score.toFixed(1) }}</span>
           </div>
         </div>
       </div>
@@ -57,14 +57,14 @@
             class="quick-note-btn"
             @click="addQuickNote('Пересмотреть')"
           >
-            🔄 Пересмотреть
+            <SakuraIcon name="refresh" /> Пересмотреть
           </button>
           <button
             type="button"
             class="quick-note-btn"
             @click="addQuickNote('Рекомендую')"
           >
-            ⭐ Рекомендую
+            <SakuraIcon name="star" /> Рекомендую
           </button>
         </div>
       </div>

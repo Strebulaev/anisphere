@@ -35,7 +35,10 @@
         class="tab-btn" :class="{ active: activeTab === tab.key }"
         @click="setTab(tab.key)"
       >
-        <span class="tab-icon">{{ tab.icon }}</span>
+        <span class="tab-icon">
+          <SakuraIcon v-if="isIconName(tab.icon)" :name="tab.icon" :size="16" />
+          <span v-else>{{ tab.icon }}</span>
+        </span>
         <span class="tab-label">{{ tab.label }}</span>
         <span class="tab-count">{{ getCount(tab.key) }}</span>
       </button>
@@ -74,7 +77,7 @@
           <template v-if="stats.avg_score">
             <div class="sn-sep"></div>
             <div class="sn-item">
-              <span class="sn-val">★ {{ Number(stats.avg_score).toFixed(1) }}</span>
+              <span class="sn-val"><SakuraIcon name="star" /> {{ Number(stats.avg_score).toFixed(1) }}</span>
               <span class="sn-key">ср. оценка</span>
             </div>
           </template>
@@ -112,14 +115,17 @@
 
     <!-- ══ ОШИБКА ══════════════════════════════════════════════ -->
     <div v-else-if="error" class="state-box">
-      <span class="state-icon">⚠️</span>
+      <span class="state-icon"><SakuraIcon name="warning" />️</span>
       <p class="state-title">Не удалось загрузить коллекцию</p>
       <button class="state-btn" @click="loadItems">Повторить</button>
     </div>
 
     <!-- ══ ПУСТО ════════════════════════════════════════════════ -->
     <div v-else-if="items.length === 0" class="state-box">
-      <span class="state-icon">{{ currentTab?.icon ?? '📚' }}</span>
+      <span class="state-icon">
+        <SakuraIcon v-if="currentTab && isIconName(currentTab.icon)" :name="currentTab.icon" :size="48" />
+        <span v-else>{{ currentTab?.icon }}</span>
+      </span>
       <p class="state-title">{{ emptyMessage }}</p>
       <p class="state-sub">Добавляйте аниме прямо на их страницах</p>
       <button class="state-btn accent" @click="router.push('/anime')">Найти аниме</button>
@@ -141,6 +147,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import apiClient from '@/api/client'
 import LibraryCard from '@/components/Cards/LibraryCard.vue'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 const router = useRouter()
 const route  = useRoute()
@@ -156,13 +169,13 @@ const activeTab   = ref<string>('')
 
 // ── Вкладки ──────────────────────────────────────────────────
 const tabs = [
-  { key: '',          label: 'Все',           icon: '📚' },
-  { key: 'started',   label: 'В процессе',    icon: '▶️' },
-  { key: 'completed', label: 'Просмотрено',   icon: '✅' },
-  { key: 'planned',   label: 'Запланировано', icon: '📅' },
-  { key: 'on_hold',   label: 'Отложено',      icon: '⏸️' },
-  { key: 'dropped',   label: 'Брошено',       icon: '❌' },
-  { key: 'favorite',  label: 'Избранное',     icon: '⭐' },
+  { key: '',          label: 'Все',           icon: 'book' },
+  { key: 'started',   label: 'В процессе',    icon: 'play' },
+  { key: 'completed', label: 'Просмотрено',   icon: 'check' },
+  { key: 'planned',   label: 'Запланировано', icon: 'calendar' },
+  { key: 'on_hold',   label: 'Отложено',      icon: 'pause' },
+  { key: 'dropped',   label: 'Брошено',       icon: 'x' },
+  { key: 'favorite',  label: 'Избранное',     icon: 'star' },
 ]
 
 const currentTab = computed(() => tabs.find(t => t.key === activeTab.value))
@@ -197,16 +210,16 @@ const formatHours = (totalMinutes: number): string => {
   return `${mins} мин`
 }
 
-// Если API вернул watch_hours — используем его, иначе считаем из серий
+// Если API вернул hours_watched — используем его, иначе считаем из серий
 const watchMinutes = computed((): number => {
   if (!stats.value) return 0
-  if (stats.value.watch_hours != null) return Math.round(stats.value.watch_hours * 60)
+  if (stats.value.hours_watched != null) return Math.round(stats.value.hours_watched * 60)
   return (stats.value.episodes_watched ?? 0) * AVG_EP_MINUTES
 })
 
 const remainingMinutes = computed((): number => {
   if (!stats.value) return 0
-  if (stats.value.remaining_hours != null) return Math.round(stats.value.remaining_hours * 60)
+  if (stats.value.hours_remaining != null) return Math.round(stats.value.hours_remaining * 60)
   return (stats.value.episodes_remaining ?? 0) * AVG_EP_MINUTES
 })
 
@@ -340,7 +353,7 @@ onMounted(() => {
 }
 .tab-btn:hover { background: var(--surface-4); color: var(--text-primary); border-color: var(--border-default); }
 .tab-btn.active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
-.tab-icon { font-size: 13px; line-height: 1; }
+.tab-icon { font-size: 13px; line-height: 1; color: inherit; }
 .tab-label { font-weight: 500; }
 .tab-count {
   min-width: 18px; height: 18px; padding: 0 5px; background: var(--surface-5);

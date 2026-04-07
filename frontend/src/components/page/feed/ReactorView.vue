@@ -8,13 +8,13 @@
             @click="switchTab('feed')"
             :class="['tab-btn', activeTab === 'feed' ? 'active' : '']"
           >
-            🎬 Reactor
+            <SakuraIcon name="play" /> Reactor
           </button>
           <button
             @click="switchTab('competitions')"
             :class="['tab-btn', activeTab === 'competitions' ? 'active' : '']"
           >
-            🏆 Конкурсы
+            <SakuraIcon name="trophy" /> Конкурсы
           </button>
         </nav>
       </div>
@@ -24,7 +24,7 @@
         <!-- Create Video Button -->
         <div class="actions-bar">
           <button @click="router.push('/reactor/create')" class="btn-primary">
-            🎬 Создать видео
+            <SakuraIcon name="play" /> Создать видео
           </button>
         </div>
 
@@ -36,7 +36,7 @@
 
         <!-- Empty State -->
         <div v-else-if="videos.length === 0" class="empty-state">
-          <div class="empty-icon">🎬</div>
+          <div class="empty-icon"> <SakuraIcon name="play" /> </div>
           <h2 class="empty-title">Reactor лента</h2>
           <p class="empty-text">Пока нет видео. Будьте первым!</p>
         </div>
@@ -59,13 +59,13 @@
                 preload="metadata"
               ></video>
               <div v-else class="thumbnail-placeholder">
-                <span class="placeholder-icon">🎬</span>
+                <span class="placeholder-icon"> <SakuraIcon name="play" /> </span>
               </div>
 
               <!-- Play Button Overlay -->
               <div class="play-overlay">
                 <div class="play-button">
-                  <span class="play-icon">▶️</span>
+                  <span class="play-icon"><SakuraIcon name="play" />️</span>
                 </div>
               </div>
 
@@ -89,8 +89,8 @@
               <div class="video-meta">
                 <span class="author">{{ video.user_username }}</span>
                 <div class="stats">
-                  <span class="stat">❤️ {{ video.likes_count || 0 }}</span>
-                  <span class="stat">💬 {{ video.comments_count || 0 }}</span>
+                  <span class="stat"><SakuraIcon name="heart" /> {{ video.likes_count || 0 }}</span>
+                  <span class="stat"><SakuraIcon name="message" /> {{ video.comments_count || 0 }}</span>
                 </div>
               </div>
             </div>
@@ -103,7 +103,7 @@
         <!-- Create Competition Button -->
         <div class="actions-bar">
           <button @click="router.push('/competitions/create')" class="btn-primary">
-            🏆 Создать конкурс
+            <SakuraIcon name="trophy" /> Создать конкурс
           </button>
         </div>
 
@@ -115,7 +115,7 @@
 
         <!-- Empty State -->
         <div v-else-if="activeContests.length === 0 && finishedContests.length === 0" class="empty-state">
-          <div class="empty-icon">🏆</div>
+          <div class="empty-icon"> <SakuraIcon name="trophy" /> </div>
           <h2 class="empty-title">Конкурсы</h2>
           <p class="empty-text">Пока нет конкурсов. Будьте первым!</p>
         </div>
@@ -146,7 +146,7 @@
               </div>
 
               <div v-if="contest.prize_1st || contest.prize_2nd || contest.prize_3rd" class="contest-prizes">
-                <p class="prizes-title">🎁 Призы:</p>
+                <p class="prizes-title"><SakuraIcon name="gift" /> Призы:</p>
                 <ul class="prizes-list">
                   <li v-if="contest.prize_1st">1 место: {{ contest.prize_1st }}</li>
                   <li v-if="contest.prize_2nd">2 место: {{ contest.prize_2nd }}</li>
@@ -155,8 +155,8 @@
               </div>
 
               <div class="contest-stats">
-                <span class="contest-stat">👥 {{ contest.entries_count }} участников</span>
-                <span class="contest-stat">🗳️ {{ contest.votes_count }} голосов</span>
+                <span class="contest-stat"><SakuraIcon name="users" /> {{ contest.entries_count }} участников</span>
+                <span class="contest-stat"><SakuraIcon name="ballot-box" /> {{ contest.votes_count }} голосов</span>
               </div>
 
               <button
@@ -217,7 +217,7 @@
                   Статус: {{ getEntryStatus(entry) }}
                 </p>
                 <p v-if="entry.is_winner" class="entry-winner">
-                  🏆 {{ entry.winner_place }} место!
+                  <SakuraIcon name="trophy" /> {{ entry.winner_place }} место!
                 </p>
               </div>
               <span :class="['entry-badge', getEntryStatusClass(entry)]">

@@ -100,10 +100,10 @@ const close = () => {
 }
 
 const getFileIcon = (mimeType: string) => {
-  if (mimeType?.startsWith('video/')) return '🎬'
+  if (mimeType?.startsWith('video/')) return '▶'
   if (mimeType?.startsWith('audio/')) return '🎵'
   if (mimeType?.includes('pdf')) return '📄'
-  if (mimeType?.includes('word')) return '📝'
+  if (mimeType?.includes('word')) return '📄'
   if (mimeType?.includes('excel')) return '📊'
   if (mimeType?.includes('zip') || mimeType?.includes('rar')) return '📦'
   return '📎'

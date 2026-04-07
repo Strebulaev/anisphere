@@ -241,8 +241,8 @@ const getPlaceClass = (entry: ContestEntry) => {
 }
 
 const getPlaceIcon = (entry: ContestEntry) => {
-  if (entry.is_winner && entry.winner_place === 1) return '🥇'
-  if (entry.is_winner && entry.winner_place === 2) return '🥈'
+  if (entry.is_winner && entry.winner_place === 1) return '🏅'
+  if (entry.is_winner && entry.winner_place === 2) return '🏅'
   if (entry.is_winner && entry.winner_place === 3) return '🥉'
   if (entry.is_winner) return entry.winner_place || ''
   return ''
