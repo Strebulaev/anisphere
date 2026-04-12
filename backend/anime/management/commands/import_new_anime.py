@@ -154,6 +154,10 @@ class Command(BaseCommand):
         episodes_count = self._get_episodes_count(result)
         episode_duration = self._get_duration(result)
 
+        # Определяем статус - НЕ ставим released по умолчанию для анонсов
+        raw_status = material_data.get('anime_status', '')
+        status = self._map_status(raw_status) if raw_status else 'announced'  # По умолчанию announced, если статус неизвестен
+
         try:
             Anime.objects.create(
                 title_ru=result.get('title', ''),
@@ -161,7 +165,7 @@ class Command(BaseCommand):
                 title_jp=result.get('other_title', ''),
                 description=description,
                 year=result.get('year'),
-                status=self._map_status(material_data.get('anime_status', 'released')),
+                status=status,
                 kind=self._map_kind(material_data.get('anime_kind') or result.get('type', 'tv')),
                 episodes=episodes_count,
                 episode_duration=episode_duration,
@@ -176,7 +180,7 @@ class Command(BaseCommand):
                 kodik_id=result.get('id', ''),
                 quality=result.get('quality', ''),
             )
-            self.stdout.write(f'  ✅ Создано: {result.get("title")}')
+            self.stdout.write(f'  ✅ Создано: {result.get("title")} [{status}]')
         except Exception as e:
             self.stdout.write(f'  ❌ Ошибка создания {result.get("title")}: {e}')
 
@@ -199,11 +203,17 @@ class Command(BaseCommand):
             anime.episode_duration = new_duration
             updated = True
 
-        # Статус
-        new_status = self._map_status(material_data.get('anime_status', ''))
-        if anime.status != new_status:
-            anime.status = new_status
-            updated = True
+        # Статус - НЕ обновляем если аниме уже имеет статус анонса
+        raw_status = material_data.get('anime_status', '')
+        new_status = self._map_status(raw_status) if raw_status else None
+        
+        if new_status and anime.status != new_status:
+            # Не меняем статус если текущий - анонс, а новый - вышедший
+            if anime.status == 'announced' and new_status in ('finished', 'released'):
+                self.stdout.write(f'  ⏭️ Пропущен статус (анонс): {anime.title_ru}')
+            else:
+                anime.status = new_status
+                updated = True
 
         # Рейтинг
         new_score = material_data.get('shikimori_rating') or material_data.get('kinopoisk_rating') or 0.0

@@ -313,6 +313,18 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'runos.d.hino@yandex.c
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 
+# Pal24 Payment (pally.info) - устарел
+PAL24_API_TOKEN = os.environ.get('PAL24_API_TOKEN', '')
+PAL24_SHOP_ID = os.environ.get('PAL24_SHOP_ID', '')
+
+# CryptoCloud Payment (криптовалюта - не проверяет контент!)
+CRYPTOCLOUD_API_KEY = os.environ.get('CRYPTOCLOUD_API_KEY', '')
+CRYPTOCLOUD_SHOP_ID = os.environ.get('CRYPTOCLOUD_SHOP_ID', '')
+CRYPTOCLOUD_SECRET_KEY = os.environ.get('CRYPTOCLOUD_SECRET_KEY', '')
+
+# Subscription
+SUBSCRIPTION_PRICE = 399  # Цена за 30 дней в рублях
+
 SITE_URL = os.environ.get('SITE_URL', 'https://anisphere.ru')
 PHONENUMBER_DEFAULT_REGION = 'RU'
 LOGIN_REDIRECT_URL = '/'

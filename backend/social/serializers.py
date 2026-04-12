@@ -39,13 +39,15 @@ class CommentSerializer(serializers.ModelSerializer):
     is_reply = serializers.ReadOnlyField()
     parent_id = serializers.IntegerField(source='parent.id', read_only=True)
     parent_username = serializers.CharField(source='parent.author.username', read_only=True)
+    reply_to_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = [
             'id', 'author', 'author_username', 'author_avatar',
             'text', 'parent', 'parent_id', 'parent_username', 'is_reply', 'replies_count',
-            'created_at', 'updated_at', 'is_deleted'
+            'reply_to', 'reply_to_data',
+            'created_at', 'updated_at', 'is_deleted', 'is_edited'
         ]
         read_only_fields = ['id', 'author', 'created_at', 'updated_at']
 
@@ -53,6 +55,19 @@ class CommentSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'replies'):
             return obj.replies.filter(is_deleted=False).count()
         return obj.replies.count() if hasattr(obj, 'replies') else 0
+
+    def get_reply_to_data(self, obj):
+        """Получаем данные о комментарии, на который ответили"""
+        if obj.reply_to:
+            return {
+                'id': obj.reply_to.id,
+                'author_id': obj.reply_to.author_id,
+                'author_username': obj.reply_to.author.username,
+                'author_avatar': obj.reply_to.author.avatar.url if obj.reply_to.author.avatar else None,
+                'text': obj.reply_to.text,
+                'created_at': obj.reply_to.created_at.isoformat() if obj.reply_to.created_at else None,
+            }
+        return None
 
 
 class CommentCreateSerializer(serializers.ModelSerializer):
@@ -508,6 +523,7 @@ class MessageSerializer(serializers.ModelSerializer):
     sender_avatar = serializers.ImageField(source='sender.avatar', read_only=True)
     reply_text = serializers.CharField(source='reply_to.text', read_only=True)
     reply_sender_username = serializers.CharField(source='reply_to.sender.username', read_only=True)
+    reply_to_message = serializers.SerializerMethodField()
     media_url = serializers.ImageField(source='media', read_only=True)
     shared_post_data = PostSerializer(source='shared_post', read_only=True)
     shared_anime_title = serializers.CharField(source='shared_anime.title_ru', read_only=True)
@@ -534,7 +550,7 @@ class MessageSerializer(serializers.ModelSerializer):
             'shared_anime', 'shared_anime_title', 'shared_anime_poster', 'shared_anime_data',
             'shared_playlist', 'shared_playlist_data',
             'shared_shorts', 'shared_shorts_data',
-            'reply_to', 'reply_text', 'reply_sender_username',
+            'reply_to', 'reply_text', 'reply_sender_username', 'reply_to_message',
             'is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'deleted_by',
             'is_pinned', 'pinned_by', 'pinned_by_username', 'pinned_at',
             'forwarded_from', 'forwarded_from_data',
@@ -609,6 +625,41 @@ class MessageSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.sender_id == request.user.id
+
+    def get_reply_to_message(self, obj):
+        """Получаем полные данные о цитируемом сообщении"""
+        if obj.reply_to:
+            reply_sender_avatar = None
+            if obj.reply_to.sender.avatar:
+                try:
+                    reply_sender_avatar = obj.reply_to.sender.avatar.url
+                    request = self.context.get('request')
+                    if request and reply_sender_avatar and not reply_sender_avatar.startswith('http'):
+                        reply_sender_avatar = request.build_absolute_uri(reply_sender_avatar)
+                except Exception:
+                    pass
+            
+            reply_media = None
+            if obj.reply_to.media:
+                try:
+                    reply_media = obj.reply_to.media.url
+                    request = self.context.get('request')
+                    if request and reply_media and not reply_media.startswith('http'):
+                        reply_media = request.build_absolute_uri(reply_media)
+                except Exception:
+                    pass
+            
+            return {
+                'id': obj.reply_to.id,
+                'text': obj.reply_to.text,
+                'sender_id': obj.reply_to.sender.id,
+                'sender_username': obj.reply_to.sender.username,
+                'sender_avatar': reply_sender_avatar,
+                'media': reply_media,
+                'media_type': obj.reply_to.media_type,
+                'created_at': obj.reply_to.created_at,
+            }
+        return None
 
     def get_forwarded_from_data(self, obj):
         """Получаем данные о пересланном сообщении"""

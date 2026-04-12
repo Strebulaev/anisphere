@@ -61,6 +61,15 @@ interface Comment {
   created_at: string
   updated_at: string
   is_deleted: boolean
+  is_edited: boolean
+  reply_to?: {
+    id: number
+    author_id: number
+    author_username: string
+    author_avatar: string | null
+    text: string
+    created_at: string
+  }
 }
 
 interface Props {

@@ -367,11 +367,18 @@ def get_bookmarks_folders(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def repost_post(request, post_id):
-    """Сделать репост или выполнить действие с репостом"""
+    """Сделать репост или выполнить действие с репостом.
+    
+    Поддерживает репост:
+    - В ленту (destination='feed')
+    - В группу (destination='group', target_id=group_id)
+    - В чат (destination='chat', target_id=chat_id)
+    """
     original_post = get_object_or_404(Post, id=post_id)
     
     # Проверяем действие
     action = request.data.get('action', 'repost')  # repost, unrepost, forward
+    destination = request.data.get('destination', 'feed')  # feed, group, chat
     
     if action == 'unrepost':
         # Удалить репост
@@ -386,14 +393,14 @@ def repost_post(request, post_id):
         
         return Response({'success': True, 'removed': deleted > 0, 'action': 'unrepost'})
     
-    elif action == 'forward':
+    elif action == 'forward' or destination == 'chat':
         # Переслать в чат
-        chat_id = request.data.get('chat_id')
+        chat_id = request.data.get('chat_id') or request.data.get('target_id')
         chat_type = request.data.get('chat_type', 'private')
         message_text = request.data.get('message', '')
         
         if not chat_id:
-            return Response({'error': 'Требуется chat_id'}, status=400)
+            return Response({'error': 'Требуется chat_id или target_id'}, status=400)
         
         # Проверяем доступ к чату
         if chat_type == 'group':
@@ -426,11 +433,59 @@ def repost_post(request, post_id):
         return Response({
             'success': True,
             'message_id': message.id,
+            'chat_id': chat.id,
             'action': 'forward'
         })
     
+    elif destination == 'group':
+        # Репост в группу - создаём пост в группе
+        group_id = request.data.get('target_id') or request.data.get('group_id')
+        comment = request.data.get('comment', '')
+        
+        if not group_id:
+            return Response({'error': 'Требуется group_id или target_id'}, status=400)
+        
+        group = get_object_or_404(GroupChat, id=group_id)
+        
+        # Проверяем доступ к группе
+        if not ChatMember.objects.filter(chat=group, user=request.user).exists():
+            return Response({'error': 'Нет доступа к группе'}, status=403)
+        
+        # Создаём новый пост в группе как репост
+        new_post = Post.objects.create(
+            author=request.user,
+            group=group,
+            post_type='repost',
+            original_post=original_post,
+            text=comment,
+            title=original_post.title,
+            visibility='public',
+            allow_comments=True,
+        )
+        
+        # Копируем медиа если есть
+        for media in original_post.media_files.all():
+            PostMedia.objects.create(
+                post=new_post,
+                media=media.media,
+                media_type=media.media_type,
+                order=media.order
+            )
+        
+        # Обновляем счётчик
+        original_post.reposts_count += 1
+        original_post.save(update_fields=['reposts_count'])
+        
+        from .serializers import PostSerializer
+        return Response({
+            'success': True,
+            'post_id': new_post.id,
+            'action': 'repost_to_group',
+            'post': PostSerializer(new_post, context={'request': request}).data
+        })
+    
     else:
-        # Обычный репост
+        # Обычный репост в ленту
         if original_post.post_type == 'system':
             return Response({'error': 'Нельзя репостнуть системный пост'}, status=400)
         
@@ -459,13 +514,27 @@ def repost_post(request, post_id):
             comment=comment
         )
         
+        # Создаём пост-репост в ленте
+        new_post = Post.objects.create(
+            author=request.user,
+            post_type='repost',
+            original_post=original_post,
+            text=comment,
+            title=original_post.title,
+            visibility='public',
+            allow_comments=True,
+        )
+        
         original_post.reposts_count += 1
         original_post.save(update_fields=['reposts_count'])
         
+        from .serializers import PostSerializer
         return Response({
             'success': True,
             'repost_id': repost.id,
-            'action': 'repost'
+            'post_id': new_post.id,
+            'action': 'repost',
+            'post': PostSerializer(new_post, context={'request': request}).data
         })
 
 
@@ -585,6 +654,8 @@ def report_comment(request, comment_id):
 @permission_classes([IsAuthenticated])
 def edit_post(request, post_id):
     """Редактировать пост"""
+    from .serializers import PostSerializer
+    
     post = get_object_or_404(Post, id=post_id, author=request.user)
     
     # Проверка времени (5 минут)
@@ -597,7 +668,7 @@ def edit_post(request, post_id):
         return Response({'error': 'Нельзя менять тип поста'}, status=400)
     
     if 'title' in request.data:
-        post.title = request.data['title']
+        post.title = request.data['title'][:200] if request.data['title'] else None
     
     if 'text' in request.data:
         text = request.data['text']
@@ -606,19 +677,23 @@ def edit_post(request, post_id):
         post.text = text
     
     if 'visibility' in request.data:
-        post.visibility = request.data['visibility']
+        if request.data['visibility'] in ['public', 'followers', 'friends', 'private']:
+            post.visibility = request.data['visibility']
     
     if 'allow_comments' in request.data:
-        post.allow_comments = request.data['allow_comments']
+        post.allow_comments = bool(request.data['allow_comments'])
     
     if 'is_spoiler' in request.data:
-        post.is_spoiler = request.data['is_spoiler']
+        post.is_spoiler = bool(request.data['is_spoiler'])
     
     post.edited_at = timezone.now()
     post.save()
     
-    from .serializers import PostSerializer
-    return Response(PostSerializer(post, context={'request': request}).data)
+    return Response({
+        'success': True,
+        'message': 'Пост обновлён',
+        'post': PostSerializer(post, context={'request': request}).data
+    })
 
 
 @api_view(['PUT'])
@@ -1149,7 +1224,7 @@ def join_chat_by_invite(request, token):
     invite.delete()
     
     return Response({'success': True, 'chat_id': chat.id})
-
+     
 
 # ==================== REACTIONS ====================
 
@@ -1195,8 +1270,67 @@ class AttachmentViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_attachment(request, message_id):
-    """Загрузить вложение"""
-    return Response({'success': True, 'url': ''})
+    """Загрузить вложение к сообщению"""
+    from .models import Message, Attachment
+    from django.core.files.storage import default_storage
+    import os
+    
+    message = get_object_or_404(Message, id=message_id)
+    
+    # Проверяем доступ к сообщению (пользователь должен быть отправителем или получателем)
+    if message.sender != request.user:
+        # Для групповых чатов
+        if hasattr(message, 'chat') and message.chat:
+            from .models import ChatMember
+            if not ChatMember.objects.filter(chat=message.chat, user=request.user).exists():
+                return Response({'error': 'Нет доступа'}, status=403)
+        # Для приватных чатов
+        elif hasattr(message, 'private_chat') and message.private_chat:
+            pc = message.private_chat
+            if pc.user1 != request.user and pc.user2 != request.user:
+                return Response({'error': 'Нет доступа'}, status=403)
+        else:
+            return Response({'error': 'Нет доступа'}, status=403)
+
+    if 'file' not in request.FILES:
+        return Response({'error': 'Файл не найден'}, status=400)
+    
+    file = request.FILES['file']
+    
+    # Определяем тип файла
+    mime_type = file.content_type
+    media_type = 'file'
+    if mime_type.startswith('image/'):
+        media_type = 'image'
+    elif mime_type.startswith('video/'):
+        media_type = 'video'
+    elif mime_type.startswith('audio/'):
+        media_type = 'audio'
+    
+    # Сохраняем файл
+    file_path = f'message_attachments/{message_id}/{file.name}'
+    file_url = default_storage.save(file_path, file)
+    file_full_url = request.build_absolute_uri(default_storage.url(file_url))
+    
+    # Создаём запись Attachment
+    attachment = Attachment.objects.create(
+        message=message,
+        file=file,
+        file_name=file.name,
+        file_size=file.size,
+        mime_type=mime_type,
+        type=media_type
+    )
+    
+    return Response({
+        'success': True,
+        'id': attachment.id,
+        'url': file_full_url,
+        'file_name': file.name,
+        'file_size': file.size,
+        'mime_type': mime_type,
+        'type': media_type
+    })
 
 
 # ==================== MESSAGE ACTIONS ====================
@@ -1844,11 +1978,27 @@ def get_chats_for_forward(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def forward_post_to_chat(request, chat_id):
-    """Переслать пост в чат"""
+def forward_post_to_chat(request, chat_id=None):
+    """Переслать пост в чат.
+    
+    Поддерживает два формата:
+    1. URL с chat_id: POST /chats/{chat_id}/forward/
+    2. URL без chat_id: POST /chats/forward/ с chat_id в body
+    """
     post_id = request.data.get('post_id')
     if not post_id:
         return Response({'error': 'Требуется post_id'}, status=400)
+    
+    # Получаем chat_id из URL или из body
+    if chat_id is None:
+        chat_id = request.data.get('chat_id')
+        if not chat_id:
+            return Response({'error': 'Требуется chat_id (в URL или в body)'}, status=400)
+    
+    try:
+        chat_id = int(chat_id)
+    except (ValueError, TypeError):
+        return Response({'error': 'chat_id должен быть числом'}, status=400)
     
     post = get_object_or_404(Post, id=post_id)
     
@@ -1894,10 +2044,11 @@ def forward_post_to_chat(request, chat_id):
             return Response({'error': 'Ошибка проверки доступа к чату'}, status=403)
     
     # Создаём сообщение с постом
+    message_text = request.data.get('message', '')
     message = Message.objects.create(
         sender=request.user,
-        shared_post=post,
-        text=request.data.get('message', '')
+        text=message_text,
+        shared_post=post
     )
     
     if chat_type == 'group':
@@ -1908,12 +2059,13 @@ def forward_post_to_chat(request, chat_id):
     message.save()
     
     # Обновляем счётчик репостов
-    post.shares_count += 1
+    post.shares_count = (post.shares_count or 0) + 1
     post.save(update_fields=['shares_count'])
     
     return Response({
         'success': True,
         'message_id': message.id,
+        'chat_id': chat.id,
         'message': 'Пост переслан'
     })
 
@@ -2236,7 +2388,7 @@ class NotInterestedViewSet(viewsets.ViewSet):
                 Q(target_user__username__icontains=search) |
                 Q(target_user__display_name__icontains=search)
             )
-
+            
         qs = qs.order_by('-created_at')
         total = qs.count()
         offset = (page - 1) * page_size
@@ -2526,7 +2678,7 @@ def get_franchise_discussion_group(request, franchise_id):
         chat=chat, user=request.user,
         defaults={'is_admin': created}
     )
-    
+     
     # Общая тема
     ChatTopic.objects.get_or_create(
         chat=chat, anime=None,
@@ -2600,191 +2752,7 @@ def join_franchise_discussion_group(request, franchise_id):
         return Response({'error': 'Вы заблокированы в этом чате'}, status=403)
     
     # Добавляем пользователя
-    ChatMember.objects.get_or_create(
-        chat=chat, user=request.user,
-        defaults={'is_admin': False}
-    )
+    ChatMember.objects.get_or_create(chat=chat, user=request.user)
     
-    return Response({
-        'success': True,
-        'chat_id': chat.id,
-        'message': 'Вы присоединились к обсуждению'
-    })
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_anime_discussion_group(request, anime_id):
-    """Получить или создать групповой чат для обсуждения аниме.
-    
-    Если аниме входит во франшизу — возвращаем franchise-группу (с топиками),
-    автоматически создавая её при первом обращении.
-    Для одиночного аниме создаём обычный discussion-чат.
-    """
-    try:
-        from anime.models import Anime, Franchise
-        from .models import GroupChat, ChatMember
-        
-        # Получаем чистый Django request для построения URL
-        django_request = request._request if hasattr(request, '_request') else request
-        
-        anime = Anime.objects.select_related('franchise').get(id=anime_id)
-    except Exception as e:
-        return Response({'error': 'Аниме не найдено'}, status=404)
-
-    try:
-        def _get_poster_url(obj, req=None):
-            if obj is None:
-                return None
-            if getattr(obj, 'poster', None) and hasattr(obj.poster, 'url'):
-                url = obj.poster.url
-                if req:
-                    return req.build_absolute_uri(url)
-                return url
-            if getattr(obj, 'poster_url', None):
-                return obj.poster_url
-            return None
-
-        # ── Аниме входит во франшизу ──────────────────────────────────────
-        if anime.franchise_id:
-            franchise = anime.franchise
-
-            # Постер франшизы — берём у первой части
-            first_part = (
-                Anime.objects.filter(franchise=franchise)
-                .order_by('franchise_order', 'year', 'id')
-                .first()
-            )
-            franchise_poster_url = _get_poster_url(franchise, django_request) or _get_poster_url(first_part, django_request)
-
-            # Ищем или создаём главную группу франшизы
-            chat, created = GroupChat.objects.get_or_create(
-                franchise_id=franchise.id,
-                defaults={
-                    'name': franchise.name,
-                    'description': franchise.description or '',
-                    'created_by': request.user,
-                    'is_public': True,
-                    'discussion_type': 'franchise',
-                    'folder_type': 'discussions',
-                }
-            )
-
-            # Исправляем название если нужно
-            if not created:
-                dirty = False
-                clean_name = franchise.name
-                if chat.name != clean_name and (
-                    chat.name.startswith('Обсуждение:') or
-                    chat.name.startswith('Обсуждение ') or
-                    chat.name.lower().startswith('обсуждение')
-                ):
-                    chat.name = clean_name
-                    dirty = True
-                if dirty:
-                    chat.save(update_fields=['name'])
-
-            # Убеждаемся что пользователь в чате
-            ChatMember.objects.get_or_create(
-                chat=chat, user=request.user,
-                defaults={'is_admin': created}
-            )
-
-            # ChatTopic
-            from .models_chat import ChatTopic
-
-            # Общая тема
-            ChatTopic.objects.get_or_create(
-                chat=chat, anime=None,
-                defaults={'title': franchise.name, 'order': 0}
-            )
-
-            # Темы для каждой части
-            parts = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id')
-            for idx, part in enumerate(parts, start=1):
-                ChatTopic.objects.get_or_create(
-                    chat=chat, anime=part,
-                    defaults={
-                        'title': part.title_ru or part.title_en or f'Часть #{part.id}',
-                        'order': idx,
-                    }
-                )
-
-            # Сериализуем с топиками
-            topics = ChatTopic.objects.filter(chat=chat).order_by('order').select_related('anime')
-            topics_data = []
-            for t in topics:
-                poster = _get_poster_url(t.anime, django_request) if t.anime else franchise_poster_url
-                is_current = t.anime_id == anime_id if t.anime_id else False
-                topics_data.append({
-                    'id': t.id,
-                    'title': t.title,
-                    'order': t.order,
-                    'anime_id': t.anime_id,
-                    'anime_title': (t.anime.title_ru or t.anime.title_en) if t.anime else None,
-                    'poster_url': poster,
-                    'is_general': t.anime_id is None,
-                    'is_current': is_current,
-                })
-
-            chat_data = GroupChatSerializer(chat, context={'request': request}).data
-            if not chat_data.get('avatar') and franchise_poster_url:
-                chat_data['avatar'] = franchise_poster_url
-            if not chat_data.get('avatar_url') and franchise_poster_url:
-                chat_data['avatar_url'] = franchise_poster_url
-            chat_data['topics'] = topics_data
-            chat_data['discussion_type'] = 'franchise'
-            chat_data['type'] = 'franchise'
-            chat_data['franchise_id'] = franchise.id
-            chat_data['franchise'] = {
-                'id': franchise.id,
-                'name': franchise.name,
-            }
-            
-            return Response(chat_data)
-        
-        # ── Аниме НЕ входит во франшизу ───────────────────────────────────
-        else:
-            # Обычный чат обсуждения аниме
-            chat_name = f"Обсуждение: {anime.title_ru or anime.title_en}"
-            
-            chat, created = GroupChat.objects.get_or_create(
-                anime_id=anime.id,
-                defaults={
-                    'name': chat_name,
-                    'description': f'Обсуждение аниме {anime.title_ru or anime.title_en}',
-                    'created_by': request.user,
-                    'is_public': True,
-                    'discussion_type': 'anime',
-                    'folder_type': 'discussions',
-                }
-            )
-            
-            # Убеждаемся что пользователь в чате
-            ChatMember.objects.get_or_create(
-                chat=chat, user=request.user,
-                defaults={'is_admin': created}
-            )
-            
-            # Сериализуем
-            chat_data = GroupChatSerializer(chat, context={'request': request}).data
-            anime_poster_url = _get_poster_url(anime, django_request)
-            if not chat_data.get('avatar') and anime_poster_url:
-                chat_data['avatar'] = anime_poster_url
-            if not chat_data.get('avatar_url') and anime_poster_url:
-                chat_data['avatar_url'] = anime_poster_url
-            chat_data['discussion_type'] = 'anime'
-            chat_data['type'] = 'anime'
-            chat_data['anime_id'] = anime.id
-            chat_data['anime'] = {
-                'id': anime.id,
-                'title_ru': anime.title_ru,
-                'title_en': anime.title_en,
-            }
-            
-            return Response(chat_data)
-    
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Error in get_anime_discussion_group: {e}")
-        return Response({'error': 'Внутренняя ошибка сервера'}, status=500)
+    return Response({'success': True, 'chat_id': chat.id})
+     

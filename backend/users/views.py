@@ -51,15 +51,49 @@ class CurrentUserView(APIView):
         from .serializers import UserSerializer
         data = UserSerializer(user).data
         data['avatar_url'] = user.avatar.url if user.avatar else None
+        
+        # Проверяем премиум статус
+        is_premium = False
+        try:
+            sub = user.subscription
+            is_premium = sub.is_premium
+        except Exception:
+            pass
+        
         try:
             profile = user.profile_settings
             data['birth_date'] = str(profile.birth_date) if getattr(profile, 'birth_date', None) else None
-            data['social_links'] = getattr(profile, 'social_links', []) or []
-            data['status']      = getattr(profile, 'status', 'online') or 'online'
+            data['status'] = getattr(profile, 'status', 'online') or 'online'
+            # Social links только для премиум
+            data['social_links'] = getattr(profile, 'social_links', []) or [] if is_premium else []
         except Exception:
             data['birth_date']  = None
-            data['social_links'] = []
             data['status']      = 'online'
+            data['social_links'] = []
+        
+        # Cover image только для премиум
+        if is_premium:
+            data['cover_image'] = user.cover_image.url if user.cover_image else None
+            data['cover_image_url'] = user.cover_image.url if user.cover_image else None
+        else:
+            data['cover_image'] = None
+            data['cover_image_url'] = None
+        
+        data['is_premium'] = is_premium
+        
+        # Добавляем информацию о подписке
+        try:
+            from .models import Subscription
+            sub = user.subscription
+            data['subscription'] = {
+                'is_active': sub.is_premium,
+                'started_at': sub.started_at.isoformat() if sub.started_at else None,
+                'expires_at': sub.expires_at.isoformat() if sub.expires_at else None,
+                'auto_renew': sub.auto_renew,
+            }
+        except Exception:
+            data['subscription'] = None
+        
         return Response(data)
 
     def put(self, request):
@@ -117,8 +151,25 @@ class CurrentUserView(APIView):
 
         profile_fields = {}
         if 'birth_date'   in request.data: profile_fields['birth_date']   = request.data['birth_date'] or None
-        if 'social_links' in request.data: profile_fields['social_links'] = request.data['social_links']
         if 'status'       in request.data: profile_fields['status']       = request.data['status']
+        
+        # Social links - только для премиум пользователей
+        if 'social_links' in request.data:
+            # Проверяем премиум статус
+            is_premium = getattr(user, 'is_premium', False)
+            if not is_premium:
+                try:
+                    is_premium = user.subscription.is_premium
+                except:
+                    is_premium = False
+            
+            if not is_premium:
+                return Response(
+                    {'error': 'Добавление социальных сетей доступно только для Премиум пользователей'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            profile_fields['social_links'] = request.data['social_links']
+
         if profile_fields:
             profile, _ = UserProfileSettings.objects.get_or_create(user=user)
             for k, v in profile_fields.items():
@@ -229,7 +280,7 @@ def send_verification_email(email, code_or_link, is_link=False):
     except Exception as e:
         print(f"Email send error: {e}")
         return False
-
+        
 
 class RegisterView(generics.CreateAPIView):
     """����������� ������ ������������"""
@@ -2288,177 +2339,4 @@ class UsersListView(APIView):
         return Response({
             'results': result,
             'count': len(result),
-            'tab': tab,
-            'online_count': len(online_ids),
-            'online_ids': list(online_ids),
         })
-
-
-# ==================== ПОДДЕРЖКА ====================
-
-class SupportTicketViewSet(viewsets.ViewSet):
-    """ViewSet для обращений в поддержку"""
-    permission_classes = [IsAuthenticated]
-
-    def list(self, request):
-        """Список обращений пользователя или всех (для админа)"""
-        user = request.user
-        
-        # Админы видят все обращения
-        if user.is_staff or user.is_superuser or user.username == 'kaiden812':
-            tickets = SupportTicket.objects.all().order_by('-created_at')[:50]
-        else:
-            tickets = SupportTicket.objects.filter(user=user).order_by('-created_at')
-        
-        serializer = SupportTicketListSerializer(tickets, many=True, context={'request': request})
-        return Response({'results': serializer.data, 'count': len(serializer.data)})
-
-    def create(self, request):
-        """Создать новое обращение"""
-        serializer = SupportTicketCreateSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            ticket = serializer.save()
-            
-            # Создаём первое сообщение с описанием проблемы
-            SupportMessage.objects.create(
-                ticket=ticket,
-                sender=request.user,
-                message=ticket.description,
-                is_from_admin=False
-            )
-            
-            return Response(
-                SupportTicketSerializer(ticket, context={'request': request}).data,
-                status=status.HTTP_201_CREATED
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def retrieve(self, request, pk=None):
-        """Получить обращение по ID"""
-        try:
-            ticket = SupportTicket.objects.get(pk=pk)
-        except SupportTicket.DoesNotExist:
-            return Response({'error': 'Обращение не найдено'}, status=404)
-        
-        # Проверяем доступ
-        user = request.user
-        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812' or ticket.user == user):
-            return Response({'error': 'Доступ запрещён'}, status=403)
-        
-        serializer = SupportTicketSerializer(ticket, context={'request': request})
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post'])
-    def reply(self, request, pk=None):
-        """Отправить сообщение в обращение"""
-        try:
-            ticket = SupportTicket.objects.get(pk=pk)
-        except SupportTicket.DoesNotExist:
-            return Response({'error': 'Обращение не найдено'}, status=404)
-        
-        user = request.user
-        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812' or ticket.user == user):
-            return Response({'error': 'Доступ запрещён'}, status=403)
-        
-        message_text = request.data.get('message')
-        if not message_text:
-            return Response({'error': 'Сообщение не может быть пустым'}, status=400)
-        
-        # Определяем, от админа ли сообщение
-        is_admin = user.is_staff or user.is_superuser or user.username == 'kaiden812'
-        
-        # Создаём сообщение
-        message = SupportMessage.objects.create(
-            ticket=ticket,
-            sender=user,
-            message=message_text,
-            is_from_admin=is_admin
-        )
-        
-        # Обновляем статус обращения
-        if is_admin:
-            # Если админ ответил - меняем статус на "в работе"
-            if ticket.status == 'open':
-                ticket.status = 'in_progress'
-                ticket.assigned_to = user
-                ticket.save()
-        else:
-            # Если пользователь ответил - меняем статус на "ожидание"
-            if ticket.status in ['in_progress', 'resolved']:
-                ticket.status = 'waiting'
-                ticket.save()
-        
-        return Response(SupportMessageSerializer(message).data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=['post'])
-    def close(self, request, pk=None):
-        """Закрыть обращение"""
-        try:
-            ticket = SupportTicket.objects.get(pk=pk)
-        except SupportTicket.DoesNotExist:
-            return Response({'error': 'Обращение не найдено'}, status=404)
-        
-        user = request.user
-        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812' or ticket.user == user):
-            return Response({'error': 'Доступ запрещён'}, status=403)
-        
-        ticket.status = 'closed'
-        ticket.resolved_at = timezone.now()
-        ticket.save()
-        
-        return Response({'success': True, 'message': 'Обращение закрыто'})
-
-    @action(detail=True, methods=['post'])
-    def reopen(self, request, pk=None):
-        """Переоткрыть обращение"""
-        try:
-            ticket = SupportTicket.objects.get(pk=pk)
-        except SupportTicket.DoesNotExist:
-            return Response({'error': 'Обращение не найдено'}, status=404)
-        
-        user = request.user
-        if ticket.user != user:
-            return Response({'error': 'Доступ запрещён'}, status=403)
-        
-        if ticket.status not in ['closed', 'resolved']:
-            return Response({'error': 'Можно переоткрыть только закрытые обращения'}, status=400)
-        
-        ticket.status = 'in_progress'
-        ticket.resolved_at = None
-        ticket.save()
-        
-        return Response({'success': True, 'message': 'Обращение переоткрыто'})
-
-    @action(detail=False, methods=['get'])
-    def unread_count(self, request):
-        """Получить количество непрочитанных сообщений (для админа)"""
-        user = request.user
-        
-        if not (user.is_staff or user.is_superuser or user.username == 'kaiden812'):
-            return Response({'count': 0})
-        
-        # Считаем обращения с непрочитанными сообщениями от пользователей
-        from django.db.models import Count
-        tickets_with_unread = SupportTicket.objects.annotate(
-            unread=Count('messages', filter=Q(messages__is_read=False) & ~Q(messages__sender=user))
-        ).filter(unread__gt=0)
-        
-        return Response({'count': tickets_with_unread.count()})
-
-    @action(detail=True, methods=['post'])
-    def mark_read(self, request, pk=None):
-        """Отметить сообщения как прочитанные"""
-        try:
-            ticket = SupportTicket.objects.get(pk=pk)
-        except SupportTicket.DoesNotExist:
-            return Response({'error': 'Обращение не найдено'}, status=404)
-        
-        user = request.user
-        
-        # Отмечаем все непрочитанные сообщения как прочитанные
-        updated = ticket.messages.filter(is_read=False).exclude(sender=user).update(
-            is_read=True,
-            read_at=timezone.now()
-        )
-        
-        return Response({'success': True, 'marked_count': updated})

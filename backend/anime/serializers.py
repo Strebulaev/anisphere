@@ -175,7 +175,7 @@ class AnimeSerializer(serializers.ModelSerializer):
         model = Anime
         fields = [
             'id', 'title_ru', 'title_en', 'title_jp',
-            'description', 'year', 'status', 'kind', 'episodes',
+            'description', 'year', 'release_date', 'release_date_string', 'status', 'kind', 'episodes',
             'score', 'poster_url', 'poster', 'poster_image_url', 'genres', 'studios',
             'movies', 'ovas', 'movie_count', 'ova_count', 'total_items',
             'created_at', 'updated_at', 'shikimori_id', 'data_source',
@@ -310,7 +310,7 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
         model = Anime
         fields = [
             'id', 'title_ru', 'title_en', 'title_jp',
-            'description', 'year', 'status', 'kind', 'episodes',
+            'description', 'year', 'release_date', 'release_date_string', 'status', 'kind', 'episodes',
             'score', 'poster_url', 'poster', 'poster_image_url', 'genres', 'studios',
             'movies', 'ovas', 'movie_count', 'ova_count', 'total_items',
             'created_at', 'updated_at', 'data_source', 'shikimori_id',

@@ -4,7 +4,10 @@
       <!-- Подписаться/Отписаться (всегда видна, если не свой пост) -->
       <template v-if="!isOwnPost">
         <button @click="handleFollowToggle" class="menu-item" :disabled="followLoading">
-          <span class="icon">{{ isFollowing ? '🔕' : '<SakuraIcon name="bell" />' }}</span>
+          <span class="icon">
+            <SakuraIcon v-if="isFollowing" name="bell-off" :size="20" />
+            <SakuraIcon v-else name="bell" :size="20" />
+          </span>
           <span>{{ followLoading ? '...' : (isFollowing ? 'Отписаться' : 'Подписаться') }}</span>
         </button>
         <div class="menu-divider"></div>
@@ -34,7 +37,10 @@
 
       <!-- Common actions -->
       <button @click="handleBookmark" class="menu-item" :disabled="bookmarkLoading">
-        <span class="icon">{{ post.is_bookmarked ? '<SakuraIcon name="star" />' : '☆' }}</span>
+        <span class="icon">
+          <SakuraIcon v-if="post.is_bookmarked" name="bookmark-remove" :size="20" />
+          <SakuraIcon v-else name="bookmark" :size="20" />
+        </span>
         <span>{{ post.is_bookmarked ? 'Убрать из закладок' : 'В закладки' }}</span>
       </button>
 

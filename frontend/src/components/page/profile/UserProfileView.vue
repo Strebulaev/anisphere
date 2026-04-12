@@ -15,9 +15,10 @@
     <!-- Профиль пользователя -->
     <div v-else class="profile-content">
       <!-- Шапка профиля -->
-      <div class="profile-header">
-        <!-- Обложка профиля -->
+      <div class="profile-header" :class="{ 'has-cover': user.is_premium && user.cover_image_url }">
+        <!-- Обложка профиля (только для премиум) -->
         <div 
+          v-if="user.is_premium && user.cover_image_url"
           class="header-background" 
           :style="coverImageStyle"
         >
@@ -48,8 +49,14 @@
           </div>
 
           <div class="user-info">
-            <h1>{{ user.display_name || user.nickname || user.username }}</h1>
-            <p class="username">@{{ user.nickname || user.username }}</p>
+            <h1>
+              {{ user.display_name || user.nickname || user.username }}
+              <PremiumCrown v-if="user.is_premium" :size="24" class="premium-crown-inline" />
+            </h1>
+            <p class="username">
+              @{{ user.nickname || user.username }}
+              <PremiumCrown v-if="user.is_premium" :size="16" class="premium-crown-username" />
+            </p>
             <p class="bio">{{ user.bio || 'Пользователь пока ничего не написал о себе' }}</p>
 
             <div class="user-meta">
@@ -122,6 +129,10 @@
         >
           {{ tab.name }}
         </button>
+        <!-- <router-link :to="isOwnProfile ? '/chats/create-group' : '/chats/groups'" class="tab-btn-create">
+          <SakuraIcon name="plus" :size="16" />
+          {{ isOwnProfile ? 'Создать группу' : 'Группы' }}
+        </router-link> -->
       </div>
 
       <!-- Контент вкладок -->
@@ -164,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -182,6 +193,7 @@ import ProfileAbout from '@/components/Profile/ProfileAbout.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import EditProfileModal from '@/components/modal/profile/EditProfileModal.vue'
+import PremiumCrown from '@/components/icons/PremiumCrown.vue'
 import api from '@/api'
 
 interface UserProfile {
@@ -197,6 +209,7 @@ interface UserProfile {
   cover_image_url?: string
   cover_image?: string
   is_online?: boolean
+  is_premium?: boolean
 }
 
 interface UserStats {
@@ -229,14 +242,20 @@ const activeTab = ref('feed')
 const loading = ref(true)
 const showEditModal = ref(false)
 
-const tabs = [
-  { id: 'feed', name: 'Лента' },
-  { id: 'anime', name: 'Аниме' },
-  { id: 'playlists', name: 'Плейлисты' },
-  { id: 'social', name: 'Соцсети' },
-  { id: 'favorites', name: 'Избранное' },
-  { id: 'about', name: 'О себе' },
-]
+const tabs = computed(() => {
+  const baseTabs = [
+    { id: 'feed', name: 'Лента' },
+    { id: 'anime', name: 'Аниме' },
+    { id: 'playlists', name: 'Плейлисты' },
+    { id: 'favorites', name: 'Избранное' },
+    { id: 'about', name: 'О себе' },
+  ]
+  // Вкладка соцсетей только для премиум
+  if (user.value.is_premium) {
+    baseTabs.splice(3, 0, { id: 'social', name: 'Соцсети' })
+  }
+  return baseTabs
+})
 
 const currentUser = computed(() => authStore.user)
 
@@ -368,7 +387,7 @@ const openChat = async () => {
   }
   try {
     const response = await api.post('/chats/private/', { user_id: userId.value })
-    router.push(`/chats/${response.data.id}`)
+    router.push(`/chat/${response.data.id}`)
   } catch (error) {
     console.error('Ошибка создания чата:', error)
     alert('Не удалось создать чат')
@@ -442,6 +461,13 @@ onMounted(async () => {
   await loadProfile()  // сначала загружаем профиль чтобы получить числовой userId
   loadStats()
   loadFollowStatus()
+})
+
+// Переключаем вкладку если текущая - social и премиум пропал
+watch(() => user.value.is_premium, (isPremium) => {
+  if (!isPremium && activeTab.value === 'social') {
+    activeTab.value = 'feed'
+  }
 })
 </script>
 
@@ -538,6 +564,15 @@ onMounted(async () => {
   margin-top: -80px;
 }
 
+/* Если нет обложки - аватар не накладывается */
+.profile-header:not(.has-cover) .header-content {
+  margin-top: 24px;
+}
+
+.profile-header.has-cover .header-content {
+  margin-top: -80px;
+}
+
 .avatar-section {
   position: relative;
   display: inline-block;
@@ -552,6 +587,18 @@ onMounted(async () => {
   margin: 0 0 4px;
   font-size: 28px;
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.premium-crown-inline {
+  vertical-align: middle;
+}
+
+.premium-crown-username {
+  vertical-align: middle;
+  margin-left: 4px;
 }
 
 .username {
@@ -722,6 +769,30 @@ onMounted(async () => {
 .tab-btn.active {
   color: var(--color-accent);
   border-bottom-color: var(--color-accent);
+}
+
+.tab-btn-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-button) var(--radius-button) 0 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+  margin-left: auto;
+}
+
+.tab-btn-create:hover {
+  background: var(--color-accent-hover);
+  color: #fff;
 }
 
 .tab-content-container {

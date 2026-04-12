@@ -45,7 +45,7 @@ const copyCryptoAddress = (address: string) => {
           <li><SakuraIcon name="rocket" /> Оплачивать серверы и хостинг</li>
           <li><SakuraIcon name="save" /> Обеспечивать резервное копирование данных</li>
           <li><SakuraIcon name="sparkles" /> Добавлять новые функции</li>
-          <li>🐛 Улучшать производительность</li>
+          <li><SakuraIcon name="bug" /> Улучшать производительность</li>
         </ul>
       </section>
 

@@ -277,6 +277,14 @@ class PlaylistViewSet(viewsets.ModelViewSet):
         playlist = self.get_object()
         if playlist.user != request.user:
             return Response({'error': 'Нет прав'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Если передан файл - загружаем его
+        if 'cover_image' in request.FILES:
+            playlist.cover_image = request.FILES['cover_image']
+            playlist.save(update_fields=['cover_image', 'updated_at'])
+            return Response(self.get_serializer(playlist).data)
+        
+        # Иначе обновляем обложку из элементов плейлиста
         cover_url = playlist.update_cover()
         if cover_url:
             return Response(self.get_serializer(playlist).data)

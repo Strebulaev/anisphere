@@ -113,6 +113,8 @@
       <button
         @click="toggleLike"
         :class="['action-btn', { active: post.is_liked }]"
+        :disabled="!canInteract"
+        :title="!canInteract ? 'Взаимодействие недоступно' : ''"
       >
         <HandThumbUpIcon class="w-5 h-5" />
         <span v-if="post.likes_count > 0">{{ post.likes_count }}</span>
@@ -121,22 +123,39 @@
       <button
         @click="toggleDislike"
         :class="['action-btn', { active: post.is_disliked }]"
+        :disabled="!canInteract"
+        :title="!canInteract ? 'Взаимодействие недоступно' : ''"
       >
         <HandThumbDownIcon class="w-5 h-5" />
         <span v-if="post.dislikes_count > 0">{{ post.dislikes_count }}</span>
       </button>
 
-      <button @click="toggleComments" class="action-btn">
+      <button
+        @click="toggleComments"
+        class="action-btn"
+        :disabled="!canInteract"
+        :title="!canInteract ? 'Взаимодействие недоступно' : ''"
+      >
         <ChatBubbleLeftIcon class="w-5 h-5" />
         <span v-if="post.comments_count > 0">{{ post.comments_count }}</span>
       </button>
 
-      <button @click="repostPost" class="action-btn">
+      <button
+        @click="repostPost"
+        class="action-btn"
+        :disabled="!canInteract"
+        :title="!canInteract ? 'Взаимодействие недоступно' : ''"
+      >
         <ArrowPathIcon class="w-5 h-5" />
         <span v-if="post.reposts_count > 0">{{ post.reposts_count }}</span>
       </button>
 
-      <button @click="shareInChat" class="action-btn">
+      <button
+        @click="shareInChat"
+        class="action-btn"
+        :disabled="!canInteract"
+        :title="!canInteract ? 'Взаимодействие недоступно' : ''"
+      >
         <ShareIcon class="w-5 h-5" />
       </button>
     </div>
@@ -179,6 +198,10 @@ const props = defineProps({
   isEmbedded: {
     type: Boolean,
     default: false
+  },
+  canInteract: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -232,6 +255,7 @@ const toggleFavorite = async () => {
 }
 
 const toggleLike = async () => {
+  if (!props.canInteract) return
   try {
     const response = await api.post(`/social/posts/${props.post.id}/like/`)
     props.post.is_liked = response.data.liked
@@ -243,6 +267,7 @@ const toggleLike = async () => {
 }
 
 const toggleDislike = async () => {
+  if (!props.canInteract) return
   try {
     const response = await api.post(`/social/posts/${props.post.id}/dislike/`)
     props.post.is_disliked = response.data.disliked
@@ -254,10 +279,12 @@ const toggleDislike = async () => {
 }
 
 const toggleComments = () => {
+  if (!props.canInteract) return
   showComments.value = !showComments.value
 }
 
 const repostPost = () => {
+  if (!props.canInteract) return
   showRepostModal.value = true
 }
 
@@ -343,7 +370,7 @@ const shareToChat = async (chat: any) => {
     })
 
     showShareModal.value = false
-    router.push(`/chats/${chatId}`)
+    router.push(`/chat/${chatId}`)
   } catch (error) {
     console.error('Ошибка отправки в чат:', error)
   }

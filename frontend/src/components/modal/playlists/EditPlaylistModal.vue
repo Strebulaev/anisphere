@@ -35,19 +35,41 @@
           <!-- Текущая обложка -->
           <div v-if="currentCover" class="current-cover">
             <img :src="currentCover" alt="Текущая обложка" />
-            <button
-              type="button"
-              class="remove-cover-btn"
-              @click="removeCover"
-            >
-              Удалить обложку
-            </button>
+            <div class="cover-actions">
+              <label class="upload-cover-btn">
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="handleCoverUpload"
+                  hidden
+                />
+                <SakuraIcon name="camera" :size="16" />
+                Загрузить новую
+              </label>
+              <button
+                type="button"
+                class="remove-cover-btn"
+                @click="removeCover"
+              >
+                Удалить обложку
+              </button>
+            </div>
           </div>
           
           <div v-else class="cover-placeholder">
             <span class="placeholder-icon"> <SakuraIcon name="folder" /> </span>
             <p>Нет обложки</p>
             <p class="placeholder-text">Обложка будет автоматически создана из постеров аниме</p>
+            <label class="upload-cover-btn-manual">
+              <input
+                type="file"
+                accept="image/*"
+                @change="handleCoverUpload"
+                hidden
+              />
+              <SakuraIcon name="camera" :size="16" />
+              Загрузить обложку
+            </label>
           </div>
         </div>
       </div>
@@ -172,6 +194,27 @@ const removeCover = async () => {
     alert('Не удалось удалить обложку')
   }
 }
+
+const handleCoverUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  
+  // Проверка размера файла (макс 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Размер файла не должен превышать 5MB')
+    return
+  }
+  
+  try {
+    const response = await playlistsApi.uploadPlaylistCover(props.playlist.id, file)
+    emit('saved', response.data)
+    emit('close')
+  } catch (error: any) {
+    console.error('Ошибка загрузки обложки:', error)
+    alert('Не удалось загрузить обложку: ' + (error.response?.data?.detail || error.message))
+  }
+}
 </script>
 
 <style scoped>
@@ -232,10 +275,36 @@ const removeCover = async () => {
   display: block;
 }
 
-.remove-cover-btn {
+.cover-actions {
   position: absolute;
   bottom: 0.75rem;
   right: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.upload-cover-btn,
+.upload-cover-btn-manual {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(59, 130, 246, 0.9);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.upload-cover-btn:hover,
+.upload-cover-btn-manual:hover {
+  background: rgba(59, 130, 246, 1);
+}
+
+.remove-cover-btn {
   padding: 0.5rem 1rem;
   background: rgba(239, 68, 68, 0.9);
   color: white;

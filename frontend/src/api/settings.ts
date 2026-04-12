@@ -561,3 +561,161 @@ export default {
   terminateSession,
   terminateAllOtherSessions,
 }
+
+
+// ==================== ПОДПИСКА ====================
+
+export interface SubscriptionInfo {
+  is_active: boolean
+  is_premium: boolean
+  started_at?: string | null
+  expires_at?: string | null
+  auto_renew: boolean
+  payment_method?: string
+  days_left?: number
+}
+
+export interface SubscriptionPrice {
+  base_price: number
+  discount: number
+  final_price: number
+  currency: string
+  period: string
+  features: string[]
+}
+
+export interface PromoValidation {
+  valid: boolean
+  discount_percent?: number
+  discount_amount?: number
+  discount?: number
+  price_after_discount?: number
+  message?: string
+  error?: string
+}
+
+/**
+ * Получить информацию о подписке
+ */
+export const getSubscription = async (): Promise<SubscriptionInfo> => {
+  const response = await client.get('/users/subscription/')
+  return response.data
+}
+
+/**
+ * Активировать подписку (с промокодом)
+ */
+export const activateSubscription = async (promoCode?: string, days?: number): Promise<{
+  success: boolean
+  is_premium: boolean
+  started_at: string | null
+  expires_at: string | null
+  discount_applied: number
+  message: string
+}> => {
+  const response = await client.post('/users/subscription/activate/', {
+    promo_code: promoCode,
+    days: days || 30
+  })
+  return response.data
+}
+
+/**
+ * Деактивировать подписку
+ */
+export const deactivateSubscription = async (): Promise<{ success: boolean; message: string }> => {
+  const response = await client.post('/users/subscription/deactivate/')
+  return response.data
+}
+
+/**
+ * Валидировать промокод
+ */
+export const validatePromoCode = async (code: string): Promise<PromoValidation> => {
+  const response = await client.get('/users/subscription/promo/validate/', {
+    params: { code }
+  })
+  return response.data
+}
+
+/**
+ * Применить промокод
+ */
+export const applyPromoCode = async (code: string): Promise<{
+  success: boolean
+  discount: number
+  price_after_discount: number
+  message: string
+}> => {
+  const response = await client.post('/users/subscription/promo/apply/', { code })
+  return response.data
+}
+
+/**
+ * Получить цену подписки
+ */
+export const getSubscriptionPrice = async (promoCode?: string): Promise<SubscriptionPrice> => {
+  const response = await client.get('/users/subscription/price/', {
+    params: promoCode ? { promo: promoCode } : {}
+  })
+  return response.data
+}
+
+// ==================== ОПЛАТА CRYPTOCLOUD ====================
+
+export interface PaymentCreateResponse {
+  success: boolean
+  payment_url?: string
+  invoice_id?: string
+  invoice_uuid?: string
+  order_id?: string
+  amount?: number
+  amount_usd?: number
+  currency?: string
+  payment_method?: string
+  error?: string
+}
+
+export interface PaymentPriceResponse {
+  base_price: number
+  final_price: number
+  discount: number
+  currency: string
+}
+
+export interface PaymentCheckResponse {
+  success: boolean
+  status?: string
+  subscription_activated?: boolean
+  error?: string
+}
+
+/**
+ * Создать платеж на оплату подписки через CryptoCloud
+ */
+export const createPayment = async (promoCode?: string): Promise<PaymentCreateResponse> => {
+  const response = await client.post('/users/payment/create/', {
+    promo_code: promoCode || ''
+  })
+  return response.data
+}
+
+/**
+ * Получить цену с учетом промокода
+ */
+export const getPaymentPrice = async (promoCode?: string): Promise<PaymentPriceResponse> => {
+  const response = await client.get('/users/payment/price/', {
+    params: promoCode ? { promo: promoCode } : {}
+  })
+  return response.data
+}
+
+/**
+ * Проверить статус платежа
+ */
+export const checkPayment = async (invoiceUuid: string): Promise<PaymentCheckResponse> => {
+  const response = await client.post('/users/payment/check/', {
+    invoice_uuid: invoiceUuid
+  })
+  return response.data
+}

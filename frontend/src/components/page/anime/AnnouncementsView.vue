@@ -107,6 +107,8 @@ const toCardAnime = (a: any) => ({
   title_ru: a.title_ru || a.title || '',
   title_en: a.title_en || '',
   year: a.year ?? null,
+  release_date: a.release_date || null,  // Полная дата для отображения (год + месяц + число)
+  release_date_string: a.release_date_string || '',  // Человекочитаемая версия
   status: a.status || 'announced',
   episodes: a.episodes || a.episodes_count || null,
   score: a.score ? parseFloat(a.score) : null,

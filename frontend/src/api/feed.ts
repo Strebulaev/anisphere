@@ -187,14 +187,23 @@ export const postsApi = {
   dislikePost: (id: number) =>
     apiClient.post<{ disliked: boolean; dislikes_count: number; likes_count?: number }>(`/social/posts/${id}/dislike/`),
 
-  repostPost: (id: number, comment?: string) =>
-    apiClient.post(`/social/posts/${id}/repost/action/`, { comment }),
+  repostPost: (id: number, data?: { comment?: string; destination?: 'feed' | 'group' | 'chat'; target_id?: number; chat_id?: number; message?: string }) =>
+    apiClient.post(`/social/posts/${id}/repost/action/`, data || {}),
+
+  unrepostPost: (id: number) =>
+    apiClient.post(`/social/posts/${id}/repost/remove/`),
+
+  editPost: (id: number, data: { text?: string; title?: string; visibility?: string; allow_comments?: boolean; is_spoiler?: boolean }) =>
+    apiClient.put(`/social/posts/${id}/edit/`, data),
 
   bookmarkPost: (id: number) =>
     apiClient.post(`/social/posts/${id}/bookmark/`),
 
   removeBookmark: (id: number) =>
     apiClient.post(`/social/posts/${id}/bookmark/remove/`),
+
+  toggleBookmark: (postId: number) =>
+    apiClient.post('/social/bookmarks/toggle/', { post_id: postId }),
 
   viewPost: (id: number) =>
     apiClient.post(`/social/posts/${id}/view/`),
@@ -367,7 +376,8 @@ export const chatsApi = {
     apiClient.get<ForwardChat[]>('/social/chats/for-forward/', { params: { search } }),
 
   forwardPost: (chatId: number, postId: number, message?: string) =>
-    apiClient.post<{ success: boolean; message_id: number }>(`/social/chats/${chatId}/forward/`, {
+    apiClient.post<{ success: boolean; message_id: number; chat_id: number }>('/social/chats/forward/', {
+      chat_id: chatId,
       post_id: postId,
       message
     }),

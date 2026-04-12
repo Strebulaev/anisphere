@@ -1,4 +1,4 @@
-<template>
+  <template>
   <div class="account-settings">
 
     <!-- Уведомления -->
@@ -20,7 +20,8 @@
           <input ref="avatarInput" type="file" accept="image/jpeg,image/png,image/webp"
                  class="hidden-input" @change="handleAvatarUpload" />
           <button class="btn-primary" @click="avatarInput?.click()" :disabled="saving.avatar">
-            {{ saving.avatar ? 'Загрузка...' : '<SakuraIcon name="folder" /> Загрузить фото' }}
+            <span v-if="saving.avatar">Загрузка...</span>
+            <span v-else><SakuraIcon name="upload" /> Загрузить фото</span>
           </button>
           <button v-if="form.avatar_url" class="btn-danger" @click="removeAvatar" :disabled="saving.avatar">
             <SakuraIcon name="trash" /> Удалить
@@ -55,16 +56,8 @@
       <h3><SakuraIcon name="circle" /> Социальные сети</h3>
       <div class="social-list">
         <div v-for="(link, idx) in form.social_links" :key="idx" class="social-item">
-          <select v-model="link.platform" class="select">
-            <option value="telegram">Telegram</option>
-            <option value="vk">VK</option>
-            <option value="youtube">YouTube</option>
-            <option value="twitter">X (Twitter)</option>
-            <option value="instagram">Instagram</option>
-            <option value="discord">Discord</option>
-            <option value="other">Другое</option>
-          </select>
-          <input v-model="link.url" type="url" placeholder="https://..." class="input" />
+          <input v-model="link.name" type="text" placeholder="Название сети (например, VK)" class="social-name-input" />
+          <input v-model="link.url" type="url" placeholder="https://..." class="social-url-input" />
           <button class="btn-icon-danger" @click="removeSocialLink(idx)" title="Удалить">✕</button>
         </div>
         <button class="btn-dashed" @click="addSocialLink"><SakuraIcon name="plus" /> Добавить ссылку</button>
@@ -116,7 +109,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import apiClient from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
-interface SocialLink { platform: string; url: string }
+interface SocialLink { name: string; url: string }
 
 interface ProfileForm {
   avatar_url: string
@@ -262,7 +255,7 @@ const removeAvatar = async () => {
 }
 
 // ── Соцсети ──────────────────────────────────────────────────────
-const addSocialLink    = () => form.value.social_links.push({ platform: 'telegram', url: '' })
+const addSocialLink    = () => form.value.social_links.push({ name: '', url: '' })
 const removeSocialLink = (idx: number) => form.value.social_links.splice(idx, 1)
 
 // ── Сохранение профиля ────────────────────────────────────────────
@@ -442,12 +435,37 @@ onMounted(loadProfile)
 /* Social links */
 .social-list { display: flex; flex-direction: column; gap: 8px; }
 .social-item { display: flex; gap: 8px; align-items: center; }
-.select {
-  padding: 8px 10px; border: 1px solid var(--border-color);
-  border-radius: 8px; background: var(--card-bg); color: var(--text-color);
-  font-size: 14px; min-width: 130px;
+.social-name-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 280px;
+  padding: 9px 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 14px;
+  transition: border-color .15s;
 }
-.social-item .input { flex: 1; }
+.social-name-input:focus { outline: none; border-color: var(--primary-color); }
+
+.social-url-input {
+  flex: 1.5;
+  min-width: 0;
+  padding: 9px 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 14px;
+  transition: border-color .15s;
+}
+.social-url-input:focus { outline: none; border-color: var(--primary-color); }
+
+@media (max-width: 600px) {
+  .social-item { flex-wrap: wrap; }
+  .social-name-input, .social-url-input { flex: 1 1 100%; max-width: 100%; }
+}
 
 /* Status */
 .status-row { display: flex; gap: 10px; flex-wrap: wrap; }

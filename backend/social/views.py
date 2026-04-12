@@ -1197,24 +1197,21 @@ def repost_post(request, post_id):
         message = Message.objects.create(
             sender=request.user,
             shared_post=original_post,
-            text=comment
+            text=comment,
+            chat=chat if chat_type == 'group' else None,
+            private_chat=chat if chat_type == 'private' else None
         )
-        
-        if chat_type == 'group':
-            message.chat = chat
-        else:
-            message.private_chat = chat
-        
-        message.save()
-        
-        # Обновляем счётчик репостов
+
+        # Обновляем счётчик репостов/шерингов
         original_post.shares_count += 1
         original_post.save(update_fields=['shares_count'])
         
+        from .serializers import MessageSerializer
         return Response({
             'success': True,
             'message': 'Пост переслан в чат',
-            'message_id': message.id
+            'message_id': message.id,
+            'message': MessageSerializer(message, context={'request': request}).data
         })
 
     # Обычный репост в ленту
@@ -1230,7 +1227,7 @@ def repost_post(request, post_id):
     # Создаём репост
     with transaction.atomic():
         # Создаём новый пост-репост
-        repost_post = Post.objects.create(
+        new_post = Post.objects.create(
             author=request.user,
             post_type='repost',
             text=comment,
@@ -1255,8 +1252,9 @@ def repost_post(request, post_id):
     return Response({
         'success': True,
         'message': 'Пост репостнут',
-        'repost_id': repost_post.id,
-        'original_post_id': original_post.id
+        'repost_id': new_post.id,
+        'original_post_id': original_post.id,
+        'post': PostSerializer(new_post, context={'request': request}).data
     })
 
 
@@ -1924,9 +1922,29 @@ class PostViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         # use lightweight serializer for incoming data but return full representation when listing/retrieving
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action in ['create', 'update', 'partial_update', 'public_retrieve']:
             return PostCreateSerializer
         return PostSerializer
+
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    def public_retrieve(self, request, pk=None):
+        """Публичный просмотр поста (без аутентификации)"""
+        try:
+            post = self.get_queryset().get(id=pk)
+            
+            # Проверяем права доступа
+            if post.visibility == 'private':
+                return Response({'error': 'Пост недоступен'}, status=status.HTTP_403_FORBIDDEN)
+            
+            if post.group and not post.group.is_public:
+                return Response({'error': 'Группа недоступна'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Получаем полные данные с отношениями
+            from .serializers import PostSerializer
+            serializer = PostSerializer(post, context={'request': request})
+            return Response(serializer.data)
+        except Post.DoesNotExist:
+            return Response({'error': 'Пост не найден'}, status=status.HTTP_404_NOT_FOUND)
 
     def get_queryset(self):
         queryset = Post.objects.filter(
@@ -2211,7 +2229,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
             if not ChatMember.objects.filter(chat=chat, user=self.request.user).exists():
                 return Message.objects.none()
             
-            qs = Message.objects.filter(chat=chat, is_deleted=False).select_related('sender', 'reply_to')
+            qs = Message.objects.filter(chat=chat, is_deleted=False).select_related('sender', 'reply_to__sender')
             
             # Фильтрация по topic_id для franchise discussion:
             # - topic_id = 'main' - показываем ВСЕ сообщения (главный топик = вся лента)
@@ -2235,7 +2253,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                 private_chat = PrivateChat.objects.get(id=chat_id)
                 if self.request.user not in [private_chat.user1, private_chat.user2]:
                     return Message.objects.none()
-                return Message.objects.filter(private_chat=private_chat, is_deleted=False).select_related('sender', 'reply_to')
+                return Message.objects.filter(private_chat=private_chat, is_deleted=False).select_related('sender', 'reply_to__sender')
             except PrivateChat.DoesNotExist:
                 return Message.objects.none()
 

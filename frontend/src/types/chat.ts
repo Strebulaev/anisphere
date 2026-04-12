@@ -18,6 +18,14 @@ export interface Message {
   read_count?: number  
   is_read: boolean
   reply_to?: number
+  reply_to_message?: {
+    id: number
+    sender_id: number
+    sender_username: string
+    sender_avatar?: string
+    text: string
+    created_at: string
+  }
   attachments?: Attachment[]
 }
 

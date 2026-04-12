@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from social._discussion_views_patch import get_anime_discussion_group
+
 from .views_feed import FeedViewSet
 from .views import (
     CommentListCreateView, CommentDetailView, GroupViewSet, PostCommentViewSet,
@@ -27,7 +29,6 @@ from .views_all_actions import (
     UserAchievementViewSet,
     get_chats_for_forward, forward_post_to_chat,
     get_extended_feed,
-    get_anime_discussion_group,
     get_post_comment_replies,
     get_franchise_discussions,
     GroupSearchView,
@@ -53,14 +54,36 @@ from .views_all_actions import (
 # Импорты из _discussion_views_patch
 try:
     from ._discussion_views_patch import (
+        get_anime_discussion_group,
         create_anime_discussion_group,
         join_anime_discussion_group,
+        get_franchise_discussion_group,
+        join_franchise_discussion_group,
     )
 except ImportError:
     # Fallback - определяем функции прямо здесь если файл не существует
     from rest_framework.decorators import api_view, permission_classes
     from rest_framework.permissions import IsAuthenticated
     from rest_framework.response import Response
+    
+    @api_view(['GET'])
+    @permission_classes([IsAuthenticated])
+    def get_anime_discussion_group(request, anime_id):
+        """Получить или создать групповой чат для обсуждения аниме."""
+        from .models import GroupChat, ChatMember
+        from .serializers import GroupChatSerializer
+        try:
+            from anime.models import Anime
+            anime = Anime.objects.get(id=anime_id)
+        except Exception:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+        
+        try:
+            chat = GroupChat.objects.get(anime_id=anime_id)
+            serializer = GroupChatSerializer(chat, context={'request': request})
+            return Response(serializer.data)
+        except GroupChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=404)
     
     @api_view(['POST'])
     @permission_classes([IsAuthenticated])
@@ -93,41 +116,67 @@ except ImportError:
     @api_view(['POST'])
     @permission_classes([IsAuthenticated])
     def join_anime_discussion_group(request, anime_id):
-        """Присоединиться к групповому чату аниме"""
+        """Присоединиться к групповому чату аниме или создать его"""
         from .models import GroupChat, ChatMember
+        from .serializers import GroupChatSerializer
+        try:
+            from anime.models import Anime
+            anime = Anime.objects.get(id=anime_id)
+        except Exception:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+        
+        # Пробуем найти существующий чат
         try:
             chat = GroupChat.objects.get(anime_id=anime_id)
         except GroupChat.DoesNotExist:
+            # Создаем чат если его нет
+            chat = GroupChat.objects.create(
+                name=anime.title_ru or anime.title_en,
+                anime_id=anime_id,
+                created_by=request.user,
+                is_public=True,
+                description=(anime.description or '')[:500],
+                discussion_type='anime',
+                folder_type='discussions',
+            )
+            ChatMember.objects.create(user=request.user, chat=chat, is_admin=True)
+        
+        # Проверяем участника
+        if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
+            if chat.members.count() >= chat.max_members:
+                return Response({'error': 'Чат переполнен'}, status=400)
+            ChatMember.objects.create(user=request.user, chat=chat)
+        
+        return Response({
+            'success': True,
+            'chat_id': chat.id,
+            'chat': GroupChatSerializer(chat, context={'request': request}).data
+        })
+
+    @api_view(['GET', 'POST'])
+    @permission_classes([IsAuthenticated])
+    def get_franchise_discussion_group(request, franchise_id):
+        from .models import GroupChat
+        from .serializers import GroupChatSerializer
+        try:
+            chat = GroupChat.objects.get(franchise_id=franchise_id)
+            serializer = GroupChatSerializer(chat, context={'request': request})
+            return Response(serializer.data)
+        except GroupChat.DoesNotExist:
             return Response({'error': 'Чат не найден'}, status=404)
-
+    
+    @api_view(['POST'])
+    @permission_classes([IsAuthenticated])
+    def join_franchise_discussion_group(request, franchise_id):
+        from .models import GroupChat, ChatMember
+        try:
+            chat = GroupChat.objects.get(franchise_id=franchise_id)
+        except GroupChat.DoesNotExist:
+            return Response({'error': 'Чат не найден'}, status=404)
         if ChatMember.objects.filter(chat=chat, user=request.user).exists():
-            return Response({'message': 'Вы уже участник этого чата', 'chat_id': chat.id})
-
-        if chat.members.count() >= chat.max_members:
-            return Response({'error': 'Чат переполнен'}, status=400)
-
+            return Response({'message': 'Вы уже участник', 'chat_id': chat.id})
         ChatMember.objects.create(user=request.user, chat=chat)
         return Response({'success': True, 'chat_id': chat.id})
-from .views_all_actions import (
-    AchievementViewSet,
-    AttachmentViewSet,
-    BookmarkViewSet,
-    ChatInviteViewSet,
-    EmailLogViewSet,
-    FavoriteViewSet,
-    PostAttachmentViewSet,
-    PostMediaViewSet,
-    ReactionViewSet,
-    ReportViewSet,
-    RepostViewSet,
-    UploadedFileViewSet,
-    UserAchievementViewSet,
-    get_chats_for_forward, forward_post_to_chat,
-    get_extended_feed,
-    get_anime_discussion_group,
-    get_franchise_discussion_group, join_franchise_discussion_group,
-    get_franchise_discussions,
-)
 
 # Новые views для системы чатов
 from .views_chat import (
@@ -228,10 +277,10 @@ urlpatterns = [
 
     # ==================== ЧАТЫ ====================
     path('chats/', CombinedChatsView.as_view(), name='combined-chats'),
+    # Алиас для создания чата - ДО маршрута с параметрами!
+    path('chats/private/', PrivateChatViewSet.as_view({'post': 'create'}), name='create-private-chat'),
     path('chats/<int:pk>/', get_chat_detail, name='chat-detail'),
     path('chats/<int:pk>/settings/', get_chat_detail, name='chat-settings'),
-    # Алиас для создания чата (фронтенд использует /api/chats/private/)
-    path('chats/private/', PrivateChatViewSet.as_view({'post': 'create'}), name='create-private-chat'),
     # Сообщения (фронтенд использует /api/social/messages/)
     path('chats/<int:chat_id>/messages/', MessageListCreateView.as_view(), name='chat-messages'),
     path('messages/', MessageListCreateView.as_view(), name='messages-list-create'),
@@ -418,6 +467,9 @@ urlpatterns = [
     path('chats/<int:chat_id>/mark-read/', mark_chat_read, name='mark-chat-read'),
 
     # ==================== ПОСТЫ ====================
+    # Публичный просмотр поста (без аутентификации)
+    path('posts/<int:post_id>/public/', PostViewSet.as_view({'get': 'public_retrieve'}), name='post-detail-public'),
+    path('posts/<int:post_id>/', PostViewSet.as_view({'get': 'retrieve'}), name='post-detail'),
     path('posts/<int:post_id>/pin/', pin_post, name='pin-post'),
     path('posts/<int:post_id>/unpin/', unpin_post, name='unpin-post'),
     path('posts/<int:post_id>/report/', report_post, name='report-post'),
@@ -494,6 +546,7 @@ urlpatterns = [
     # ==================== ПЕРЕСЫЛКА ====================
     path('chats/for-forward/', get_chats_for_forward, name='chats-for-forward'),
     path('chats/<int:chat_id>/forward/', forward_post_to_chat, name='forward-post'),
+    path('chats/forward/', forward_post_to_chat, name='forward-post-no-id'),
 
       # ==================== АНИМЕ ОБСУЖДЕНИЯ ====================
       path('anime/<int:anime_id>/discussion-group/', get_anime_discussion_group, name='anime-discussion-group'),

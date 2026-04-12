@@ -60,21 +60,22 @@
   --text-accent:    var(--accent-bright);
 
   /* ── Статусы ────────────────────────────────────────────── */
-  --success:        #8ed4a8;
-  --success-subtle: rgba(142,212,168,0.12);
-  --warning:        #ffd592;
-  --warning-subtle: rgba(255,213,146,0.12);
-  --danger:         #ff8a8a;
-  --danger-subtle:  rgba(255,138,138,0.12);
-  --info:           #9ec5e8;
-  --info-subtle:    rgba(158,197,232,0.12);
+  --success:        #2cea72;
+  --success-subtle: rgba(60, 255, 131, 0.21);
+  --warning:        #fca313;
+  --warning-subtle: rgba(215, 148, 40, 0.12);
+  --danger:         #d72727;
+  --danger-subtle:  rgba(255, 62, 62, 0.12);
+  --danger-hover:   #b91c1c;
+  --info:           #42a0f1;
+  --info-subtle:    rgba(94, 173, 243, 0.12);
 
   /* ── Статусы просмотра ──────────────────────────────────── */
-  --status-watching:   #ff7eb3;
-  --status-completed:  #8ed4a8;
-  --status-planned:    #ffd592;
-  --status-dropped:    #ff8a8a;
-  --status-onhold:     #b8aec8;
+  --status-watching:   #e92e7c;
+  --status-completed:  #2cea72;
+  --status-planned:    #fca313;
+  --status-dropped:    #d72727;
+  --status-onhold:     #6729cb;
 
   /* ── Типографика ────────────────────────────────────────── */
   --font-sans:    'Inter', 'Noto Sans JP', 'Zen Kaku Gothic New', sans-serif;

@@ -84,12 +84,19 @@
 
             <!-- Прикреплённый пост -->
             <div v-if="message.shared_post_data" class="message-shared-content">
-              <div class="shared-label"><SakuraIcon name="file-text" /> Пост</div>
-              <div class="shared-post">
+              <div class="forwarded-label">
+                <span class="forwarded-icon">↗️</span>
+                <span class="forwarded-text">Переслано из</span>
+                <span class="forwarded-source">@{{ message.shared_post_data.author_username }}</span>
+              </div>
+              <div class="shared-post" @click="goToPost(message.shared_post_data.id)">
                 <img v-if="message.shared_post_data.image_url" :src="message.shared_post_data.image_url" class="shared-image" />
                 <div class="shared-info">
-                  <span class="shared-author">@{{ message.shared_post_data.author_username }}</span>
-                  <span class="shared-text">{{ message.shared_post_data.text?.substring(0, 100) }}...</span>
+                  <span class="shared-title">{{ message.shared_post_data.text || 'Пост' }}</span>
+                  <div class="shared-meta">
+                    <span class="shared-author">@{{ message.shared_post_data.author_username }}</span>
+                    <span class="shared-date">{{ formatMessageTime(message.shared_post_data.created_at) }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -212,13 +219,24 @@
     </div>
 
     <div class="message-input-area">
+      <!-- Превью ответа на сообщение -->
+      <MessageReplyPreview
+        v-if="replyToMessage"
+        :message="replyToMessage"
+        :author="replyToMessage.sender_username || replyToMessage.sender?.username || 'Пользователь'"
+        :author-color="getMessageAuthorColor(replyToMessage.sender_id)"
+        @close="cancelReply"
+        @click="scrollToMessage(replyToMessage.id)"
+      />
+      
       <form @submit.prevent="sendMessage" class="message-form">
         <input v-model="newMessage" type="text" placeholder="Сообщение..." class="message-input"
           :disabled="sending || !wsConnected" @input="handleTyping" />
         <input ref="fileInput" type="file" @change="handleFileSelect" style="display:none" accept="image/*,video/*,audio/*,.pdf,.doc*" />
         <button type="button" @click="attachFile" class="attach-btn" :disabled="sending || !wsConnected">📎</button>
         <button type="submit" class="send-btn" :disabled="!newMessage.trim() || sending || !wsConnected">
-          {{ sending ? '<SakuraIcon name="hourglass" />' : '<SakuraIcon name="export" />' }}
+          <SakuraIcon v-if="!sending" name="send" :size="18" />
+          <SakuraIcon v-else name="hourglass" :size="18" />
         </button>
       </form>
       <div v-if="!wsConnected && reconnectAttempts > 0" class="ws-status">
@@ -330,11 +348,13 @@ import { useGroupChatStore } from '@/stores/groupChat'
 import { useAvatar } from '@/composables/useAvatar'
 import ChatSettingsModal from '@/components/Chats/ChatSettingsModal.vue'
 import FranchiseDiscussionChat from '@/components/Chats/FranchiseDiscussionChat.vue'
+import MessageReplyPreview from '@/components/Chats/MessageReplyPreview.vue'
 import MessageSearchModal from '@/components/modal/chats/MessageSearchModal.vue'
 import ForwardMessageModal from '@/components/modal/chats/ForwardMessageModal.vue'
 import ChatInviteModal from '@/components/modal/chats/ChatInviteModal.vue'
 import { chatsApi } from '@/api/chats'
 import apiClient, { getMediaUrl } from '@/api/client'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 interface Props {
   chatId?: number
@@ -360,6 +380,7 @@ const showInvite = ref(false)
 const showForward = ref(false)
 const messageToForward = ref<any>(null)
 const selectedMessage = ref<any>(null)
+const replyToMessage = ref<any>(null)
 const showPinnedBar = ref(false)
 const newMessage = ref('')
 const messagesContainer = ref<HTMLElement>()
@@ -382,7 +403,7 @@ const contextMenu = ref({
 // Единая позиция для popup
 const popupPosition = ref({ x: 0, y: 0 })
 
-const reactionEmojis = ['👍', '❵', '😢', '😮', '😠', '🎉', '🔥', '👀', '🙏']
+const reactionEmojis = ['👍', '😢', '😮', '😠', '🎉', '🔥', '👀', '🙏']
 
 // Computed для получения ID чата - из prop или route
 const currentChatId = computed(() => {
@@ -791,13 +812,21 @@ const loadChat = async () => {
 
 const sendMessage = async () => {
   const text = newMessage.value.trim()
-  if (!text) return
+  if (!text && !replyToMessage.value) return
   
   sending.value = true
   try {
     if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ action: 'send_message', text }))
+      const messageData: any = { action: 'send_message', text }
+      
+      // Добавляем reply_to если есть ответ
+      if (replyToMessage.value) {
+        messageData.reply_to = replyToMessage.value.id
+      }
+      
+      ws.send(JSON.stringify(messageData))
       newMessage.value = ''
+      replyToMessage.value = null
       sendTypingStop()
       
       // Обновить список чатов после отправки
@@ -881,8 +910,18 @@ const togglePinMessage = async (message: any) => {
 
 // Message Actions
 const handleReply = (message: any) => {
-  newMessage.value = `↩️ ${message.text || ''} `
+  replyToMessage.value = message
   ;(document.querySelector('.message-input') as HTMLInputElement)?.focus()
+}
+
+const cancelReply = () => {
+  replyToMessage.value = null
+}
+
+const getMessageAuthorColor = (senderId: number): string => {
+  const colors = ['#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140']
+  const index = senderId % colors.length
+  return colors[index] || '#667eea'
 }
 
 const handleForward = (message: any) => {
@@ -963,6 +1002,10 @@ const handleInvite = () => {
 const handleForwardComplete = () => {
   showForward.value = false
   messageToForward.value = null
+}
+
+const goToPost = (postId: number) => {
+  window.open(`/post/${postId}`, '_blank')
 }
 
 // Сгруппировать реакции
@@ -2091,12 +2134,27 @@ watch(currentChatId, async (newId, oldId) => {
   border: 1px solid var(--border-subtle);
 }
 
-.shared-label {
-  font-size: 0.7rem;
+.forwarded-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+}
+
+.forwarded-icon {
+  font-size: 0.85rem;
+}
+
+.forwarded-text {
   color: var(--text-tertiary);
-  margin-bottom: 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+}
+
+.forwarded-source {
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .shared-post,
@@ -2106,6 +2164,17 @@ watch(currentChatId, async (newId, oldId) => {
   display: flex;
   gap: 0.5rem;
   align-items: flex-start;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast);
+}
+
+.shared-post:hover,
+.shared-anime:hover,
+.shared-playlist:hover,
+.shared-shorts:hover {
+  background: var(--surface-4);
 }
 
 .shared-image {
@@ -2172,7 +2241,7 @@ watch(currentChatId, async (newId, oldId) => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .shared-author {
@@ -2183,11 +2252,12 @@ watch(currentChatId, async (newId, oldId) => {
 
 .shared-title {
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .shared-subtitle {
@@ -2202,6 +2272,20 @@ watch(currentChatId, async (newId, oldId) => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.shared-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-top: 0.1rem;
+}
+
+.shared-date {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
 }
 
 .shared-anime-tag {

@@ -18,16 +18,22 @@ class Comment(models.Model):
     text = models.TextField()
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
 
+    # Ответ на конкретный комментарий (для цепочек ответов в стиле Telegram)
+    reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='answer_to')
+
     # Метаданные
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_deleted = models.BooleanField(default=False)
+    is_edited = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['created_at']
         indexes = [
             models.Index(fields=['content_type', 'object_id']),
             models.Index(fields=['author', 'created_at']),
+            models.Index(fields=['parent', 'created_at']),
+            models.Index(fields=['reply_to', 'created_at']),
         ]
 
     def __str__(self):

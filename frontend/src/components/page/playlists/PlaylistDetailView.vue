@@ -52,7 +52,7 @@
             <div v-if="playlist.items_count > 3" class="mosaic-extra">+{{ playlist.items_count - 3 }}</div>
           </div>
           <div class="privacy-hero-badge" :class="`privacy-${currentVisibility}`">
-            <SakuraIcon :name="privacyIcon" /> {{ privacyLabel }}
+            <SakuraIcon :name="privacyIcon" :size="12" /> {{ privacyLabel }}
           </div>
         </div>
 
@@ -385,16 +385,16 @@
               </div>
               <div class="form-group">
                 <label class="form-label">Видимость</label>
-                <div class="privacy-chips">
-                  <label
-                    v-for="opt in visibilityOptions"
-                    :key="opt.value"
-                    :class="['privacy-chip', { active: editForm.visibility === opt.value }]"
-                  >
-                    <input type="radio" :value="opt.value" v-model="editForm.visibility" style="display:none" />
-                    <span>{{ opt.icon }}</span> {{ opt.label }}
-                  </label>
-                </div>
+              <div class="privacy-chips">
+                <label
+                  v-for="opt in visibilityOptions"
+                  :key="opt.value"
+                  :class="['privacy-chip', { active: editForm.visibility === opt.value }]"
+                >
+                  <input type="radio" :value="opt.value" v-model="editForm.visibility" style="display:none" />
+                  <SakuraIcon :name="opt.icon" :size="14" /> {{ opt.label }}
+                </label>
+              </div>
                 <p v-if="editForm.visibility === 'link'" class="visibility-hint">
                   <SakuraIcon name="link" /> После сохранения будет сгенерирована уникальная ссылка
                 </p>

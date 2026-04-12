@@ -45,7 +45,7 @@ const authStore = useAuthStore()
 const showEmojiPicker = ref(false)
 
 const commonEmojis = [
-  '❵', '👍', '👎', '😂', '😮', '😢', '😠', '🔥', '🎉', '👏',
+  '👍', '👎', '😂', '😮', '😢', '😠', '🔥', '🎉', '👏',
   '🤔', '😍', '🥳', '😎', '🤗', '😱', '🙏', '💯', '✨', '💪'
 ]
 

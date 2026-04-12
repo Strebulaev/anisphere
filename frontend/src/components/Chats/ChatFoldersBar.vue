@@ -406,6 +406,11 @@ onUnmounted(() => {
   box-shadow: var(--shadow-petal-sm);
 }
 
+.folder-icon--active :deep(.sakura-icon),
+.folder-icon--active .sakura-icon {
+  color: white !important;
+}
+
 .folder-icon--active:hover {
   transform: scale(1.1);
 }

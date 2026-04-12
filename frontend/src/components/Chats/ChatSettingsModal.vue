@@ -638,7 +638,7 @@
                 <select v-model="organizeForm.folder_id" class="select-field" @change="saveOrganizeSettings">
                   <option :value="null">Без папки</option>
                   <option v-for="folder in chatFolders" :key="folder.id" :value="folder.id">
-                    {{ folder.icon || '<SakuraIcon name="folder" />' }} {{ folder.name }}
+                    <span v-if="folder.icon">{{ folder.icon }}</span><SakuraIcon v-else name="folder" /> {{ folder.name }}
                   </option>
                 </select>
               </div>
@@ -680,7 +680,10 @@
               <div class="settings-group-card">
                 <div class="danger-row">
                   <div class="dr-info">
-                    <span class="dr-title">{{ privacyForm.is_blocked ? '<SakuraIcon name="check" /> Разблокировать' : '<SakuraIcon name="ban" /> Заблокировать пользователя' }}</span>
+                    <span class="dr-title">
+                      <template v-if="privacyForm.is_blocked"><SakuraIcon name="check" /> Разблокировать</template>
+                      <template v-else><SakuraIcon name="ban" /> Заблокировать пользователя</template>
+                    </span>
                     <span class="dr-desc">{{ privacyForm.is_blocked ? 'Снять блокировку' : 'Пользователь не сможет писать вам' }}</span>
                   </div>
                   <button v-if="!privacyForm.is_blocked" @click="blockUser" class="danger-btn">Заблокировать</button>

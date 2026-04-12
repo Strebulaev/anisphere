@@ -180,6 +180,7 @@ class Anime(models.Model):
         ('ongoing', 'Онгоинг'),
         ('finished', 'Завершен'),
         ('announced', 'Анонсирован'),
+        ('released', 'Вышел'),
         ('canceled', 'Отменен'),
     ]
     
@@ -194,6 +195,12 @@ class Anime(models.Model):
     ]
     
     shikimori_id = models.IntegerField(unique=True, null=True, blank=True)
+    mal_id = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name='MAL ID')
+    
+    # Дата выхода (для анонсов)
+    release_date = models.DateField(null=True, blank=True, verbose_name='Дата выхода')
+    release_date_string = models.CharField(max_length=100, blank=True, verbose_name='Дата выхода (строка)')
+    
     title_ru = models.CharField(max_length=255, verbose_name='Название на русском')
     title_en = models.CharField(max_length=255, blank=True, verbose_name='Название на английском')
     title_jp = models.CharField(max_length=255, blank=True, verbose_name='Название на японском')

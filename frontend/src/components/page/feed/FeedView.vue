@@ -32,32 +32,67 @@
           <!-- Collapsible Filters -->
           <div v-if="showFilters" class="filters-dropdown">
             <div class="filter-group">
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="filters.myPosts" @change="applyFilters">
-                Мои посты
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="filters.subscriptions" @change="applyFilters">
-                Подписки
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="filters.groups" @change="applyFilters">
-                Из групп
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="filters.withAnime" @change="applyFilters">
-                С аниме
-              </label>
+              <label class="filter-label">Тип контента:</label>
+              <div class="toggle-buttons">
+                <button 
+                  :class="['toggle-btn', { active: filters.myPosts }]" 
+                  @click="toggleFilter('myPosts')"
+                >
+                  <SakuraIcon name="user" :size="14" />
+                  <span>Мои посты</span>
+                </button>
+                <button 
+                  :class="['toggle-btn', { active: filters.subscriptions }]" 
+                  @click="toggleFilter('subscriptions')"
+                >
+                  <SakuraIcon name="subscriptions" :size="14" />
+                  <span>Подписки</span>
+                </button>
+                <button 
+                  :class="['toggle-btn', { active: filters.groups }]" 
+                  @click="toggleFilter('groups')"
+                >
+                  <SakuraIcon name="group" :size="14" />
+                  <span>Из групп</span>
+                </button>
+                <button 
+                  :class="['toggle-btn', { active: filters.withAnime }]" 
+                  @click="toggleFilter('withAnime')"
+                >
+                  <SakuraIcon name="anime-tv" :size="14" />
+                  <span>С аниме</span>
+                </button>
+              </div>
             </div>
-            
+
             <div class="filter-group">
-              <label>За период:</label>
-              <select v-model="filters.period" @change="applyFilters" class="filter-select">
-                <option value="all">Всё время</option>
-                <option value="month">Месяц</option>
-                <option value="week">Неделя</option>
-                <option value="day">День</option>
-              </select>
+              <label class="filter-label">За период:</label>
+              <div class="period-buttons">
+                <button 
+                  :class="['period-btn', { active: filters.period === 'all' }]" 
+                  @click="filters.period = 'all'; applyFilters()"
+                >
+                  Всё время
+                </button>
+                <button 
+                  :class="['period-btn', { active: filters.period === 'day' }]" 
+                  @click="filters.period = 'day'; applyFilters()"
+                >
+                  День
+                </button>
+                <button 
+                  :class="['period-btn', { active: filters.period === 'week' }]" 
+                  @click="filters.period = 'week'; applyFilters()"
+                >
+                  Неделя
+                </button>
+                <button 
+                  :class="['period-btn', { active: filters.period === 'month' }]" 
+                  @click="filters.period = 'month'; applyFilters()"
+                >
+                  Месяц
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -984,6 +1019,14 @@ const applyFilters = () => {
   loadPosts()
 }
 
+const toggleFilter = (key: keyof FilterState) => {
+  if (key === 'myPosts') filters.value.myPosts = !filters.value.myPosts
+  else if (key === 'subscriptions') filters.value.subscriptions = !filters.value.subscriptions
+  else if (key === 'groups') filters.value.groups = !filters.value.groups
+  else if (key === 'withAnime') filters.value.withAnime = !filters.value.withAnime
+  applyFilters()
+}
+
 const removeFilter = (key: string) => {
   if (key === 'myPosts') filters.value.myPosts = false
   else if (key === 'subscriptions') filters.value.subscriptions = false
@@ -1046,8 +1089,14 @@ const unfollowUser = async (userId: number) => {
   }
 }
 
-const openChat = (userId: number) => {
-  router.push(`/chats?user=${userId}`)
+const openChat = async (userId: number) => {
+  try {
+    const response = await apiClient.post('/chats/private/', { user2: userId })
+    router.push(`/chat/${response.data.id}`)
+  } catch (error) {
+    console.error('Error creating chat:', error)
+    alert('Не удалось создать чат')
+  }
 }
 
 // Not Interested methods
@@ -1495,11 +1544,78 @@ onUnmounted(() => { window.removeEventListener('scroll', handleScroll) })
   margin-bottom: 0; 
 }
 
-.filter-group label { 
+.filter-label { 
   display: block; 
   margin-bottom: 0.5rem; 
   color: var(--text-tertiary); 
   font-size: 0.85rem; 
+}
+
+.toggle-buttons { 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 0.5rem; 
+}
+
+.toggle-btn { 
+  display: flex; 
+  align-items: center; 
+  gap: 0.4rem; 
+  background: var(--surface-4); 
+  color: var(--text-secondary); 
+  border: 1px solid var(--border-default); 
+  padding: 0.5rem 0.85rem; 
+  border-radius: var(--radius-lg); 
+  cursor: pointer; 
+  font-size: 0.85rem; 
+  transition: all var(--duration-base) var(--ease-petal);
+}
+
+.toggle-btn:hover {
+  background: var(--surface-5);
+  border-color: var(--accent);
+}
+
+.toggle-btn.active {
+  background: var(--accent-subtle); 
+  color: var(--accent); 
+  border-color: var(--accent);
+}
+
+.toggle-btn :deep(.sakura-icon) {
+  transition: color var(--duration-base) var(--ease-petal);
+}
+
+.toggle-btn.active :deep(.sakura-icon) {
+  color: var(--accent); 
+}
+
+.period-buttons { 
+  display: flex;
+  flex-wrap: wrap; 
+  gap: 0.5rem; 
+}
+
+.period-btn { 
+  background: var(--surface-4);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default); 
+  padding: 0.5rem 1rem; 
+  border-radius: var(--radius-lg); 
+  cursor: pointer;
+  font-size: 0.85rem; 
+  transition: all var(--duration-base) var(--ease-petal);
+}
+
+.period-btn:hover {
+  background: var(--surface-5);
+  border-color: var(--accent);
+}
+
+.period-btn.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .checkbox-label { 

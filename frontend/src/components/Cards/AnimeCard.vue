@@ -125,10 +125,14 @@
       <h3 class="anime-title">{{ anime.title_ru || anime.title_en }}</h3>
       
       <div class="anime-meta">
-        <span class="meta-item" v-if="anime.year">
+        <!-- Дата выхода (для анонсов) -->
+        <span class="meta-item meta-release-date" v-if="anime.release_date">
+          {{ formatReleaseDate(anime.release_date) }}
+        </span>
+        <span class="meta-item" v-else-if="anime.year">
           {{ anime.year }}
         </span>
-        <span class="meta-separator" v-if="anime.year && anime.type">·</span>
+        <span class="meta-separator" v-if="(anime.release_date || anime.year) && anime.type">·</span>
         <span class="meta-item" v-if="anime.type">
           {{ getTypeLabel(anime.type) }}
         </span>
@@ -244,6 +248,8 @@ interface AnimeCardProps {
   title_jp?: string
   description?: string
   year?: number | null
+  release_date?: string | null
+  release_date_string?: string | null
   status: string
   episodes?: number | null
   score?: number | null
@@ -477,7 +483,7 @@ const handleDiscuss = async () => {
     }
 
     // Перенаправляем в чат
-    router.push(`/chats/${discussionGroup.id}`)
+    router.push(`/chat/${discussionGroup.id}`)
   } catch (error: any) {
     console.error('Error handling discuss:', error)
     toast.error(error.response?.data?.detail || 'Не удалось открыть обсуждение')
@@ -492,6 +498,19 @@ const getStatusClass = (status: string) => {
     'released': 'status-released'
   }
   return map[status] || ''
+}
+
+const formatReleaseDate = (dateStr: string | null) => {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    const day = date.getDate()
+    const month = date.toLocaleString('ru', { month: 'short' })
+    const year = date.getFullYear()
+    return `${day} ${month} ${year}`
+  } catch {
+    return dateStr
+  }
 }
 
 const getPosterUrl = (): string | undefined => {
@@ -824,6 +843,11 @@ checkFavorite()
 .status-finished { color: var(--text-tertiary); }
 .status-announced{ color: var(--accent); }
 .status-released { color: var(--accent-2); }
+
+.meta-release-date {
+  color: var(--accent);
+  font-weight: 600;
+}
 
 /* ── Жанры ───────────────────────────────────────────────── */
 .anime-genres {

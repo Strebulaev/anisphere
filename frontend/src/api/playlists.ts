@@ -177,6 +177,16 @@ const playlistsApi = {
     return apiClient.patch<Playlist>(`/playlists/playlists/${id}/`, data)
   },
 
+  uploadPlaylistCover: (id: number, file: File): Promise<AxiosResponse<Playlist>> => {
+    const formData = new FormData()
+    formData.append('cover_image', file)
+    return apiClient.post<Playlist>(`/playlists/playlists/${id}/update_cover/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
   deletePlaylist: (id: number): Promise<AxiosResponse<void>> => {
     return apiClient.delete<void>(`/playlists/playlists/${id}/`)
   },

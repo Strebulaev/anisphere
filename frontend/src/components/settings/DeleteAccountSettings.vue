@@ -32,7 +32,8 @@
           :disabled="!finalConfirmation || isDeleting"
           class="danger-btn"
         >
-          {{ isDeleting ? 'Удаление...' : '<SakuraIcon name="trash" /> Удалить аккаунт' }}
+          <SakuraIcon v-if="!isDeleting" name="trash" :size="18" style="vertical-align: middle; margin-right: 8px;" />
+          {{ isDeleting ? 'Удаление...' : 'Удалить аккаунт' }}
         </button>
       </div>
 
@@ -46,6 +47,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -80,113 +82,131 @@ const confirmDeletion = async () => {
 
 <style scoped>
 .settings-section {
-  padding: 20px;
+  padding: 22px 24px;
 }
 
 .settings-section h2 {
   margin: 0 0 20px;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .settings-group {
-  padding: 30px;
-  background: var(--hover-bg);
-  border-radius: 8px;
+  padding: 24px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
 }
 
 .danger-zone {
-  border: 2px solid #f44336;
-  background: rgba(244, 67, 54, 0.05);
+  border: 1px solid var(--danger-subtle);
+  background: var(--danger-subtle);
 }
 
 .warning-icon {
-  font-size: 60px;
+  font-size: 48px;
   text-align: center;
   margin-bottom: 20px;
+  color: var(--warning);
 }
 
 .warning-text {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
-  color: var(--text-color);
+  color: var(--text-primary);
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .important-note {
-  padding: 15px;
-  background: rgba(255, 193, 7, 0.1);
-  border-left: 4px solid #FFC107;
-  border-radius: 4px;
+  padding: 16px;
+  background: var(--warning-subtle);
+  border-left: 3px solid var(--warning);
+  border-radius: 8px;
   margin-bottom: 25px;
 }
 
 .important-note strong {
-  color: #FFC107;
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .important-note ul {
-  margin: 10px 0 0 20px;
+  margin: 8px 0 0 20px;
   padding: 0;
 }
 
 .important-note li {
-  margin-bottom: 5px;
-  color: var(--text-color);
+  margin-bottom: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
 }
 
 .final-check {
   margin: 20px 0;
-  padding: 15px;
-  background: rgba(244, 67, 54, 0.1);
-  border-radius: 6px;
+  padding: 16px;
+  background: var(--surface-3);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
 }
 
 .checkbox-label {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
   font-weight: 500;
 }
 
 .checkbox-label input[type="checkbox"] {
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .action-buttons {
   display: flex;
-  gap: 15px;
+  gap: 12px;
   justify-content: center;
-  margin-top: 30px;
+  margin-top: 24px;
 }
 
 .danger-btn {
-  padding: 14px 28px;
+  padding: 12px 24px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 16px;
-  background: #f44336;
+  font-size: 15px;
+  background: var(--danger);
   color: white;
   border: none;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .danger-btn:hover:not(:disabled) {
-  background: #d32f2f;
+  background: var(--danger-hover);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--danger-subtle);
 }
 
 .danger-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .error-msg {
-  color: #f44336;
+  color: var(--danger);
   text-align: center;
-  margin-top: 15px;
+  margin-top: 16px;
   font-size: 14px;
 }
 </style>

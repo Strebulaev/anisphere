@@ -602,9 +602,25 @@ const handleUnblock = async () => {
   }
 }
 
-const handleMessage = () => {
+const handleMessage = async () => {
   if (!user.value) return
-  router.push(`/chats/${user.value.id}`)
+  try {
+    const response = await fetch('/api/chats/private/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      body: JSON.stringify({ user2: user.value.id })
+    })
+    if (response.ok) {
+      const data = await response.json()
+      router.push(`/chat/${data.id}`)
+    }
+  } catch (error) {
+    console.error('Error creating chat:', error)
+    alert('Не удалось создать чат')
+  }
 }
 
 const handleReport = () => {

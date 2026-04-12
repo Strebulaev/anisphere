@@ -161,11 +161,22 @@ class AnimeViewSet(viewsets.ModelViewSet):
         return Anime.objects.select_related('franchise')
 
     def list(self, request, *args, **kwargs):
-        """Список аниме с пагинацией и полноценной фильтрацией"""
+        """Список аниме с пагинацией и полноценной фильтрацией
+        
+        Важно: анонсы (status='announced') НЕ показываются в общем каталоге.
+        Для получения анонсов нужно явно указать status=announced в параметрах.
+        """
         print(f"\n=== AnimeViewSet.list called ===")
         print(f"Query params: {dict(request.query_params)}")
 
         queryset = self.get_queryset()
+        
+        # Исключаем анонсы из общего каталога, если статус явно не запрошен
+        status_param = request.query_params.get('status')
+        if not status_param:
+            # Если статус не указан - исключаем анонсы
+            queryset = queryset.exclude(status='announced')
+        # Если status передан явно (например, status=announced) - используем как есть
 
         # ── Поиск по slug (транслитерированное название) ───────────
         slug = request.query_params.get('slug')
@@ -1004,7 +1015,7 @@ class CurrentlyWatchingView(APIView):
         from datetime import timedelta
         from django.db.models import Count
         from anime.models import UserActiveTab
-
+        
         try:
             now = timezone.now()
 
@@ -1590,6 +1601,108 @@ class EpisodeProgressView(APIView):
             logging.getLogger(__name__).warning('_sync_library error: %s', e)
 
 
+class EpisodeProgressUndoView(APIView):
+    """
+    Отмена последней отметки о просмотре серии.
+    
+    POST /anime/<anime_id>/episode-progress/<episode_number>/undo/
+    
+    Возвращает предыдущую серию к которой нужно вернуться.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, anime_id, episode_number):
+        from django.utils import timezone
+        
+        try:
+            anime = Anime.objects.get(pk=anime_id)
+        except Anime.DoesNotExist:
+            return Response({'error': 'Аниме не найдено'}, status=404)
+
+        try:
+            # Находим запись о просмотре этой серии
+            progress = UserEpisodeProgress.objects.get(
+                user=request.user,
+                anime=anime,
+                episode_number=episode_number
+            )
+            
+            # Если серия была отмечена как просмотренная - сбрасываем
+            if progress.status == 'watched':
+                progress.status = 'not_started'
+                progress.is_manually_marked = False
+                progress.watched_at = None
+                progress.last_position = 0
+                progress.save(update_fields=['status', 'is_manually_marked', 'watched_at', 'last_position'])
+                
+                # Синхронизируем с библиотекой
+                self._sync_library(request.user, anime)
+                
+                # Находим предыдущую просмотренную серию
+                prev_watched = UserEpisodeProgress.objects.filter(
+                    user=request.user,
+                    anime=anime,
+                    status__in=['watched', 'skipped'],
+                    episode_number__lt=episode_number
+                ).order_by('-episode_number').first()
+                
+                return Response({
+                    'success': True,
+                    'episode_number': episode_number,
+                    'previous_episode': prev_watched.episode_number if prev_watched else None,
+                    'message': f'Отменён просмотр серии {episode_number}'
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'message': 'Серия не была отмечена как просмотренная'
+                }, status=400)
+                
+        except UserEpisodeProgress.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Запись о просмотре не найдена'
+            }, status=404)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f'EpisodeProgressUndo error: {e}')
+            return Response({'error': str(e)}, status=500)
+    
+    def _sync_library(self, user, anime):
+        """Синхронизирует прогресс с UserLibrary."""
+        try:
+            watched = UserEpisodeProgress.objects.filter(
+                user=user,
+                anime=anime,
+                status__in=['watched', 'skipped']
+            ).count()
+            
+            total = anime.episodes or 0
+            lib, _ = UserLibrary.objects.get_or_create(
+                user=user,
+                anime=anime,
+                defaults={'status': 'started'}
+            )
+            
+            if total and watched >= total:
+                lib.status = 'completed'
+            elif watched > 0:
+                lib.status = 'started'
+            else:
+                lib.status = 'planned'
+            
+            lib.current_episode = UserEpisodeProgress.objects.filter(
+                user=user,
+                anime=anime,
+                status__in=['watched', 'skipped']
+            ).order_by('-episode_number').values_list('episode_number', flat=True).first() or 0
+            
+            lib.save(update_fields=['status', 'current_episode', 'updated_at'])
+            
+        except Exception as e:
+            logging.getLogger(__name__).warning('_sync_library error: %s', e)
+
+
 class AnimeThemesView(APIView):
     """
     GET /anime/<id>/themes/?episode=1&season=1&translation_id=610
@@ -2010,246 +2123,109 @@ class KodikClipDownloadView(APIView):
     #  Основной handler                                                    #
     # ------------------------------------------------------------------ #
     def get(self, request, pk):
-        import subprocess, tempfile, os, shutil, re, urllib.parse, threading
-        from django.http import FileResponse
-
+        """
+        Нарезает клип из аниме.
+        """
         try:
             anime = Anime.objects.get(pk=pk)
         except Anime.DoesNotExist:
             return Response({'error': 'Аниме не найдено'}, status=404)
 
-        # Параметры запроса
-        try:
-            start          = float(request.query_params.get('start', 0))
-            end            = float(request.query_params.get('end', 0))
-            episode        = int(request.query_params.get('episode', 1))
-            season         = int(request.query_params.get('season', 1))
-            translation_id = request.query_params.get('translation_id')
-            label          = request.query_params.get('label', 'clip')[:40]
-            output_format  = request.query_params.get('format', 'mp4').lower()  # mp4 или mp3
-        except (ValueError, TypeError):
-            return Response({'error': 'Некорректные параметры'}, status=400)
+        episode        = int(request.query_params.get('episode', 1))
+        season         = int(request.query_params.get('season', 1))
+        translation_id = request.query_params.get('translation_id')
+        start_sec      = int(request.query_params.get('start', 0))
+        end_sec        = int(request.query_params.get('end', 120))
+        label          = request.query_params.get('label', 'clip')
 
-        # Валидация формата
-        if output_format not in ('mp4', 'mp3'):
-            return Response({'error': 'format должен быть mp4 или mp3'}, status=400)
+        user_ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() \
+                  or request.META.get('REMOTE_ADDR', '1.1.1.1')
 
-        # end=99999 — специальное значение «скачать целиком»
-        full_episode = (end >= 99990)
-        duration = end - start
-        if not full_episode and duration <= 0:
-            return Response({'error': 'Конец должен быть позже начала'}, status=400)
-
-        # Шаг 1: URL плеера серии
+        # 1. Получаем URL страницы плеера серии
         episode_url = self._get_episode_player_url(anime, episode, season, translation_id)
         if not episode_url:
-            return Response({'error': 'Не удалось найти серию в Kodik'}, status=503)
+            return Response({'error': 'Не удалось найти серию в Kodik'}, status=404)
 
-        # Шаг 2: прямой m3u8
-        user_ip = (
-            request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-            or request.META.get('REMOTE_ADDR', '1.1.1.1')
-        )
+        # 2. Получаем прямой m3u8 через video-links API
         m3u8_url = self._get_m3u8_via_api(episode_url, user_ip=user_ip)
         if not m3u8_url:
-            return Response({'error': 'Не удалось получить ссылку на видео от Kodik'}, status=503)
+            return Response({'error': 'Не удалось получить m3u8'}, status=404)
 
-        # Шаг 3: нарезка через ffmpeg
-        ffmpeg_bin = shutil.which('ffmpeg') or '/usr/bin/ffmpeg'
-        if not ffmpeg_bin or not os.path.isfile(ffmpeg_bin):
-            return Response({'error': 'ffmpeg не установлен. Выполните: apt-get install -y ffmpeg'}, status=503)
+        # 3. Нарезаем клип через ffmpeg
+        import subprocess
+        from django.http import HttpResponse
 
-        safe_title = re.sub(r'[^\w\s\-]', '', anime.title_ru or anime.title_en or f'anime_{pk}').strip()[:50]
-        safe_label = re.sub(r'[^\w\s\-]', '', label).strip()
-        
-        # Имя файла зависит от формата
-        if output_format == 'mp3':
-            filename = f'{safe_title} - Ep{episode} - {safe_label}.mp3'
-            tmp_suffix = '.mp3'
-        else:
-            filename = f'{safe_title} - Ep{episode} - {safe_label}.mp4'
-            tmp_suffix = '.mp4'
-
-        with tempfile.NamedTemporaryFile(suffix=tmp_suffix, delete=False) as tmp:
-            tmp_path = tmp.name
-
-        # Таймаут: целая серия может идти долго; даём 90 минут на целиком, 15 мин на фрагмент
-        ffmpeg_timeout = 5400 if full_episode else 900
+        duration = end_sec - start_sec
+        if duration <= 0:
+            return Response({'error': 'end должен быть больше start'}, status=400)
 
         try:
-            # Общие флаги для HLS/m3u8
-            hls_flags = [
-                '-headers', 'Referer: https://kodikplayer.com/\r\nOrigin: https://kodikplayer.com\r\n',
-                '-reconnect', '1',
-                '-reconnect_streamed', '1',
-                '-reconnect_delay_max', '10',
+            cmd = [
+                'ffmpeg',
+                '-y',
+                '-i', m3u8_url,
+                '-ss', str(start_sec),
+                '-t', str(duration),
+                '-c:v', 'libx264',
+                '-c:a', 'aac',
+                '-f', 'mp4',
+                'pipe:1',
             ]
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output, error = process.communicate()
 
-            if output_format == 'mp3':
-                # Извлечение аудио в MP3
-                if full_episode:
-                    cmd = [
-                        ffmpeg_bin, '-y',
-                        *hls_flags,
-                        '-i', m3u8_url,
-                        '-vn',  # Отключаем видео
-                        '-acodec', 'libmp3lame',
-                        '-q:a', '2',  # Качество MP3 (0-9, где 0 лучшее)
-                        tmp_path,
-                    ]
-                else:
-                    cmd = [
-                        ffmpeg_bin, '-y',
-                        *hls_flags,
-                        '-i', m3u8_url,
-                        '-ss', str(start),
-                        '-t', str(duration),
-                        '-vn',  # Отключаем видео
-                        '-acodec', 'libmp3lame',
-                        '-q:a', '2',
-                        tmp_path,
-                    ]
-            else:
-                # MP4 — как было
-                if full_episode:
-                    # Скачиваем всю серию — без -ss и -t
-                    cmd = [
-                        ffmpeg_bin, '-y',
-                        *hls_flags,
-                        '-i', m3u8_url,
-                        '-c:v', 'copy',
-                        '-c:a', 'aac',
-                        '-movflags', '+faststart',
-                        tmp_path,
-                    ]
-                else:
-                    # Нарезаем фрагмент: -ss после -i (точный seek для HLS)
-                    cmd = [
-                        ffmpeg_bin, '-y',
-                        *hls_flags,
-                        '-i', m3u8_url,
-                        '-ss', str(start),
-                        '-t', str(duration),
-                        '-c:v', 'copy',
-                        '-c:a', 'aac',
-                        '-movflags', '+faststart',
-                        tmp_path,
-                    ]
+            if process.returncode != 0:
+                return Response({'error': f'ffmpeg ошибка: {error.decode()}'}, status=500)
 
-            result = subprocess.run(cmd, capture_output=True, timeout=ffmpeg_timeout)
-
-            if result.returncode != 0:
-                err = result.stderr.decode('utf-8', errors='replace')[-800:]
-                try:
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
-                return Response({'error': f'ffmpeg ошибка: {err}'}, status=500)
-
-            # Проверяем что файл не пустой
-            if os.path.getsize(tmp_path) < 1000:
-                try:
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
-                return Response({'error': 'ffmpeg создал пустой файл — возможно ссылка уже истекла'}, status=500)
-
-            # Отдаём файл
-            encoded_name = urllib.parse.quote(filename)
-            
-            # Content-Type зависит от формата
-            content_type = 'audio/mpeg' if output_format == 'mp3' else 'video/mp4'
-            
-            response = FileResponse(
-                open(tmp_path, 'rb'),
-                content_type=content_type,
-                as_attachment=True,
-                filename=filename,
-            )
-            response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_name}"
-            response['X-Accel-Buffering']   = 'no'
-
-            def _cleanup():
-                import time as _t
-                _t.sleep(60)
-                try:
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
-
-            threading.Thread(target=_cleanup, daemon=True).start()
+            response = HttpResponse(output, content_type='video/mp4')
+            response['Content-Disposition'] = f'attachment; filename="{label}.mp4"'
             return response
 
-        except subprocess.TimeoutExpired:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
-            return Response({'error': 'Таймаут: обработка заняла слишком долго'}, status=504)
         except Exception as e:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
-            import traceback
-            traceback.print_exc()
+            import logging
+            logging.getLogger(__name__).error(f'Clip download error: {e}')
             return Response({'error': str(e)}, status=500)
 
-class EpisodeProgressUndoView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, anime_id, episode_number):
-        try:
-            ep = UserEpisodeProgress.objects.get(user=request.user, anime_id=anime_id, episode_number=episode_number)
-            ep.status = 'in_progress'
-            ep.is_manually_marked = False
-            ep.watched_at = None
-            ep.save(update_fields=['status', 'is_manually_marked', 'watched_at'])
-            return Response({'episode_number': episode_number, 'status': 'in_progress', 'undone': True})
-        except UserEpisodeProgress.DoesNotExist:
-            return Response({'error': 'Запись не найдена'}, status=404)
-
-
-# ═══════════════════════════════════════════════════════════════
-# Admin: Аниме добавленные сегодня
-# ═══════════════════════════════════════════════════════════════
 
 class AdminTodayAddedAnimeView(APIView):
     """
-    GET /api/anime/admin/today-added/ — аниме добавленные сегодня
+    Админка: аниме добавленные сегодня.
+    
+    GET /anime/admin/today-added/
+    
+    Возвращает список аниме которые были добавлены в базу сегодня.
     """
     permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
         from django.utils import timezone
-        from datetime import timedelta
+        from datetime import datetime
         
-        # Берем аниме за последние 16 часов (с учетом что могут добавить ночью)
-        now = timezone.now()
-        cutoff = now - timedelta(hours=16)
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         
-        anime_list = Anime.objects.filter(
-            created_at__gte=cutoff
+        animes = Anime.objects.filter(
+            created_at__gte=today_start
         ).order_by('-created_at')
         
-        # Сериализуем
         data = []
-        for a in anime_list:
-            # Конвертируем время в МСК для отображения
-            created_msk = a.created_at.astimezone(timezone.get_current_timezone()) if a.created_at else None
+        for anime in animes[:100]:  # Максимум 100
             data.append({
-                'id': a.id,
-                'title_ru': a.title_ru,
-                'title_en': a.title_en,
-                'year': a.year,
-                'kind': a.kind,
-                'status': a.status,
-                'episodes': a.episodes,
-                'episode_duration': a.episode_duration,
-                'score': a.score,
-                'poster_url': a.poster_url,
-                'data_source': a.data_source,
-                'created_at': created_msk.isoformat() if created_msk else None,
+                'id': anime.id,
+                'title_ru': anime.title_ru or anime.title_en or '',
+                'shikimori_id': anime.shikimori_id,
+                'mal_id': anime.mal_id,
+                'year': anime.year,
+                'status': anime.status,
+                'kind': anime.kind,
+                'episodes': anime.episodes,
+                'score': anime.score,
+                'poster_url': anime.poster_url,
+                'created_at': anime.created_at.isoformat(),
+                'data_source': anime.data_source,
             })
         
-        return Response({'anime': data, 'count': len(data)})
+        return Response({
+            'count': len(data),
+            'today_start': today_start.isoformat(),
+            'animes': data
+        })

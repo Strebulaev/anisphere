@@ -12,13 +12,15 @@
         v-for="post in posts"
         :key="post.id"
         :post="post"
+        :can-interact="canInteract"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import PostCard from '@/components/Cards/PostCard.vue'
 import { postsApi } from '@/api/feed'
@@ -29,8 +31,15 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const authStore = useAuthStore()
 const loading = ref(true)
 const posts = ref<any[]>([])
+
+const currentUser = computed(() => authStore.user)
+const canInteract = computed(() => {
+  // Взаимодействие разрешено только со своими постами в своём профиле
+  return currentUser.value?.id === props.userId
+})
 
 onMounted(async () => {
   loading.value = true

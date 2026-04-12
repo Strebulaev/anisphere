@@ -138,7 +138,7 @@ const form = reactive({
 })
 
 const notifTypes = [
-  { key: 'like',           icon: '❵',  label: 'Лайки' },
+  { key: 'like',           icon: '👍',  label: 'Лайки' },
   { key: 'dislike',        icon: '👎',  label: 'Дизлайки' },
   { key: 'comment',        icon: '💬',  label: 'Комментарии' },
   { key: 'reply',          icon: '↩️',  label: 'Ответы на комментарии' },

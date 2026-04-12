@@ -156,7 +156,7 @@ class FeedGenerationService:
             user=user
         ).values_list('post_id', flat=True))
         
-        base_filter = Q(status='published') & ~Q(is_deleted=True)
+        base_filter = Q(status='published') & ~Q(is_deleted=True) & ~Q(post_type='system')
         exclude_filter = Q(id__in=hidden_post_ids)
         visibility_filter = Q(visibility='public') | Q(author_id__in=subscriptions) | Q(author_id=user.id)
         
@@ -259,7 +259,8 @@ class FeedGenerationService:
             author=user,
             is_pinned=True,
             status='published',
-            is_deleted=False
+            is_deleted=False,
+            post_type__ne='system'
         ).annotate(
             playlist_items_count=Count('playlist__items')
         ).select_related('author', 'anime', 'playlist')
@@ -279,7 +280,8 @@ class FeedGenerationService:
         posts = Post.objects.filter(
             group=group,
             status='published',
-            is_deleted=False
+            is_deleted=False,
+            post_type__ne='system'
         ).annotate(
             playlist_items_count=Count('playlist__items')
         ).select_related(
@@ -298,7 +300,8 @@ class FeedGenerationService:
         posts = Post.objects.filter(
             author=user,
             status='published',
-            is_deleted=False
+            is_deleted=False,
+            post_type__ne='system'
         ).annotate(
             playlist_items_count=Count('playlist__items')
         ).select_related(

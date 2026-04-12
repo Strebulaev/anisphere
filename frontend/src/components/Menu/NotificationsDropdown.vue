@@ -186,7 +186,7 @@ const formatTime = (raw: string | null | undefined): string => {
 
 // ── Иконки и цвета ───────────────────────────────────────
 const ICONS: Record<string, string> = {
-  like: '❵', dislike: '👎', comment: '💬', mention: '@',
+  like: '👍', dislike: '👎', comment: '💬', mention: '@',
   follow: '👭', repost: '🔄', message: '💌', group_message: '👭',
   achievement: '🏆', contest: '🏅', system: '⚙️', group_invite: '📨',
   reminder_episode: '🔔', reminder_event: '📅', reminder_contest: '⌛',

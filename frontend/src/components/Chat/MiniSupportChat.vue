@@ -310,7 +310,7 @@ onMounted(() => {
 .mini-chat {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   width: 360px;
   max-height: 500px;
   background: var(--surface-2);
@@ -712,10 +712,10 @@ onMounted(() => {
 /* FAB button */
 .mini-chat-fab {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-press) 100%);
   border: none;
@@ -740,11 +740,11 @@ onMounted(() => {
   right: -4px;
   background: linear-gradient(135deg, var(--danger) 0%, #ff6b6b 100%);
   color: white;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 2px 5px;
   border-radius: var(--radius-full);
-  min-width: 16px;
+  min-width: 14px;
   text-align: center;
   box-shadow: 0 2px 8px rgba(255,138,138,0.4);
 }
@@ -778,12 +778,15 @@ onMounted(() => {
   .mini-chat {
     width: calc(100vw - 32px);
     right: 16px;
+    left: auto;
     bottom: 16px;
   }
   
   .mini-chat-fab {
     right: 16px;
     bottom: 16px;
+    width: 44px;
+    height: 44px;
   }
 }
 </style>

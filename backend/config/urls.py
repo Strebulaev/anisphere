@@ -19,9 +19,14 @@ from django.urls import path, include, re_path
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 import time
 import requests
 from urllib.parse import urlparse, quote
+
+# Импорты для payment views
+# КОММЕНТАРИЙ: Платежи отключены - весь функционал бесплатный
+# from users.views_payment import PaymentSuccessView, PaymentFailView, PaymentWebhookView
 
 def api_status(request):
     """Статус всех моделей в системе"""
@@ -142,4 +147,13 @@ urlpatterns = [
     path('api/roulette/', include('roulette.urls')),  # Roulette API
     # Алиас для чатов (фронтенд использует /api/chats/)
     path('api/chats/', include('social.urls')),
+    
+    # CryptoCloud Payment URLs (без /api/ для редиректов)
+    # КОММЕНТАРИЙ: Платежи отключены - весь функционал бесплатный
+    # path('payment/success/', PaymentSuccessView.as_view(), name='payment_success'),
+    # path('payment/fail/', PaymentFailView.as_view(), name='payment_fail'),
+    # path('api/payment/webhook/', PaymentWebhookView.as_view(), name='payment_webhook'),
+    
+    # CryptoCloud верификация магазина
+    re_path(r'^shop-verification-og7k9w1Zma\.txt$', lambda r: HttpResponse('shop-verification-og7k9w1Zma', content_type='text/plain')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

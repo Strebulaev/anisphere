@@ -1,9 +1,10 @@
 <template>
   <div class="own-profile-view">
     <!-- Шапка профиля -->
-    <div class="profile-header">
-      <!-- Обложка профиля -->
+    <div class="profile-header" :class="{ 'has-cover': user.is_premium && user.cover_image_url }">
+      <!-- Обложка профиля (только для премиум) -->
       <div 
+        v-if="user.is_premium && user.cover_image_url"
         class="header-background" 
         :style="coverImageStyle"
       >
@@ -34,9 +35,15 @@
 
         <div class="user-info">
           <!-- Отображаемое имя (то, что задал сам пользователь) -->
-          <h1>{{ user.display_name || user.nickname || user.username }}</h1>
+          <h1>
+            {{ user.display_name || user.nickname || user.username }}
+            <PremiumCrown v-if="user.is_premium" :size="24" class="premium-crown-inline" />
+          </h1>
           <!-- Уникальный никнейм — один, не два -->
-          <p class="username">@{{ user.nickname || user.username }}</p>
+          <p class="username">
+            @{{ user.nickname || user.username }}
+            <PremiumCrown v-if="user.is_premium" :size="16" class="premium-crown-username" />
+          </p>
           <p class="bio">{{ user.bio || 'Напишите что-то о себе...' }}</p>
 
           <div class="user-meta">
@@ -98,6 +105,7 @@ import { CogIcon } from '@heroicons/vue/24/outline'
 import api from '@/api'
 import CoverCropModal from '@/components/modal/CoverCropModal.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
+import PremiumCrown from '@/components/icons/PremiumCrown.vue'
 
 interface UserProfile {
   avatar?: string
@@ -112,6 +120,7 @@ interface UserProfile {
   cover_image?: string
   cover_position_x?: number
   cover_position_y?: number
+  is_premium?: boolean
 }
 
 interface UserStats {
@@ -262,6 +271,11 @@ const formatDate = (date: string | Date | undefined) => {
 }
 
 onMounted(() => {
+  // Если есть ID пользователя - редирект на /profile/{id}
+  if (currentUser.value?.id) {
+    router.replace(`/profile/${currentUser.value.id}`)
+    return
+  }
   loadProfile()
   loadStats()
 })
@@ -324,6 +338,15 @@ onMounted(() => {
   margin-top: -80px;
 }
 
+/* Если нет обложки - аватар не накладывается */
+.profile-header:not(.has-cover) .header-content {
+  margin-top: 24px;
+}
+
+.profile-header.has-cover .header-content {
+  margin-top: -80px;
+}
+
 .avatar-section {
   position: relative;
   display: inline-block;
@@ -338,6 +361,18 @@ onMounted(() => {
   margin: 0 0 4px;
   font-size: 28px;
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.premium-crown-inline {
+  vertical-align: middle;
+}
+
+.premium-crown-username {
+  vertical-align: middle;
+  margin-left: 4px;
 }
 
 .username {

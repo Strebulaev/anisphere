@@ -606,9 +606,15 @@ const handleUnblock = async () => {
   }
 }
 
-const handleMessage = () => {
+const handleMessage = async () => {
   if (!user.value) return
-  router.push(`/chats/${user.value.id}`)
+  try {
+    const response = await apiClient.post('/chats/private/', { user2: user.value.id })
+    router.push(`/chat/${response.data.id}`)
+  } catch (error) {
+    console.error('Error creating chat:', error)
+    alert('Не удалось создать чат')
+  }
 }
 
 const handleReport = async () => {

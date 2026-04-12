@@ -268,7 +268,10 @@
 
         <div class="report-options">
           <button @click="reportBug" class="report-btn">
-            🐛 Сообщить об ошибке
+            <SakuraIcon name="bug" /> Сообщить об ошибке
+          </button>
+          <button @click="makeSuggestion" class="report-btn">
+            <SakuraIcon name="lightbulb" /> Предложить идею
           </button>
           <button @click="makeSuggestion" class="report-btn">
           <SakuraIcon name="lightbulb" /> Сделать предложение

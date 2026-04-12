@@ -295,6 +295,41 @@ defineProps<{
       <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
     </template>
 
+    <!-- Колокольчик выкл -->
+    <template v-else-if="name === 'bell-off'">
+      <path d="M13.73 21a2 2 0 01-3.46 0M18 8A6 6 0 006 8C6 15 3 17 3 17h15.5M1 1l22 22M12 2v1" />
+    </template>
+
+    <!-- Закладка -->
+    <template v-else-if="name === 'bookmark'">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+    </template>
+
+    <!-- Закладка снять -->
+    <template v-else-if="name === 'bookmark-remove'">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+      <line x1="19" y1="5" x2="7" y2="17" stroke="currentColor" stroke-width="2" />
+    </template>
+
+    <!-- Видимость публичный -->
+    <template v-else-if="name === 'visibility-public'">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </template>
+
+    <!-- Видимость приватный -->
+    <template v-else-if="name === 'visibility-private'">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0110 0v4" />
+    </template>
+
+    <!-- Видимость по ссылке -->
+    <template v-else-if="name === 'visibility-link'">
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+    </template>
+
     <!-- Мешок денег -->
     <template v-else-if="name === 'dollar'">
       <line x1="12" y1="1" x2="12" y2="23" />
@@ -1268,6 +1303,227 @@ defineProps<{
     <template v-else-if="name === 'star-half-alt'">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" />
+    </template>
+
+    <!-- Статусы коллекции -->
+    <!-- Просмотрено / Completed -->
+    <template v-else-if="name === 'completed'">
+      <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </template>
+
+    <!-- В процессе / Watching -->
+    <template v-else-if="name === 'watching'">
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="M10 9l5 3-5 3V9z" fill="currentColor" />
+    </template>
+
+    <!-- Запланировано / Plan to Watch -->
+    <template v-else-if="name === 'plan-to-watch'">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </template>
+
+    <!-- Брошено / Dropped -->
+    <template v-else-if="name === 'dropped'">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </template>
+
+    <!--暂停 / On Hold -->
+    <template v-else-if="name === 'on-hold'">
+      <rect x="3" y="6" width="4" height="12" fill="currentColor" />
+      <rect x="17" y="6" width="4" height="12" fill="currentColor" />
+    </template>
+
+    <!-- Избранное / Favorite -->
+    <template v-else-if="name === 'favorite'">
+      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" fill="currentColor" />
+    </template>
+
+    <!-- Закладки / Bookmark -->
+    <template v-else-if="name === 'bookmark'">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" fill="currentColor" />
+    </template>
+
+    <!-- Закладки удалить -->
+    <template v-else-if="name === 'bookmark-remove'">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+      <line x1="17" y1="7" x2="7" y2="17" />
+      <line x1="7" y1="7" x2="17" y2="17" />
+    </template>
+
+    <!-- Видимость публичный -->
+    <template v-else-if="name === 'visibility-public'">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="3" fill="currentColor" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    </template>
+
+    <!-- Видимость приватный -->
+    <template v-else-if="name === 'visibility-private'">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0110 0v4" />
+    </template>
+
+    <!-- Видимость по ссылке -->
+    <template v-else-if="name === 'visibility-link'">
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+    </template>
+
+    <!-- Донат / Donation -->
+    <template v-else-if="name === 'donation'">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+    </template>
+
+    <!-- Монета / Coin -->
+    <template v-else-if="name === 'coin'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v8M9 12h6" />
+    </template>
+
+    <!-- Отправить сообщение -->
+    <template v-else-if="name === 'send-message'">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </template>
+
+    <!-- Репост / Repost -->
+    <template v-else-if="name === 'repost'">
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 014-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 01-4 4H3" />
+    </template>
+
+    <!-- Ответ / Reply -->
+    <template v-else-if="name === 'reply'">
+      <polyline points="9 17 4 12 9 7" />
+      <path d="M20 18v-2a4 4 0 00-4-4H4" />
+    </template>
+
+    <!-- Ответить в чате -->
+    <template v-else-if="name === 'reply-chat'">
+      <polyline points="9 17 4 12 9 7" />
+      <path d="M20 18v-2a4 4 0 00-4-4H4" />
+    </template>
+
+    <!-- Формат -->
+    <template v-else-if="name === 'format'">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="9" y1="21" x2="9" y2="9" />
+    </template>
+
+    <!-- Переключатель / Toggle -->
+    <template v-else-if="name === 'toggle'">
+      <rect x="2" y="7" width="20" height="10" rx="5" />
+      <circle cx="17" cy="12" r="3" fill="currentColor" />
+    </template>
+
+    <!-- Переключатель выкл -->
+    <template v-else-if="name === 'toggle-off'">
+      <rect x="2" y="7" width="20" height="10" rx="5" />
+      <circle cx="7" cy="12" r="3" fill="currentColor" />
+    </template>
+
+    <!-- Квадрат / Checkbox -->
+    <template v-else-if="name === 'square'">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+    </template>
+
+    <!-- Квадрат с галочкой -->
+    <template v-else-if="name === 'square-check'">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <polyline points="20 6 9 17 4 12" />
+    </template>
+
+    <!-- Круг -->
+    <template v-else-if="name === 'circle'">
+      <circle cx="12" cy="12" r="10" />
+    </template>
+
+    <!-- Круг с галочкой -->
+    <template v-else-if="name === 'circle-check'">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="20 6 9 17 4 12" />
+    </template>
+
+    <!-- Аниме / Anime TV -->
+    <template v-else-if="name === 'anime-tv'">
+      <rect x="2" y="7" width="20" height="15" rx="2" />
+      <polyline points="17 2 12 7 7 2" />
+    </template>
+
+    <!-- Фильм / Movie -->
+    <template v-else-if="name === 'movie'">
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <circle cx="12" cy="12" r="3" fill="currentColor" />
+    </template>
+
+    <!-- OVA -->
+    <template v-else-if="name === 'ova'">
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" />
+    </template>
+
+    <!-- ONA -->
+    <template v-else-if="name === 'ona'">
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" />
+    </template>
+
+    <!-- Special -->
+    <template v-else-if="name === 'special'">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </template>
+
+    <!-- Музыка / Music Video -->
+    <template v-else-if="name === 'music-video'">
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+      <polygon points="14 9 17 10.5 14 12 14 9" fill="currentColor" />
+    </template>
+
+    <!-- Плавающая кнопка -->
+    <template v-else-if="name === 'floating'">
+      <circle cx="12" cy="12" r="10" />
+    </template>
+
+    <!-- Поддержка / Support -->
+    <template v-else-if="name === 'support'">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="M9 12l2 2 4-4" />
+    </template>
+
+    <!-- Жалоба / Report -->
+    <template v-else-if="name === 'report'">
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" />
+    </template>
+
+    <!-- Модерация / Moderation -->
+    <template v-else-if="name === 'moderation'">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <circle cx="12" cy="10" r="3" fill="currentColor" />
+    </template>
+
+    <!-- Настройки шестеренка -->
+    <template v-else-if="name === 'settings-alt'">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+    </template>
+
+    <!-- Жук / Bug -->
+    <template v-else-if="name === 'bug'">
+      <path d="M8 2l1.88 1.88M14.12 3.88L16 2M9 7.13v-1a3.003 3.003 0 116 0v1" />
+      <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 014-4h4a4 4 0 014 4v3c0 3.3-2.7 6-6 6z" />
+      <path d="M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M3 21c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M16 13h4M13 21c2.1 0 3.8-1.8 3.8-4" />
     </template>
 
     <!-- Итого: Default - вопросительный знак -->

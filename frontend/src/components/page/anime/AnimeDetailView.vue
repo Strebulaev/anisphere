@@ -701,21 +701,42 @@
     discussLoading.value = true
     try {
       let discussionGroup
-      try {
-        discussionGroup = await animeDiscussionsApi.getDiscussionGroup(anime.value.id)
-      } catch (error: any) {
-        if (error.response?.status === 404) {
-          discussionGroup = await animeDiscussionsApi.createDiscussionGroup(anime.value.id)
-        } else {
-          throw error
+      // Если аниме в франшизе - используем обсуждение франшизы
+      const franchiseId = (anime.value as any).franchise_id
+      if (franchiseId) {
+        try {
+          discussionGroup = await animeDiscussionsApi.getFranchiseDiscussion(franchiseId)
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            discussionGroup = await animeDiscussionsApi.joinFranchiseDiscussion(franchiseId)
+          } else {
+            throw error
+          }
+        }
+      } else {
+        try {
+          discussionGroup = await animeDiscussionsApi.getDiscussionGroup(anime.value.id)
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            discussionGroup = await animeDiscussionsApi.createDiscussionGroup(anime.value.id)
+          } else {
+            throw error
+          }
+        }
+        if (!discussionGroup.user_joined) {
+          discussionGroup = await animeDiscussionsApi.joinDiscussionGroup(anime.value.id)
         }
       }
-      if (!discussionGroup.user_joined) {
-        discussionGroup = await animeDiscussionsApi.joinDiscussionGroup(anime.value.id)
+      // Используем chat_id из ответа если есть
+      const chatId = discussionGroup.chat_id || discussionGroup.id
+      if (chatId) {
+        router.push(`/chat/${chatId}`)
+      } else {
+        toast.error('Не удалось получить ID чата')
       }
-      router.push(`/chats/${discussionGroup.id}`)
     } catch (error: any) {
       console.error('Error handling discuss:', error)
+      toast.error(error.response?.data?.error || 'Не удалось открыть обсуждение')
     } finally {
       discussLoading.value = false
     }

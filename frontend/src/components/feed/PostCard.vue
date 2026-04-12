@@ -151,9 +151,43 @@
           </div>
         </div>
 
-        <!-- Repost -->
+        <!-- Repost with quote -->
         <div v-if="post.post_type === 'repost' && post.original_post" class="repost-wrap">
-          <PostCard :post="(post.original_post as any)" :is-repost="true" @menu="$emit('menu', $event)" />
+          <QuoteCard 
+            :quote="{
+              id: post.original_post.id,
+              author: {
+                id: post.original_post.author,
+                username: post.original_post.author_username,
+                avatar_url: post.original_post.author_avatar || undefined
+              },
+              content: post.original_post.text,
+              type: getQuoteType(post.original_post),
+              anime: post.original_post.anime || undefined,
+              timestamp: post.original_post.created_at,
+              post_id: post.original_post.id
+            }"
+            :can-click="true"
+            :show-avatar="false"
+            @click="goToPost(post.original_post.id)"
+          />
+          
+          <!-- Repost comment -->
+          <div v-if="post.repost_comment" class="repost-comment">
+            <div class="repost-comment-header">
+              <OptimizedImage :src="post.author_avatar || defaultAvatar" class="repost-avatar" alt="" />
+              <span class="repost-author">@{{ post.author_username }}</span>
+            </div>
+            <p class="repost-comment-text">{{ post.repost_comment }}</p>
+          </div>
+          
+          <!-- Original post content (collapsed) -->
+          <div class="original-post-preview" @click="goToPost(post.original_post.id)">
+            <div class="preview-header">
+              <SakuraIcon name="refresh" :size="14" />
+              <span>Оригинал поста</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -229,6 +263,7 @@ import { commentsApi } from '@/api/feed'
 import { normalizeComment } from '@/utils/normalizers'
 import { getMediaUrl } from '@/api/client'
 import CommentThreadNode from '@/components/feed/CommentThreadNode.vue'
+import QuoteCard from '@/components/ui/QuoteCard.vue'
 import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 // Проверка - является ли icon именем иконки (а не эмодзи)
@@ -435,6 +470,22 @@ const submitComment = async () => {
 const onReplyAdded = (reply: any) => {
   allComments.value.push(normalizeComment(reply))
   ;(props.post as any).comments_count = (props.post.comments_count || 0) + 1
+}
+
+// Получить тип цитаты для QuoteCard
+const getQuoteType = (post: any): 'text' | 'image' | 'video' | 'audio' | 'file' => {
+  if (post.media_files?.length) {
+    const firstMedia = post.media_files[0]
+    return firstMedia.media_type === 'video' ? 'video' : 'image'
+  }
+  if (post.image_url || post.image_file) return 'image'
+  if (post.video_url || post.video_file) return 'video'
+  return 'text'
+}
+
+// Перейти к посту
+const goToPost = (postId: number) => {
+  router.push(`/post/${postId}`)
 }
 </script>
 
@@ -901,6 +952,64 @@ const onReplyAdded = (reply: any) => {
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 0.5rem;
+  background: var(--surface-3, #0f0f0f);
+}
+
+.repost-comment {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2, #0a0a0a);
+}
+
+.repost-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.repost-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.repost-author {
+  font-weight: 600;
+  font-size: 0.8rem; 
+  color: var(--accent-bright);
+}
+
+.repost-comment-text {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.original-post-preview {
+  padding: 0.6rem 1rem;
+  background: var(--surface-4, #151515);
+  cursor: pointer; 
+  transition: background 0.15s;
+}
+
+.original-post-preview:hover {
+  background: var(--surface-5, #1a1a1a);
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.preview-header svg {
+  color: var(--accent);
 }
 
 /* ═══ Actions ═══════════════════════════════════════════════════ */

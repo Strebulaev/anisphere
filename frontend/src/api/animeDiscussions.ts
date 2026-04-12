@@ -24,6 +24,8 @@ export interface AnimeDiscussionGroup {
   discussion_type?: string
   // Для франшиз
   type?: 'anime' | 'franchise'
+  // ID чата для перехода (возвращается при join)
+  chat_id?: number
   group?: {
     id: number
     name: string
@@ -51,12 +53,12 @@ export const animeDiscussionsApi = {
     return response.data
   },
 
-  async joinDiscussionGroup(animeId: number): Promise<AnimeDiscussionGroup> {
+  async joinDiscussionGroup(animeId: number): Promise<AnimeDiscussionGroup & { chat_id: number }> {
     const response = await apiClient.post(`/social/anime/${animeId}/discussion-group/join/`)
     return response.data
   },
 
-  async joinFranchiseDiscussion(franchiseId: number): Promise<AnimeDiscussionGroup> {
+  async joinFranchiseDiscussion(franchiseId: number): Promise<AnimeDiscussionGroup & { chat_id: number }> {
     const response = await apiClient.post(`/social/franchise/${franchiseId}/discussion/join/`)
     return response.data
   },

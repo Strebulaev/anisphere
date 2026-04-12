@@ -209,9 +209,10 @@ const openProfile = (userId) => {
 const openChat = async (userId) => {
   try {
     const response = await api.post('/chats/private/', { user_id: userId })
-    router.push(`/chats/${response.data.id}`)
+    router.push(`/chat/${response.data.id}`)
   } catch (error) {
-    console.error('Ошибка создания чата:', error)
+    console.error('Error creating chat:', error)
+    alert('Не удалось создать чат')
   }
 }
 

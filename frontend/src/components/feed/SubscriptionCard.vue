@@ -56,7 +56,16 @@ const formatDate = (s: string) => {
 }
 
 const goToProfile = () => router.push(`/profile/${props.user.username}`)
-const goToChat = () => router.push(`/chats?user=${props.user.username}`)
+const goToChat = async () => {
+  try {
+    const api = await import('@/api/client')
+    const response = await api.default.post('/chats/private/', { user2: props.user.id })
+    router.push(`/chat/${response.data.id}`)
+  } catch (error) {
+    console.error('Error creating chat:', error)
+    alert('Не удалось создать чат')
+  }
+}
 
 const handleUnfollow = async () => {
   if (isUnfollowing.value) return

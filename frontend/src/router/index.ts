@@ -10,6 +10,7 @@ import AnimeWatchView from '@/components/page/anime/AnimeWatchView.vue'
 import OwnProfileView from '@/components/page/profile/OwnProfileView.vue'
 import UserProfileView from '@/components/page/profile/UserProfileView.vue'
 import FeedView from '@/components/page/feed/FeedView.vue'
+import PostDetailView from '@/components/page/feed/PostDetailView.vue'
 import ChatsView from '@/components/page/chats/ChatsView.vue'
 import PlaylistsView from '@/components/page/playlists/PlaylistsView.vue'
 import PlaylistDetailView from '@/components/page/playlists/PlaylistDetailView.vue'
@@ -42,6 +43,9 @@ import WheelHistoryView from '@/views/WheelHistoryView.vue'
 import ThemesView from '@/views/ThemesView.vue'
 import DonateView from '@/components/page/other/DonateView.vue'
 import SupportView from '@/views/SupportView.vue'
+import SubscriptionView from '@/views/SubscriptionView.vue'
+import CreateGroupView from '@/components/page/chats/CreateGroupView.vue'
+import GroupsView from '@/components/page/chats/GroupsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -155,9 +159,16 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/post/:id',
+      path: '/posts/:id',
       name: 'post-detail',
-      component: FeedView,
+      component: PostDetailView,
+      props: true,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/post/:id',
+      name: 'post-detail-legacy',
+      component: PostDetailView,
       props: true,
       meta: { requiresAuth: true }
     },
@@ -186,6 +197,18 @@ const router = createRouter({
       component: ChatsView,
       meta: { requiresAuth: true }
     },
+    {
+      path: '/chats/groups',
+      name: 'chats-groups',
+      component: GroupsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/chats/create-group',
+      name: 'chats-create-group',
+      component: CreateGroupView,
+      meta: { requiresAuth: true }
+    },
     // Универсальный маршрут для всех чатов: /chats/{slug}
     // - /chats/hunter-x-hunter → аниме чат
     // - /chats/friren → общее обсуждение франшизы
@@ -195,6 +218,14 @@ const router = createRouter({
       name: 'chat-slug',
       component: ChatsView,
       props: (route) => ({ slug: route.params.slug }),
+      meta: { requiresAuth: true }
+    },
+    // Маршрут для чатов по ID (для редиректов после создания)
+    {
+      path: '/chat/:id',
+      name: 'chat-by-id',
+      component: ChatDetailView,
+      props: true,
       meta: { requiresAuth: true }
     },
     {
@@ -355,6 +386,12 @@ const router = createRouter({
       path: '/support',
       name: 'support',
       component: SupportView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/subscription',
+      name: 'subscription',
+      component: SubscriptionView,
       meta: { requiresAuth: true }
     }
   ]

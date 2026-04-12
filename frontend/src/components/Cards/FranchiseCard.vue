@@ -591,14 +591,18 @@ const handleDiscuss = async () => {
       }
     }
 
-    // Переходим к чату
-    const chatId = discussionGroup.group?.id || discussionGroup.id
+    // Переходим к чату - используем chat_id из ответа если есть
+    const chatId = discussionGroup.chat_id || discussionGroup.group?.id || discussionGroup.id
     const topicId = discussionGroup.current_topic_id
     
-    if (topicId) {
-      router.push(`/chats/${chatId}?topic=${topicId}`)
+    if (chatId) {
+      if (topicId) {
+        router.push(`/chat/${chatId}?topic=${topicId}`)
+      } else {
+        router.push(`/chat/${chatId}`)
+      }
     } else {
-      router.push(`/chats/${chatId}`)
+      toast.error('Не удалось получить ID чата')
     }
   } catch (error: any) {
     console.error('Error handling discuss:', error)

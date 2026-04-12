@@ -138,7 +138,7 @@ const joinChat = async () => {
 
 const goToChat = () => {
   if (invite.value?.chat?.id) {
-    router.push(`/chats/${invite.value.chat.id}`)
+    router.push(`/chat/${invite.value.chat.id}`)
   } else {
     router.push('/chats')
   }

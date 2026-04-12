@@ -160,9 +160,9 @@
       </router-link>
 
       <router-link 
-        to="/profile" 
+        :to="profileLink" 
         class="nav-item"
-        :class="{ active: isActiveRoute('/profile') }"
+        :class="{ active: isProfileActive }"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -227,6 +227,19 @@
         <span>Настройки</span>
       </router-link>
 
+      <!-- Подписка -->
+      <!-- <router-link
+        to="/subscription"
+        class="nav-item-secondary nav-item-premium"
+        :class="{ active: isActiveRoute('/subscription') }"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M2.5 2v6h6M21.5 22v-6h-6"/>
+          <path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/>
+        </svg>
+        <span>Подписка</span>
+      </router-link> -->
+
       <!-- Админская панель — только для админа -->
       <router-link
         v-if="isAdmin"
@@ -268,6 +281,17 @@ const isActiveRoute = (path: string) => {
   // Точное совпадение для /feed чтобы не пересекалось с /feed/...
   return route.path === path || route.path.startsWith(path + '/')
 }
+
+// Ссылка на профиль текущего пользователя
+const profileLink = computed(() => {
+  const userId = authStore.user?.id
+  return userId ? `/profile/${userId}` : '/profile'
+})
+
+// Проверка активности для профиля
+const isProfileActive = computed(() => {
+  return route.path.startsWith('/profile/') || route.path === '/profile'
+})
 
 // Количество непрочитанных сообщений
 const unreadCount = computed(() => chatExtrasStore.totalUnreadCount || 0)
@@ -602,6 +626,21 @@ onMounted(() => {
 
 .nav-item-admin {
   color: var(--danger) !important;
+}
+
+.nav-item-premium {
+  color: #FFD700 !important;
+}
+
+.nav-item-premium:hover {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.1)) !important;
+  color: #FFD700 !important;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.15);
+}
+
+.nav-item-premium.active {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.15)) !important;
+  color: #FFD700 !important;
 }
 
 .nav-item-admin:hover {

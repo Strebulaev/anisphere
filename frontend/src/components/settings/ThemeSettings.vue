@@ -123,7 +123,7 @@
 
       <div class="background-actions">
         <button class="action-btn">
-          <SakuraIcon name="folder" /> Мои фоны (3)
+          <SakuraIcon name="image" /> Мои фоны (3)
         </button>
       </div>
     </div>

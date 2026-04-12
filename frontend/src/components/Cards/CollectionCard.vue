@@ -19,7 +19,8 @@
 
       <!-- Бейдж статуса -->
       <div class="status-badge" :class="{ completed: item.status === 'completed' }" :style="{ background: statusColor }">
-        {{ statusIcon }}
+        <SakuraIcon v-if="isIconName(statusIcon)" :name="statusIcon" :size="14" style="color: white;" />
+        <span v-else>{{ statusIcon }}</span>
       </div>
 
       <!-- Кнопки действий (сверху справа) -->
@@ -30,38 +31,28 @@
           @click.stop="toggleFavorite"
           :title="item.is_favorite ? 'Убрать из избранного' : 'В избранное'"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" :fill="item.is_favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
+          <SakuraIcon :name="item.is_favorite ? 'favorite' : 'heart'" :size="14" />
         </button>
         <button
           class="card-action-btn discuss-btn"
           @click.stop="handleDiscuss"
           title="Обсудить"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
+          <SakuraIcon name="chat" :size="14" />
         </button>
         <button
           class="card-action-btn playlist-btn"
           @click.stop="showPlaylistModal = true"
           title="Добавить в плейлист"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-          </svg>
+          <SakuraIcon name="bookmark" :size="14" />
         </button>
         <button
           class="card-action-btn reminder-btn"
           @click.stop="showReminderModal = true"
           title="Напоминание"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="13" r="8"/>
-            <path d="M12 9v4l2 2"/>
-            <path d="M5 5a3 3 0 0 1 3-3V3"/>
-          </svg>
+          <SakuraIcon name="bell" :size="14" />
         </button>
       </div>
 
@@ -121,10 +112,10 @@
           {{ primaryLabel }}
         </button>
         <button v-if="item.status === 'started' || item.status === 'on_hold'" class="qa-btn" @click.stop="markCompleted" title="Просмотрено">
-          ✓
+          <SakuraIcon name="completed" :size="12" />
         </button>
         <button class="qa-btn menu" @click.stop="openMenu" title="Ещё">
-          ⋯
+          <SakuraIcon name="more-dots" :size="14" />
         </button>
       </div>
     </div>
@@ -302,7 +293,7 @@ const handleDiscuss = async () => {
       } else throw e
     }
     if (!group.user_joined) group = await animeDiscussionsApi.joinDiscussionGroup(animeId.value)
-    router.push(`/chats/${group.id}`)
+    router.push(`/chat/${group.id}`)
   } catch (e: any) {
     toast.error(e.response?.data?.detail || 'Не удалось открыть обсуждение')
   }
@@ -372,12 +363,12 @@ const posterUrl = computed(() => {
 
 // ── Статусы ───────────────────────────────────────────────────
 const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
-  started:   { icon: 'play', color: 'var(--accent)',  label: 'В процессе'    },
-  completed: { icon: 'check', color: '#22c55e',          label: 'Просмотрено'   },
-  planned:   { icon: 'calendar', color: '#a78bfa',          label: 'Запланировано' },
-  on_hold:   { icon: 'pause', color: '#f59e0b',          label: 'Отложено'      },
-  dropped:   { icon: 'x', color: '#ef4444',          label: 'Брошено'       },
-  favorite:  { icon: 'star', color: '#f59e0b',          label: 'Избранное'     },
+  started:   { icon: 'watching', color: 'var(--accent)',  label: 'В процессе'    },
+  completed: { icon: 'completed', color: '#22c55e',        label: 'Просмотрено'   },
+  planned:   { icon: 'plan-to-watch', color: '#a78bfa',    label: 'Запланировано' },
+  on_hold:   { icon: 'on-hold', color: '#f59e0b',          label: 'Отложено'      },
+  dropped:   { icon: 'dropped', color: '#ef4444',          label: 'Брошено'       },
+  favorite:  { icon: 'favorite', color: '#f59e0b',         label: 'Избранное'     },
 }
 
 // Проверка - является ли icon именем иконки (а не эмодзи)
@@ -447,11 +438,11 @@ const dateLabel = computed(() => {
 
 // ── Меню ──────────────────────────────────────────────────────
 const statusMenuItems = [
-  { key: 'started'  as LibraryStatus, icon: 'play', label: 'В процессе'    },
-  { key: 'completed'as LibraryStatus, icon: 'check', label: 'Просмотрено'   },
-  { key: 'planned'  as LibraryStatus, icon: 'calendar', label: 'Запланировано' },
-  { key: 'on_hold'  as LibraryStatus, icon: 'pause', label: 'Отложено'      },
-  { key: 'dropped'  as LibraryStatus, icon: 'x', label: 'Брошено'       },
+  { key: 'started'  as LibraryStatus, icon: 'watching', label: 'В процессе'    },
+  { key: 'completed'as LibraryStatus, icon: 'completed', label: 'Просмотрено'   },
+  { key: 'planned'  as LibraryStatus, icon: 'plan-to-watch', label: 'Запланировано' },
+  { key: 'on_hold'  as LibraryStatus, icon: 'on-hold', label: 'Отложено'      },
+  { key: 'dropped'  as LibraryStatus, icon: 'dropped', label: 'Брошено'       },
 ]
 
 const openMenu = (e: MouseEvent) => {

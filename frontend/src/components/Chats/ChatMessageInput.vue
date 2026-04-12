@@ -1,5 +1,25 @@
 <template>
   <div class="message-input-container">
+    <!-- Превью ответа на сообщение -->
+    <QuoteCard
+      v-if="replyToMessage"
+      :quote="{
+        id: replyToMessage.id,
+        author: {
+          id: replyToMessage.sender_id,
+          username: replyToMessage.sender_username,
+          avatar_url: replyToMessage.sender_avatar
+        },
+        content: replyToMessage.text,
+        type: 'text',
+        timestamp: replyToMessage.created_at,
+        post_id: replyToMessage.id
+      }"
+      :can-click="true"
+      :show-avatar="false"
+      @click="goToReplyMessage"
+    />
+
     <!-- Превью прикреплённых файлов -->
     <div v-if="attachments.length > 0" class="attachments-preview">
       <div v-for="(file, index) in attachments" :key="index" class="attachment-item">
@@ -278,6 +298,15 @@ interface MediaFile {
   type: string
 }
 
+interface ReplyToMessage {
+  id: number
+  sender_id: number
+  sender_username: string
+  sender_avatar?: string | null
+  text: string
+  created_at: string
+}
+
 const props = defineProps({
   chatId: {
     type: Number,
@@ -333,8 +362,8 @@ const onChatAnime = (anime: any) => {
 const chatMediaFiles = ref<MediaFile[]>([])
 
 const commonEmojis = [
-  '😀', '😂', '🥰', '😎', '🤔', '😢', '😠', '👍', '👎',
-  '❵', '🔥', '✨', '🎉', '💯', '👀', '💪', '🙏', '〰️'
+  '😀', '😂', '🥰', '😎', '🤔', '😢', '😠', '👍', '👎'
+  ,'🔥', '✨', '🎉', '💯', '👀', '💪', '🙏', '〰️'
 ]
 
 const canSend = computed(() => {
@@ -512,6 +541,11 @@ const sendMessage = async () => {
     private_chat: props.chatType === 'private' ? props.chatId : null
   }
 
+  // Добавляем поле reply_to если есть ответ на сообщение
+  if (replyToMessage.value) {
+    messageData.reply_to = replyToMessage.value.id
+  }
+
   // Добавляем файлы из старых attachments (документы) или из chatMediaFiles через пикер
   const firstChatMedia = chatMediaFiles.value[0]
   const allMediaFiles: MediaFile[] = firstChatMedia 
@@ -555,6 +589,7 @@ const sendMessage = async () => {
     sharedPost.value = null
     sharedAnime.value = null
     sharedPlaylist.value = null
+    replyToMessage.value = null
     chatAttachmentPicker.value?.reset()
     if (messageInput.value) {
       messageInput.value.style.height = 'auto'
@@ -562,6 +597,21 @@ const sendMessage = async () => {
   } catch (error) {
     console.error('Ошибка отправки сообщения:', error)
   }
+}
+
+const replyToMessage = defineModel<ReplyToMessage | null>('replyToMessage', {
+  required: false,
+  default: null
+})
+
+const cancelReply = () => {
+  replyToMessage.value = null
+}
+
+const goToReplyMessage = () => {
+  // Прокрутить к сообщению или открыть в отдельной вкладке
+  console.log('Go to message:', replyToMessage.value?.id)
+  cancelReply()
 }
 
 // Закрываем меню при клике вне
@@ -982,6 +1032,67 @@ textarea:focus {
 .playlist-meta {
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+.reply-preview {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-4);
+  border-radius: var(--radius-lg);
+  margin-bottom: 12px;
+  border-left: 3px solid var(--accent);
+}
+
+.reply-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.reply-author {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--accent-bright);
+  margin-bottom: 0.25rem;
+}
+
+.reply-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.btn-cancel-reply {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-5);
+  border: none;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-cancel-reply:hover {
+  background: var(--danger);
+  color: white;
 }
 
 .anime-item {

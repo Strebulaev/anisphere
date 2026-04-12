@@ -33,6 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
     cover_image_url = serializers.SerializerMethodField()
     display_name_computed = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
+    is_premium = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -44,7 +45,7 @@ class UserSerializer(serializers.ModelSerializer):
             'phone_verified', 'two_factor_enabled', 'is_online', 'last_login',
             'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges',
             'posts_count', 'comments_count', 'likes_received', 'playlists_count',
-            'is_staff', 'is_admin',
+            'is_staff', 'is_admin', 'is_premium',
         ]
         read_only_fields = ['id', 'unique_id', 'created_at', 'updated_at', 'level', 'experience', 'mana', 'badges', 'posts_count', 'comments_count', 'likes_received', 'playlists_count', 'is_staff']
 
@@ -54,7 +55,14 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
     def get_cover_image_url(self, obj):
-        if obj.cover_image:
+        # Проверяем премиум статус
+        is_premium = False
+        try:
+            is_premium = obj.subscription.is_premium
+        except Exception:
+            pass
+        # Показываем cover только для премиум
+        if is_premium and obj.cover_image:
             return obj.cover_image.url
         return None
 
@@ -63,6 +71,12 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_admin(self, obj):
         return obj.is_staff or obj.is_superuser or obj.username == 'kaiden812'
+
+    def get_is_premium(self, obj):
+        try:
+            return obj.subscription.is_premium
+        except Exception:
+            return False
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -157,6 +171,22 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         """Проверка уникальности nickname"""
         if value and User.objects.filter(nickname=value).exclude(id=self.instance.id if self.instance else None).exists():
             raise serializers.ValidationError("Этот nickname уже занят")
+        return value
+
+    def validate_cover_image(self, value):
+        """Проверка премиум статуса для загрузки обложки"""
+        if value:
+            user = self.instance
+            if user:
+                # Проверяем премиум статус
+                is_premium = False
+                try:
+                    is_premium = user.subscription.is_premium
+                except:
+                    is_premium = getattr(user.profile_settings, 'is_premium', False) if hasattr(user, 'profile_settings') else False
+                
+                if not is_premium:
+                    raise serializers.ValidationError("Загрузка обложки профиля доступна только для Премиум пользователей")
         return value
 
 

@@ -4,8 +4,12 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from rest_framework.routers import DefaultRouter
+
+from users import views_payment
 from . import views
 from . import views_library
+from . import views_subscription
+from social.views_support import SupportTicketViewSet
 
 router = DefaultRouter()
 router.register(r'profile-settings', views.UserProfileSettingsViewSet, basename='profile-settings')
@@ -155,26 +159,42 @@ urlpatterns = [
     path('heartbeat/', views.HeartbeatView.as_view(), name='heartbeat'),
 
     # ==================== ПОДДЕРЖКА ====================
-    path('support/tickets/', views.SupportTicketViewSet.as_view({
+    path('support/tickets/', SupportTicketViewSet.as_view({
         'get': 'list',
         'post': 'create'
     }), name='support_tickets'),
-    path('support/tickets/<int:pk>/', views.SupportTicketViewSet.as_view({
+    path('support/tickets/<int:pk>/', SupportTicketViewSet.as_view({
         'get': 'retrieve'
     }), name='support_ticket_detail'),
-    path('support/tickets/<int:pk>/reply/', views.SupportTicketViewSet.as_view({
+    path('support/tickets/<int:pk>/reply/', SupportTicketViewSet.as_view({
         'post': 'reply'
     }), name='support_ticket_reply'),
-    path('support/tickets/<int:pk>/close/', views.SupportTicketViewSet.as_view({
+    path('support/tickets/<int:pk>/close/', SupportTicketViewSet.as_view({
         'post': 'close'
     }), name='support_ticket_close'),
-    path('support/tickets/<int:pk>/reopen/', views.SupportTicketViewSet.as_view({
+    path('support/tickets/<int:pk>/reopen/', SupportTicketViewSet.as_view({
         'post': 'reopen'
     }), name='support_ticket_reopen'),
-    path('support/tickets/<int:pk>/mark-read/', views.SupportTicketViewSet.as_view({
+    path('support/tickets/<int:pk>/mark-read/', SupportTicketViewSet.as_view({
         'post': 'mark_read'
     }), name='support_ticket_mark_read'),
-    path('support/unread-count/', views.SupportTicketViewSet.as_view({
+    path('support/unread-count/', SupportTicketViewSet.as_view({
         'get': 'unread_count'
     }), name='support_unread_count'),
+
+    # ==================== ПОДПИСКА ====================
+    # КОММЕНТАРИЙ: Подписка отключена - весь функционал бесплатный
+    path('subscription/', views_subscription.SubscriptionView.as_view(), name='subscription'),
+    # path('subscription/activate/', views_subscription.SubscriptionActivateView.as_view(), name='subscription_activate'),
+    # path('subscription/deactivate/', views_subscription.SubscriptionDeactivateView.as_view(), name='subscription_deactivate'),
+    # path('subscription/promo/validate/', views_subscription.PromoCodeValidateView.as_view(), name='promo_validate'),
+    # path('subscription/promo/apply/', views_subscription.PromoCodeApplyView.as_view(), name='promo_apply'),
+    # path('subscription/price/', views_subscription.SubscriptionPriceView.as_view(), name='subscription_price'),
+    
+    # ==================== ПЛАТЕЖИ CRYPTOCLOUD ====================
+    # КОММЕНТАРИЙ: Платежи отключены - весь функционал бесплатный
+    # path('payment/create/', views_payment.CreatePaymentView.as_view(), name='payment_create'),
+    # path('payment/price/', views_payment.get_payment_price, name='payment_price'),
+    # path('payment/check/', views_payment.CheckPaymentView.as_view(), name='payment_check'),
+    # payment/success, payment/fail, payment/webhook теперь в config/urls.py
 ]

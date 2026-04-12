@@ -9,12 +9,12 @@
       :disabled="loading"
       type="button"
     >
-      <svg v-if="!libraryStatus" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <SakuraIcon v-if="libraryStatus && currentStatus?.icon" :name="currentStatus.icon" :size="16" style="color: currentStatus?.color;" />
+      <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
         <polyline points="17 21 17 13 7 13 7 21"/>
         <polyline points="7 3 7 8 15 8"/>
       </svg>
-      <span v-else class="status-icon">{{ currentStatus?.icon }}</span>
       <span class="col-label">{{ currentStatus?.label ?? 'В коллекцию' }}</span>
       <svg class="chevron" :class="{ open: dropOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <polyline points="6 9 12 15 18 9"/>
@@ -32,7 +32,7 @@
           :class="{ active: libraryStatus === s.key }"
           @click="selectStatus(s.key)"
         >
-          <span class="di-icon">{{ s.icon }}</span>
+          <SakuraIcon :name="s.icon" :size="14" class="di-icon" />
           <span class="di-label">{{ s.label }}</span>
           <svg v-if="libraryStatus === s.key" class="di-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="20 6 9 17 4 12"/>
@@ -55,17 +55,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import apiClient from '@/api/client'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 const props = defineProps<{
   animeId: number | string
 }>()
 
 const STATUS_LIST = [
-  { key: 'started',   icon: '▶️', label: 'В процессе',    color: 'var(--accent)'  },
-  { key: 'completed', icon: '☑️', label: 'Просмотрено',   color: '#22c55e'        },
-  { key: 'planned',   icon: '📅', label: 'Запланировано', color: '#a78bfa'        },
-  { key: 'on_hold',   icon: '⏸️', label: 'Отложено',      color: '#f59e0b'        },
-  { key: 'dropped',   icon: '✖️', label: 'Брошено',       color: '#ef4444'        },
+  { key: 'started',   icon: 'watching', label: 'В процессе',    color: 'var(--accent)'  },
+  { key: 'completed', icon: 'completed', label: 'Просмотрено',   color: '#22c55e'        },
+  { key: 'planned',   icon: 'plan-to-watch', label: 'Запланировано', color: '#a78bfa'        },
+  { key: 'on_hold',   icon: 'on-hold', label: 'Отложено',      color: '#f59e0b'        },
+  { key: 'dropped',   icon: 'dropped', label: 'Брошено',       color: '#ef4444'        },
 ]
 
 const libraryStatus = ref<string | null>(null)
@@ -180,8 +181,8 @@ watch(() => props.animeId, () => checkLibrary())
 .col-btn:hover { border-color: var(--border-default); color: var(--text-primary); background: var(--surface-4); }
 .col-btn.has-status { background: var(--accent-subtle); border-color: currentColor; }
 
-.col-label { flex: 1; }
-.status-icon { font-size: 14px; line-height: 1; }
+.di-icon { line-height: 1; color: currentColor; }
+.di-label { flex: 1; font-weight: 500; }
 
 .chevron {
   transition: transform var(--duration-base);
@@ -236,7 +237,7 @@ watch(() => props.animeId, () => checkLibrary())
 .drop-item.remove { color: var(--danger); }
 .drop-item.remove:hover { background: rgba(239,68,68,0.1); }
 
-.di-icon { font-size: 14px; line-height: 1; }
+.di-icon { font-size: 14px; line-height: 1; color: currentColor; }
 .di-label { flex: 1; font-weight: 500; }
 .di-check { color: var(--accent); flex-shrink: 0; }
 

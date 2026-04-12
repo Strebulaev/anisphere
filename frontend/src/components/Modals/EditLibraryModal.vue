@@ -32,7 +32,7 @@
                 :class="{ selected: form.status === s.key }"
                 @click="form.status = s.key"
               >
-                <span class="s-icon">{{ s.icon }}</span>
+                <SakuraIcon :name="s.icon" :size="20" class="s-icon" />
                 <span class="s-label">{{ s.label }}</span>
               </button>
             </div>
@@ -123,6 +123,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { libraryApi, type LibraryItem, type LibraryStatus } from '@/api/library'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 const props = defineProps<{ item: LibraryItem }>()
 const emit  = defineEmits<{ close: []; saved: [] }>()
@@ -139,11 +140,11 @@ const form = reactive({
 })
 
 const statusOptions = [
-  { key: 'started'   as LibraryStatus, icon: '▶️', label: 'В процессе'    },
-  { key: 'completed' as LibraryStatus, icon: '☑️', label: 'Просмотрено'   },
-  { key: 'planned'   as LibraryStatus, icon: '📅', label: 'Запланировано' },
-  { key: 'on_hold'   as LibraryStatus, icon: '⏸️', label: 'Отложено'      },
-  { key: 'dropped'   as LibraryStatus, icon: '✖️', label: 'Брошено'       },
+  { key: 'started'   as LibraryStatus, icon: 'watching', label: 'В процессе'    },
+  { key: 'completed' as LibraryStatus, icon: 'completed', label: 'Просмотрено'   },
+  { key: 'planned'   as LibraryStatus, icon: 'plan-to-watch', label: 'Запланировано' },
+  { key: 'on_hold'   as LibraryStatus, icon: 'on-hold', label: 'Отложено'      },
+  { key: 'dropped'   as LibraryStatus, icon: 'dropped', label: 'Брошено'       },
 ]
 
 const showEpisodeField = computed(() =>
@@ -292,7 +293,7 @@ const save = async () => {
 .status-opt:hover { background: var(--surface-4); border-color: var(--border-default); }
 .status-opt.selected { background: var(--accent-subtle); border-color: var(--accent); }
 
-.s-icon  { font-size: 20px; line-height: 1; }
+.s-icon  { line-height: 1; color: currentColor; }
 .s-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-align: center; }
 .status-opt.selected .s-label { color: var(--accent); }
 

@@ -60,7 +60,8 @@
               class="visibility-opt"
               :class="{ active: visibility === key }"
             >
-              {{ option.icon }}
+              <SakuraIcon v-if="isIconName(option.icon)" :name="option.icon" :size="16" />
+              <span v-else>{{ option.icon }}</span>
             </button>
           </div>
         </div>
@@ -79,6 +80,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import apiClient from '@/api/client'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 const props = defineProps<{ post: any }>()
 const emit = defineEmits<{ close: []; updated: [post: any] }>()
@@ -90,6 +92,12 @@ const isSpoiler = ref(false)
 const spoilerDescription = ref('')
 const saving = ref(false)
 const textArea = ref<HTMLTextAreaElement | null>(null)
+
+// Проверка - является ли icon именем иконки (а не эмодзи)
+const isIconName = (icon: string | undefined): boolean => {
+  if (!icon) return false
+  return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
+}
 
 const visibilityOptions: Record<string, { icon: string; label: string }> = {
   public:    { icon: 'globe', label: 'Публично' },
@@ -120,7 +128,7 @@ const savePost = async () => {
       payload.spoiler_description = spoilerDescription.value.trim()
     }
 
-    const { data } = await apiClient.patch(`/social/posts/${props.post.id}/`, payload)
+    const { data } = await apiClient.put(`/social/posts/${props.post.id}/edit/`, payload)
     emit('updated', data)
   } catch (e: any) {
     alert('Ошибка при сохранении: ' + (e.response?.data?.detail || e.message))

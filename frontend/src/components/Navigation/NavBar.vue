@@ -112,7 +112,7 @@
 
         <!-- Профиль пользователя -->
         <div class="navbar-profile">
-          <router-link to="/profile" class="profile-link">
+          <router-link :to="profileLink" class="profile-link">
             <div class="profile-avatar">
               <OptimizedImage v-if="userAvatar" :src="userAvatar" alt="Avatar" class="avatar-image" />
               <div v-else class="avatar-placeholder">
@@ -199,6 +199,12 @@ const userAvatar = computed(() => authStore.user?.avatar)
 const isOnline = computed(() => authStore.user?.is_online ?? false)
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
+// Ссылка на профиль текущего пользователя
+const profileLink = computed(() => {
+  const userId = authStore.user?.id
+  return userId ? `/profile/${userId}` : '/profile'
+})
+
 const toggleNotifications = () => {
   showNotifications.value = !showNotifications.value
   if (showNotifications.value) {
@@ -222,7 +228,7 @@ const getNotifIcon = (notif: any) => {
   // If backend already sent an icon emoji, use it
   if (notif.icon && notif.icon.length <= 4) return notif.icon
   const icons: Record<string, string> = {
-    like: '❵', dislike: '👎', heart: '💖',
+    like: '👍', dislike: '👎', heart: '💖',
     comment: '💬', reply: '↩️', mention: '@',
     follow: '👭', repost: '🔄',
     message: '💌', group_message: '👭', group_invite: '📨',

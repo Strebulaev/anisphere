@@ -20,6 +20,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { normalizeKodikPlayerLink } from '../../config/kodik'
+import { useAdBlocker } from '../../composables/useAdBlocker'
+import { useSubscriptionStore } from '../../stores/subscription'
 
 interface Props {
   link: string
@@ -242,8 +244,39 @@ defineExpose({
   isReady: () => isReady.value
 })
 
-onMounted(() => { window.addEventListener('message', handlePlayerMessage) })
-onUnmounted(() => { window.removeEventListener('message', handlePlayerMessage) })
+// ============================================================================
+// ==================== КОММЕНТАРИЙ: ПОДПИСКА ОТКЛЮЧЕНА =======================
+// ============================================================================
+// AdBlocker теперь доступен всем пользователям бесплатно
+// ============================================================================
+
+// Инициализация блокировки рекламы - ТЕПЕРЬ ДЛЯ ВСЕХ
+const { init: initAdBlocker, deactivate: deactivateAdBlocker } = useAdBlocker()
+
+// Хранилище подписки (сохранено для возможного будущего использования)
+// const subscriptionStore = useSubscriptionStore()
+
+onMounted(() => { 
+  window.addEventListener('message', handlePlayerMessage)
+  
+  // ========================================================================
+  // ИЗМЕНЕНО: AdBlocker активируется для всех пользователей
+  // ========================================================================
+  console.log('[KodikPlayer] 🛡️ Activating AdBlocker (FREE FOR ALL USERS)')
+  initAdBlocker()
+  
+  // Загрузка подписки отключена (код сохранён)
+  // subscriptionStore.fetchSubscription().then(() => {
+  //   updateAdBlockerStatus()
+  // }).catch(() => {
+  //   updateAdBlockerStatus()
+  // })
+})
+
+onUnmounted(() => { 
+  window.removeEventListener('message', handlePlayerMessage)
+  deactivateAdBlocker()
+})
 
 watch(() => props.link, () => {
   loading.value = true

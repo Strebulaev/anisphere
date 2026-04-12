@@ -296,7 +296,7 @@ const handleChatSelected = async (chat: any) => {
   
   // Обычный чат
   if (route.params.slug !== String(chat.id)) {
-    router.push(`/chats/${chat.id}`)
+    router.push(`/chat/${chat.id}`)
   }
 }
 

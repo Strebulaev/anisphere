@@ -19,7 +19,8 @@
 
       <!-- Бейдж статуса -->
       <div class="status-pill" :style="{ background: STATUS[item.status]?.color }">
-        {{ STATUS[item.status]?.icon }}
+        <SakuraIcon v-if="STATUS[item.status]?.icon && isIconName(STATUS[item.status]!.icon)" :name="STATUS[item.status]!.icon" :size="14" style="color: white;" />
+        <span v-else>{{ STATUS[item.status]?.icon }}</span>
       </div>
 
       <!-- Кнопки действий (сверху справа) -->
@@ -142,13 +143,15 @@
           :class="{ active: item.status === s.key }"
           @click="setStatus(s.key)"
         >
-          <span>{{ s.icon }}</span> {{ s.label }}
+          <SakuraIcon v-if="isIconName(s.icon)" :name="s.icon" :size="13" />
+          <span v-else>{{ s.icon }}</span>
+          {{ s.label }}
         </button>
 
         <div class="ctx-sep"></div>
 
         <button class="ctx-item" @click="toggleFav">
-          <span>{{ item.is_favorite ? '<SakuraIcon name="heart" />' : '<SakuraIcon name="star" />' }}</span>
+          <SakuraIcon :name="item.is_favorite ? 'heart' : 'star'" :size="13" />
           {{ item.is_favorite ? 'Убрать из избранного' : 'В избранное' }}
         </button>
         <button class="ctx-item" @click="openEdit">
@@ -241,7 +244,8 @@
                   :class="{ sel: editForm.status === s.key }"
                   @click="editForm.status = s.key"
                 >
-                  <span class="sg-icon">{{ s.icon }}</span>
+                  <SakuraIcon v-if="isIconName(s.icon)" :name="s.icon" :size="18" />
+                  <span v-else class="sg-icon">{{ s.icon }}</span>
                   <span class="sg-lbl">{{ s.label }}</span>
                 </button>
               </div>
@@ -327,6 +331,7 @@ import playlistsApi from '@/api/playlists'
 import { animeDiscussionsApi } from '@/api/animeDiscussions'
 import remindersApi from '@/api/reminders'
 import { useToast } from '@/composables/useToast'
+import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
 const props = defineProps<{ item: any }>()
 const emit  = defineEmits<{ updated: []; deleted: [] }>()
@@ -334,12 +339,12 @@ const router = useRouter()
 
 // ── Статусы ───────────────────────────────────────────────────
 const STATUS: Record<string, { icon: string; color: string; label: string }> = {
-  started:   { icon: '▶️', color: 'var(--accent)',  label: 'В процессе'    },
-  completed: { icon: '☑️', color: '#22c55e',         label: 'Просмотрено'   },
-  planned:   { icon: '📅', color: '#a78bfa',         label: 'Запланировано' },
-  on_hold:   { icon: '⏸️', color: '#f59e0b',         label: 'Отложено'      },
-  dropped:   { icon: '✖️', color: '#ef4444',         label: 'Брошено'       },
-  favorite:  { icon: '🌠', color: '#f59e0b',         label: 'Избранное'     },
+  started:   { icon: 'watching', color: 'var(--accent)',  label: 'В процессе'    },
+  completed: { icon: 'completed', color: '#22c55e',        label: 'Просмотрено'   },
+  planned:   { icon: 'plan-to-watch', color: '#a78bfa',    label: 'Запланировано' },
+  on_hold:   { icon: 'on-hold', color: '#f59e0b',          label: 'Отложено'      },
+  dropped:   { icon: 'dropped', color: '#ef4444',          label: 'Брошено'       },
+  favorite:  { icon: 'favorite', color: '#f59e0b',         label: 'Избранное'     },
 }
 
 const STATUS_LIST = [
@@ -349,6 +354,11 @@ const STATUS_LIST = [
   { key: 'on_hold',   ...STATUS.on_hold   },
   { key: 'dropped',   ...STATUS.dropped   },
 ]
+
+// Проверка является ли имя иконки допустимым для SakuraIcon
+const isIconName = (name: string | undefined): name is string => {
+  return name !== undefined && ['watching', 'completed', 'plan-to-watch', 'on-hold', 'dropped', 'favorite', 'star', 'heart'].includes(name)
+}
 
 // ── Вычисляемые ───────────────────────────────────────────────
 const title = computed(() => props.item.anime_title_ru || props.item.anime_title_en || '—')
@@ -476,7 +486,7 @@ const handleDiscuss = async () => {
       } else throw e
     }
     if (!group.user_joined) group = await animeDiscussionsApi.joinDiscussionGroup(props.item.anime)
-    router.push(`/chats/${group.id}`)
+    router.push(`/chat/${group.id}`)
   } catch (e: any) {
     toast.error(e.response?.data?.detail || 'Не удалось открыть обсуждение')
   }

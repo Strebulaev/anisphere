@@ -1113,3 +1113,117 @@ class SupportMessage(models.Model):
 
     def __str__(self):
         return f"Ticket #{self.ticket.id} - {self.sender.username}"
+
+
+# ==================== ПОДПИСКИ ====================
+
+class Subscription(models.Model):
+    """Подписка пользователя"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='subscription')
+    is_active = models.BooleanField(default=False, verbose_name='Подписка активна')
+    
+    # Период подписки
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата начала')
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата окончания')
+    
+    # Настройки
+    auto_renew = models.BooleanField(default=True, verbose_name='Автопродление')
+    
+    # Платежные данные
+    payment_method = models.CharField(max_length=50, blank=True, verbose_name='Способ оплаты')
+    transaction_id = models.CharField(max_length=100, blank=True, verbose_name='ID транзакции')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
+
+    def __str__(self):
+        return f"{self.user.username} - {'Активна' if self.is_active else 'Неактивна'}"
+
+    @property
+    def is_premium(self) -> bool:
+        """Проверяет активна ли подписка"""
+        if not self.is_active:
+            return False
+        if self.expires_at and self.expires_at < timezone.now():
+            return False
+        return True
+
+    def activate(self, days: int = 30, payment_method: str = 'promo'):
+        """Активирует подписку на указанное количество дней"""
+        from django.utils import timezone
+        now = timezone.now()
+        
+        # Если подписка уже активна, продлеваем от текущей даты окончания
+        if self.is_active and self.expires_at and self.expires_at > now:
+            self.expires_at = self.expires_at + timedelta(days=days)
+        else:
+            self.started_at = now
+            self.expires_at = now + timedelta(days=days)
+        
+        self.is_active = True
+        self.payment_method = payment_method
+        self.save()
+
+    def deactivate(self):
+        """Деактивирует подписку"""
+        self.is_active = False
+        self.expires_at = None
+        self.save()
+
+
+class PromoCode(models.Model):
+    """Промокод для скидки на подписку"""
+    code = models.CharField(max_length=50, unique=True, verbose_name='Код')
+    discount_percent = models.PositiveIntegerField(default=0, verbose_name='Скидка %')
+    discount_amount = models.PositiveIntegerField(default=0, verbose_name='Скидка в рублях')
+    is_active = models.BooleanField(default=True, verbose_name='Активен')
+    max_uses = models.PositiveIntegerField(default=1, verbose_name='Максимум использований')
+    used_count = models.PositiveIntegerField(default=0, verbose_name='Использовано')
+    valid_until = models.DateTimeField(null=True, blank=True, verbose_name='Действителен до')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Промокод'
+        verbose_name_plural = 'Промокоды'
+
+    def __str__(self):
+        return f"{self.code} (-{self.discount_percent}% или {self.discount_amount}₽)"
+
+    def is_valid(self) -> bool:
+        """Проверяет валидность промокода"""
+        if not self.is_active:
+            return False
+        if self.used_count >= self.max_uses:
+            return False
+        if self.valid_until and self.valid_until < timezone.now():
+            return False
+        return True
+
+    def get_discount(self, base_price: int = 399) -> int:
+        """Рассчитывает скидку"""
+        if self.discount_percent > 0:
+            return int(base_price * self.discount_percent / 100)
+        return self.discount_amount
+
+
+class PromoCodeUsage(models.Model):
+    """Использование промокода"""
+    promo_code = models.ForeignKey(PromoCode, on_delete=models.CASCADE, related_name='usages')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='promo_usages')
+    used_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Использование промокода'
+        verbose_name_plural = 'Использования промокодов'
+        unique_together = ['promo_code', 'user']
+
+    def __str__(self):
+        return f"{self.user.username} использовал {self.promo_code.code}"
+
+
+# Хелпер для импорта timedelta
+from datetime import timedelta

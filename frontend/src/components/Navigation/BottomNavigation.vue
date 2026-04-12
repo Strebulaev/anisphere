@@ -62,9 +62,9 @@
 
       <!-- Профиль -->
       <router-link
-        to="/profile"
+        :to="profileLink"
         class="nav-item"
-        :class="{ active: isActiveRoute('/profile') }"
+        :class="{ active: isProfileActive }"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -77,9 +77,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const authStore = useAuthStore()
 
 const isActiveRoute = (path: string) => {
   if (path === '/') {
@@ -87,6 +90,17 @@ const isActiveRoute = (path: string) => {
   }
   return route.path === path || route.path.startsWith(path + '/')
 }
+
+// Ссылка на профиль текущего пользователя
+const profileLink = computed(() => {
+  const userId = authStore.user?.id
+  return userId ? `/profile/${userId}` : '/profile'
+})
+
+// Проверка активности для профиля
+const isProfileActive = computed(() => {
+  return route.path.startsWith('/profile/') || route.path === '/profile'
+})
 </script>
 
 <style scoped>
