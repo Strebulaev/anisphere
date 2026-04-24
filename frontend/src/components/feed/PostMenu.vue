@@ -15,6 +15,8 @@
 
       <!-- Author actions -->
       <template v-if="post.can_edit || post.can_delete || isOwnPost">
+        <!-- Закрепить/Открепить - ОТКЛЮЧЕНО -->
+        <!--
         <button v-if="isOwnPost && !post.is_pinned" @click="handlePin" class="menu-item">
           <span class="icon"> <SakuraIcon name="pin" /> </span>
           <span>Закрепить в профиле</span>
@@ -23,15 +25,16 @@
           <span class="icon"> <SakuraIcon name="map-pin" /> </span>
           <span>Открепить</span>
         </button>
+        -->
         <button v-if="post.can_edit" @click="emit('edit', post); emit('close')" class="menu-item">
           <span class="icon"> <SakuraIcon name="edit" /> </span>
           <span>Редактировать</span>
           <span class="hint">5 мин</span>
         </button>
-        <button v-if="post.can_delete" @click="confirmDelete" class="menu-item danger">
+        <!-- <button v-if="post.can_delete" @click="confirmDelete" class="menu-item danger">
           <span class="icon"> <SakuraIcon name="trash" /> </span>
           <span>Удалить</span>
-        </button>
+        </button> -->
         <div class="menu-divider"></div>
       </template>
 
@@ -49,15 +52,21 @@
         <span>Не интересно</span>
       </button>
 
+      <!-- Переслать - ОТКЛЮЧЕНО -->
+      <!--
       <button @click="handleForward" class="menu-item">
         <span class="icon"> <SakuraIcon name="inbox" /> </span>
         <span>Переслать</span>
       </button>
+      -->
 
+      <!-- Репост - ОТКЛЮЧЕНО -->
+      <!--
       <button @click="handleRepost" class="menu-item">
         <span class="icon"> <SakuraIcon name="refresh" /> </span>
         <span>Репост</span>
       </button>
+      -->
 
       <div class="menu-divider"></div>
 
@@ -68,10 +77,6 @@
 
       <div v-if="!isOwnPost" class="menu-divider"></div>
 
-      <button @click="copyLink" class="menu-item">
-        <span class="icon"> <SakuraIcon name="link" /> </span>
-        <span>Копировать ссылку</span>
-      </button>
       <button v-if="post.text" @click="copyText" class="menu-item">
         <span class="icon"> <SakuraIcon name="clipboard" /> </span>
         <span>Копировать текст</span>
@@ -158,12 +163,12 @@ const emit = defineEmits<{
   close: []
   edit: [post: Post]
   delete: [post: Post]
-  pin: [post: Post]
+  // pin: [post: Post] // ОТКЛЮЧЕНО
   bookmark: [post: Post]
   hide: [post: Post]
   hideAuthor: [post: Post]
-  repost: [post: Post]
-  forward: [post: Post]
+  // repost: [post: Post] // ОТКЛЮЧЕНО
+  // forward: [post: Post] // ОТКЛЮЧЕНО
   reported: []
   followed: [userId: number, following: boolean]
 }>()
@@ -199,7 +204,8 @@ const reportReasons = [
 const confirmDelete = () => { showDeleteConfirm.value = true }
 const doDelete = () => { emit('delete', props.post); emit('close') }
 
-// Pin/Unpin посты - работает для любых постов без ограничения по времени
+// Pin/Unpin посты - ОТКЛЮЧЕНО
+/*
 const handlePin = async () => {
   try {
     await apiClient.post(`/social/posts/${props.post.id}/pin/`)
@@ -221,6 +227,7 @@ const handleUnpin = async () => {
     alert('Не удалось открепить пост')
   }
 }
+*/
 
 const handleBookmark = async () => {
   if (bookmarkLoading.value) return
@@ -272,8 +279,11 @@ const doHide = (mode: 'post' | 'author') => {
   emit('close')
 }
 
-const handleForward = () => { emit('forward', props.post); emit('close') }
+// Переслать - ОТКЛЮЧЕНО
+// const handleForward = () => { emit('forward', props.post); emit('close') }
 
+// Репост - ОТКЛЮЧЕНО
+/*
 const handleRepost = async () => {
   try {
     await apiClient.post(`/social/posts/${props.post.id}/repost/action/`, { comment: '' })
@@ -283,6 +293,7 @@ const handleRepost = async () => {
   }
   emit('close')
 }
+*/
 const handleReport = () => { showReport.value = true }
 
 const submitReport = async () => {
@@ -297,21 +308,6 @@ const submitReport = async () => {
     emit('close')
   } catch (e) { console.error(e) }
   finally { reporting.value = false }
-}
-
-const copyLink = async () => {
-  const url = `${window.location.origin}/post/${props.post.id}`
-  try {
-    await navigator.clipboard.writeText(url)
-    showCopyNotice('Ссылка скопирована!')
-  } catch {
-    // Fallback
-    const el = document.createElement('textarea')
-    el.value = url; document.body.appendChild(el); el.select()
-    document.execCommand('copy'); document.body.removeChild(el)
-    showCopyNotice('Ссылка скопирована!')
-  }
-  setTimeout(() => emit('close'), 1200)
 }
 
 const copyText = async () => {
@@ -401,11 +397,11 @@ onMounted(() => {
 
 /* Confirm/Dialog */
 .confirm-dialog {
-  position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: calc(100% - 2rem); max-width: 320px;
   background: linear-gradient(180deg, #1f1f1f 0%, #161616 100%);
   border: 1px solid #333; border-radius: 20px;
-  padding: 1.5rem; z-index: 10;
+  padding: 1.5rem; z-index: 1100;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6);
 }
 .confirm-text { color: #e0e0e0; font-size: 0.95rem; margin: 0 0 1.25rem; text-align: center; line-height: 1.5; }

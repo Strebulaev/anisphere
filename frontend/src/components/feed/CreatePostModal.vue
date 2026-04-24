@@ -58,25 +58,42 @@
           </div>
         </div>
 
-        <!-- Attached anime — мультивыбор -->
-        <div v-if="attachedAnimes.length > 0" class="attached-list">
-          <div v-for="(a, idx) in attachedAnimes" :key="a.id" class="attached-block">
-            <span class="attached-icon"> <SakuraIcon name="play" /> </span>
-            <span class="attached-label">{{ a.title_ru }}</span>
-            <div class="rating-input">
-              <label>Оценка:</label>
-              <input type="number" v-model.number="animeRatings[idx]" min="1" max="10" placeholder="1-10" class="rating-field">
+        <!-- Attached anime — с превью постеров -->
+        <div v-if="attachedAnimes.length > 0" class="attached-preview-section">
+          <div class="attached-section-title"><SakuraIcon name="play" /> Аниме ({{ attachedAnimes.length }})</div>
+          <div class="attached-media-grid">
+            <div v-for="(a, idx) in attachedAnimes" :key="a.id" class="attached-media-item">
+              <div class="attached-media-poster">
+                <img v-if="getAnimePoster(a)" :src="getAnimePoster(a)" alt="" @error="(e) => ((e.target as HTMLImageElement).style.display='none')">
+                <div v-else class="attached-placeholder"><SakuraIcon name="play" /></div>
+              </div>
+              <div class="attached-media-info">
+                <div class="attached-title">{{ a.title_ru || a.title_en }}</div>
+                <div class="attached-rating-wrap">
+                  <span>Оценка:</span>
+                  <input type="number" v-model.number="animeRatings[idx]" min="1" max="10" placeholder="1-10" class="attached-rating-input">
+                </div>
+              </div>
+              <button class="attached-remove-btn" @click="removeAnime(idx)">✕</button>
             </div>
-            <button class="remove-btn" @click="removeAnime(idx)">✕</button>
           </div>
         </div>
 
-        <!-- Attached playlists — мультивыбор -->
-        <div v-if="attachedPlaylists.length > 0" class="attached-list">
-          <div v-for="(p, idx) in attachedPlaylists" :key="p.id" class="attached-block">
-            <span class="attached-icon"> <SakuraIcon name="folder" /> </span>
-            <span class="attached-label">{{ p.title || p.name }}</span>
-            <button class="remove-btn" @click="removePlaylist(idx)">✕</button>
+        <!-- Attached playlists — с превью -->
+        <div v-if="attachedPlaylists.length > 0" class="attached-preview-section">
+          <div class="attached-section-title"><SakuraIcon name="folder" /> Плейлисты ({{ attachedPlaylists.length }})</div>
+          <div class="attached-media-grid">
+            <div v-for="(p, idx) in attachedPlaylists" :key="p.id" class="attached-media-item">
+              <div class="attached-media-poster">
+                <img v-if="getPlaylistPoster(p)" :src="getPlaylistPoster(p)" alt="" @error="(e) => ((e.target as HTMLImageElement).style.display='none')">
+                <div v-else class="attached-placeholder"><SakuraIcon name="folder" /></div>
+              </div>
+              <div class="attached-media-info">
+                <div class="attached-title">{{ p.title || p.name }}</div>
+                <div class="attached-subtitle">{{ p.anime_count || p.items_count || 0 }} аниме</div>
+              </div>
+              <button class="attached-remove-btn" @click="removePlaylist(idx)">✕</button>
+            </div>
           </div>
         </div>
 
@@ -132,6 +149,7 @@
         <button @click="submitPost" :disabled="!canSubmit || submitting" class="submit-btn">
           {{ submitting ? 'Публикация...' : 'Опубликовать' }}
         </button>
+        <p v-if="submitError" class="submit-error">{{ submitError }}</p>
       </div>
     </div>
 
@@ -277,6 +295,7 @@ const isSpoiler = ref(false)
 const spoilerFor = ref('')
 const showVisibilityMenu = ref(false)
 const submitting = ref(false)
+const submitError = ref('')
 const textArea = ref<HTMLTextAreaElement | null>(null)
 
 const visibilityOptions: Record<string, { icon: string; label: string }> = {
@@ -399,47 +418,12 @@ const loadPlaylists = async () => {
   playlistLoading.value = true
   
   try {
-    // Сначала пробуем getMyPlaylists
     const { data } = await playlistsApi.getMyPlaylists()
-    console.log('Playlists API response:', data)
-    
-    // Нормализуем данные
-    if (Array.isArray(data)) {
-      playlists.value = data
-    } else if (data && typeof data === 'object') {
-      // Если пришел объект с results
-      playlists.value = (data as any).results || []
-    } else {
-      playlists.value = []
-    }
-    
-    console.log('Loaded playlists count:', playlists.value.length)
-    
-    // Если плейлисты не загрузились, пробуем альтернативные варианты
-    if (playlists.value.length === 0) {
-      // Пробуем с параметром my=true
-      try {
-        const { data: data2 } = await apiClient.get('/playlists/playlists/', { 
-          params: { my: 'true', page_size: 100 } 
-        })
-        console.log('Playlists my=true response:', data2)
-        playlists.value = Array.isArray(data2) ? data2 : (data2 as any).results || []
-      } catch (e) {
-        console.error('Fallback playlists error:', e)
-      }
-    }
-  } catch (e) {
-    console.error('loadPlaylists error', e)
-    
-    // Fallback - пробуем прямой вызов
-    try {
-      const { data } = await apiClient.get('/playlists/playlists/my/')
-      console.log('Playlists direct fallback:', data)
-      playlists.value = Array.isArray(data) ? data : (data as any).results || []
-    } catch (e2) {
-      console.error('All playlist loading attempts failed', e2)
-      playlists.value = []
-    }
+    playlists.value = Array.isArray(data)
+      ? data
+      : (data && typeof data === 'object' ? (data as any).results || [] : [])
+  } catch {
+    playlists.value = []
   } finally {
     playlistLoading.value = false
   }
@@ -517,6 +501,7 @@ const canSubmit = computed(() => {
 const submitPost = async () => {
   if (!canSubmit.value || submitting.value) return
   submitting.value = true
+  submitError.value = ''
   try {
     const fd = new FormData()
     fd.append('text', text.value)
@@ -532,16 +517,9 @@ const submitPost = async () => {
     if (attachedAnimes.value.length > 0) {
       fd.append('anime', String(attachedAnimes.value[0].id))
       if (animeRatings.value[0]) fd.append('anime_rating', String(animeRatings.value[0]))
-      // Дополнительные
-      attachedAnimes.value.slice(1).forEach((a, i) => {
-        fd.append(`extra_anime_${i}`, String(a.id))
-      })
     }
     if (attachedPlaylists.value.length > 0) {
       fd.append('playlist', String(attachedPlaylists.value[0].id))
-      attachedPlaylists.value.slice(1).forEach((p, i) => {
-        fd.append(`extra_playlist_${i}`, String(p.id))
-      })
     }
     if (attachedShortsList.value.length > 0) {
       fd.append('reactor_post', String(attachedShortsList.value[0].id))
@@ -549,22 +527,19 @@ const submitPost = async () => {
 
     mediaFiles.value.forEach((m, i) => { fd.append(`media_${i}`, m.file) })
 
-    console.log('Creating post with data:', {
-      text: text.value,
-      visibility: visibility.value,
-      allow_comments: allowComments.value,
-      is_spoiler: isSpoiler.value,
-      spoiler_description: isSpoiler.value ? spoilerFor.value.trim() : '',
-    })
-
     const { data } = await apiClient.post('/social/posts/', fd, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    emit('created', normalizePost(data))
+
+    const createdPostId = data?.id
+
+    const { data: fullPost } = createdPostId
+      ? await apiClient.get(`/social/posts/${createdPostId}/`)
+      : { data }
+
+    emit('created', normalizePost(fullPost || data))
   } catch (e: any) {
-    console.error('Error creating post:', e)
-    console.error('Error response:', e.response?.data)
-    alert('Ошибка при публикации поста: ' + (e.response?.data?.detail || e.message))
+    submitError.value = e?.response?.data?.detail || e?.response?.data?.error || 'Ошибка при публикации поста'
   } finally {
     submitting.value = false
   }
@@ -643,14 +618,63 @@ onMounted(async () => {
 .char-count.warning { color: #f59e0b; }
 .char-count.error { color: #ef4444; }
 
-.media-preview { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.preview-item { position: relative; width: 80px; height: 80px; border-radius: 8px; overflow: hidden; }
-.preview-item img, .preview-item video { width: 100%; height: 100%; object-fit: cover; }
+.media-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(26,26,26,0.5);
+  border: 1px solid rgba(34,34,34,0.5);
+  border-radius: 10px;
+  margin-top: 0.5rem;
+}
+.preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid rgba(34,34,34,0.5);
+  transition: all 0.2s;
+}
+.preview-item:hover {
+  border-color: rgba(102,126,234,0.4);
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(102,126,234,0.2);
+}
+.preview-item img, .preview-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.preview-item:hover img, .preview-item:hover video {
+  transform: scale(1.05);
+}
 .remove-media-btn {
-  position: absolute; top: 3px; right: 3px;
-  background: rgba(0,0,0,0.75); color: #fff; border: none;
-  width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
-  font-size: 0.65rem; display: flex; align-items: center; justify-content: center;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  border: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 2;
+}
+.preview-item:hover .remove-media-btn {
+  opacity: 1;
+}
+.remove-media-btn:hover {
+  background: #ef4444;
+  transform: scale(1.1);
 }
 
 .attached-list { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -665,6 +689,155 @@ onMounted(async () => {
 .rating-field { width: 52px; background: #111; border: 1px solid #333; color: #fff; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.8rem; }
 .remove-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 0.9rem; padding: 0 0.25rem; }
 .remove-btn:hover { color: #ef4444; }
+
+/* Preview с постерами аниме и плейлистов */
+.attached-preview-section {
+  background: linear-gradient(135deg, rgba(102,126,234,0.05) 0%, rgba(118,75,162,0.05) 100%);
+  border: 1px solid rgba(102,126,234,0.2);
+  border-radius: 12px;
+  padding: 0.875rem;
+  margin-top: 0.75rem;
+}
+.attached-section-title {
+  display: flex; align-items: center; gap: 0.5rem; 
+  color: #667eea; font-size: 0.8rem; font-weight: 600;
+  margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.attached-media-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.attached-media-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(17,17,17,0.8);
+  border: 1px solid rgba(34,34,34,0.8);
+  border-radius: 10px;
+  padding: 0.625rem;
+  transition: all 0.2s;
+  min-width: 0;
+}
+.attached-media-item:hover {
+  border-color: rgba(102,126,234,0.4);
+  background: rgba(26,26,26,0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.attached-media-poster {
+  width: 48px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.attached-media-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.attached-media-item:hover .attached-media-poster img {
+  transform: scale(1.05);
+}
+.attached-placeholder {
+  width: 48px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #444;
+  font-size: 1.3rem;
+}
+.attached-media-info {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+.attached-text-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.attached-title {
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.attached-subtitle {
+  color: #888;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.attached-rating-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  background: rgba(102,126,234,0.1);
+  border: 1px solid rgba(102,126,234,0.2);
+  border-radius: 6px;
+  color: #667eea;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+.attached-rating-input {
+  width: 42px;
+  background: rgba(17,17,17,0.8);
+  border: 1px solid rgba(34,34,34,0.8);
+  color: #fff;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  text-align: center;
+}
+.attached-rating-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102,126,234,0.1);
+}
+.attached-remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  border: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.attached-media-item:hover .attached-remove-btn {
+  opacity: 1;
+}
+.attached-remove-btn:hover {
+  background: #ef4444;
+  transform: scale(1.1);
+}
 
 .toggles-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
 .toggle-label { 
@@ -750,6 +923,12 @@ onMounted(async () => {
 }
 .submit-btn:hover:not(:disabled) { transform: translateY(-1px); }
 .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.submit-error {
+  margin-top: 0.5rem;
+  color: #ef4444;
+  font-size: 0.82rem;
+  text-align: center;
+}
 
 /* ── Selector Modal ── */
 .selector-modal {
@@ -792,18 +971,74 @@ onMounted(async () => {
 .results-list { flex: 1; overflow-y: auto; padding: 0 0.75rem 0.75rem; max-height: 45vh; }
 .result-item {
   display: flex; align-items: center; gap: 0.875rem;
-  padding: 0.625rem 0.5rem; border-radius: 8px; cursor: pointer; transition: background 0.2s;
+  padding: 0.625rem 0.625rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(26,26,26,0.4);
+  border: 1px solid rgba(34,34,34,0.4);
+  margin-bottom: 0.5rem;
 }
-.result-item:hover { background: #1a1a1a; }
-.result-item.selected { background: rgba(102,126,234,0.12); border: 1px solid rgba(102,126,234,0.3); }
-.result-item img { width: 44px; height: 64px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+.result-item:hover {
+  background: rgba(34,34,34,0.6);
+  border-color: rgba(102,126,234,0.3);
+  transform: translateX(4px);
+}
+.result-item.selected {
+  background: rgba(102,126,234,0.15);
+  border-color: rgba(102,126,234,0.4);
+  box-shadow: 0 2px 8px rgba(102,126,234,0.15);
+}
+.result-item img {
+  width: 48px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.3s;
+}
+.result-item:hover .result-item img {
+  transform: scale(1.05);
+}
 .result-item-title { color: #ddd; font-size: 0.9rem; flex: 1; }
-.result-icon { font-size: 1.4rem; flex-shrink: 0; }
-.result-info { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; }
-.result-title { color: #ddd; font-size: 0.9rem; font-weight: 500; }
-.result-sub { color: #666; font-size: 0.78rem; }
-.check-icon { color: #667eea; font-size: 1rem; font-weight: 700; min-width: 16px; text-align: center; }
-.playlist-thumb { width: 44px; height: 64px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+.result-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  color: #667eea;
+}
+.result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+.result-title {
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-sub { color: #777; font-size: 0.78rem; }
+.check-icon {
+  color: #667eea;
+  font-size: 1.1rem;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.playlist-thumb {
+  width: 48px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
 
 .selector-loading { color: #666; font-size: 0.875rem; text-align: center; padding: 1.5rem; }
 .no-results { color: #555; font-size: 0.875rem; text-align: center; padding: 1.5rem; }
@@ -827,18 +1062,72 @@ onMounted(async () => {
 .upload-text { color: #aaa; font-size: 0.95rem; font-weight: 500; }
 .upload-hint { color: #555; font-size: 0.8rem; margin-top: 0.25rem; }
 
-.selected-media-preview { margin: 0.75rem; padding: 0.75rem; background: #1a1a1a; border-radius: 8px; }
-.selected-label { color: #888; font-size: 0.8rem; margin-bottom: 0.5rem; }
-.media-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.5rem; }
-.preview-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
-.preview-thumb img, .preview-thumb video { width: 100%; height: 100%; object-fit: cover; }
-.remove-thumb-btn {
-  position: absolute; top: 4px; right: 4px;
-  background: rgba(0,0,0,0.75); color: #fff; border: none;
-  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
-  font-size: 0.7rem; display: flex; align-items: center; justify-content: center;
+.selected-media-preview {
+  margin: 0.75rem;
+  padding: 0.875rem;
+  background: rgba(26,26,26,0.6);
+  border: 1px solid rgba(34,34,34,0.6);
+  border-radius: 10px;
 }
-.remove-thumb-btn:hover { background: #ef4444; }
+.selected-label {
+  color: #667eea;
+  font-size: 0.82rem;
+  margin-bottom: 0.625rem;
+  font-weight: 500;
+}
+.media-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.5rem;
+}
+.preview-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid rgba(34,34,34,0.5);
+  transition: all 0.2s;
+}
+.preview-thumb:hover {
+  border-color: rgba(102,126,234,0.4);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(102,126,234,0.2);
+}
+.preview-thumb img, .preview-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.preview-thumb:hover img, .preview-thumb:hover video {
+  transform: scale(1.05);
+}
+.remove-thumb-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  border: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 2;
+}
+.preview-thumb:hover .remove-thumb-btn {
+  opacity: 1;
+}
+.remove-thumb-btn:hover {
+  background: #ef4444;
+  transform: scale(1.1);
+}
 
 .create-playlist-btn {
   margin-top: 0.75rem; background: #667eea; border: none; color: #fff;

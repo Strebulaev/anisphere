@@ -13,54 +13,83 @@ from django.core.files import File
 
 class User(AbstractUser):
     # Уникальный ID для публичного использования
-    unique_id = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name=_('Unique ID'))
+    unique_id = models.CharField(
+        max_length=20, unique=True, null=True, blank=True, verbose_name=_("Unique ID")
+    )
 
     # Дополнительные поля профиля
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
-    cover_image = models.ImageField(upload_to='covers/', null=True, blank=True, verbose_name=_('Profile cover'))
-    cover_position_x = models.FloatField(default=50, verbose_name=_('Cover position X'))
-    cover_position_y = models.FloatField(default=50, verbose_name=_('Cover position Y'))
+    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
+    cover_image = models.ImageField(
+        upload_to="covers/", null=True, blank=True, verbose_name=_("Profile cover")
+    )
+    cover_position_x = models.FloatField(default=50, verbose_name=_("Cover position X"))
+    cover_position_y = models.FloatField(default=50, verbose_name=_("Cover position Y"))
     bio = models.TextField(max_length=500, blank=True)
 
     # Никнейм и отображаемое имя
-    nickname = models.CharField(max_length=30, blank=True, null=True, unique=True, verbose_name=_('Nickname'))
-    display_name = models.CharField(max_length=50, blank=True, verbose_name=_('Display name'))
+    nickname = models.CharField(
+        max_length=30, blank=True, null=True, unique=True, verbose_name=_("Nickname")
+    )
+    display_name = models.CharField(
+        max_length=50, blank=True, verbose_name=_("Display name")
+    )
 
     # Любимые жанры
-    favorite_genres = models.JSONField(default=list, verbose_name=_('Favorite genres'))
+    favorite_genres = models.JSONField(default=list, verbose_name=_("Favorite genres"))
 
     # Социальные ссылки
-    website = models.URLField(blank=True, verbose_name=_('Website'))
-    vk_profile = models.CharField(max_length=100, blank=True, verbose_name=_('VK profile'))
-    telegram = models.CharField(max_length=100, blank=True, verbose_name=_('Telegram'))
+    website = models.URLField(blank=True, verbose_name=_("Website"))
+    vk_profile = models.CharField(
+        max_length=100, blank=True, verbose_name=_("VK profile")
+    )
+    telegram = models.CharField(max_length=100, blank=True, verbose_name=_("Telegram"))
+    github = models.CharField(max_length=100, blank=True, verbose_name=_("GitHub"))
+    discord = models.CharField(max_length=100, blank=True, verbose_name=_("Discord"))
+    twitter = models.CharField(max_length=100, blank=True, verbose_name=_("Twitter"))
 
     # Поля для аутентификации
-    phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name=_('Phone number'))
-    email_verified = models.BooleanField(default=False, verbose_name=_('Email verified'))
-    phone_verified = models.BooleanField(default=False, verbose_name=_('Phone verified'))
+    phone_number = models.CharField(
+        max_length=20, blank=True, null=True, verbose_name=_("Phone number")
+    )
+    email_verified = models.BooleanField(
+        default=False, verbose_name=_("Email verified")
+    )
+    phone_verified = models.BooleanField(
+        default=False, verbose_name=_("Phone verified")
+    )
 
     # OAuth поля
-    google_id = models.CharField(max_length=50, blank=True, null=True, unique=True, verbose_name=_('Google ID'))
+    google_id = models.CharField(
+        max_length=50, blank=True, null=True, unique=True, verbose_name=_("Google ID")
+    )
 
     # Статус онлайн
-    is_online = models.BooleanField(default=False, verbose_name=_('Is online'))
-    last_seen = models.DateTimeField(null=True, blank=True, verbose_name=_('Last seen'))
+    is_online = models.BooleanField(default=False, verbose_name=_("Is online"))
+    last_seen = models.DateTimeField(null=True, blank=True, verbose_name=_("Last seen"))
 
     # Для SMS верификации
-    sms_code = models.CharField(max_length=6, blank=True, null=True, verbose_name=_('SMS verification code'))
-    sms_code_expires = models.DateTimeField(blank=True, null=True, verbose_name=_('SMS code expiration'))
+    sms_code = models.CharField(
+        max_length=6, blank=True, null=True, verbose_name=_("SMS verification code")
+    )
+    sms_code_expires = models.DateTimeField(
+        blank=True, null=True, verbose_name=_("SMS code expiration")
+    )
 
     # Двухфакторная аутентификация
-    two_factor_enabled = models.BooleanField(default=False, verbose_name=_('Two factor enabled'))
-    two_factor_secret = models.CharField(max_length=32, blank=True, null=True, verbose_name=_('Two factor secret'))
+    two_factor_enabled = models.BooleanField(
+        default=False, verbose_name=_("Two factor enabled")
+    )
+    two_factor_secret = models.CharField(
+        max_length=32, blank=True, null=True, verbose_name=_("Two factor secret")
+    )
 
     # Система репутации
-    level = models.IntegerField(default=1, verbose_name=_('Level'))
-    experience = models.IntegerField(default=0, verbose_name=_('Experience points'))
-    mana = models.IntegerField(default=0, verbose_name=_('Mana currency'))
+    level = models.IntegerField(default=1, verbose_name=_("Level"))
+    experience = models.IntegerField(default=0, verbose_name=_("Experience points"))
+    mana = models.IntegerField(default=0, verbose_name=_("Mana currency"))
 
     # Значки и достижения
-    badges = models.JSONField(default=list, verbose_name=_('Badges list'))
+    badges = models.JSONField(default=list, verbose_name=_("Badges list"))
 
     # Статистика активности
     posts_count = models.IntegerField(default=0)
@@ -73,28 +102,36 @@ class User(AbstractUser):
 
     # ==================== УВЕДОМЛЕНИЯ ====================
     # Уведомления о лайках
-    notify_likes = models.BooleanField(default=True, verbose_name=_('Уведомления о лайках'))
+    notify_likes = models.BooleanField(
+        default=True, verbose_name=_("Уведомления о лайках")
+    )
     # Уведомления о комментариях
-    notify_comments = models.BooleanField(default=True, verbose_name=_('Уведомления о комментариях'))
+    notify_comments = models.BooleanField(
+        default=True, verbose_name=_("Уведомления о комментариях")
+    )
     # Уведомления об упоминаниях (всегда включены)
-    notify_mentions = models.BooleanField(default=True, verbose_name=_('Уведомления об упоминаниях'))
+    notify_mentions = models.BooleanField(
+        default=True, verbose_name=_("Уведомления об упоминаниях")
+    )
     # Email дайджест
     email_digest = models.CharField(
         max_length=20,
         choices=[
-            ('never', 'Никогда'),
-            ('daily', 'Раз в день'),
-            ('weekly', 'Раз в неделю'),
+            ("never", "Никогда"),
+            ("daily", "Раз в день"),
+            ("weekly", "Раз в неделю"),
         ],
-        default='never',
-        verbose_name=_('Email дайджест')
+        default="never",
+        verbose_name=_("Email дайджест"),
     )
 
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['email']
+    USERNAME_FIELD = "username"
+    REQUIRED_FIELDS = ["email"]
 
     def __str__(self):
-        return self.username or self.email or str(self.phone_number) or f'User {self.id}'
+        return (
+            self.username or self.email or str(self.phone_number) or f"User {self.id}"
+        )
 
     def generate_unique_id(self):
         """Генерирует уникальный ID для пользователя"""
@@ -107,12 +144,12 @@ class User(AbstractUser):
         # Генерируем уникальный ID
         while True:
             # Генерируем 12-значный ID
-            unique_id = ''.join(random.choices(string.digits, k=12))
+            unique_id = "".join(random.choices(string.digits, k=12))
 
             # Проверяем уникальность
             if not User.objects.filter(unique_id=unique_id).exists():
                 self.unique_id = unique_id
-                self.save(update_fields=['unique_id'])
+                self.save(update_fields=["unique_id"])
                 return unique_id
 
     def ensure_unique_id(self):
@@ -124,83 +161,116 @@ class User(AbstractUser):
 
 class UserSession(models.Model):
     """Модель для отслеживания активных сессий пользователя"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='active_sessions')
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="active_sessions"
+    )
     session_key = models.CharField(max_length=40, unique=True)
-    device_info = models.CharField(max_length=200, blank=True, verbose_name=_('Device info'))
-    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name=_('IP address'))
-    user_agent = models.TextField(blank=True, verbose_name=_('User agent'))
-    location = models.CharField(max_length=100, blank=True, verbose_name=_('Location'))
+    device_info = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Device info")
+    )
+    ip_address = models.GenericIPAddressField(
+        blank=True, null=True, verbose_name=_("IP address")
+    )
+    user_agent = models.TextField(blank=True, verbose_name=_("User agent"))
+    location = models.CharField(max_length=100, blank=True, verbose_name=_("Location"))
     last_activity = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = _('User session')
-        verbose_name_plural = _('User sessions')
-        ordering = ['-last_activity']
+        verbose_name = _("User session")
+        verbose_name_plural = _("User sessions")
+        ordering = ["-last_activity"]
 
     def __str__(self):
-        return f'{self.user.username} - {self.device_info or "Unknown device"}'
+        return f"{self.user.username} - {self.device_info or 'Unknown device'}"
 
     @property
     def is_current_session(self):
         """Проверяет, является ли эта сессия текущей для пользователя"""
         from django.contrib.sessions.middleware import get_current_session_key
+
         return self.session_key == get_current_session_key()
 
 
 class UserSettings(models.Model):
     """Модель для хранения настроек пользователя"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="settings")
 
     # Настройки внешнего вида
-    theme = models.CharField(max_length=20, default='light', choices=[
-        ('light', 'Светлая'),
-        ('dark', 'Тёмная'),
-        ('auto', 'Автоматическая')
-    ], verbose_name=_('Theme'))
+    theme = models.CharField(
+        max_length=20,
+        default="light",
+        choices=[("light", "Светлая"), ("dark", "Тёмная"), ("auto", "Автоматическая")],
+        verbose_name=_("Theme"),
+    )
 
-    ui_style = models.CharField(max_length=20, default='modern', choices=[
-        ('modern', 'Современный'),
-        ('classic', 'Классический'),
-        ('minimal', 'Минималистичный'),
-        ('dark', 'Тёмный')
-    ], verbose_name=_('UI Style'))
+    ui_style = models.CharField(
+        max_length=20,
+        default="modern",
+        choices=[
+            ("modern", "Современный"),
+            ("classic", "Классический"),
+            ("minimal", "Минималистичный"),
+            ("dark", "Тёмный"),
+        ],
+        verbose_name=_("UI Style"),
+    )
 
-    text_size = models.CharField(max_length=20, default='medium', choices=[
-        ('small', 'Маленький'),
-        ('medium', 'Средний'),
-        ('large', 'Большой')
-    ], verbose_name=_('Text Size'))
+    text_size = models.CharField(
+        max_length=20,
+        default="medium",
+        choices=[("small", "Маленький"), ("medium", "Средний"), ("large", "Большой")],
+        verbose_name=_("Text Size"),
+    )
 
     # Настройки уведомлений
-    push_notifications = models.BooleanField(default=True, verbose_name=_('Push notifications'))
-    email_notifications = models.BooleanField(default=True, verbose_name=_('Email notifications'))
-    message_notifications = models.BooleanField(default=True, verbose_name=_('Message notifications'))
-    contest_notifications = models.BooleanField(default=False, verbose_name=_('Contest notifications'))
+    push_notifications = models.BooleanField(
+        default=True, verbose_name=_("Push notifications")
+    )
+    email_notifications = models.BooleanField(
+        default=True, verbose_name=_("Email notifications")
+    )
+    message_notifications = models.BooleanField(
+        default=True, verbose_name=_("Message notifications")
+    )
+    contest_notifications = models.BooleanField(
+        default=False, verbose_name=_("Contest notifications")
+    )
 
     # Настройки приватности
-    show_in_search = models.BooleanField(default=True, verbose_name=_('Show in search'))
-    show_online_status = models.BooleanField(default=True, verbose_name=_('Show online status'))
-    show_stats = models.BooleanField(default=True, verbose_name=_('Show statistics'))
+    show_in_search = models.BooleanField(default=True, verbose_name=_("Show in search"))
+    show_online_status = models.BooleanField(
+        default=True, verbose_name=_("Show online status")
+    )
+    show_stats = models.BooleanField(default=True, verbose_name=_("Show statistics"))
 
     # Настройки рекомендаций
-    personalized_recommendations = models.BooleanField(default=True, verbose_name=_('Personalized recommendations'))
-    selected_interests = models.JSONField(default=list, verbose_name=_('Selected interests'))
+    personalized_recommendations = models.BooleanField(
+        default=True, verbose_name=_("Personalized recommendations")
+    )
+    selected_interests = models.JSONField(
+        default=list, verbose_name=_("Selected interests")
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = _('User settings')
-        verbose_name_plural = _('User settings')
+        verbose_name = _("User settings")
+        verbose_name_plural = _("User settings")
 
     def __str__(self):
-        return f'{self.user.username} settings'
+        return f"{self.user.username} settings"
 
 
 class UserProfileSettings(models.Model):
     """Основные настройки профиля пользователя"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile_settings')
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="profile_settings"
+    )
 
     # Конфиденциальность
     show_online_status = models.BooleanField(default=True)
@@ -211,11 +281,11 @@ class UserProfileSettings(models.Model):
     who_can_add_to_groups = models.CharField(
         max_length=20,
         choices=[
-            ('everyone', 'Все'),
-            ('contacts', 'Только контакты'),
-            ('nobody', 'Никто')
+            ("everyone", "Все"),
+            ("contacts", "Только контакты"),
+            ("nobody", "Никто"),
         ],
-        default='everyone'
+        default="everyone",
     )
 
     # Контакты
@@ -223,19 +293,19 @@ class UserProfileSettings(models.Model):
     suggest_frequent_contacts = models.BooleanField(default=True)
 
     # Аватар и тема
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
     theme = models.CharField(
         max_length=20,
         choices=[
-            ('light', 'Светлая'),
-            ('dark', 'Темная'),
-            ('system', 'Как в системе'),
-            ('blue', 'Синяя'),
-            ('green', 'Зеленая')
+            ("light", "Светлая"),
+            ("dark", "Темная"),
+            ("system", "Как в системе"),
+            ("blue", "Синяя"),
+            ("green", "Зеленая"),
         ],
-        default='dark'
+        default="dark",
     )
-    accent_color = models.CharField(max_length=7, default='#0084FF')
+    accent_color = models.CharField(max_length=7, default="#0084FF")
 
     # Настройки фона чатов
     use_shared_background = models.BooleanField(default=True)
@@ -243,14 +313,14 @@ class UserProfileSettings(models.Model):
     background_type = models.CharField(
         max_length=20,
         choices=[
-            ('default', 'По умолчанию'),
-            ('solid', 'Сплошной цвет'),
-            ('gradient', 'Градиент'),
-            ('image', 'Изображение')
+            ("default", "По умолчанию"),
+            ("solid", "Сплошной цвет"),
+            ("gradient", "Градиент"),
+            ("image", "Изображение"),
         ],
-        default='default'
+        default="default",
     )
-    solid_color = models.CharField(max_length=7, default='#1a1a1a')
+    solid_color = models.CharField(max_length=7, default="#1a1a1a")
     gradient_colors = models.JSONField(default=dict)
     custom_image = models.URLField(blank=True)
     background_effects = models.JSONField(default=dict)
@@ -270,25 +340,23 @@ class UserProfileSettings(models.Model):
     is_premium = models.BooleanField(default=False)
 
     # Язык и регион
-    language = models.CharField(max_length=10, default='ru')
-    timezone = models.CharField(max_length=50, default='Europe/Moscow')
+    language = models.CharField(max_length=10, default="ru")
+    timezone = models.CharField(max_length=50, default="Europe/Moscow")
     date_format = models.CharField(
         max_length=20,
         choices=[
-            ('dd.mm.yyyy', 'ДД.ММ.ГГГГ'),
-            ('mm/dd/yyyy', 'ММ/ДД/ГГГГ'),
-            ('yyyy-mm-dd', 'ГГГГ-ММ-ДД')
+            ("dd.mm.yyyy", "ДД.ММ.ГГГГ"),
+            ("mm/dd/yyyy", "ММ/ДД/ГГГГ"),
+            ("yyyy-mm-dd", "ГГГГ-ММ-ДД"),
         ],
-        default='dd.mm.yyyy'
+        default="dd.mm.yyyy",
     )
     time_format = models.CharField(
-        max_length=10,
-        choices=[('24', '24 часа'), ('12', '12 часов')],
-        default='24'
+        max_length=10, choices=[("24", "24 часа"), ("12", "12 часов")], default="24"
     )
 
     # Уведомления (общие)
-    notification_sound = models.CharField(max_length=100, default='default')
+    notification_sound = models.CharField(max_length=100, default="default")
     vibration = models.BooleanField(default=True)
     preview_content = models.BooleanField(default=True)
 
@@ -297,27 +365,32 @@ class UserProfileSettings(models.Model):
     password_changed_notification = models.BooleanField(default=True)
 
     # Профиль пользователя (биографические данные)
-    birth_date = models.DateField(null=True, blank=True, verbose_name='Дата рождения')
-    social_links = models.JSONField(default=list, blank=True, verbose_name='Ссылки на соцсети')
+    birth_date = models.DateField(null=True, blank=True, verbose_name="Дата рождения")
+    social_links = models.JSONField(
+        default=list, blank=True, verbose_name="Ссылки на соцсети"
+    )
     status = models.CharField(
         max_length=20,
-        choices=[('online', 'Онлайн'), ('away', 'Отошёл'), ('invisible', 'Невидимка')],
-        default='online',
+        choices=[("online", "Онлайн"), ("away", "Отошёл"), ("invisible", "Невидимка")],
+        default="online",
         blank=True,
-        verbose_name='Статус'
+        verbose_name="Статус",
     )
 
     # Дата обновления
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Настройки профиля'
-        verbose_name_plural = 'Настройки профилей'
+        verbose_name = "Настройки профиля"
+        verbose_name_plural = "Настройки профилей"
 
 
 class TwoFactorAuth(models.Model):
     """Настройки двухфакторной аутентификации"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='two_factor')
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="two_factor"
+    )
     is_enabled = models.BooleanField(default=False)
     secret_key = models.CharField(max_length=32, blank=True)
 
@@ -328,7 +401,9 @@ class TwoFactorAuth(models.Model):
 
     # Настройки
     require_on_new_device = models.BooleanField(default=True)
-    remember_device_days = models.IntegerField(default=30)  # Запоминать устройство на N дней
+    remember_device_days = models.IntegerField(
+        default=30
+    )  # Запоминать устройство на N дней
 
     created_at = models.DateTimeField(auto_now_add=True)
     last_used = models.DateTimeField(null=True, blank=True)
@@ -340,8 +415,9 @@ class TwoFactorAuth(models.Model):
     def generate_backup_codes(self, count=10):
         """Генерация резервных кодов"""
         import secrets
+
         self.backup_codes = [
-            '-'.join([secrets.token_hex(2).upper() for _ in range(2)])
+            "-".join([secrets.token_hex(2).upper() for _ in range(2)])
             for _ in range(count)
         ]
 
@@ -352,16 +428,15 @@ class TwoFactorAuth(models.Model):
 
         totp = pyotp.TOTP(self.secret_key)
         provisioning_uri = totp.provisioning_uri(
-            name=self.user.email,
-            issuer_name="Messenger App"
+            name=self.user.email, issuer_name="Messenger App"
         )
 
         # Создание QR-кода
         qr = qrcode.make(provisioning_uri)
         buffer = BytesIO()
-        qr.save(buffer, format='PNG')
+        qr.save(buffer, format="PNG")
 
-        return File(buffer, name=f'2fa_qr_{self.user.id}.png')
+        return File(buffer, name=f"2fa_qr_{self.user.id}.png")
 
     def verify_code(self, code):
         """Проверка кода аутентификатора"""
@@ -387,7 +462,8 @@ class TwoFactorAuth(models.Model):
 
 class ActiveSession(models.Model):
     """Активные сессии пользователя"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sessions")
     session_key = models.CharField(max_length=40, unique=True)
     device_info = models.JSONField(default=dict)  # Информация об устройстве
     ip_address = models.GenericIPAddressField()
@@ -403,9 +479,9 @@ class ActiveSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-last_activity']
+        ordering = ["-last_activity"]
         indexes = [
-            models.Index(fields=['user', 'last_activity']),
+            models.Index(fields=["user", "last_activity"]),
         ]
 
     def __str__(self):
@@ -414,7 +490,10 @@ class ActiveSession(models.Model):
 
 class NotificationSettings(models.Model):
     """Детальные настройки уведомлений"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_settings')
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="notification_settings"
+    )
 
     # Типы уведомлений
     message_notifications = models.BooleanField(default=True)
@@ -434,18 +513,20 @@ class NotificationSettings(models.Model):
     email_frequency = models.CharField(
         max_length=20,
         choices=[
-            ('immediately', 'Немедленно'),
-            ('hourly', 'Каждый час'),
-            ('daily', 'Ежедневно'),
-            ('weekly', 'Еженедельно')
+            ("immediately", "Немедленно"),
+            ("hourly", "Каждый час"),
+            ("daily", "Ежедневно"),
+            ("weekly", "Еженедельно"),
         ],
-        default='immediately'
+        default="immediately",
     )
 
     # Исключения
     mute_until = models.DateTimeField(null=True, blank=True)
-    do_not_disturb_start = models.TimeField(null=True, blank=True)  # Начало периода "Не беспокоить"
-    do_not_disturb_end = models.TimeField(null=True, blank=True)    # Конец периода
+    do_not_disturb_start = models.TimeField(
+        null=True, blank=True
+    )  # Начало периода "Не беспокоить"
+    do_not_disturb_end = models.TimeField(null=True, blank=True)  # Конец периода
 
     # Индивидуальные настройки для чатов
     override_chat_settings = models.BooleanField(default=False)
@@ -455,51 +536,38 @@ class NotificationSettings(models.Model):
 
 class PrivacySettings(models.Model):
     """Настройки приватности"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='privacy_settings')
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="privacy_settings"
+    )
 
     # Кто может видеть
     who_can_see_phone = models.CharField(
         max_length=20,
-        choices=[
-            ('everyone', 'Все'),
-            ('contacts', 'Контакты'),
-            ('nobody', 'Никто')
-        ],
-        default='contacts'
+        choices=[("everyone", "Все"), ("contacts", "Контакты"), ("nobody", "Никто")],
+        default="contacts",
     )
 
     who_can_see_email = models.CharField(
         max_length=20,
-        choices=[
-            ('everyone', 'Все'),
-            ('contacts', 'Контакты'),
-            ('nobody', 'Никто')
-        ],
-        default='contacts'
+        choices=[("everyone", "Все"), ("contacts", "Контакты"), ("nobody", "Никто")],
+        default="contacts",
     )
 
     who_can_see_last_seen = models.CharField(
         max_length=20,
-        choices=[
-            ('everyone', 'Все'),
-            ('contacts', 'Контакты'),
-            ('nobody', 'Никто')
-        ],
-        default='everyone'
+        choices=[("everyone", "Все"), ("contacts", "Контакты"), ("nobody", "Никто")],
+        default="everyone",
     )
 
     who_can_see_profile_photo = models.CharField(
         max_length=20,
-        choices=[
-            ('everyone', 'Все'),
-            ('contacts', 'Контакты'),
-            ('nobody', 'Никто')
-        ],
-        default='everyone'
+        choices=[("everyone", "Все"), ("contacts", "Контакты"), ("nobody", "Никто")],
+        default="everyone",
     )
 
     # Блокировка
-    blocked_users = models.ManyToManyField(User, related_name='blocked_by', blank=True)
+    blocked_users = models.ManyToManyField(User, related_name="blocked_by", blank=True)
 
     # Пересылка сообщений
     allow_message_forwarding = models.BooleanField(default=True)
@@ -507,41 +575,34 @@ class PrivacySettings(models.Model):
     # Звонки
     who_can_call = models.CharField(
         max_length=20,
-        choices=[
-            ('everyone', 'Все'),
-            ('contacts', 'Контакты'),
-            ('nobody', 'Никто')
-        ],
-        default='everyone'
+        choices=[("everyone", "Все"), ("contacts", "Контакты"), ("nobody", "Никто")],
+        default="everyone",
     )
 
     # Группы
     who_can_add_to_groups = models.CharField(
         max_length=20,
-        choices=[
-            ('everyone', 'Все'),
-            ('contacts', 'Контакты'),
-            ('nobody', 'Никто')
-        ],
-        default='everyone'
+        choices=[("everyone", "Все"), ("contacts", "Контакты"), ("nobody", "Никто")],
+        default="everyone",
     )
 
 
 class UserTheme(models.Model):
     """Пользовательские темы"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='themes')
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="themes")
     name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=False)
 
     # Цвета
-    primary_color = models.CharField(max_length=7, default='#0084FF')
-    secondary_color = models.CharField(max_length=7, default='#00C853')
-    background_color = models.CharField(max_length=7, default='#1a1a1a')
-    card_background = models.CharField(max_length=7, default='#2d2d2d')
-    hover_background = models.CharField(max_length=7, default='#3d3d3d')
-    text_color = models.CharField(max_length=7, default='#ffffff')
-    secondary_text_color = models.CharField(max_length=7, default='#b0b0b0')
-    border_color = models.CharField(max_length=7, default='#404040')
+    primary_color = models.CharField(max_length=7, default="#0084FF")
+    secondary_color = models.CharField(max_length=7, default="#00C853")
+    background_color = models.CharField(max_length=7, default="#1a1a1a")
+    card_background = models.CharField(max_length=7, default="#2d2d2d")
+    hover_background = models.CharField(max_length=7, default="#3d3d3d")
+    text_color = models.CharField(max_length=7, default="#ffffff")
+    secondary_text_color = models.CharField(max_length=7, default="#b0b0b0")
+    border_color = models.CharField(max_length=7, default="#404040")
 
     # Дополнительные настройки
     message_bubble_radius = models.IntegerField(default=12)  # px
@@ -549,25 +610,29 @@ class UserTheme(models.Model):
     compact_mode = models.BooleanField(default=False)
 
     # Фон чата
-    chat_background = models.ImageField(upload_to='chat_backgrounds/', null=True, blank=True)
+    chat_background = models.ImageField(
+        upload_to="chat_backgrounds/", null=True, blank=True
+    )
     chat_background_opacity = models.FloatField(default=0.1)  # 0-1
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['user', 'name']
+        unique_together = ["user", "name"]
 
     def apply_to_user(self):
         """Применить тему к пользователю"""
         # Сохраняем настройки в профиль пользователя
         profile_settings = self.user.profile_settings
-        profile_settings.theme = 'custom'
+        profile_settings.theme = "custom"
         profile_settings.accent_color = self.primary_color
         profile_settings.save()
 
         # Деактивируем другие темы пользователя
-        UserTheme.objects.filter(user=self.user).exclude(id=self.id).update(is_active=False)
+        UserTheme.objects.filter(user=self.user).exclude(id=self.id).update(
+            is_active=False
+        )
 
         self.is_active = True
         self.save()
@@ -575,25 +640,28 @@ class UserTheme(models.Model):
     def to_css_variables(self):
         """Преобразовать в CSS переменные"""
         return {
-            '--primary-color': self.primary_color,
-            '--secondary-color': self.secondary_color,
-            '--background-color': self.background_color,
-            '--card-bg': self.card_background,
-            '--hover-bg': self.hover_background,
-            '--text-color': self.text_color,
-            '--secondary-text': self.secondary_text_color,
-            '--border-color': self.border_color,
-            '--message-bubble-radius': f'{self.message_bubble_radius}px',
-            '--chat-background-opacity': self.chat_background_opacity,
+            "--primary-color": self.primary_color,
+            "--secondary-color": self.secondary_color,
+            "--background-color": self.background_color,
+            "--card-bg": self.card_background,
+            "--hover-bg": self.hover_background,
+            "--text-color": self.text_color,
+            "--secondary-text": self.secondary_text_color,
+            "--border-color": self.border_color,
+            "--message-bubble-radius": f"{self.message_bubble_radius}px",
+            "--chat-background-opacity": self.chat_background_opacity,
         }
 
 
 class FontSettings(models.Model):
     """Настройки шрифтов пользователя"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='font_settings')
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="font_settings"
+    )
 
     # Основные настройки
-    font_family = models.CharField(max_length=50, default='system')
+    font_family = models.CharField(max_length=50, default="system")
     font_size = models.IntegerField(default=14)  # px
     interface_scale = models.IntegerField(default=100)  # %
 
@@ -604,11 +672,11 @@ class FontSettings(models.Model):
     density = models.CharField(
         max_length=20,
         choices=[
-            ('compact', 'Компактный'),
-            ('comfortable', 'Удобный'),
-            ('spacious', 'Просторный'),
+            ("compact", "Компактный"),
+            ("comfortable", "Удобный"),
+            ("spacious", "Просторный"),
         ],
-        default='comfortable'
+        default="comfortable",
     )
 
     # Дополнительные настройки
@@ -626,7 +694,10 @@ class FontSettings(models.Model):
 
 class SyncSettings(models.Model):
     """Настройки синхронизации пользователя"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='sync_settings')
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="sync_settings"
+    )
 
     # Что синхронизировать
     sync_playlists = models.BooleanField(default=True)
@@ -640,20 +711,20 @@ class SyncSettings(models.Model):
     sync_condition = models.CharField(
         max_length=20,
         choices=[
-            ('auto', 'Автоматически'),
-            ('manual', 'Вручную'),
-            ('schedule', 'По расписанию'),
+            ("auto", "Автоматически"),
+            ("manual", "Вручную"),
+            ("schedule", "По расписанию"),
         ],
-        default='auto'
+        default="auto",
     )
     sync_schedule = models.CharField(
         max_length=20,
         choices=[
-            ('hourly', 'Каждый час'),
-            ('daily', 'Каждый день'),
-            ('weekly', 'Каждую неделю'),
+            ("hourly", "Каждый час"),
+            ("daily", "Каждый день"),
+            ("weekly", "Каждую неделю"),
         ],
-        default='daily'
+        default="daily",
     )
 
     # Ограничения
@@ -664,12 +735,12 @@ class SyncSettings(models.Model):
     sync_status = models.CharField(
         max_length=20,
         choices=[
-            ('idle', 'Ожидает'),
-            ('syncing', 'Синхронизация'),
-            ('synced', 'Синхронизировано'),
-            ('error', 'Ошибка'),
+            ("idle", "Ожидает"),
+            ("syncing", "Синхронизация"),
+            ("synced", "Синхронизировано"),
+            ("error", "Ошибка"),
         ],
-        default='idle'
+        default="idle",
     )
     last_sync_time = models.DateTimeField(null=True, blank=True)
     next_sync_time = models.DateTimeField(null=True, blank=True)
@@ -682,28 +753,31 @@ class SyncSettings(models.Model):
 
 class DataExport(models.Model):
     """Запросы на экспорт данных"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='data_exports')
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="data_exports"
+    )
 
     items = models.JSONField(default=list)  # Список типов данных для экспорта
     format = models.CharField(
         max_length=10,
         choices=[
-            ('json', 'JSON'),
-            ('csv', 'CSV'),
-            ('html', 'HTML'),
+            ("json", "JSON"),
+            ("csv", "CSV"),
+            ("html", "HTML"),
         ],
-        default='json'
+        default="json",
     )
 
     status = models.CharField(
         max_length=20,
         choices=[
-            ('processing', 'Обработка'),
-            ('ready', 'Готов'),
-            ('expired', 'Истёк'),
-            ('failed', 'Ошибка'),
+            ("processing", "Обработка"),
+            ("ready", "Готов"),
+            ("expired", "Истёк"),
+            ("failed", "Ошибка"),
         ],
-        default='processing'
+        default="processing",
     )
 
     size = models.CharField(max_length=20, blank=True)  # Размер файла
@@ -719,22 +793,28 @@ class DataExport(models.Model):
 
 class ChatBackground(models.Model):
     """Фоны для чатов"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_backgrounds')
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="chat_backgrounds"
+    )
     name = models.CharField(max_length=100)
-    image = models.ImageField(upload_to='chat_backgrounds/')
-    thumbnail = models.ImageField(upload_to='chat_backgrounds/thumbnails/')
+    image = models.ImageField(upload_to="chat_backgrounds/")
+    thumbnail = models.ImageField(upload_to="chat_backgrounds/thumbnails/")
     is_default = models.BooleanField(default=False)
     opacity = models.FloatField(default=0.1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-is_default', 'name']
+        ordering = ["-is_default", "name"]
 
 
 class SecurityLog(models.Model):
     """Лог событий безопасности"""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    action = models.CharField(max_length=100)  # 2fa_enabled, login, password_change, etc.
+    action = models.CharField(
+        max_length=100
+    )  # 2fa_enabled, login, password_change, etc.
     ip_address = models.GenericIPAddressField()
     user_agent = models.TextField()
     location = models.CharField(max_length=100, blank=True)
@@ -742,10 +822,10 @@ class SecurityLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['user', 'created_at']),
-            models.Index(fields=['action']),
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["action"]),
         ]
 
     def __str__(self):
@@ -754,34 +834,42 @@ class SecurityLog(models.Model):
 
 class EmailLog(models.Model):
     """Лог отправленных email уведомлений"""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     subject = models.CharField(max_length=255)
     sent_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=['user', 'sent_at']),
+            models.Index(fields=["user", "sent_at"]),
         ]
 
 
 class MessageNotification(models.Model):
     """Отслеживание отправленных уведомлений о сообщениях"""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    message = models.ForeignKey('social.Message', on_delete=models.CASCADE)
-    notified_via = models.CharField(max_length=20, choices=[
-        ('push', 'Push уведомление'),
-        ('email', 'Email уведомление'),
-        ('sms', 'SMS уведомление')
-    ])
+    message = models.ForeignKey("social.Message", on_delete=models.CASCADE)
+    notified_via = models.CharField(
+        max_length=20,
+        choices=[
+            ("push", "Push уведомление"),
+            ("email", "Email уведомление"),
+            ("sms", "SMS уведомление"),
+        ],
+    )
     notified_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['user', 'message', 'notified_via']
+        unique_together = ["user", "message", "notified_via"]
 
 
 class UserAnalytics(models.Model):
     """Статистика использования приложения"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='analytics')
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="analytics"
+    )
 
     # Активность
     messages_sent = models.IntegerField(default=0)
@@ -804,48 +892,57 @@ class UserAnalytics(models.Model):
     collected_since = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name_plural = 'User Analytics'
+        verbose_name_plural = "User Analytics"
 
     def update_activity(self, activity_type, **kwargs):
         """Обновить статистику активности"""
-        if activity_type == 'message_sent':
+        if activity_type == "message_sent":
             self.messages_sent += 1
-        elif activity_type == 'message_received':
+        elif activity_type == "message_received":
             self.messages_received += 1
-        elif activity_type == 'media_sent':
+        elif activity_type == "media_sent":
             self.media_sent += 1
-        elif activity_type == 'call_made':
+        elif activity_type == "call_made":
             self.calls_made += 1
-        elif activity_type == 'time_spent':
-            self.time_spent += kwargs.get('minutes', 0)
+        elif activity_type == "time_spent":
+            self.time_spent += kwargs.get("minutes", 0)
 
         self.save()
 
     def get_weekly_report(self):
         """Получить недельный отчет"""
         from datetime import datetime, timedelta
+
         week_ago = timezone.now() - timedelta(days=7)
 
         return {
-            'messages_sent': self.get_messages_since(week_ago, 'sent'),
-            'time_spent': self.get_time_spent_since(week_ago),
-            'most_active_day': self.get_most_active_day(week_ago),
-            'top_chats': self.get_top_chats(week_ago, limit=5)
+            "messages_sent": self.get_messages_since(week_ago, "sent"),
+            "time_spent": self.get_time_spent_since(week_ago),
+            "most_active_day": self.get_most_active_day(week_ago),
+            "top_chats": self.get_top_chats(week_ago, limit=5),
         }
 
-    def get_messages_since(self, since_date, direction='sent'):
+    def get_messages_since(self, since_date, direction="sent"):
         """Получить количество сообщений с указанной даты"""
         from social.models import Message
-        if direction == 'sent':
-            return Message.objects.filter(sender=self.user, created_at__gte=since_date).count()
+
+        if direction == "sent":
+            return Message.objects.filter(
+                sender=self.user, created_at__gte=since_date
+            ).count()
         else:
-            return Message.objects.filter(chat__members__user=self.user, created_at__gte=since_date).exclude(sender=self.user).count()
+            return (
+                Message.objects.filter(
+                    chat__members__user=self.user, created_at__gte=since_date
+                )
+                .exclude(sender=self.user)
+                .count()
+            )
 
     def get_time_spent_since(self, since_date):
         """Получить время, проведенное в приложении с указанной даты"""
         sessions = UserSession.objects.filter(
-            user=self.user,
-            start_time__gte=since_date
+            user=self.user, start_time__gte=since_date
         )
 
         total_seconds = sum(
@@ -869,21 +966,24 @@ class UserAnalytics(models.Model):
 def validate_rating(value):
     """Валидатор для оценки аниме"""
     if value is not None and (value < 1 or value > 10):
-        raise ValidationError('Оценка должна быть от 1 до 10')
+        raise ValidationError("Оценка должна быть от 1 до 10")
 
 
 class UserFavorite(models.Model):
     """Избранное аниме пользователя"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
-    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='in_favorites')
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="favorites")
+    anime = models.ForeignKey(
+        "anime.Anime", on_delete=models.CASCADE, related_name="in_favorites"
+    )
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['user', 'anime']
+        unique_together = ["user", "anime"]
         indexes = [
-            models.Index(fields=['user', 'added_at']),
+            models.Index(fields=["user", "added_at"]),
         ]
-        ordering = ['-added_at']
+        ordering = ["-added_at"]
 
     def __str__(self):
         return f"{self.user.username} - {self.anime.title_ru}"
@@ -891,13 +991,18 @@ class UserFavorite(models.Model):
 
 class FavoriteTheme(models.Model):
     """Избранные опенинги/эндинги пользователя"""
+
     THEME_TYPE_CHOICES = [
-        ('opening', 'Опенинг'),
-        ('ending', 'Эндинг'),
+        ("opening", "Опенинг"),
+        ("ending", "Эндинг"),
     ]
-    
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_themes')
-    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='favorite_themes')
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="favorite_themes"
+    )
+    anime = models.ForeignKey(
+        "anime.Anime", on_delete=models.CASCADE, related_name="favorite_themes"
+    )
     theme_type = models.CharField(max_length=20, choices=THEME_TYPE_CHOICES)
     episode = models.IntegerField()
     season = models.IntegerField(default=1)
@@ -907,12 +1012,12 @@ class FavoriteTheme(models.Model):
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['user', 'anime', 'theme_type', 'episode', 'season']
+        unique_together = ["user", "anime", "theme_type", "episode", "season"]
         indexes = [
-            models.Index(fields=['user', 'anime', 'theme_type']),
-            models.Index(fields=['user', 'added_at']),
+            models.Index(fields=["user", "anime", "theme_type"]),
+            models.Index(fields=["user", "added_at"]),
         ]
-        ordering = ['-added_at']
+        ordering = ["-added_at"]
 
     def __str__(self):
         return f"{self.user.username} - {self.get_theme_type_display()} серия {self.episode} ({self.anime.title_ru})"
@@ -920,20 +1025,25 @@ class FavoriteTheme(models.Model):
 
 class FavoriteEpisode(models.Model):
     """Избранные серии пользователя"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_episodes')
-    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='favorite_episodes')
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="favorite_episodes"
+    )
+    anime = models.ForeignKey(
+        "anime.Anime", on_delete=models.CASCADE, related_name="favorite_episodes"
+    )
     episode = models.IntegerField()
     season = models.IntegerField(default=1)
     note = models.CharField(max_length=255, blank=True)  # Заметка пользователя
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['user', 'anime', 'episode', 'season']
+        unique_together = ["user", "anime", "episode", "season"]
         indexes = [
-            models.Index(fields=['user', 'anime', 'episode']),
-            models.Index(fields=['user', 'added_at']),
+            models.Index(fields=["user", "anime", "episode"]),
+            models.Index(fields=["user", "added_at"]),
         ]
-        ordering = ['-added_at']
+        ordering = ["-added_at"]
 
     def __str__(self):
         return f"{self.user.username} - Серия {self.episode} ({self.anime.title_ru})"
@@ -943,19 +1053,21 @@ class UserLibrary(models.Model):
     """Библиотека аниме пользователя (Моя коллекция)"""
 
     STATUS_CHOICES = [
-        ('started', 'В процессе'),
-        ('completed', 'Просмотрено'),
-        ('on_hold', 'Отложено'),
-        ('dropped', 'Брошено'),
-        ('planned', 'В планах'),
-        ('favorite', 'Любимое'),
+        ("started", "В процессе"),
+        ("completed", "Просмотрено"),
+        ("on_hold", "Отложено"),
+        ("dropped", "Брошено"),
+        ("planned", "В планах"),
+        ("favorite", "Любимое"),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='library')
-    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='in_libraries')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="library")
+    anime = models.ForeignKey(
+        "anime.Anime", on_delete=models.CASCADE, related_name="in_libraries"
+    )
 
     # Статус просмотра
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planned")
 
     # Прогресс просмотра
     current_episode = models.IntegerField(default=0)  # Текущий эпизод (0 = не начинал)
@@ -967,24 +1079,28 @@ class UserLibrary(models.Model):
     # Даты
     added_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)  # Когда начал смотреть
-    completed_at = models.DateTimeField(null=True, blank=True)  # Когда закончил смотреть
+    completed_at = models.DateTimeField(
+        null=True, blank=True
+    )  # Когда закончил смотреть
     updated_at = models.DateTimeField(auto_now=True)
 
     # Метаданные
     notes = models.TextField(blank=True)  # Заметки пользователя
-    is_favorite = models.BooleanField(default=False)  # В избранном (отдельно от статуса favorite)
+    is_favorite = models.BooleanField(
+        default=False
+    )  # В избранном (отдельно от статуса favorite)
 
     # Статистика
     rewatch_count = models.IntegerField(default=0)  # Сколько раз пересматривал
 
     class Meta:
-        unique_together = ['user', 'anime']
+        unique_together = ["user", "anime"]
         indexes = [
-            models.Index(fields=['user', 'status']),
-            models.Index(fields=['user', 'added_at']),
-            models.Index(fields=['user', 'rating']),
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["user", "added_at"]),
+            models.Index(fields=["user", "rating"]),
         ]
-        ordering = ['-updated_at']
+        ordering = ["-updated_at"]
 
     def __str__(self):
         return f"{self.user.username} - {self.anime.title_ru} ({self.get_status_display()})"
@@ -995,18 +1111,27 @@ class UserLibrary(models.Model):
         self.episodes_watched = max(self.episodes_watched, episode)
 
         # Обновляем статус в зависимости от прогресса
-        if self.status == 'planned' and episode > 0:
-            self.status = 'started'
+        if self.status == "planned" and episode > 0:
+            self.status = "started"
             if not self.started_at:
                 self.started_at = timezone.now()
 
         # Проверяем, завершено ли аниме
         if self.anime and self.anime.episodes and episode >= self.anime.episodes:
-            self.status = 'completed'
+            self.status = "completed"
             if not self.completed_at:
                 self.completed_at = timezone.now()
 
-        self.save(update_fields=['current_episode', 'episodes_watched', 'status', 'started_at', 'completed_at', 'updated_at'])
+        self.save(
+            update_fields=[
+                "current_episode",
+                "episodes_watched",
+                "status",
+                "started_at",
+                "completed_at",
+                "updated_at",
+            ]
+        )
 
     def get_progress_percentage(self):
         """Получить прогресс в процентах"""
@@ -1017,47 +1142,58 @@ class UserLibrary(models.Model):
     def mark_as_favorite(self):
         """Отметить как любимое"""
         self.is_favorite = True
-        self.save(update_fields=['is_favorite', 'updated_at'])
+        self.save(update_fields=["is_favorite", "updated_at"])
 
 
 # ==================== ПОДДЕРЖКА ====================
 
+
 class SupportTicket(models.Model):
     """Обращение в поддержку"""
+
     STATUS_CHOICES = [
-        ('open', 'Открыто'),
-        ('in_progress', 'В работе'),
-        ('waiting', 'Ожидание ответа'),
-        ('resolved', 'Решено'),
-        ('closed', 'Закрыто'),
+        ("open", "Открыто"),
+        ("in_progress", "В работе"),
+        ("waiting", "Ожидание ответа"),
+        ("resolved", "Решено"),
+        ("closed", "Закрыто"),
     ]
 
     PRIORITY_CHOICES = [
-        ('low', 'Низкий'),
-        ('medium', 'Средний'),
-        ('high', 'Высокий'),
-        ('urgent', 'Срочный'),
+        ("low", "Низкий"),
+        ("medium", "Средний"),
+        ("high", "Высокий"),
+        ("urgent", "Срочный"),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
-    subject = models.CharField(max_length=200, verbose_name='Тема')
-    description = models.TextField(verbose_name='Описание')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="support_tickets"
+    )
+    subject = models.CharField(max_length=200, verbose_name="Тема")
+    description = models.TextField(verbose_name="Описание")
     category = models.CharField(
         max_length=50,
         choices=[
-            ('general', 'Общий вопрос'),
-            ('account', 'Проблема с аккаунтом'),
-            ('payment', 'Оплата'),
-            ('bug', 'Баг/ошибка'),
-            ('content', 'Контент'),
-            ('other', 'Другое'),
+            ("general", "Общий вопрос"),
+            ("account", "Проблема с аккаунтом"),
+            ("payment", "Оплата"),
+            ("bug", "Баг/ошибка"),
+            ("content", "Контент"),
+            ("other", "Другое"),
         ],
-        default='general',
-        verbose_name='Категория'
+        default="general",
+        verbose_name="Категория",
     )
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', verbose_name='Статус')
-    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium', verbose_name='Приоритет')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="open", verbose_name="Статус"
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default="medium",
+        verbose_name="Приоритет",
+    )
 
     # Связанный админ
     assigned_to = models.ForeignKey(
@@ -1065,24 +1201,26 @@ class SupportTicket(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='assigned_tickets',
-        verbose_name='Назначенный админ'
+        related_name="assigned_tickets",
+        verbose_name="Назначенный админ",
     )
 
     # Для связи с чатом поддержки
-    chat_id = models.CharField(max_length=100, blank=True, null=True, verbose_name='ID чата')
+    chat_id = models.CharField(
+        max_length=100, blank=True, null=True, verbose_name="ID чата"
+    )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
-    resolved_at = models.DateTimeField(null=True, blank=True, verbose_name='Решено')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+    resolved_at = models.DateTimeField(null=True, blank=True, verbose_name="Решено")
 
     class Meta:
-        verbose_name = 'Обращение в поддержку'
-        verbose_name_plural = 'Обращения в поддержку'
-        ordering = ['-created_at']
+        verbose_name = "Обращение в поддержку"
+        verbose_name_plural = "Обращения в поддержку"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['user', 'status']),
-            models.Index(fields=['status', 'priority']),
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["status", "priority"]),
         ]
 
     def __str__(self):
@@ -1091,24 +1229,29 @@ class SupportTicket(models.Model):
 
 class SupportMessage(models.Model):
     """Сообщение в обращении поддержки"""
-    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name='messages')
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_messages')
-    message = models.TextField(verbose_name='Сообщение')
-    is_from_admin = models.BooleanField(default=False, verbose_name='От админа')
+
+    ticket = models.ForeignKey(
+        SupportTicket, on_delete=models.CASCADE, related_name="messages"
+    )
+    sender = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="support_messages"
+    )
+    message = models.TextField(verbose_name="Сообщение")
+    is_from_admin = models.BooleanField(default=False, verbose_name="От админа")
 
     # Для вложений
-    attachments = models.JSONField(default=list, verbose_name='Вложения')
+    attachments = models.JSONField(default=list, verbose_name="Вложения")
 
     created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        verbose_name = 'Сообщение поддержки'
-        verbose_name_plural = 'Сообщения поддержки'
-        ordering = ['created_at']
+        verbose_name = "Сообщение поддержки"
+        verbose_name_plural = "Сообщения поддержки"
+        ordering = ["created_at"]
         indexes = [
-            models.Index(fields=['ticket', 'created_at']),
+            models.Index(fields=["ticket", "created_at"]),
         ]
 
     def __str__(self):
@@ -1117,28 +1260,38 @@ class SupportMessage(models.Model):
 
 # ==================== ПОДПИСКИ ====================
 
+
 class Subscription(models.Model):
     """Подписка пользователя"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='subscription')
-    is_active = models.BooleanField(default=False, verbose_name='Подписка активна')
-    
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="subscription"
+    )
+    is_active = models.BooleanField(default=False, verbose_name="Подписка активна")
+
     # Период подписки
-    started_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата начала')
-    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата окончания')
-    
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата начала")
+    expires_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="Дата окончания"
+    )
+
     # Настройки
-    auto_renew = models.BooleanField(default=True, verbose_name='Автопродление')
-    
+    auto_renew = models.BooleanField(default=True, verbose_name="Автопродление")
+
     # Платежные данные
-    payment_method = models.CharField(max_length=50, blank=True, verbose_name='Способ оплаты')
-    transaction_id = models.CharField(max_length=100, blank=True, verbose_name='ID транзакции')
-    
+    payment_method = models.CharField(
+        max_length=50, blank=True, verbose_name="Способ оплаты"
+    )
+    transaction_id = models.CharField(
+        max_length=100, blank=True, verbose_name="ID транзакции"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Подписка'
-        verbose_name_plural = 'Подписки'
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
 
     def __str__(self):
         return f"{self.user.username} - {'Активна' if self.is_active else 'Неактивна'}"
@@ -1152,18 +1305,19 @@ class Subscription(models.Model):
             return False
         return True
 
-    def activate(self, days: int = 30, payment_method: str = 'promo'):
+    def activate(self, days: int = 30, payment_method: str = "promo"):
         """Активирует подписку на указанное количество дней"""
         from django.utils import timezone
+
         now = timezone.now()
-        
+
         # Если подписка уже активна, продлеваем от текущей даты окончания
         if self.is_active and self.expires_at and self.expires_at > now:
             self.expires_at = self.expires_at + timedelta(days=days)
         else:
             self.started_at = now
             self.expires_at = now + timedelta(days=days)
-        
+
         self.is_active = True
         self.payment_method = payment_method
         self.save()
@@ -1177,18 +1331,25 @@ class Subscription(models.Model):
 
 class PromoCode(models.Model):
     """Промокод для скидки на подписку"""
-    code = models.CharField(max_length=50, unique=True, verbose_name='Код')
-    discount_percent = models.PositiveIntegerField(default=0, verbose_name='Скидка %')
-    discount_amount = models.PositiveIntegerField(default=0, verbose_name='Скидка в рублях')
-    is_active = models.BooleanField(default=True, verbose_name='Активен')
-    max_uses = models.PositiveIntegerField(default=1, verbose_name='Максимум использований')
-    used_count = models.PositiveIntegerField(default=0, verbose_name='Использовано')
-    valid_until = models.DateTimeField(null=True, blank=True, verbose_name='Действителен до')
+
+    code = models.CharField(max_length=50, unique=True, verbose_name="Код")
+    discount_percent = models.PositiveIntegerField(default=0, verbose_name="Скидка %")
+    discount_amount = models.PositiveIntegerField(
+        default=0, verbose_name="Скидка в рублях"
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    max_uses = models.PositiveIntegerField(
+        default=1, verbose_name="Максимум использований"
+    )
+    used_count = models.PositiveIntegerField(default=0, verbose_name="Использовано")
+    valid_until = models.DateTimeField(
+        null=True, blank=True, verbose_name="Действителен до"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Промокод'
-        verbose_name_plural = 'Промокоды'
+        verbose_name = "Промокод"
+        verbose_name_plural = "Промокоды"
 
     def __str__(self):
         return f"{self.code} (-{self.discount_percent}% или {self.discount_amount}₽)"
@@ -1212,14 +1373,19 @@ class PromoCode(models.Model):
 
 class PromoCodeUsage(models.Model):
     """Использование промокода"""
-    promo_code = models.ForeignKey(PromoCode, on_delete=models.CASCADE, related_name='usages')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='promo_usages')
+
+    promo_code = models.ForeignKey(
+        PromoCode, on_delete=models.CASCADE, related_name="usages"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="promo_usages"
+    )
     used_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Использование промокода'
-        verbose_name_plural = 'Использования промокодов'
-        unique_together = ['promo_code', 'user']
+        verbose_name = "Использование промокода"
+        verbose_name_plural = "Использования промокодов"
+        unique_together = ["promo_code", "user"]
 
     def __str__(self):
         return f"{self.user.username} использовал {self.promo_code.code}"

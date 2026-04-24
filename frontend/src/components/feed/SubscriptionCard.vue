@@ -59,8 +59,8 @@ const goToProfile = () => router.push(`/profile/${props.user.username}`)
 const goToChat = async () => {
   try {
     const api = await import('@/api/client')
-    const response = await api.default.post('/chats/private/', { user2: props.user.id })
-    router.push(`/chat/${response.data.id}`)
+    const response = await api.default.post('/social/private-chats/', { user2: props.user.id })
+    router.push(`/chats/${response.data.id}`)
   } catch (error) {
     console.error('Error creating chat:', error)
     alert('Не удалось создать чат')

@@ -64,7 +64,7 @@
         </div>
 
         <!-- Ничего не выбрано -->
-        <div v-else class="no-chat-selected">
+        <div v-if="!isMobile && !activeChatId && !activeFranchiseId" class="no-chat-selected">
           <div class="no-chat-content">
             <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -72,6 +72,15 @@
             <h2>Выберите чат</h2>
             <p>Выберите чат из списка слева или создайте новый</p>
           </div>
+        </div>
+
+        <!-- На мобильных показываем список чатов в main, если ничего не выбрано -->
+        <div v-else-if="isMobile && !activeChatId && !activeFranchiseId" class="mobile-chat-list">
+          <ChatList
+            :active-chat-id="activeChatId"
+            :active-franchise-id="activeFranchiseId"
+            @chat-selected="handleChatSelected"
+          />
         </div>
       </div>
     </div>
@@ -230,10 +239,36 @@ const handleRouteSlug = async (slug: string | null) => {
 
   isRouteLoading.value = true
   try {
-    // Числовой ID → обычный чат
+    // Числовой ID → проверяем, личный это чат или группа
     const num = parseInt(slug)
     if (!isNaN(num)) {
-      console.log('[ChatsView] Setting activeChatId:', num)
+      console.log('[ChatsView] Numeric ID detected:', num)
+      // Пробуем найти личный чат
+      try {
+        const res = await apiClient.get(`/social/private-chats/${num}/`)
+        if (res.data) {
+          console.log('[ChatsView] Private chat found:', num)
+          activeChatId.value = num
+          return
+        }
+      } catch {
+        // Личный чат не найден - пробуем групповой
+      }
+      
+      // Пробуем найти групповой чат
+      try {
+        const res = await apiClient.get(`/social/group-chats/${num}/`)
+        if (res.data) {
+          console.log('[ChatsView] Group chat found:', num)
+          activeChatId.value = num
+          return
+        }
+      } catch {
+        // Групповой чат не найден
+      }
+      
+      // Если ни один не найден - всё равно показываем (возможно ошибка прав)
+      console.log('[ChatsView] Chat not found, but setting ID anyway:', num)
       activeChatId.value = num
       return
     }
@@ -290,13 +325,14 @@ const handleChatSelected = async (chat: any) => {
   
   // Для anime discussion - открываем как обычный чат по ID
   if (chat.discussion_type === 'anime' && chat.anime_id) {
-    activeChatId.value = chat.id
+    activeChatId.value = Number(chat.id) || undefined
     return
   }
   
   // Обычный чат
+  activeChatId.value = Number(chat.id) || undefined
   if (route.params.slug !== String(chat.id)) {
-    router.push(`/chat/${chat.id}`)
+    router.push(`/chats/${chat.id}`)
   }
 }
 
@@ -364,6 +400,7 @@ onMounted(async () => {
     if (isMobile.value && (activeChatId.value || activeFranchiseId.value)) {
       mobileChatOpen.value = true
     }
+    // На десктопе чат открывается автоматически в правой панели (без mobileChatOpen)
   }
 })
 

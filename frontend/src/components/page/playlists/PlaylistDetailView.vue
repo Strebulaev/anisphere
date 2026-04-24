@@ -41,6 +41,7 @@
                 v-if="item?.anime_poster"
                 :src="getMediaUrl(item.anime_poster)"
                 :alt="item.anime_title"
+                loading="lazy"
                 @error="(e: Event) => ((e.target as HTMLImageElement).style.display='none')"
               />
               <div v-else class="mosaic-placeholder">
@@ -60,7 +61,7 @@
           <h1 class="hero-title">{{ playlist.title }}</h1>
           <div class="hero-meta">
             <div class="author-chip" @click="goToAuthor">
-              <img v-if="playlist.user?.avatar" :src="getMediaUrl(playlist.user.avatar)" class="author-chip-avatar" />
+              <img v-if="playlist.user?.avatar" :src="getMediaUrl(playlist.user.avatar)" class="author-chip-avatar" loading="lazy" />
               <div v-else class="author-chip-avatar-ph">{{ (playlist.user_username || '?')[0]?.toUpperCase() ?? '?' }}</div>
               <span>{{ playlist.user_username }}</span>
             </div>
@@ -195,6 +196,7 @@
               { 'is-dragging': dragState.activeIndex === index },
               { 'drag-above': dragState.overIndex === index && dragState.overEdge === 'above' && dragState.activeIndex !== index },
               { 'drag-below': dragState.overIndex === index && dragState.overEdge === 'below' && dragState.activeIndex !== index },
+              { 'insertion-point': dragState.overIndex === index && dragState.activeIndex !== index },
             ]"
             :style="dragState.activeIndex === index ? dragItemStyle : {}"
           >
@@ -203,6 +205,7 @@
               class="row-index-wrap"
               :class="{ 'is-handle': isOwner }"
               @mousedown.prevent="isOwner ? startDrag($event, index) : null"
+              @touchstart.prevent="isOwner ? startDragTouch($event, index) : null"
             >
               <span v-if="!isOwner" class="row-index">{{ index + 1 }}</span>
               <div v-else class="drag-handle">
@@ -220,6 +223,7 @@
                   v-if="item.anime_poster"
                   :src="getMediaUrl(item.anime_poster)"
                   :alt="item.anime_title"
+                  loading="lazy"
                   @error="(e: Event) => ((e.target as HTMLImageElement).style.display='none')"
                 />
                 <div v-else class="row-poster-ph">
@@ -331,6 +335,7 @@
                     :src="getMediaUrl(anime.poster_url)"
                     :alt="anime.title_ru"
                     class="modal-result-poster"
+                    loading="lazy"
                     @error="(e: Event) => ((e.target as HTMLImageElement).style.display='none')"
                   />
                   <div v-else class="modal-result-poster-ph"></div>
@@ -427,7 +432,7 @@
             </div>
             <div class="modal-body">
               <div class="anime-edit-preview">
-                <img v-if="editingItem.anime_poster" :src="getMediaUrl(editingItem.anime_poster)" class="edit-preview-poster" />
+                <img v-if="editingItem.anime_poster" :src="getMediaUrl(editingItem.anime_poster)" class="edit-preview-poster" loading="lazy" />
                 <span class="edit-preview-title">{{ editingItem.anime_title }}</span>
               </div>
               <div class="form-group">
@@ -461,7 +466,7 @@
             </div>
             <div class="modal-body confirm-body">
               <div class="confirm-anime-row">
-                <img v-if="removingItem.anime_poster" :src="getMediaUrl(removingItem.anime_poster)" class="confirm-poster" />
+                <img v-if="removingItem.anime_poster" :src="getMediaUrl(removingItem.anime_poster)" class="confirm-poster" loading="lazy" />
                 <div v-else class="confirm-poster-ph"></div>
                 <span class="confirm-anime-title">{{ removingItem.anime_title }}</span>
               </div>
@@ -623,6 +628,7 @@ interface DragState {
   itemHeight: number
   offsetY: number
   draggedElement: HTMLElement | null
+  scrollTimer: number | null
 }
 const dragState = reactive<DragState>({
   active: false,
@@ -634,21 +640,37 @@ const dragState = reactive<DragState>({
   itemHeight: 0,
   offsetY: 0,
   draggedElement: null,
+  scrollTimer: null,
 })
 
 const dragItemStyle = computed(() => {
   if (!dragState.active || dragState.activeIndex === null) return {}
   const dy = dragState.currentY - dragState.startY
   return {
+    position: 'fixed' as const,
+    top: `${dragState.startY}px`,
     transform: `translateY(${dy}px)`,
+    left: `${dragState.draggedElement?.getBoundingClientRect().left}px`,
+    width: `${dragState.draggedElement?.offsetWidth}px`,
     zIndex: '1000',
     boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
     opacity: '0.92',
     transition: 'none',
-    position: 'relative' as const,
     willChange: 'transform',
   }
 })
+
+const startDragTouch = (e: TouchEvent, index: number) => {
+  // Convert touch event to mouse-like event
+  const touch = e.touches[0] || e.changedTouches[0]
+  const mouseEvent = {
+    clientX: touch!.clientX,
+    clientY: touch!.clientY,
+    preventDefault: () => e.preventDefault(),
+    stopPropagation: () => e.stopPropagation(),
+  } as any
+  startDrag(mouseEvent, index)
+}
 
 const startDrag = (e: MouseEvent, index: number) => {
   if (!listRef.value) return
@@ -676,14 +698,50 @@ const startDrag = (e: MouseEvent, index: number) => {
 
   document.addEventListener('mousemove', onDragMove, { passive: true })
   document.addEventListener('mouseup', onDragEnd)
+  document.addEventListener('touchmove', onDragMoveTouch, { passive: true })
+  document.addEventListener('touchend', onDragEnd)
   document.body.style.userSelect = 'none'
   document.body.style.cursor = 'grabbing'
-  document.body.style.overflow = 'hidden'
+  // Убрали overflow: hidden - теперь страница может скроллиться во время drag
+}
+
+const onDragMoveTouch = (e: TouchEvent) => {
+  if (!dragState.active || dragState.activeIndex === null || !listRef.value) return
+  const touch = e.touches[0] || e.changedTouches[0]
+  dragState.currentY = touch!.clientY
+  handleAutoScroll(touch!.clientY)
+}
+
+const handleAutoScroll = (clientY: number) => {
+  if (!listRef.value) return
+  
+  const listRect = listRef.value.getBoundingClientRect()
+  const scrollZone = 60 // Зона у края для авто-скролла
+  const scrollSpeed = 8 // Скорость прокрутки в пикселях
+  
+  if (dragState.scrollTimer) {
+    window.clearInterval(dragState.scrollTimer)
+    dragState.scrollTimer = null
+  }
+  
+  // Скролл вверх
+  if (clientY < listRect.top + scrollZone) {
+    dragState.scrollTimer = window.setInterval(() => {
+      window.scrollBy(0, -scrollSpeed)
+    }, 16)
+  }
+  // Скролл вниз
+  else if (clientY > listRect.bottom - scrollZone) {
+    dragState.scrollTimer = window.setInterval(() => {
+      window.scrollBy(0, scrollSpeed)
+    }, 16)
+  }
 }
 
 const onDragMove = (e: MouseEvent) => {
   if (!dragState.active || dragState.activeIndex === null || !listRef.value) return
   dragState.currentY = e.clientY
+  handleAutoScroll(e.clientY)
 
   // Находим элемент под курсором более надёжно
   const rows = Array.from(listRef.value.querySelectorAll('.anime-row')) as HTMLElement[]
@@ -728,9 +786,25 @@ const onDragMove = (e: MouseEvent) => {
   dragState.overEdge = closestIndex !== null ? closestEdge : null
 }
 
+// Обновляем позицию draggedElement при скролле
+const updateDraggedElementPosition = () => {
+  if (!dragState.active || !dragState.draggedElement) return
+  const rect = dragState.draggedElement.getBoundingClientRect()
+  dragState.startY = rect.top + window.scrollY
+  dragState.currentY = dragState.startY
+}
+
 const onDragEnd = async () => {
+  // Остановить авто-скролл
+  if (dragState.scrollTimer) {
+    window.clearInterval(dragState.scrollTimer)
+    dragState.scrollTimer = null
+  }
+  
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', onDragEnd)
+  document.removeEventListener('touchmove', onDragMoveTouch)
+  document.removeEventListener('touchend', onDragEnd)
   document.body.style.userSelect = ''
   document.body.style.cursor = ''
   document.body.style.overflow = ''
@@ -1189,6 +1263,8 @@ onMounted(async () => {
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', onDragEnd)
+  document.removeEventListener('touchmove', onDragMoveTouch)
+  document.removeEventListener('touchend', onDragEnd)
 })
 </script>
 
@@ -1316,7 +1392,6 @@ onUnmounted(() => {
   background: var(--color-background-surface); border: 1px solid var(--color-divider-light);
   border-radius: 0.625rem; transition: border-color 0.15s, background 0.15s, box-shadow 0.2s, transform 0.15s;
   position: relative;
-  touch-action: none;
 }
 .anime-row:hover { border-color: var(--color-accent); background: var(--color-background-active); }
 .anime-row.is-dragging { 
@@ -1327,19 +1402,64 @@ onUnmounted(() => {
 }
 .anime-row.is-being-dragged {
   cursor: grabbing !important;
+  opacity: 0.5;
 }
 .anime-row.drag-above { 
   border-top: 2px solid var(--color-accent); 
   margin-top: -1px;
+  box-shadow: 0 -2px 8px rgba(58,134,255,0.2);
 }
-.anime-row.drag-below { 
+.anime-row.drag-below {
   border-bottom: 2px solid var(--color-accent); 
   margin-bottom: -1px;
+  box-shadow: 0 2px 8px rgba(58,134,255,0.2);
+}
+.anime-row.insertion-point {
+  background: rgba(58,134,255,0.08);
+  box-shadow: 0 0 0 2px rgba(58,134,255,0.15);
+}
+
+.anime-row.insertion-point::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--accent);
+  z-index: 10;
+}
+
+.anime-row.insertion-point.drag-above::after {
+  top: 0;
+}
+
+.anime-row.insertion-point.drag-below::after {
+  bottom: 0;
+}
+
+/* Для мобильных - более долгие и заметные индикаторы */
+@media (pointer: coarse) {
+  .anime-row.drag-above { 
+    border-top-width: 3px;
+  }
+  .anime-row.drag-below {
+    border-bottom-width: 4px !important;
+  }
+  .anime-row.insertion-point::after {
+    height: 6px;
+  }
+  .row-index-wrap.is-handle {
+    /* Разрешаем скролл страницы, только touch на handle блокирует */
+  }
+  .drag-handle {
+    min-width: 44px; /* Увеличенная зона для touch */
+    min-height: 44px;
+  }
 }
 
 /* Drag handle */
 .row-index-wrap { width: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.row-index-wrap.is-handle { cursor: grab; touch-action: none; }
+.row-index-wrap.is-handle { cursor: grab; }
 .row-index-wrap.is-handle:active { cursor: grabbing; }
 .row-index { font-size: 0.78rem; font-weight: 600; color: var(--color-text-tertiary); }
 .drag-handle { 
@@ -1352,6 +1472,7 @@ onUnmounted(() => {
   border-radius: 6px; 
   transition: all 0.15s; 
   flex-shrink: 0;
+  touch-action: none; /* Для drag handle только */
 }
 .drag-handle:hover { 
   color: var(--color-accent); 

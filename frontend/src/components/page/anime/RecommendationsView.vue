@@ -96,7 +96,12 @@ const norm = (a: any) => ({
 const loadBlock = async (key: BlockKey, params: Record<string, any>) => {
   blockLoading[key] = true
   try {
-    const res = await apiClient.get('/anime/', { params: { page_size: 24, ordering: '-score', ...params } })
+    // Исключаем анонсы из рекомендаций
+    const finalParams = { ...params }
+    if (!finalParams.status) {
+      finalParams.status = 'released,ongoing'
+    }
+    const res = await apiClient.get('/anime/', { params: { page_size: 24, ordering: '-score', ...finalParams } })
     const results = (res.data.results || []).map(norm)
     // Если результатов нет и есть специфичные фильтры — пробуем без них
     if (results.length === 0 && (params.status || params.genres || params.year_to)) {
@@ -106,6 +111,10 @@ const loadBlock = async (key: BlockKey, params: Record<string, any>) => {
       delete fallbackParams.genre_logic
       delete fallbackParams.year_to
       delete fallbackParams.year_from
+      // Исключаем анонсы в fallback
+      if (!fallbackParams.status) {
+        fallbackParams.status = 'released,ongoing'
+      }
       const fallbackRes = await apiClient.get('/anime/', { params: { page_size: 24, ordering: '-score', ...fallbackParams } })
       blockData[key] = (fallbackRes.data.results || []).map(norm)
     } else {

@@ -449,6 +449,7 @@ export const attachmentsApi = {
 export const messageActionsApi = {
   pin: (messageId: number) => apiClient.post(`/social/messages/${messageId}/pin/`),
   unpin: (messageId: number) => apiClient.post(`/social/messages/${messageId}/unpin/`),
+  delete: (messageId: number) => apiClient.delete(`/social/messages/${messageId}/`),
   forward: (messageId: number, chatId?: number, privateChatId?: number) =>
     apiClient.post(`/social/messages/${messageId}/forward/`, {
       chat_id: chatId,

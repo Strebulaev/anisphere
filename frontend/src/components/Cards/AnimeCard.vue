@@ -451,8 +451,9 @@ const handleReminderSave = async (data: any) => {
       reminder_time: new Date(data.reminderTime).toISOString(),
       repeat_weekly: data.repeatWeekly || false,
       repeat_interval_days: data.repeatIntervalDays,
-      end_date: data.endDate ? new Date(data.endDate).toISOString().slice(0, 10) : undefined,
-      comment: data.comment || ''
+      comment: data.comment || '',
+      enable_sound: data.enableSound ?? true,
+      enable_push: data.enablePush ?? true,
     })
     toast.success('Напоминание установлено!')
     showReminderModal.value = false
@@ -483,7 +484,7 @@ const handleDiscuss = async () => {
     }
 
     // Перенаправляем в чат
-    router.push(`/chat/${discussionGroup.id}`)
+    router.push(`/chats/${discussionGroup.id}`)
   } catch (error: any) {
     console.error('Error handling discuss:', error)
     toast.error(error.response?.data?.detail || 'Не удалось открыть обсуждение')

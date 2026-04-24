@@ -597,9 +597,9 @@ const handleDiscuss = async () => {
     
     if (chatId) {
       if (topicId) {
-        router.push(`/chat/${chatId}?topic=${topicId}`)
+        router.push(`/chats/${chatId}?topic=${topicId}`)
       } else {
-        router.push(`/chat/${chatId}`)
+        router.push(`/chats/${chatId}`)
       }
     } else {
       toast.error('Не удалось получить ID чата')
@@ -622,8 +622,9 @@ const handleReminderSave = async (data: any) => {
       reminder_time: new Date(data.reminderTime).toISOString(),
       repeat_weekly: data.repeatWeekly || false,
       repeat_interval_days: data.repeatIntervalDays,
-      end_date: data.endDate ? new Date(data.endDate).toISOString().slice(0, 10) : undefined,
-      comment: data.comment || ''
+      comment: data.comment || '',
+      enable_sound: data.enableSound ?? true,
+      enable_push: data.enablePush ?? true,
     })
     toast.success('Напоминание установлено!')
     showReminderModal.value = false

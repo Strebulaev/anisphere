@@ -26,7 +26,7 @@
               </span>
               печатает...
             </template>
-            <template v-else-if="otherUser?.is_online">
+            <template v-else-if="isUserOnline(otherUser?.id)">
               <span class="status-dot online"></span>онлайн
             </template>
             <template v-else>
@@ -40,7 +40,7 @@
       </div>
       <div class="header-actions">
         <button v-if="isGroup && canManageChat" @click="handleInvite" class="invite-btn" title="Пригласить участников"> <SakuraIcon name="users" /> </button>
-        <button @click="showSearch = true" class="search-btn" title="Поиск сообщений"> <SakuraIcon name="search" /> </button>
+        <!-- <button @click="showSearch = true" class="search-btn" title="Поиск сообщений"> <SakuraIcon name="search" /> </button> -->
         <button @click="showChatInfo = !showChatInfo" class="info-btn" title="Информация о чате">⋮</button>
       </div>  
     </div>
@@ -71,6 +71,19 @@
             <!-- Имя отправителя для групповых чатов -->
             <div v-if="isGroup && message.sender_id !== user?.id" class="message-sender">
               {{ message.sender_username || 'Unknown' }}
+            </div>
+
+            <!-- Цитата (ответ на сообщение) -->
+            <div v-if="message.reply_to_message" class="message-reply-quote" @click="scrollToMessage(message.reply_to_message.id)">
+              <div class="reply-quote-author" :style="{ color: getMessageAuthorColor(message.reply_to_message.sender_id) }">
+                {{ message.reply_to_message.sender_username || 'Пользователь' }}
+              </div>
+              <div v-if="message.reply_to_message.text" class="reply-quote-text">
+                {{ truncateText(message.reply_to_message.text, 100) }}
+              </div>
+              <div v-if="message.reply_to_message.media && message.reply_to_message.media_type === 'image'" class="reply-quote-image">
+                <img :src="message.reply_to_message.media" alt="attachment" />
+              </div>
             </div>
 
             <!-- Текст сообщения -->
@@ -233,7 +246,9 @@
         <input v-model="newMessage" type="text" placeholder="Сообщение..." class="message-input"
           :disabled="sending || !wsConnected" @input="handleTyping" />
         <input ref="fileInput" type="file" @change="handleFileSelect" style="display:none" accept="image/*,video/*,audio/*,.pdf,.doc*" />
-        <button type="button" @click="attachFile" class="attach-btn" :disabled="sending || !wsConnected">📎</button>
+        <button type="button" @click="attachFile" class="attach-btn" :disabled="sending || !wsConnected" title="Прикрепить файл">📎</button>
+        <button type="button" @click="showAttachPlaylist = true" class="attach-btn" :disabled="sending || !wsConnected" title="Поделиться плейлистом">📚</button>
+        <button type="button" @click="showAttachAnime = true" class="attach-btn" :disabled="sending || !wsConnected" title="Поделиться аниме">🎬</button>
         <button type="submit" class="send-btn" :disabled="!newMessage.trim() || sending || !wsConnected">
           <SakuraIcon v-if="!sending" name="send" :size="18" />
           <SakuraIcon v-else name="hourglass" :size="18" />
@@ -241,6 +256,48 @@
       </form>
       <div v-if="!wsConnected && reconnectAttempts > 0" class="ws-status">
         Переподключение... ({{ reconnectAttempts }})
+      </div>
+
+      <!-- Modal for playlist selection -->
+      <div v-if="showAttachPlaylist" class="attach-modal-overlay" @click="showAttachPlaylist = false">
+        <div class="attach-modal" @click.stop>
+          <h3>Выберите плейлист</h3>
+          <div class="attach-list">
+            <!-- Load and display user playlists -->
+            <div class="attach-item" v-for="playlist in userPlaylists" :key="playlist.id" @click="selectedPlaylist = playlist">
+              <img v-if="playlist.cover_image" :src="playlist.cover_image" alt="" class="attach-thumb">
+              <div class="attach-info">
+                <div class="attach-title">{{ playlist.name }}</div>
+                <div class="attach-meta">{{ playlist.items_count }} аниме</div>
+              </div>
+            </div>
+          </div>
+          <div class="attach-actions">
+            <button @click="showAttachPlaylist = false">Отмена</button>
+            <button @click="sendPlaylist" :disabled="!selectedPlaylist">Отправить</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal for anime selection -->
+      <div v-if="showAttachAnime" class="attach-modal-overlay" @click="showAttachAnime = false">
+        <div class="attach-modal" @click.stop>
+          <h3>Выберите аниме</h3>
+          <input v-model="animeSearch" type="text" placeholder="Поиск аниме..." class="search-input">
+          <div class="attach-list">
+            <div class="attach-item" v-for="anime in filteredAnimes.slice(0, 10)" :key="anime.id" @click="selectedAnime = anime">
+              <img v-if="anime.poster_url" :src="anime.poster_url" alt="" class="attach-thumb">
+              <div class="attach-info">
+                <div class="attach-title">{{ anime.title_ru || anime.title_en }}</div>
+                <div class="attach-meta">{{ anime.year }} • {{ anime.kind }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="attach-actions">
+            <button @click="showAttachAnime = false">Отмена</button>
+            <button @click="sendAnime" :disabled="!selectedAnime">Отправить</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -326,9 +383,9 @@
         <button class="context-menu-item" @click="handleReply(selectedMessage)">
           <span class="context-menu-icon">↩️</span> Ответить
         </button>
-        <button class="context-menu-item" @click="handleForward(selectedMessage)">
+        <!-- Закомментировано: <button class="context-menu-item" @click="handleForward(selectedMessage)">
           <span class="context-menu-icon"> <SakuraIcon name="arrow-up-right" /> </span> Переслать
-        </button>
+        </button> -->
         <button class="context-menu-item delete" v-if="selectedMessage?.sender_id === user?.id" @click="handleDelete(selectedMessage.id)">
           <span class="context-menu-icon"> <SakuraIcon name="trash" /> </span> Удалить
         </button>
@@ -346,13 +403,14 @@ import { useChatExtrasStore } from '@/stores/chatExtras'
 import { usePrivateChatStore } from '@/stores/privateChat'
 import { useGroupChatStore } from '@/stores/groupChat'
 import { useAvatar } from '@/composables/useAvatar'
+import { useOnlineStatus } from '@/composables/useOnlineStatus'
 import ChatSettingsModal from '@/components/Chats/ChatSettingsModal.vue'
 import FranchiseDiscussionChat from '@/components/Chats/FranchiseDiscussionChat.vue'
 import MessageReplyPreview from '@/components/Chats/MessageReplyPreview.vue'
 import MessageSearchModal from '@/components/modal/chats/MessageSearchModal.vue'
 import ForwardMessageModal from '@/components/modal/chats/ForwardMessageModal.vue'
 import ChatInviteModal from '@/components/modal/chats/ChatInviteModal.vue'
-import { chatsApi } from '@/api/chats'
+import { chatsApi, messageActionsApi } from '@/api/chats'
 import apiClient, { getMediaUrl } from '@/api/client'
 import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
@@ -368,6 +426,7 @@ const chatExtrasStore = useChatExtrasStore()
 const privateChatStore = usePrivateChatStore()
 const groupChatStore = useGroupChatStore()
 const { getAvatarUrl } = useAvatar()
+const { isUserOnline } = useOnlineStatus()
 
 const chat = ref<any>(null)
 const messages = ref<any[]>([])
@@ -378,6 +437,22 @@ const showSettings = ref(false)
 const showSearch = ref(false)
 const showInvite = ref(false)
 const showForward = ref(false)
+const showAttachPlaylist = ref(false)
+const showAttachAnime = ref(false)
+const selectedPlaylist = ref<any>(null)
+const selectedAnime = ref<any>(null)
+const userPlaylists = ref<any[]>([])
+const animeSearch = ref('')
+const allAnimes = ref<any[]>([])
+
+const filteredAnimes = computed(() => {
+  if (!animeSearch.value) return allAnimes.value.slice(0, 20)
+  const search = animeSearch.value.toLowerCase()
+  return allAnimes.value.filter(anime =>
+    (anime.title_ru && anime.title_ru.toLowerCase().includes(search)) ||
+    (anime.title_en && anime.title_en.toLowerCase().includes(search))
+  ).slice(0, 20)
+})
 const messageToForward = ref<any>(null)
 const selectedMessage = ref<any>(null)
 const replyToMessage = ref<any>(null)
@@ -428,7 +503,7 @@ let messageObserver: IntersectionObserver | null = null
 const readMessages = new Set<number>()
 
 const user = computed(() => authStore.user)
-const apiUrl = import.meta.env.VITE_API_URL || 'https://anisphere.ru'
+const apiUrl = import.meta.env.VITE_API_URL || 'https://anisphere.org'
 
 const chatName = computed(() => {
   if (!chat.value) return 'Загрузка...'
@@ -563,6 +638,12 @@ const getFileName = (url: string) => {
   }
 }
 
+const truncateText = (text: string, maxLen: number): string => {
+  if (!text) return ''
+  const cleaned = text.replace(/\n/g, ' ').trim()
+  return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned
+}
+
 const handleImageError = (e: Event) => {
   const target = e.target as HTMLImageElement | null
   if (target) {
@@ -620,20 +701,30 @@ const connectWebSocket = () => {
         // Наблюдаем за новыми сообщениями
         setupMessageObserver()
       } else if (data.action === 'new_message') {
-        // Добавляем новое сообщение
-        messages.value.push(data.message)
+        // Проверяем, есть ли временное сообщение с таким же текстом и отправителем
+        const existingIndex = messages.value.findIndex(msg =>
+          msg.id < 0 && msg.text === data.message.text && msg.sender_id === data.message.sender_id
+        )
+
+        if (existingIndex !== -1) {
+          // Заменяем временное сообщение на реальное
+          messages.value[existingIndex] = data.message
+        } else {
+          // Добавляем новое сообщение
+          messages.value.push(data.message)
+        }
         messages.value = [...messages.value]
         await nextTick()
         scrollToBottom()
-        
+
         // Если сообщение от другого пользователя и чат открыт - отмечаем как прочитанное
         if (data.message.sender_id !== user.value?.id) {
           await markMessagesAsRead([data.message.id])
         }
-        
+
         // Обновить observer для нового сообщения
         nextTick(() => setupMessageObserver())
-        
+
         // Обновить списки чатов
         privateChatStore.loadChats()
         groupChatStore.loadGroupChats()
@@ -659,6 +750,8 @@ const connectWebSocket = () => {
         if (chat.value?.other_user?.id === data.user_id) {
           chat.value.other_user.is_online = data.is_online
         }
+      } else if (data.action === 'message_deleted') {
+        messages.value = messages.value.filter(m => m.id !== data.message_id)
       }
     } catch (e) {
       console.error('WS message error:', e)
@@ -709,16 +802,7 @@ const connectGlobalWebSocket = () => {
       } else if (data.action === 'chat_deleted') {
         // Чат удалён - перезагрузим список
         privateChatStore.loadChats()
-      } else if (data.action === 'user_online') {
-        // Обновить статус онлайн
-        if (chat.value?.other_user?.id === data.user_id) {
-          chat.value.other_user.is_online = true
-        }
-      } else if (data.action === 'user_offline') {
-        // Обновить статус офлайн
-        if (chat.value?.other_user?.id === data.user_id) {
-          chat.value.other_user.is_online = false
-        }
+
       } else if (data.action === 'user_typing') {
         // Показываем индикатор печати
         if (data.chat_id == route.params.id && data.user_id !== user.value?.id) {
@@ -773,6 +857,33 @@ const handleTyping = () => {
   typingDebounceTimer = window.setTimeout(sendTypingStop, 3000)
 }
 
+// Применение темы к DOM (определяем перед loadChat)
+const applyThemeToDom = (theme: any) => {
+  if (!theme) return
+  const root = document.documentElement
+  
+  // Цвета сообщений
+  if (theme.message_color_mine) root.style.setProperty(`--chat-msg-mine-bg`, theme.message_color_mine)
+  if (theme.message_color_other) root.style.setProperty(`--chat-msg-other-bg`, theme.message_color_other)
+  if (theme.message_text_color_mine) root.style.setProperty(`--chat-msg-mine-text`, theme.message_text_color_mine)
+  if (theme.message_text_color_other) root.style.setProperty(`--chat-msg-other-text`, theme.message_text_color_other)
+  
+  // Шрифт
+  if (theme.font_size_px) root.style.setProperty(`--chat-font-size`, theme.font_size_px + 'px')
+  if (theme.font_family) root.style.setProperty(`--chat-font-family`, theme.font_family)
+  if (theme.font_weight) root.style.setProperty(`--chat-font-weight`, theme.font_weight)
+  
+  // Пузыри
+  if (theme.bubble_border_radius) root.style.setProperty(`--chat-bubble-radius`, theme.bubble_border_radius + 'px')
+  if (theme.bubble_shadow !== undefined) root.style.setProperty(`--chat-bubble-shadow`, theme.bubble_shadow ? '0 2px 8px rgba(0,0,0,0.3)' : 'none')
+  
+  // Интерфейс
+  if (theme.background_color) root.style.setProperty(`--chat-bg`, theme.background_color)
+  if (theme.header_color) root.style.setProperty(`--chat-header-bg`, theme.header_color)
+  if (theme.input_color) root.style.setProperty(`--chat-input-bg`, theme.input_color)
+  if (theme.accent_color) root.style.setProperty(`--chat-accent`, theme.accent_color)
+}
+
 const loadChat = async () => {
   const chatId = currentChatId.value
   if (!chatId) {
@@ -786,23 +897,18 @@ const loadChat = async () => {
       chat.value.type = (chat.value.user1 && chat.value.user2) ? 'private' : 'group'
       
       // Загружаем обои и тему параллельно
-      const chatType = chat.value.type
-      try {
-        const [wallpaperRes, themeRes] = await Promise.allSettled([
-          apiClient.get(`/social/chat-settings/${chatType}/${chatId}/wallpaper/`),
-          apiClient.get(`/social/chat-settings/${chatType}/${chatId}/theme/`)
-        ])
-        
-        if (wallpaperRes.status === 'fulfilled' && wallpaperRes.value.data?.wallpaper) {
-          currentWallpaper.value = wallpaperRes.value.data.wallpaper
-        }
-        
-        if (themeRes.status === 'fulfilled' && themeRes.value.data?.theme) {
-          currentTheme.value = themeRes.value.data.theme
-          applyThemeToDom(themeRes.value.data.theme)
-        }
-      } catch (e) {
-        console.log('Error loading chat settings:', e)
+      const [wallpaperRes, themeRes] = await Promise.allSettled([
+        apiClient.get(`/social/chat-settings/${chat.value.type}/${chatId}/wallpaper/`),
+        apiClient.get(`/social/chat-settings/${chat.value.type}/${chatId}/theme/`)
+      ])
+      
+      if (wallpaperRes.status === 'fulfilled' && wallpaperRes.value.data?.wallpaper) {
+        currentWallpaper.value = wallpaperRes.value.data.wallpaper
+      }
+      
+      if (themeRes.status === 'fulfilled' && themeRes.value.data?.theme) {
+        currentTheme.value = themeRes.value.data.theme
+        applyThemeToDom(themeRes.value.data.theme)
       }
     }
   } catch (error) {
@@ -810,29 +916,136 @@ const loadChat = async () => {
   }
 }
 
+const loadChatsForForward = async () => {
+  loadingChats.value = true
+  try {
+    const response = await chatsApi.list()
+    availableChats.value = (response as any).results || response
+  } catch (error) {
+    console.error('Error loading chats list:', error)
+  } finally {
+    loadingChats.value = false
+  }
+}
+
+const sendMessageWithAttachment = async (type: string, objectId: number) => {
+  if (!wsConnected.value || sending.value) return
+
+  try {
+    sending.value = true
+
+    const chatId = currentChatId.value
+    const messageData = {
+      type: 'message',
+      chat_id: chatId,
+      text: '',
+      reply_to: replyToMessage.value?.id || null,
+      attachment_type: type,
+      attachment_id: objectId,
+    }
+
+    ws?.send(JSON.stringify(messageData))
+
+    // Reset
+    replyToMessage.value = null
+  } catch (error) {
+    console.error('Failed to send message:', error)
+  } finally {
+    sending.value = false
+  }
+}
+
 const sendMessage = async () => {
   const text = newMessage.value.trim()
   if (!text && !replyToMessage.value) return
-  
+
   sending.value = true
   try {
     if (ws?.readyState === WebSocket.OPEN) {
       const messageData: any = { action: 'send_message', text }
-      
+
       // Добавляем reply_to если есть ответ
       if (replyToMessage.value) {
         messageData.reply_to = replyToMessage.value.id
       }
-      
+
+      // Создаем временное сообщение для немедленного отображения
+      const tempMessage = {
+        id: -Date.now(), // Временный отрицательный ID
+        text: text,
+        sender_id: user.value?.id,
+        sender_username: user.value?.username,
+        sender_avatar: user.value?.avatar,
+        created_at: new Date().toISOString(),
+        reply_to: replyToMessage.value?.id,
+        reply_to_message: replyToMessage.value ? {
+          id: replyToMessage.value.id,
+          sender_id: replyToMessage.value.sender_id,
+          sender_username: replyToMessage.value.sender_username,
+          sender_avatar: replyToMessage.value.sender_avatar || null,
+          text: replyToMessage.value.text,
+          media: replyToMessage.value.media || null,
+          media_type: replyToMessage.value.media_type || null,
+          created_at: replyToMessage.value.created_at
+        } : null,
+        is_edited: false,
+        media: null,
+        media_type: null,
+        attachments: [],
+        reactions: [],
+        is_read_by_other: false,
+        read_count: 0,
+        is_mine: true
+      }
+
+      // Добавляем сообщение локально
+      messages.value.push(tempMessage)
+      messages.value = [...messages.value] // Триггерим реактивность
+      await nextTick()
+      scrollToBottom()
+
       ws.send(JSON.stringify(messageData))
       newMessage.value = ''
       replyToMessage.value = null
       sendTypingStop()
-      
+
       // Обновить список чатов после отправки
       privateChatStore.loadChats()
       groupChatStore.loadGroupChats()
       chatExtrasStore.loadUnreadChats()
+    } else {
+      // WebSocket не доступен, используем HTTP
+      try {
+        const messageData: any = { text }
+
+        // Добавляем reply_to если есть ответ
+        if (replyToMessage.value) {
+          messageData.reply_to = replyToMessage.value.id
+        }
+
+        if (chat.value?.user1 && chat.value?.user2) {
+          messageData.private_chat = route.params.id
+        } else {
+          messageData.chat = route.params.id
+        }
+
+        const response = await apiClient.post('/social/messages/', messageData)
+
+        if (response.data) {
+          messages.value.push(response.data)
+          await nextTick()
+          scrollToBottom()
+        }
+        newMessage.value = ''
+        replyToMessage.value = null
+
+        // Обновить список чатов после отправки
+        privateChatStore.loadChats()
+        groupChatStore.loadGroupChats()
+        chatExtrasStore.loadUnreadChats()
+      } catch (error) {
+        console.error('HTTP send error:', error)
+      }
     }
   } catch (error) {
     console.error('Send error:', error)
@@ -842,6 +1055,38 @@ const sendMessage = async () => {
 }
 
 const attachFile = () => fileInput.value?.click()
+
+const sendPlaylist = () => {
+  if (!selectedPlaylist.value) return
+  sendMessageWithAttachment('playlist', selectedPlaylist.value.id)
+  showAttachPlaylist.value = false
+  selectedPlaylist.value = null
+}
+
+const sendAnime = () => {
+  if (!selectedAnime.value) return
+  sendMessageWithAttachment('anime', selectedAnime.value.id)
+  showAttachAnime.value = false
+  selectedAnime.value = null
+}
+
+const loadPlaylists = async () => {
+  try {
+    const response = await apiClient.get('/playlists/playlists/my/')
+    userPlaylists.value = response.data
+  } catch (error) {
+    console.error('Failed to load playlists:', error)
+  }
+}
+
+const loadAnimes = async () => {
+  try {
+    const response = await apiClient.get('/anime/?limit=100')
+    allAnimes.value = response.data.results || []
+  } catch (error) {
+    console.error('Failed to load animes:', error)
+  }
+}
 
 const handleFileSelect = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0]
@@ -893,6 +1138,8 @@ const getReactionCount = (messageId: number, emoji: string) => {
   return chatExtrasStore.getReactionCount(messageId, emoji)
 }
 
+
+
 // Pinned Messages
 const togglePinMessage = async (message: any) => {
   try {
@@ -927,14 +1174,19 @@ const getMessageAuthorColor = (senderId: number): string => {
 const handleForward = (message: any) => {
   messageToForward.value = message
   showForward.value = true
+  // Загружаем список чатов если ещё не загружен
+  if (availableChats.value.length === 0) {
+    loadChatsForForward()
+  }
 }
 
 const handleDelete = async (messageId: number) => {
   if (!confirm('Удалить сообщение?')) return
-  
+
   try {
-    await apiClient.delete(`/social/messages/${messageId}/`)
+    await messageActionsApi.delete(messageId)
     messages.value = messages.value.filter(m => m.id !== messageId)
+    closeContextMenu()
   } catch (error) {
     console.error('Delete error:', error)
   }
@@ -1052,8 +1304,18 @@ const handleSettingsChanged = async (data: any) => {
     await loadChat()
   } else if (data?.type === 'clear' || data?.type === 'restore') {
     messages.value = []
-  } else if (data?.type === 'leave' || data?.type === 'delete') {
+  } else if (data?.type === 'leave') {
+    // Выход из группы
     router.push('/chats')
+  } else if (data?.type === 'delete') {
+    // Удаление личного чата
+    if (confirm('Удалить этот чат? Это действие нельзя отменить.')) {
+      const chatId = currentChatId.value
+      if (chatId) {
+        await apiClient.delete(`/social/private-chats/${chatId}/`)
+        router.push('/chats')
+      }
+    }
   }
 }
 
@@ -1099,34 +1361,6 @@ const loadTheme = async () => {
     console.log('No theme for this chat')
     currentTheme.value = null
   }
-}
-
-// Применение темы к DOM
-const applyThemeToDom = (theme: any) => {
-  if (!theme) return
-  const chatId = currentChatId.value
-  const root = document.documentElement
-  
-  // Цвета сообщений
-  if (theme.message_color_mine) root.style.setProperty(`--chat-msg-mine-bg`, theme.message_color_mine)
-  if (theme.message_color_other) root.style.setProperty(`--chat-msg-other-bg`, theme.message_color_other)
-  if (theme.message_text_color_mine) root.style.setProperty(`--chat-msg-mine-text`, theme.message_text_color_mine)
-  if (theme.message_text_color_other) root.style.setProperty(`--chat-msg-other-text`, theme.message_text_color_other)
-  
-  // Шрифт
-  if (theme.font_size_px) root.style.setProperty(`--chat-font-size`, theme.font_size_px + 'px')
-  if (theme.font_family) root.style.setProperty(`--chat-font-family`, theme.font_family)
-  if (theme.font_weight) root.style.setProperty(`--chat-font-weight`, theme.font_weight)
-  
-  // Пузыри
-  if (theme.bubble_border_radius) root.style.setProperty(`--chat-bubble-radius`, theme.bubble_border_radius + 'px')
-  if (theme.bubble_shadow !== undefined) root.style.setProperty(`--chat-bubble-shadow`, theme.bubble_shadow ? '0 2px 8px rgba(0,0,0,0.3)' : 'none')
-  
-  // Интерфейс
-  if (theme.background_color) root.style.setProperty(`--chat-bg`, theme.background_color)
-  if (theme.header_color) root.style.setProperty(`--chat-header-bg`, theme.header_color)
-  if (theme.input_color) root.style.setProperty(`--chat-input-bg`, theme.input_color)
-  if (theme.accent_color) root.style.setProperty(`--chat-accent`, theme.accent_color)
 }
 
 // Стили обоев - blur применяется к псевдоэлементу, а не к контейнеру
@@ -1366,10 +1600,11 @@ watch(currentChatId, async (newId, oldId) => {
 <style scoped>
 /* Стили обновлены с темой Sakura Bloom */
 .chat-detail-view {
-  height: 90vh;
-  background: var(--surface-1);
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
+  background: var(--surface-1);
   position: relative;
 }
 
@@ -1387,13 +1622,25 @@ watch(currentChatId, async (newId, oldId) => {
 /* Мобильная адаптация - отступ сверху под мобильную навигацию */
 @media (max-width: 767px) {
   .chat-detail-view {
-    height: 100vh;
-    padding-top: 54px;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding-top: 56px;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
   }
   
   .chat-header {
     padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .messages-container {
+    padding: 0.75rem;
+  }
+  
+  .message-input-area {
+    padding: 0.75rem;
   }
 }
 
@@ -1673,9 +1920,136 @@ watch(currentChatId, async (newId, oldId) => {
 }
 
 .attach-btn {
-  background: var(--surface-4);
+  background: none;
+  border: none;
   color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.attach-btn:hover:not(:disabled) {
+  background: var(--surface-4);
+  color: var(--text-primary);
+}
+
+.attach-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attach-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attach-modal {
+  background: var(--surface-2);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.attach-modal h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
   border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.attach-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.attach-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.attach-item:hover {
+  background: var(--surface-4);
+}
+
+.attach-thumb {
+  width: 40px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.attach-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.attach-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attach-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.attach-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.attach-actions button {
+  padding: 8px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.attach-actions button:hover {
+  background: var(--surface-4);
+}
+
+.attach-actions button:last-child {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
+}
+
+.attach-actions button:last-child:hover {
+  background: var(--accent-hover);
 }
 
 .attach-btn:hover {
@@ -1861,6 +2235,65 @@ watch(currentChatId, async (newId, oldId) => {
   font-weight: 500;
 }
 
+/* Цитата (ответ на сообщение) */
+.message-reply-quote {
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-petal);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.message-reply-quote:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.reply-quote-author {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-quote-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-quote-image {
+  margin-top: 0.35rem;
+}
+
+.reply-quote-image img {
+  max-width: 100px;
+  max-height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.own-message .message-reply-quote {
+  background: rgba(255, 255, 255, 0.15);
+  border-left-color: rgba(255, 255, 255, 0.5);
+}
+
+.own-message .message-reply-quote:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.own-message .reply-quote-text {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .message-footer {
   display: flex;
   align-items: center;
@@ -1899,6 +2332,27 @@ watch(currentChatId, async (newId, oldId) => {
   margin-bottom: 0.25rem;
   max-width: calc(100% - 80px);
   padding-bottom: 0.25rem;
+}
+
+.reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface-3, rgba(0, 0, 0, 0.1));
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-petal);
+  user-select: none;
+}
+
+.reaction-badge:hover {
+  background: var(--surface-4, rgba(0, 0, 0, 0.15));
+}
+
+.reaction-collapsed {
+  opacity: 0.5;
 }
 
 .message-actions {

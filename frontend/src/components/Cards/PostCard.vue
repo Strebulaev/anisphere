@@ -160,6 +160,11 @@
       </button>
     </div>
 
+    <!-- Сообщение о запрещенных комментариях -->
+    <div v-if="!post.allow_comments" class="comments-disabled">
+      Комментарии запрещены
+    </div>
+
     <!-- Комментарии -->
     <div v-if="showComments" class="comments-section">
       <CommentThread content-type="post" :object-id="post.id" />
@@ -370,7 +375,7 @@ const shareToChat = async (chat: any) => {
     })
 
     showShareModal.value = false
-    router.push(`/chat/${chatId}`)
+    router.push(`/chats/${chatId}`)
   } catch (error) {
     console.error('Ошибка отправки в чат:', error)
   }
@@ -384,7 +389,7 @@ const openAnime = (animeId: number) => {
 
 
 const getAnimePosterUrl = (anime: any): string | undefined => {
-  let url = anime?.poster_url || anime?.poster || null
+  const url = anime?.poster_url || anime?.poster || null
   return getMediaUrl(url) || undefined
 }
 
@@ -793,6 +798,16 @@ const openPlaylist = (playlistId: number) => {
 /* ── Комментарии ─────────────────────────────────────── */
 .comments-section {
   border-top: 1px solid var(--border-subtle);
+}
+
+.comments-disabled {
+  padding: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-align: center;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
 }
 
 /* ── Вспомогательные классы (modal, chat) ─────────── */

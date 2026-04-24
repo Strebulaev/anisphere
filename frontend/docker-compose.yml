@@ -8,7 +8,7 @@ frontend:
     - ./frontend:/app
     - /app/node_modules
   environment:
-    - VITE_API_URL=https://anisphere.ru
+    - VITE_API_URL=https://anisphere.org
     - HOST=0.0.0.0
     - PORT=5173
   depends_on:

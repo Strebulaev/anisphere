@@ -91,9 +91,9 @@
                 <div class="flex items-center space-x-1 text-sm text-gray-500">
                   <span
                     class="w-2 h-2 rounded-full"
-                    :class="member.user.status?.status === 'online' ? 'bg-green-500' : 'bg-gray-400'"
+                    :class="isUserOnline(member.user.id) ? 'bg-green-500' : 'bg-gray-400'"
                   ></span>
-                  <span>{{ member.user.status?.custom_status || getStatusText(member.user.status?.status) }}</span>
+                  <span>{{ member.user.status?.custom_status || getStatusText(isUserOnline(member.user.id) ? 'online' : 'offline') }}</span>
                 </div>
               </div>
             </div>
@@ -610,6 +610,7 @@ import {
   ClipboardDocumentIcon
 } from '@heroicons/vue/24/outline'
 import { useGroupChatStore } from '@/stores/groupChat'
+import { useOnlineStatus } from '@/composables/useOnlineStatus'
 import chatsApi from '@/api/chats'
 
 // Types
@@ -629,6 +630,7 @@ const props = defineProps<Props>()
 const emit = defineEmits(['close'])
 
 const groupChatStore = useGroupChatStore()
+const { isUserOnline } = useOnlineStatus()
 
 // State
 const activeTab = ref('members')

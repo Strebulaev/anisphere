@@ -71,8 +71,8 @@
           </div>
           <div class="cell">{{ u.email || '—' }}</div>
           <div class="cell">
-            <span :class="['status-dot', { online: u.is_online }]"></span>
-            {{ u.is_online ? 'Онлайн' : 'Офлайн' }}
+            <span :class="['status-dot', { online: isUserOnline(u.id) }]"></span>
+            {{ isUserOnline(u.id) ? 'Онлайн' : 'Офлайн' }}
           </div>
           <div class="cell date">{{ formatDate(u.date_joined) }}</div>
         </div>
@@ -143,6 +143,75 @@
       </div>
     </div>
 
+    <!-- Вкладка: Импорты -->
+    <div v-else-if="activeTab === 'imports'" class="tab-content">
+      <div class="section-title">Импорт данных</div>
+
+      <div class="import-section">
+        <div class="import-card">
+          <div class="import-header">
+            <SakuraIcon name="download" :size="24" />
+            <h3>Импорт аниме из Kodik</h3>
+          </div>
+          <p class="import-desc">
+            Импортирует все аниме из Kodik API. Обновляет существующие по shikimori_id или создаёт новые.
+          </p>
+          <div class="form-group">
+            <label for="kodik-path">Путь к скрипту</label>
+            <input
+              id="kodik-path"
+              v-model="kodikScriptPath"
+              type="text"
+              placeholder="/var/www/www-root/data/www/anisphere.org/scripts/import_from_kodik.py"
+              class="script-path-input"
+            />
+          </div>
+          <button
+            @click="runKodikImport"
+            :disabled="kodikImporting || !kodikScriptPath.trim()"
+            class="btn-import"
+          >
+            <SakuraIcon v-if="kodikImporting" name="hourglass" :size="16" />
+            {{ kodikImporting ? 'Импорт...' : 'Запустить импорт Kodik' }}
+          </button>
+        </div>
+
+        <div class="import-card">
+          <div class="import-header">
+            <SakuraIcon name="calendar" :size="24" />
+            <h3>Обновление анонсов из Jikan</h3>
+          </div>
+          <p class="import-desc">
+            Обновляет анонсы (upcoming) из Jikan API. Добавляет новые, удаляет неактуальные.
+          </p>
+          <div class="form-group">
+            <label for="jikan-path">Путь к скрипту</label>
+            <input
+              id="jikan-path"
+              v-model="jikanScriptPath"
+              type="text"
+              placeholder="/var/www/www-root/data/www/anisphere.org/scripts/import_announcements_from_jikan.py"
+              class="script-path-input"
+            />
+          </div>
+          <button
+            @click="runJikanImport"
+            :disabled="jikanImporting || !jikanScriptPath.trim()"
+            class="btn-import"
+          >
+            <SakuraIcon v-if="jikanImporting" name="hourglass" :size="16" />
+            {{ jikanImporting ? 'Обновление...' : 'Запустить обновление Jikan' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Результаты импорта -->
+      <div v-if="importResult" class="import-result">
+        <h4>Результат {{ importResult.type === 'kodik' ? 'импорта Kodik' : 'обновления Jikan' }}:</h4>
+        <pre class="import-log">{{ importResult.log }}</pre>
+      </div>
+    </div>
+
     <!-- Вкладка: Жалобы -->
     <div v-else-if="activeTab === 'complaints'" class="tab-content">
       <div class="complaints-toolbar">
@@ -193,6 +262,11 @@
       </div>
     </div>
 
+    <!-- Вкладка: Поддержка -->
+    <div v-else-if="activeTab === 'support'" class="tab-content">
+      <AdminSupportPanel />
+    </div>
+
     <!-- Refresh -->
     <div class="refresh-bar">
       <button @click="loadAll" class="btn-refresh" :disabled="loading">
@@ -206,13 +280,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useOnlineStatus } from '@/composables/useOnlineStatus'
 import api from '@/api'
+import AdminSupportPanel from '@/components/admin/AdminSupportPanel.vue'
 
 const props = defineProps({
   tab: { type: String, default: 'stats' }
 })
 
 const authStore = useAuthStore()
+const { isUserOnline } = useOnlineStatus()
 const currentUser = computed(() => authStore.user)
 
 const activeTab = ref(props.tab || 'stats')
@@ -227,12 +304,23 @@ const todayAddedAnime = ref<any[]>([])
 const complaints = ref<any[]>([])
 const complaintFilter = ref('pending')
 
+// Импорты
+const kodikImporting = ref(false)
+const jikanImporting = ref(false)
+const importResult = ref<{type: string, log: string} | null>(null)
+const kodikScriptPath = ref('/var/www/www-root/data/www/anisphere.org/scripts/import_from_kodik.py')
+const jikanScriptPath = ref('/var/www/www-root/data/www/anisphere.org/scripts/import_announcements_from_jikan.py')
+
+
+
 const tabs = [
   { id: 'stats',         icon: '📊', label: 'Статистика' },
   { id: 'registrations', icon: '🧑', label: 'Регистрации' },
   { id: 'online',        icon: '❍', label: 'Онлайн' },
   { id: 'today_added',   icon: '📺', label: 'Добавлено сегодня' },
+  { id: 'imports',       icon: '📥', label: 'Импорты' },
   { id: 'complaints',    icon: '⚠️', label: 'Жалобы' },
+  { id: 'support',       icon: '💬', label: 'Поддержка' },
 ]
 
 const complaintStatuses = [
@@ -334,6 +422,50 @@ const complaintStatusLabel = (s: string) => ({
   pending: '⌛ На рассмотрении', investigating: '🔎 Расследуется',
   resolved: '☑️ Решена', dismissed: '✖️ Отклонена'
 }[s] || s)
+
+const runKodikImport = async () => {
+  kodikImporting.value = true
+  importResult.value = null
+
+  try {
+    const response = await api.post('/admin/run-kodik-import/', {
+      script_path: kodikScriptPath.value
+    })
+    importResult.value = {
+      type: 'kodik',
+      log: response.data.log || 'Импорт завершён успешно'
+    }
+  } catch (error: any) {
+    importResult.value = {
+      type: 'kodik',
+      log: `Ошибка: ${error.response?.data?.error || error.message}`
+    }
+  } finally {
+    kodikImporting.value = false
+  }
+}
+
+const runJikanImport = async () => {
+  jikanImporting.value = true
+  importResult.value = null
+
+  try {
+    const response = await api.post('/admin/run-jikan-import/', {
+      script_path: jikanScriptPath.value
+    })
+    importResult.value = {
+      type: 'jikan',
+      log: response.data.log || 'Обновление завершено успешно'
+    }
+  } catch (error: any) {
+    importResult.value = {
+      type: 'jikan',
+      log: `Ошибка: ${error.response?.data?.error || error.message}`
+    }
+  } finally {
+    jikanImporting.value = false
+  }
+}
 
 onMounted(() => {
   loadDashboard()
@@ -490,10 +622,106 @@ onMounted(() => {
 
 .btn-view {
   color: var(--primary-color, #6c63ff);
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 500;
 }
+
+.import-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.import-card {
+  background: var(--card-bg, #1e1e1e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.import-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.import-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.import-desc {
+  color: var(--secondary-text, #aaa);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.btn-import {
+  width: 100%;
+  background: linear-gradient(135deg, #6c63ff, #4f46e5);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-import:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
+}
+
+.btn-import:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.import-result {
+  background: var(--card-bg, #1e1e1e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.import-result h4 {
+  margin: 0 0 16px 0;
+  color: var(--primary-text, #fff);
+}
+
+.import-log {
+  background: var(--hover-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--secondary-text, #aaa);
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.script-path-input {
+  font-family: monospace;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .import-section {
+    grid-template-columns: 1fr;
+  }
+}
+
 .btn-view:hover { text-decoration: underline; }
 
 .empty-state {
@@ -814,5 +1042,12 @@ onMounted(() => {
   font-weight: 600;
   color: var(--warning, #fbbf24);
   margin-top: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .import-section {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

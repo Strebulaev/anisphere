@@ -5,6 +5,9 @@
 
 KODIK_API_TOKEN = '74ecb013335271e4344ebc994956dd75'
 
+# Приватный ключ для HMAC-подписи video-links API
+KODIK_PRIVATE_KEY = "692e74fa70fed3493e922cfcb6b0eab7"
+
 # Актуальные домены (обновлено после смены домена на kodikres.com)
 KODIK_API_BASE    = 'https://kodik-api.com'     # API
 KODIK_PLAYER_BASE = 'https://kodikplayer.com'   # Плеер (было: kodik.cc / kodik.info)

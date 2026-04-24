@@ -1,11 +1,11 @@
 <template>
   <div class="own-profile-view">
     <!-- Шапка профиля -->
-    <div class="profile-header" :class="{ 'has-cover': user.is_premium && user.cover_image_url }">
+    <div class="profile-header" :class="{ 'has-cover': user.cover_image_url }">
       <!-- Обложка профиля (только для премиум) -->
-      <div 
-        v-if="user.is_premium && user.cover_image_url"
-        class="header-background" 
+      <div
+        v-if="user.cover_image_url"
+        class="header-background"
         :style="coverImageStyle"
       >
         <label class="cover-upload-btn">

@@ -256,12 +256,63 @@ const loadComments = async () => {
   loading.value = true
   try {
     const response = await apiClient.get(`/social/posts/${props.post.id}/comments/`)
-    comments.value = response.data.results || response.data || []
+    const fetchedComments = response.data.results || response.data || []
+    
+    // Превращаем плоский список в дерево с replies
+    comments.value = buildCommentTree(fetchedComments)
   } catch (error) {
     console.error('Error loading comments:', error)
   } finally {
     loading.value = false
   }
+}
+
+// Функция для построения дерева комментариев
+const buildCommentTree = (comments: any[]): Comment[] => {
+  const commentMap = new Map<number, Comment>()
+  const rootComments: Comment[] = []
+
+  // Создаём карту комментариев
+  comments.forEach((c: any) => {
+    const comment: Comment = {
+      id: c.id,
+      author: c.author,
+      author_username: c.author_username,
+      author_avatar: c.author_avatar,
+      parent: c.parent,
+      parent_id: c.parent_id,
+      parent_username: c.parent_username,
+      content: c.content,
+      likes_count: c.likes_count || 0,
+      dislikes_count: c.dislikes_count || 0,
+      replies_count: c.replies_count || 0,
+      level: c.level || 0,
+      is_edited: c.is_edited || false,
+      is_deleted: c.is_deleted || false,
+      created_at: c.created_at,
+      is_liked: c.is_liked || false,
+      is_disliked: c.is_disliked || false,
+      replies: []
+    }
+    commentMap.set(comment.id, comment)
+  })
+
+  // Распределяем ответы по родителям
+  comments.forEach((c: any) => {
+    const comment = commentMap.get(c.id)
+    if (!comment) return
+
+    if (c.parent && commentMap.has(c.parent)) {
+      const parent = commentMap.get(c.parent)
+      if (parent && parent.replies) {
+        parent.replies.push(comment)
+      }
+    } else {
+      rootComments.push(comment)
+    }
+  })
+
+  return rootComments
 }
 
 const loadReplies = async (comment: Comment) => {
@@ -304,13 +355,20 @@ const submitComment = async () => {
 
     // Добавляем комментарий в список
     if (replyToComment.value) {
-      // Это ответ
+      // Это ответ - добавляем в replies родительского комментария
       if (!replyToComment.value.replies) {
         replyToComment.value.replies = []
       }
       replyToComment.value.replies.push(newC)
-      replyToComment.value.replies_count++
+      replyToComment.value.replies_count = (replyToComment.value.replies_count || 0) + 1
+      
+      // Также обновляем replies_count в родительском комментарии, если он есть в карте
+      const parentComment = comments.value.find(c => c.id === replyToComment.value!.id)
+      if (parentComment) {
+        parentComment.replies_count = (parentComment.replies_count || 0) + 1
+      }
     } else {
+      // Это корневой комментарий
       comments.value.push(newC)
     }
 
@@ -367,7 +425,24 @@ const dislikeComment = async (comment: Comment) => {
 }
 
 const replyTo = (comment: Comment) => {
-  replyToComment.value = comment
+  // Если уже ответим на этот же комментарий - отменяем ответ
+  if (replyToComment.value && replyToComment.value.id === comment.id) {
+    replyToComment.value = null
+    newComment.value = ''
+  } else {
+    // Иначе устанавливаем новый ответ
+    replyToComment.value = comment
+    // Сбрасываем предыдущий текст если был
+    newComment.value = ''
+    // Прокрутка к инпуту
+    setTimeout(() => {
+      const input = document.querySelector('.comment-input-area input') as HTMLInputElement | null
+      if (input) {
+        input.focus()
+        input.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 100)
+  }
 }
 
 const openMenu = (comment: Comment) => {
@@ -427,6 +502,9 @@ onMounted(() => {
 
 watch(() => props.post?.id, () => {
   if (props.post?.id) {
+    // Сбрасываем ответ при смене поста
+    replyToComment.value = null
+    newComment.value = ''
     loadComments()
   }
 })

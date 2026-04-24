@@ -17,10 +17,10 @@
             <span class="item-text">{{ message.is_pinned ? 'Открепить' : 'Закрепить' }}</span>
           </button>
 
-          <button class="menu-item" @click="handleForward" :disabled="loading">
+          <!-- <button class="menu-item" @click="handleForward" :disabled="loading">
             <span class="item-icon"> <SakuraIcon name="arrow-up-right" /> </span>
             <span class="item-text">Переслать</span>
-          </button>
+          </button> -->
 
           <button class="menu-item" @click="handleReply" :disabled="loading">
             <span class="item-icon">↩️</span>

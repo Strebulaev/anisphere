@@ -116,6 +116,7 @@ export interface ChatFolderRules {
   exclude_user_ids: number[]
   only_unread?: boolean
   only_pinned?: boolean
+  include_anime_discussions?: boolean
 }
 
 export interface ChatFolder {
@@ -208,10 +209,11 @@ export const SYSTEM_FOLDERS: Partial<ChatFolder>[] = [
       include_groups: true,
       include_bots: false,
       exclude_keywords: [],
-      include_keywords: ['Обсуждение:'],
+      include_keywords: ['Обсуждение:', 'Аниме:'],
       exclude_user_ids: [],
       only_unread: false,
-      only_pinned: false
+      only_pinned: false,
+      include_anime_discussions: true
     }
   },
   // {

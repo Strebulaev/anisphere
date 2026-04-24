@@ -16,6 +16,8 @@ export interface Reminder {
   reminder_time: string
   repeat_weekly: boolean
   comment: string
+  enable_sound: boolean
+  enable_push: boolean
   is_active: boolean
   is_triggered: boolean
   created_at: string
@@ -28,6 +30,8 @@ export interface ReminderCreateData {
   repeat_interval_days?: number
   end_date?: string
   comment?: string
+  enable_sound?: boolean
+  enable_push?: boolean
 }
 
 const remindersApi = {

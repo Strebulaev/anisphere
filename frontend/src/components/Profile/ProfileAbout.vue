@@ -88,11 +88,7 @@
         </div>
       </div>
 
-      
 
-      <button v-if="canEdit" @click="$emit('edit')" class="btn-edit">
-        Редактировать информацию
-      </button>
     </div>
   </div>
 </template>
@@ -102,14 +98,9 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 
 interface Props {
   user: any
-  canEdit?: boolean
 }
 
 defineProps<Props>()
-
-defineEmits<{
-  edit: []
-}>()
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('ru-RU', {
@@ -277,19 +268,5 @@ const formatDateTime = (date: string) => {
   color: var(--color-text-tertiary);
 }
 
-.btn-edit {
-  margin-top: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
 
-.btn-edit:hover {
-  background: var(--color-accent-dark);
-}
 </style>

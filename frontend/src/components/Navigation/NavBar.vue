@@ -147,7 +147,7 @@ const notificationStore = useNotificationStore()
 
 const showNotifications = ref(false)
 let reminderCheckInterval: ReturnType<typeof setInterval> | null = null
-let originalTitle = document.title
+const originalTitle = document.title
 let titleBlinkInterval: ReturnType<typeof setInterval> | null = null
 
 const searchCategories = [

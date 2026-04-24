@@ -1,5 +1,14 @@
 import apiClient from './client'
 
+export interface PostAttachmentItem {
+  id: number
+  content_type: 'anime' | 'playlist' | 'shorts'
+  object_id: number
+  anime_data?: AnimeCard | null
+  playlist_data?: PlaylistCard | null
+  shorts_data?: ReactorCard | null
+}
+
 export interface FeedPost {
   id: number
   author: number
@@ -44,6 +53,7 @@ export interface FeedPost {
   edited_at: string | null
   published_at: string | null
   media_files: MediaFile[]
+  attachments_data?: PostAttachmentItem[]
   hashtags: string[]
   is_liked: boolean
   is_disliked: boolean

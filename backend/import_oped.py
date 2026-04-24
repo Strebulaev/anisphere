@@ -11,7 +11,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 
 # Настройка Django
-sys.path.insert(0, '/var/www/www-root/data/www/anisphere.ru/backend')
+sys.path.insert(0, '/var/www/www-root/data/www/anisphere.org/backend')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 

@@ -16,7 +16,7 @@
           <button
             @click="showSearch = !showSearch"
             class="p-2 rounded-full hover:bg-gray-100"
-            :class="{ 'bg-[#222222]': showSearch }"
+            :class="{ 'bg-[#0f0a19]': showSearch }"
           >
             <MagnifyingGlassIcon class="w-5 h-5" />
           </button>
@@ -245,7 +245,7 @@ const chatListContent = ref<HTMLElement | null>(null)
 const getMediaUrl = (path: string): string => {
   if (!path) return ''
   if (path.startsWith('http')) return path
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://anisphere.ru'
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://anisphere.org'
   return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
 }
 
@@ -532,26 +532,6 @@ const contextMenuItems = computed(() => {
 
   const chat = contextMenu.value.chat
   return [
-    // Закомментировано: Закрепить
-    // {
-    //   id: 'pin',
-    //   label: chat.isPinned ? 'Открепить' : 'Закрепить',
-    //   icon: 'pin',
-    //   action: 'togglePin'
-    // },
-    // {
-    //   id: 'archive',
-    //   label: chat.isArchived ? 'Разархивировать' : 'Архивировать',
-    //   icon: 'archive',
-    //   action: 'toggleArchive'
-    // },
-    // { type: 'divider' } as any,
-    // {
-    //   id: 'mute',
-    //   label: 'Заглушить уведомления',
-    //   icon: 'bell-slash',
-    //   action: 'mute'
-    // },
     {
       id: 'mark-read',
       label: 'Отметить как прочитанное',
@@ -561,7 +541,7 @@ const contextMenuItems = computed(() => {
     { type: 'divider' } as any,
     {
       id: 'delete',
-      label: 'Удалить чат',
+      label: chat.type === 'group' ? 'Выйти из группы' : 'Удалить чат',
       icon: 'trash',
       action: 'delete',
       danger: true
@@ -571,6 +551,7 @@ const contextMenuItems = computed(() => {
 
 // Methods
 const selectChat = (chat: LocalChat) => {
+  console.log('[ChatList] selectChat called:', chat)
   emit('chatSelected', chat)
 }
 
@@ -732,13 +713,18 @@ const markAsRead = async (chat: LocalChat) => {
 }
 
 const deleteChat = async (chat: LocalChat) => {
-  if (!confirm('Удалить этот чат? Это действие нельзя отменить.')) return
+  const confirmMsg = chat.type === 'group'
+    ? 'Выйти из этой группы? Это действие нельзя отменить.'
+    : 'Удалить этот чат? Это действие нельзя отменить.'
+  
+  if (!confirm(confirmMsg)) return
 
   try {
     if (chat.type === 'private') {
-      await privateChatStore.deleteChat(chat.id)
+      await apiClient.delete(`/social/private-chats/${chat.id}/`)
     } else {
-      await apiClient.post(`/social/group-chats/${chat.id}/leave_chat/`)
+      // Для групп используем endpoint leave_group_chat
+      await apiClient.post(`/social/group-chats/${chat.id}/leave_group_chat/`)
       groupChatsList.value = groupChatsList.value.filter(gc => gc.id !== chat.id)
     }
     // Обновить данные
@@ -747,8 +733,13 @@ const deleteChat = async (chat: LocalChat) => {
       loadGroupChats(),
       chatExtrasStore.loadUnreadChats()
     ])
-  } catch (error) {
+    
+    // Уведомление об успехе
+    console.log(`Chat ${chat.id} successfully deleted/left`)
+  } catch (error: any) {
     console.error('Error deleting chat:', error)
+    const errorMsg = error?.response?.data?.error || error?.message || 'Не удалось выйти из чата'
+    alert(`Ошибка: ${errorMsg}`)
   }
 }
 

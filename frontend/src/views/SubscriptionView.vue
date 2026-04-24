@@ -9,20 +9,77 @@
   -->
   <div class="subscription-page">
     <div class="page-header">
-      <h1><SakuraIcon name="crown" /> Премиум функции</h1>
-      <p class="subtitle">🎉 Все функции теперь бесплатны!</p>
+      <h1><SakuraIcon name="crown" /> Премиум подписка</h1>
     </div>
 
-    <!-- Информация о бесплатном доступе -->
-    <div class="free-access-notice">
-      <div class="subscription-status active">
-        <PremiumCrown :size="24" />
-        <span>✅ Все премиум функции доступны бесплатно</span>
+    <div class="content">
+      <!-- Форма активации по промокоду -->
+      <div class="promo-form">
+        <div class="form-header">
+          <h2>Активация премиума</h2>
+          <p>Введите промокод для получения подписки</p>
+        </div>
+        <div class="form-group">
+          <label for="promo-code">Промокод</label>
+          <input
+            id="promo-code"
+            v-model="promoCode"
+            type="text"
+            placeholder="ANI100"
+            :disabled="activating"
+            class="promo-input"
+            @keyup.enter="activatePromo"
+          />
+        </div>
+        <button
+          @click="activatePromo"
+          :disabled="!promoCode.trim() || activating"
+          class="activate-btn"
+        >
+          <SakuraIcon v-if="activating" name="hourglass" :size="16" />
+          {{ activating ? 'Активация...' : 'Активировать премиум' }}
+        </button>
+        <div v-if="promoError" class="message error-text">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {{ promoError }}
+        </div>
+        <div v-if="promoSuccess" class="message success-text">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          {{ promoSuccess }}
+        </div>
+        <div v-if="promoRemaining !== null" class="promo-info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Осталось использований промокода: {{ promoRemaining }}
+        </div>
       </div>
-      <p class="notice-text">
-        AdBlocker, скачивание опенингов/эндингов, корона в профиле и другие 
-        эксклюзивные функции теперь доступны всем пользователям без ограничений.
-      </p>
+
+      <!-- Информация о подписке -->
+      <div v-if="subscription" class="subscription-info">
+        <div class="info-header">
+          <PremiumCrown :size="24" />
+          <span>Статус подписки</span>
+        </div>
+        <div class="subscription-status" :class="{ active: subscription.is_premium, inactive: !subscription.is_premium }">
+          <span>{{ subscription.is_premium ? '✅ Премиум активен' : '❌ Премиум не активен' }}</span>
+        </div>
+        <div v-if="subscription.days_left" class="days-left">
+          Осталось дней: {{ subscription.days_left }}
+        </div>
+        <div class="features-list">
+          <h3>Что входит в премиум:</h3>
+          <ul>
+            <li>Скачивание опенингов</li>
+            <li>Скачивание эндингов</li>
+            <li>Скачивание фрагментов аниме</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
     <!-- Карточки (закомментированы - не используются) -->
@@ -72,68 +129,356 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from '@/composables/useToast'
-// import { 
-//   getSubscription, 
-//   deactivateSubscription as deactivateApi,
-//   validatePromoCode,
-//   getSubscriptionPrice,
-//   createPayment,
-//   type SubscriptionInfo,
-//   type SubscriptionPrice
-// } from '@/api/settings'
+import apiClient from '@/api/client'
 import PremiumCrown from '@/components/icons/PremiumCrown.vue'
 
 const route = useRoute()
 const toast = useToast()
 
-// Закомментированные переменные (сохранены для будущего)
-// const subscription = ref<SubscriptionInfo | null>(null)
-// const priceInfo = ref<SubscriptionPrice | null>(null)
-// const loading = ref(false)
-// const processingPayment = ref(false)
-// const promoCode = ref('')
-// const promoError = ref('')
-// const promoValid = ref(false)
-// const promoDiscount = ref(0)
-
-// const basePrice = computed(() => priceInfo.value?.base_price || 399)
-// const discount = computed(() => priceInfo.value?.discount || 0)
+const subscription = ref<any>(null)
+const loading = ref(false)
+const promoCode = ref('')
+const promoError = ref('')
+const promoSuccess = ref('')
+const activating = ref(false)
+const promoRemaining = ref<number | null>(null)
 // const finalPrice = computed(() => priceInfo.value?.final_price || 399)
 
-// const loadSubscription = async () => { ... }
-// const loadPrice = async () => { ... }
-// const validatePromo = async () => { ... }
-// const handlePayment = async () => { ... }
-// const deactivateSubscription = async () => { ... }
+const loadSubscription = async () => {
+  try {
+    loading.value = true
+    const response = await apiClient.get('/users/subscription/')
+    subscription.value = response.data
+  } catch (error) {
+    console.error('Error loading subscription:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadPromoInfo = async () => {
+  try {
+    const response = await apiClient.get('/users/subscription/promo/validate/?code=ANI100')
+    if (response.data.valid) {
+      promoRemaining.value = response.data.remaining_uses
+    }
+  } catch {
+    promoRemaining.value = null
+  }
+}
+
+const activatePromo = async () => {
+  if (!promoCode.value.trim()) return
+
+  try {
+    activating.value = true
+    promoError.value = ''
+    promoSuccess.value = ''
+
+    const response = await apiClient.post('/users/subscription/activate/', {
+      promo_code: promoCode.value.trim().toUpperCase()
+    })
+
+    promoSuccess.value = response.data.message || 'Подписка активирована! Теперь доступно скачивание опенингов/эндингов/фрагментов.'
+    promoCode.value = ''
+    await loadSubscription()
+    await loadPromoInfo()
+  } catch (error: any) {
+    promoError.value = error.response?.data?.error || 'Ошибка активации'
+  } finally {
+    activating.value = false
+  }
+}
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('ru-RU', { 
-    day: 'numeric', 
-    month: 'long', 
-    year: 'numeric' 
+  return date.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
   })
 }
 
 onMounted(async () => {
-  // Логика загрузки подписки отключена - всё бесплатно
-  console.log('[SubscriptionView] Premium features are now FREE for all users!')
-  
-  // const success = route.query.success
-  // const failed = route.query.failed
-  // if (success === '1') { ... }
-  
-  // await loadSubscription()
-  // await loadPrice()
+  await loadSubscription()
+  await loadPromoInfo()
 })
 </script>
 
 <style scoped>
 .subscription-page {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
+
+.page-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.page-header h1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 18px;
+  margin: 0;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.promo-form {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.form-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.form-header p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.promo-input {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 16px;
+  transition: border-color var(--duration-base);
+}
+
+.promo-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 59, 130, 246), 0.1);
+}
+
+.activate-btn {
+  width: 100%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all var(--duration-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.activate-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb, 59, 130, 246), 0.3);
+}
+
+.activate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.message {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-text {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--danger, #ef4444);
+}
+
+.success-text {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: var(--success, #10b981);
+}
+
+.promo-info {
+  background: var(--surface-3);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  margin-top: 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: center;
+}
+
+.subscription-info {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.subscription-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.subscription-status.active {
+  color: var(--success, #10b981);
+}
+
+.subscription-status.inactive {
+  color: var(--text-secondary);
+}
+
+.days-left {
+  color: var(--text-secondary);
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.features-list {
+  margin-top: 16px;
+}
+
+.features-list h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.features-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.features-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--text-secondary);
+}
+
+.features-list li::before {
+  content: '✓';
+  color: var(--success, #10b981);
+  font-weight: bold;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .subscription-page {
+    padding: 16px;
+  }
+
+  .page-header h1 {
+    font-size: 28px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+  }
+
+  .promo-form {
+    padding: 24px;
+  }
+
+  .subscription-info {
+    padding: 24px;
+  }
+
+  .activate-btn {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header h1 {
+    font-size: 24px;
+  }
+
+  .promo-form,
+  .subscription-info {
+    padding: 20px;
+  }
+
+  .promo-input {
+    padding: 14px;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  .activate-btn {
+    padding: 14px;
+  }
+}
+</style>
 
 .free-access-notice {
   background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1));
@@ -423,4 +768,4 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 }
-</style>
+<\style>

@@ -328,12 +328,12 @@
     v-if="activeMenuPost"
     :post="activeMenuPost"
     @close="activeMenuPost = null"
-    @delete="(p) => onPostDeleted(p.id)"
-    @hide="(p) => onPostHidden(p.id)"
-    @hideAuthor="(p) => onHideAuthor(p)"
-    @bookmark="(p) => handleBookmark(p)"
-    @repost="(p) => openRepost(p)"
-    @forward="(p) => openForward(p)"
+    @delete="(p: any) => onPostDeleted(p.id)"
+    @hide="(p: any) => onPostHidden(p.id)"
+    @hideAuthor="(p: any) => onHideAuthor(p)"
+    @bookmark="(p: any) => handleBookmark(p)"
+    @repost="(p: any) => openRepost(p)"
+    @forward="(p: any) => openForward(p)"
     @reported="activeMenuPost = null"
     @followed="onFollowToggled"
   />
@@ -478,7 +478,9 @@ function onPostCreated(post: any) {
 function onReposted() { activeRepostPost.value = null }
 
 function onPostDeleted(postId: any) {
-  feedStore.deletePost(postId)
+  // Оптимистично удаляем пост из всех списков
+  feedStore.posts = feedStore.posts.filter(p => p.id !== postId)
+  popularPosts.value = popularPosts.value.filter(p => p.id !== postId)
   activeMenuPost.value = null
 }
 

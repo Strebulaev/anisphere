@@ -35,6 +35,22 @@ pytest-django==4.7.0
 pytest-asyncio==0.21.1
 factory-boy==3.3.0
 faker==20.1.0
+dotenv
+django-cors-headers
+djangorestframework
+rest_framework_simplejwt
+channels
+mysqlclient
+qrcode
+pyotp
+psycopg2-binary
+pillow
+google-api-python-client
+redis
+django-filter
+django-phonenumber-field
+phonenumbers
+
 
 # Video processing
 ffmpeg-python==0.2.0

@@ -67,7 +67,7 @@
               v-if="isOwnPost"
               :post="post"
               @edited="loadPost"
-              @deleted="$router.back()"
+              @deleted="onPostDeleted"
             />
           </div>
 
@@ -184,16 +184,30 @@
 
           <!-- Comment Input -->
           <div v-if="canInteract || isOwnPost" class="mb-6">
+            <!-- Reply Preview -->
+            <div v-if="replyToCommentId" class="mb-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600 dark:text-gray-400">
+                  Ответ на комментарий
+                </span>
+                <button
+                  @click="replyToCommentId = null; newComment = ''"
+                  class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
             <div class="flex space-x-3">
               <img
-                :src="authStore.user?.avatar_url || '/default-avatar.png'"
-                alt="Your avatar"
+                :src="authStore.user?.avatar || '/default-avatar.png'"
                 class="w-10 h-10 rounded-full object-cover"
-              />
+              >
               <div class="flex-1">
                 <textarea
                   v-model="newComment"
-                  placeholder="Напишите комментарий..."
+                  :placeholder="replyToCommentId ? 'Написать ответ...' : 'Напишите комментарий...'"
                   rows="3"
                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   @keydown.ctrl.enter="submitComment"
@@ -204,7 +218,7 @@
                     :disabled="!newComment.trim() || commentLoading"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {{ commentLoading ? 'Отправка...' : 'Отправить' }}
+                    {{ commentLoading ? 'Отправка...' : (replyToCommentId ? 'Ответить' : 'Отправить') }}
                   </button>
                 </div>
               </div>
@@ -220,6 +234,7 @@
               :post-id="postId"
               @deleted="loadComments"
               @updated="loadComments"
+              @reply="handleCommentReply"
             />
           </div>
 
@@ -266,6 +281,7 @@ const post = ref<any>(null)
 const comments = ref<any[]>([])
 const newComment = ref('')
 const commentLoading = ref(false)
+const replyToCommentId = ref<number | null>(null)
 const hasLiked = ref(false)
 const hasBookmarked = ref(false)
 const showRepostModal = ref(false)
@@ -364,19 +380,54 @@ const toggleBookmark = async () => {
   }
 }
 
+const handleCommentReply = (comment: any) => {
+  replyToCommentId.value = comment.id
+  newComment.value = `@${comment.author?.username || ''} `
+  scrollToComments()
+  // Фокус на поле ввода после прокрутки
+  setTimeout(() => {
+    const input = document.querySelector('textarea[name="comment"]') as HTMLTextAreaElement | null
+    if (input) input.focus()
+  }, 300)
+}
+
 const submitComment = async () => {
   if (!newComment.value.trim() || commentLoading.value) return
   
   commentLoading.value = true
   
   try {
-    await apiClient.post(`/social/posts/${postId.value}/comments/`, {
-      text: newComment.value.trim(),
+    const data: any = {
+      content: newComment.value.trim(),
       post: postId.value
-    })
+    }
+    
+    // Если это ответ на комментарий
+    if (replyToCommentId.value) {
+      data.parent = replyToCommentId.value
+    }
+    
+    const response = await apiClient.post(`/social/posts/${postId.value}/comments/`, data)
     
     newComment.value = ''
-    await loadComments()
+    replyToCommentId.value = null
+    
+    // Добавляем комментарий без полной перезагрузки
+    const newCommentData = response.data
+    if (replyToCommentId.value) {
+      // Это ответ - ищем родительский комментарий и добавляем ответ
+      const parentComment = comments.value.find(c => c.id === replyToCommentId.value)
+      if (parentComment) {
+        if (!parentComment.replies) {
+          parentComment.replies = []
+        }
+        parentComment.replies.push(newCommentData)
+        parentComment.replies_count = (parentComment.replies_count || 0) + 1
+      }
+    } else {
+      // Это корневой комментарий
+      comments.value.push(newCommentData)
+    }
     
     // Update comments count
     if (post.value) {
@@ -399,6 +450,14 @@ const onReposted = () => {
   if (post.value) {
     post.value.shares_count = (post.value.shares_count || 0) + 1
   }
+}
+
+const onPostDeleted = () => {
+  // Показываем уведомление и перенаправляем на главную страницу ленты
+  // Но делаем это без полной перезагрузки страницы
+  alert('Пост успешно удалён')
+  // Перенаправляем на ленту
+  window.location.href = '/'
 }
 
 onMounted(() => {

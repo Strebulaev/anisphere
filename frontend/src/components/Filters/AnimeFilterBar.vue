@@ -192,6 +192,20 @@
           </div>
         </div>
 
+        <!-- МОЯ КОЛЛЕКЦИЯ -->
+        <div v-if="currentUser" class="afb-group">
+          <div class="afb-group-label">Исключить из коллекции</div>
+          <div class="afb-chips">
+            <button
+              v-for="ls in LIBRARY_STATUS_OPTIONS" :key="ls.value"
+              :class="['afb-chip', `afb-chip-status-${ls.color}`, { active: excludedLibraryStatuses.includes(ls.value) }]"
+              @click="toggleExcludedLibraryStatus(ls.value)" type="button"
+            >
+              <span class="afb-dot"></span>{{ ls.label }}
+            </button>
+          </div>
+        </div>
+
         <!-- РЕЖИМ ЖАНРОВ + СБРОС -->
         <div class="afb-panel-footer">
           <div class="afb-logic-wrap">
@@ -281,6 +295,10 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+const currentUser = computed(() => authStore.user)
+
 export interface FilterState {
   search?: string
   genres?: string[]
@@ -296,6 +314,7 @@ export interface FilterState {
   studio?: string[]
   ordering?: string
   page_size?: number
+  excluded_library_statuses?: string[]
 }
 
 // ── Константы ──────────────────────────────────────────────
@@ -315,6 +334,14 @@ const STATUS_OPTIONS = [
   { value: 'finished',  label: 'Завершён', color: 'grey'   },
   { value: 'announced', label: 'Анонс',    color: 'yellow' },
   { value: 'canceled',  label: 'Отменён',  color: 'red'    },
+]
+
+const LIBRARY_STATUS_OPTIONS = [
+  { value: 'completed', label: 'Просмотрено', color: 'blue' },
+  { value: 'watching',  label: 'Смотрю',      color: 'green' },
+  { value: 'dropped',   label: 'Брошено',     color: 'red' },
+  { value: 'on_hold',   label: 'На паузе',    color: 'yellow' },
+  { value: 'planned',   label: 'В планах',    color: 'grey' },
 ]
 
 const YEAR_PRESETS = [
@@ -345,6 +372,7 @@ const selectedGenres   = ref<string[]>([])
 const selectedTypes    = ref<string[]>([])
 const selectedStatuses = ref<string[]>([])
 const selectedStudios  = ref<string[]>([])
+const excludedLibraryStatuses = ref<string[]>([])
 
 const yearFrom     = ref<number | undefined>(undefined)
 const yearTo       = ref<number | undefined>(undefined)
@@ -388,21 +416,43 @@ onMounted(async () => {
   // Загрузка жанров
   genresLoading.value = true
   try {
-    const res  = await fetch(`${KODIK_API_BASE}/genres?token=${KODIK_API_TOKEN}&types=anime-serial,anime&genres_type=shikimori&sort=count`)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
+
+    const res = await fetch(`${KODIK_API_BASE}/genres?token=${KODIK_API_TOKEN}&types=anime-serial,anime&genres_type=shikimori&sort=count`, {
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+
     const data = await res.json()
     allGenres.value = (data.results || []).map((g: any) => String(g.title))
-  } catch { allGenres.value = [] }
-  finally { genresLoading.value = false }
+  } catch (e) {
+    console.warn('Failed to load genres:', e)
+    allGenres.value = []
+  } finally {
+    genresLoading.value = false
+  }
 
   // Загрузка студий через бэкенд-прокси (CORS блокирует прямой доступ к Kodik)
   studiosLoading.value = true
   try {
-    const res = await fetch('/api/anime/kodik/studios/')
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
+
+    const res = await fetch('/api/anime/kodik/studios/', {
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+
     const data = await res.json()
     // Бэкенд возвращает { studios: [{name, count}], total, source }
     allStudios.value = (data.studios || data.results || []).map((s: any) => String(s.name || s.title))
-  } catch { allStudios.value = [] }
-  finally { studiosLoading.value = false }
+  } catch (e) {
+    console.warn('Failed to load studios:', e)
+    allStudios.value = []
+  } finally {
+    studiosLoading.value = false
+  }
 })
 
 // ── Debounce поиска ─────────────────────────────────────────
@@ -419,6 +469,7 @@ const toggleGenre  = (g: string) => { toggle(selectedGenres,   g); emitChange() 
 const toggleType   = (t: string) => { toggle(selectedTypes,    t); emitChange() }
 const toggleStatus = (s: string) => { toggle(selectedStatuses, s); emitChange() }
 const toggleStudio = (s: string) => { toggle(selectedStudios,  s); emitChange() }
+const toggleExcludedLibraryStatus = (s: string) => { toggle(excludedLibraryStatuses, s); emitChange() }
 const clearGenres  = () => { selectedGenres.value = []; emitChange() }
 
 function toggle(arr: { value: string[] }, val: string) {
@@ -472,6 +523,7 @@ const activeChips = computed((): Chip[] => {
   if (selectedGenres.value.length)   chips.push({ key: 'genres',   label: `Жанры: ${selectedGenres.value.length}` })
   if (selectedTypes.value.length)    chips.push({ key: 'type',     label: `Тип: ${selectedTypes.value.join(', ')}` })
   if (selectedStatuses.value.length) chips.push({ key: 'status',   label: `Статус: ${selectedStatuses.value.length}` })
+  if (excludedLibraryStatuses.value.length) chips.push({ key: 'library', label: `Исключить: ${excludedLibraryStatuses.value.length}` })
   if (yearFrom.value || yearTo.value)   chips.push({ key: 'year',   label: `Год: ${yearFrom.value || '?'}–${yearTo.value || '?'}` })
   if (scoreFrom.value || scoreTo.value) chips.push({ key: 'score',  label: `Рейтинг: ${scoreFrom.value || 0}–${scoreTo.value || 10}` })
   if (selectedStudios.value.length)  chips.push({ key: 'studio',   label: `Студия: ${selectedStudios.value.length}` })
@@ -480,13 +532,14 @@ const activeChips = computed((): Chip[] => {
 
 const removeChip = (key: string) => {
   switch (key) {
-    case 'search':  search.value = '';          break
-    case 'genres':  selectedGenres.value = [];  break
-    case 'type':    selectedTypes.value = [];   break
-    case 'status':  selectedStatuses.value = [];break
-    case 'year':    yearFrom.value = undefined; yearTo.value = undefined; break
-    case 'score':   scoreFrom.value = undefined; scoreTo.value = undefined; break
-    case 'studio':  selectedStudios.value = []; break
+    case 'search':   search.value = '';          break
+    case 'genres':   selectedGenres.value = [];  break
+    case 'type':     selectedTypes.value = [];   break
+    case 'status':   selectedStatuses.value = [];break
+    case 'library':  excludedLibraryStatuses.value = []; break
+    case 'year':     yearFrom.value = undefined; yearTo.value = undefined; break
+    case 'score':    scoreFrom.value = undefined; scoreTo.value = undefined; break
+    case 'studio':   selectedStudios.value = []; break
   }
   emitChange()
 }
@@ -498,6 +551,7 @@ const resetAll = () => {
   selectedTypes.value = []
   selectedStatuses.value = []
   selectedStudios.value = []
+  excludedLibraryStatuses.value = []
   yearFrom.value = undefined; yearTo.value = undefined
   scoreFrom.value = undefined; scoreTo.value = undefined
   episodesFrom.value = undefined; episodesTo.value = undefined
@@ -523,6 +577,7 @@ const emitChange = () => {
     studio:        selectedStudios.value.length ? selectedStudios.value : undefined,
     ordering:      ordering.value,
     page_size:     pageSize.value,
+    excluded_library_statuses: excludedLibraryStatuses.value.length ? excludedLibraryStatuses.value : undefined,
   }
   emit('change', filters)
 }

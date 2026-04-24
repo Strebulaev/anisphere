@@ -144,7 +144,7 @@ const totalPages = ref(1)
 const totalCount = ref(0)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
-let pageSize = 24
+const pageSize = 24
 
 const getUserDisplayName = (user: User): string => {
   return user.display_name || user.nickname || user.username

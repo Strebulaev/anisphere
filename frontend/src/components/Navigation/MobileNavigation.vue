@@ -1,5 +1,5 @@
 <template>
-  <div class="mobile-nav" v-if="!isDesktop">
+  <div class="mobile-nav">
     <!-- Бургер кнопка -->
     <button class="burger-btn" @click="toggleMenu" aria-label="Меню">
       <svg v-if="!menuOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -168,25 +168,17 @@ const isAdmin = computed(() => {
   return u.is_admin || u.is_staff || u.username === 'kaiden812'
 })
 
-// Определяем десктоп (скрываем бургер-меню)
-const isDesktop = ref(false)
-
-const checkDesktop = () => {
-  isDesktop.value = window.innerWidth >= 768
-}
-
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value
 }
 
 // Закрыть меню при изменении маршрута
 onMounted(() => {
-  checkDesktop()
-  window.addEventListener('resize', checkDesktop)
+  // Ничего не делаем — меню показывается через CSS media query
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkDesktop)
+  // Очистка не требуется
 })
 </script>
 
@@ -214,6 +206,23 @@ onUnmounted(() => {
 @media (max-width: 767px) {
   .mobile-nav {
     display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-nav {
+    height: 50px;
+    padding: 0 12px;
+  }
+  
+  .burger-btn,
+  .profile-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .mobile-logo {
+    font-size: 16px;
   }
 }
 
@@ -269,6 +278,22 @@ onUnmounted(() => {
   box-shadow: var(--shadow-xl);
   z-index: calc(var(--z-navbar) + 10);
   box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .mobile-menu {
+    top: 50px;
+    max-height: calc(100vh - 50px);
+  }
+  
+  .menu-items {
+    padding: 12px;
+  }
+  
+  .menu-item {
+    padding: 12px;
+    font-size: 14px;
+  }
 }
 
 .menu-items {

@@ -5,7 +5,7 @@ import type { ChatFolder, CreateFolderData, UpdateFolderData, FolderPreview, Cha
 const getMediaUrl = (path: string | null | undefined): string => {
   if (!path) return ''
   if (path.startsWith('http')) return path
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://anisphere.ru'
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://anisphere.org'
   return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
 }
 

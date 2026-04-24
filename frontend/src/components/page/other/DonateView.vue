@@ -518,6 +518,7 @@ const copyCryptoAddress = (address: string) => {
 @media (max-width: 768px) {
   .methods-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .donate-card.main {
@@ -532,6 +533,65 @@ const copyCryptoAddress = (address: string) => {
   .donate-card,
   .faq-item {
     padding: 1.25rem;
+  }
+
+  .crypto-address {
+    word-break: break-all;
+    font-size: 0.9rem;
+  }
+
+  .copy-btn {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .copy-btn-full {
+    width: 100%;
+  }
+
+  .donate-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .donate-page {
+    padding: 1rem 0.5rem;
+  }
+
+  .donate-content {
+    padding: 0;
+  }
+
+  .donate-reason,
+  .donate-card,
+  .faq-item {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .page-header {
+    margin-bottom: 2rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  .donate-reason h2,
+  .donate-methods h2,
+  .donate-faq h2 {
+    font-size: 1.25rem;
+  }
+
+  .crypto-address {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.375rem;
   }
 }
 </style>

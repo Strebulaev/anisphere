@@ -15,11 +15,11 @@
     <!-- Профиль пользователя -->
     <div v-else class="profile-content">
       <!-- Шапка профиля -->
-      <div class="profile-header" :class="{ 'has-cover': user.is_premium && user.cover_image_url }">
+      <div class="profile-header" :class="{ 'has-cover': user.cover_image_url }">
         <!-- Обложка профиля (только для премиум) -->
-        <div 
-          v-if="user.is_premium && user.cover_image_url"
-          class="header-background" 
+        <div
+          v-if="user.cover_image_url"
+          class="header-background"
           :style="coverImageStyle"
         >
           <!-- Кнопка загрузки обложки (только для своего профиля) -->
@@ -42,7 +42,7 @@
           <div class="avatar-section">
             <UserAvatar
               :src="user.avatar || user.avatar_url || '/img/default-avatar.svg'"
-              :is-online="isOnline"
+              :is-online="isUserOnline(userId)"
               size="2xl"
               shape="circle"
             />
@@ -83,9 +83,6 @@
             <button v-if="!isOwnProfile" @click="openChat" class="btn-message">
               <ChatBubbleLeftIcon class="w-5 h-5" />
               Написать
-            </button>
-            <button v-if="!isOwnProfile" @click="toggleFavorite" :class="['btn-favorite', { active: isFavorite }]">
-              <StarIcon class="w-5 h-5" />
             </button>
             <button v-if="!isOwnProfile" @click="reportUser" class="btn-report">
               <FlagIcon class="w-5 h-5" />
@@ -150,7 +147,7 @@
         </div>
 
         <div v-if="activeTab === 'social'" class="tab-content">
-          <UserSocialNetworks :user="user" :can-edit="isOwnProfile" @edit="openEditModal" />
+          <UserSocialNetworks :user="user" />
         </div>
 
         <div v-if="activeTab === 'favorites'" class="tab-content">
@@ -158,19 +155,10 @@
         </div>
 
         <div v-if="activeTab === 'about'" class="tab-content">
-          <ProfileAbout :user="user" :can-edit="isOwnProfile" @edit="openEditModal" />
+          <ProfileAbout :user="user" />
         </div>
       </div>
     </div>
-
-    <!-- Edit Profile Modal -->
-    <EditProfileModal
-      v-if="showEditModal"
-      :is-visible="showEditModal"
-      :user="user"
-      :on-close="() => showEditModal = false"
-      @save="handleProfileUpdate"
-    />
   </div>
 </template>
 
@@ -178,9 +166,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useOnlineStatus } from '@/composables/useOnlineStatus'
 import {
   ChatBubbleLeftIcon,
-  StarIcon,
   FlagIcon
 } from '@heroicons/vue/24/outline'
 import UserFeed from '@/components/Profile/UserFeed.vue'
@@ -192,7 +180,6 @@ import AchievementsView from '@/components/page/other/AchievementsView.vue'
 import ProfileAbout from '@/components/Profile/ProfileAbout.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
-import EditProfileModal from '@/components/modal/profile/EditProfileModal.vue'
 import PremiumCrown from '@/components/icons/PremiumCrown.vue'
 import api from '@/api'
 
@@ -208,6 +195,7 @@ interface UserProfile {
   created_at?: string
   cover_image_url?: string
   cover_image?: string
+  social_links?: any[]
   is_online?: boolean
   is_premium?: boolean
 }
@@ -228,6 +216,7 @@ const props = defineProps<{
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { isUserOnline } = useOnlineStatus()
 
 // route.params.id может быть username (строка) или числовой id
 // Приоритет: prop nickname > prop id > route.params.id
@@ -235,12 +224,9 @@ const routeId = String(props.id ?? route.params.id ?? '')
 const userId = ref<number>(NaN)  // будет заполнен после загрузки профиля
 const user = ref<UserProfile>({})
 const stats = ref<UserStats>({})
-const isOnline = ref<boolean | null>(null)
 const isFollowing = ref(false)
-const isFavorite = ref(false)
 const activeTab = ref('feed')
 const loading = ref(true)
-const showEditModal = ref(false)
 
 const tabs = computed(() => {
   const baseTabs = [
@@ -250,10 +236,8 @@ const tabs = computed(() => {
     { id: 'favorites', name: 'Избранное' },
     { id: 'about', name: 'О себе' },
   ]
-  // Вкладка соцсетей только для премиум
-  if (user.value.is_premium) {
-    baseTabs.splice(3, 0, { id: 'social', name: 'Соцсети' })
-  }
+  // Вкладка соцсетей
+  baseTabs.splice(3, 0, { id: 'social', name: 'Соцсети' })
   return baseTabs
 })
 
@@ -286,7 +270,7 @@ const loadProfile = async () => {
       const resp = await api.get(`/users/by-nickname/@${nick}/`)
       user.value = resp.data
       userId.value = resp.data.id
-      isOnline.value = resp.data.is_online ?? null
+
       loading.value = false
       return
     }
@@ -313,7 +297,7 @@ const loadProfile = async () => {
     }
     user.value = response.data
     userId.value = response.data.id  // сохраняем числовой id из ответа
-    isOnline.value = response.data.is_online ?? null
+
   } catch (error) {
     console.error('Ошибка загрузки профиля:', error)
     user.value = {}
@@ -336,13 +320,8 @@ const loadFollowStatus = async () => {
   if (!authStore.isAuthenticated || !userId.value || isNaN(userId.value)) return
 
   try {
-    const [followResponse, favoriteResponse] = await Promise.all([
-      api.get(`/social/follows/check/?following_id=${userId.value}`),
-      api.get(`/social/favorites/check/?content_type=user&object_id=${userId.value}`)
-    ])
-
-    isFollowing.value = followResponse.data.is_following ?? followResponse.data.following
-    isFavorite.value = favoriteResponse.data.favorited
+    const response = await api.get(`/social/follows/check/?following_id=${userId.value}`)
+    isFollowing.value = response.data.is_following ?? response.data.following
   } catch (error) {
     console.error('Ошибка загрузки статуса:', error)
   }
@@ -363,31 +342,14 @@ const toggleFollow = async () => {
   }
 }
 
-const toggleFavorite = async () => {
-  if (!authStore.isAuthenticated) {
-    alert('Для добавления в избранное необходимо войти в аккаунт')
-    return
-  }
-  try {
-    const response = await api.post('/social/favorites/toggle/', {
-      content_type: 'user',
-      object_id: userId.value
-    })
-    isFavorite.value = response.data.favorited
-  } catch (error) {
-    console.error('Ошибка избранного:', error)
-    alert('Не удалось добавить в избранное')
-  }
-}
-
 const openChat = async () => {
   if (!authStore.isAuthenticated) {
     alert('Для отправки сообщения необходимо войти в аккаунт')
     return
   }
   try {
-    const response = await api.post('/chats/private/', { user_id: userId.value })
-    router.push(`/chat/${response.data.id}`)
+    const response = await api.post('/social/private-chats/', { user2: userId.value })
+    router.push(`/chats/${response.data.id}`)
   } catch (error) {
     console.error('Ошибка создания чата:', error)
     alert('Не удалось создать чат')
@@ -438,16 +400,6 @@ const goToFeed = () => {
   router.push('/feed')
 }
 
-const openEditModal = () => {
-  showEditModal.value = true
-}
-
-const handleProfileUpdate = async (updatedProfile: Partial<UserProfile>) => {
-  // Обновляем данные профиля сразу после сохранения
-  user.value = { ...user.value, ...updatedProfile }
-  showEditModal.value = false
-}
-
 const formatDate = (date: string | Date | undefined) => {
   if (!date) return ''
   return new Date(date).toLocaleDateString('ru-RU', {
@@ -463,12 +415,7 @@ onMounted(async () => {
   loadFollowStatus()
 })
 
-// Переключаем вкладку если текущая - social и премиум пропал
-watch(() => user.value.is_premium, (isPremium) => {
-  if (!isPremium && activeTab.value === 'social') {
-    activeTab.value = 'feed'
-  }
-})
+
 </script>
 
 <style scoped>
@@ -690,7 +637,6 @@ watch(() => user.value.is_premium, (isPremium) => {
 }
 
 .btn-message,
-.btn-favorite,
 .btn-report {
   display: flex;
   align-items: center;
@@ -705,16 +651,9 @@ watch(() => user.value.is_premium, (isPremium) => {
 }
 
 .btn-message:hover,
-.btn-favorite:hover,
 .btn-report:hover {
   background: var(--color-background-active);
   color: var(--color-text);
-}
-
-.btn-favorite.active {
-  color: var(--color-accent-orange);
-  background: var(--color-background-active);
-  border-color: var(--color-accent-orange);
 }
 
 .stats {

@@ -6,8 +6,12 @@ import { watch, onUnmounted } from 'vue'
 import { useNotificationStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { useRouter } from 'vue-router'
+import type { Reminder } from '@/stores/notifications'
 
 const FIRED_KEY = 'fired_reminders'
+
+// Звук уведомления (base64 короткий beep)
+const NOTIFICATION_SOUND = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU')
 
 function getFired(): Set<number> {
   try {
@@ -22,6 +26,56 @@ function saveFired(set: Set<number>) {
   sessionStorage.setItem(FIRED_KEY, JSON.stringify([...set]))
 }
 
+// Запрос права на пуш-уведомления
+async function requestPushPermission(): Promise<boolean> {
+  if (!('Notification' in window)) return false
+  if (Notification.permission === 'granted') return true
+  
+  const result = await Notification.requestPermission()
+  return result === 'granted'
+}
+
+// Отправить пуш-уведомление
+async function sendPushNotification(title: string, body: string, clickAction?: string) {
+  if (!('Notification' in window)) return
+  
+  const granted = await requestPushPermission()
+  if (!granted) return
+  
+  new Notification(title, {
+    body,
+    icon: '/logo.png',
+    badge: '/badge.png',
+    tag: clickAction || 'reminder',
+    requireInteraction: true
+  } as NotificationOptions)
+}
+
+// Воспроизвести звук
+function playNotificationSound() {
+  try {
+    // Создаем AudioContext для воспроизведения звука
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const oscillator = ctx.createOscillator()
+    const gainNode = ctx.createGain()
+    
+    oscillator.connect(gainNode)
+    gainNode.connect(ctx.destination)
+    
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3)
+    
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+    
+    oscillator.start(ctx.currentTime)
+    oscillator.stop(ctx.currentTime + 0.3)
+  } catch (e) {
+    console.warn('Failed to play notification sound:', e)
+  }
+}
+
 export function useReminderNotifier() {
   const store  = useNotificationStore()
   const toast  = useToast()
@@ -33,7 +87,7 @@ export function useReminderNotifier() {
     const fired = getFired()
     const now   = Date.now()
 
-    for (const r of store.reminders) {
+    for (const r of store.reminders as Reminder[]) {
       if (!r.is_active || fired.has(r.id)) continue
 
       const rTime = new Date(
@@ -46,8 +100,27 @@ export function useReminderNotifier() {
       if (rTime >= now - 30_000 && rTime <= now + 300_000) {
         const animeTitle = r.anime_detail?.title_ru || 'Аниме'
         const animeId    = r.anime_detail?.id
+        const comment    = r.comment || ''
 
-        toast.info(`⏰ Пора смотреть ${animeTitle}${r.comment ? ` — ${r.comment}` : ''}`, {
+        // Получаем настройки уведомлений из напоминания
+        const enableSound = r.enable_sound !== false  // По умолчанию true
+        const enablePush  = r.enable_push !== false   // По умолчанию true
+
+        // Воспроизводим звук если включен
+        if (enableSound) {
+          playNotificationSound()
+        }
+
+        // Отправляем пуш-уведомление если включен
+        if (enablePush && animeTitle) {
+          sendPushNotification(
+            '⏰ Напоминание о просмотре',
+            `Пора смотреть ${animeTitle}${comment ? ` — ${comment}` : ''}`,
+            `reminder-${animeId}`
+          )
+        }
+
+        toast.info(`⏰ Пора смотреть ${animeTitle}${comment ? ` — ${comment}` : ''}`, {
           duration: 8000,
           title: 'Напоминание',
           action: animeId

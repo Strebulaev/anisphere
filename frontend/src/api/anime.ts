@@ -235,7 +235,7 @@ export const animeApi = {
 
   getAnnouncements: async (): Promise<Anime[]> => {
     // Собираем анонсы из всех возможных источников
-    let all: Anime[] = []
+    const all: Anime[] = []
     const existingIds = new Set<number | string>()
     
     // 1. Пробуем получить из бэкенда (status=announced)

@@ -1,10 +1,12 @@
 from rest_framework import serializers
 from .models import Anime, Franchise, Genre, Studio
 
+
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Genre
-        fields = ['id', 'name', 'slug']
+        fields = ["id", "name", "slug"]
+
 
 class AnimeSerializer(serializers.ModelSerializer):
     genres = serializers.SerializerMethodField()
@@ -48,7 +50,7 @@ class AnimeSerializer(serializers.ModelSerializer):
             f = obj.franchise
             if not f:
                 return None
-            if f.poster and hasattr(f.poster, 'url'):
+            if f.poster and hasattr(f.poster, "url"):
                 return f.poster.url
             return f.poster_url or None
         except Exception:
@@ -122,75 +124,96 @@ class AnimeSerializer(serializers.ModelSerializer):
         try:
             if not obj.franchise_id:
                 return []
-            entries = obj.franchise.entries.all().order_by('franchise_order')
+            entries = obj.franchise.entries.all().order_by("franchise_order")
             posters = []
             for entry in entries:
-                if entry.poster and hasattr(entry.poster, 'url'):
+                if entry.poster and hasattr(entry.poster, "url"):
                     posters.append(entry.poster.url)
                 elif entry.poster_url:
                     posters.append(entry.poster_url)
             return posters
         except Exception:
             return []
-    
+
     def get_genres(self, obj):
         """Получение жанров из JSON поля"""
-        genres_data = getattr(obj, 'genres', []) or []
+        genres_data = getattr(obj, "genres", []) or []
         # Если жанры - это массив строк, преобразуем в формат {id, name}
         if isinstance(genres_data, list):
             return [
-                {
-                    'id': idx,
-                    'name': genre,
-                    'slug': genre.lower().replace(' ', '-')
-                }
+                {"id": idx, "name": genre, "slug": genre.lower().replace(" ", "-")}
                 for idx, genre in enumerate(genres_data)
             ]
         return genres_data
-    
+
     def get_studios(self, obj):
         """Получение студий из JSON поля"""
-        studios_data = getattr(obj, 'studios', []) or []
+        studios_data = getattr(obj, "studios", []) or []
         # Если студии - это массив строк, преобразуем в формат {id, name}
         if isinstance(studios_data, list):
             return [
-                {
-                    'id': idx,
-                    'name': studio,
-                    'slug': studio.lower().replace(' ', '-')
-                }
+                {"id": idx, "name": studio, "slug": studio.lower().replace(" ", "-")}
                 for idx, studio in enumerate(studios_data)
             ]
         return studios_data
-    
+
     def get_poster_image_url(self, obj):
         """Получение URL изображения постера"""
         # Сначала проверяем локальное изображение
         if obj.poster:
             return obj.poster.url
         # Затем используем внешний URL
-        return obj.poster_url or ''
-    
+        return obj.poster_url or ""
+
     class Meta:
         model = Anime
         fields = [
-            'id', 'title_ru', 'title_en', 'title_jp',
-            'description', 'year', 'release_date', 'release_date_string', 'status', 'kind', 'episodes',
-            'score', 'poster_url', 'poster', 'poster_image_url', 'genres', 'studios',
-            'movies', 'ovas', 'movie_count', 'ova_count', 'total_items',
-            'created_at', 'updated_at', 'shikimori_id', 'data_source',
-            'franchise_id', 'is_franchise', 'franchise_order',
-            'franchise_name', 'franchise_poster_image_url',
-            'franchise_parts_count', 'franchise_year_start', 'franchise_year_end',
-            'franchise_avg_score', 'franchise_all_genres', 'franchise_all_posters',
+            "id",
+            "title_ru",
+            "title_en",
+            "title_jp",
+            "description",
+            "year",
+            "release_date",
+            "release_date_string",
+            "status",
+            "kind",
+            "episodes",
+            "score",
+            "poster_url",
+            "poster",
+            "poster_image_url",
+            "genres",
+            "studios",
+            "movies",
+            "ovas",
+            "movie_count",
+            "ova_count",
+            "total_items",
+            "created_at",
+            "updated_at",
+            "shikimori_id",
+            "data_source",
+            "franchise_id",
+            "is_franchise",
+            "franchise_order",
+            "franchise_name",
+            "franchise_poster_image_url",
+            "franchise_parts_count",
+            "franchise_year_start",
+            "franchise_year_end",
+            "franchise_avg_score",
+            "franchise_all_genres",
+            "franchise_all_posters",
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class StudioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Studio
-        fields = ['id', 'name', 'slug']
+        fields = ["id", "name", "slug"]
+
 
 class AnimeDetailSerializer(serializers.ModelSerializer):
     genres = serializers.SerializerMethodField()
@@ -212,7 +235,9 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
             return False
 
     # Дополнительные поля для Kodik
-    kodik_link = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
+    kodik_link = serializers.CharField(
+        read_only=True, allow_null=True, allow_blank=True
+    )
     kodik_id = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
     quality = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
     screenshots = serializers.SerializerMethodField()
@@ -221,33 +246,25 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
     last_episode = serializers.IntegerField(read_only=True, allow_null=True)
     seasons_count = serializers.SerializerMethodField()
     translations = serializers.JSONField(read_only=True, allow_null=True)
-    
+
     def get_genres(self, obj):
         """Получение жанров из JSON поля"""
-        genres_data = getattr(obj, 'genres', []) or []
+        genres_data = getattr(obj, "genres", []) or []
         # Если жанры - это массив строк, преобразуем в формат {id, name}
         if isinstance(genres_data, list):
             return [
-                {
-                    'id': idx,
-                    'name': genre,
-                    'slug': genre.lower().replace(' ', '-')
-                }
+                {"id": idx, "name": genre, "slug": genre.lower().replace(" ", "-")}
                 for idx, genre in enumerate(genres_data)
             ]
         return genres_data
-    
+
     def get_studios(self, obj):
         """Получение студий из JSON поля"""
-        studios_data = getattr(obj, 'studios', []) or []
+        studios_data = getattr(obj, "studios", []) or []
         # Если студии - это массив строк, преобразуем в формат {id, name}
         if isinstance(studios_data, list):
             return [
-                {
-                    'id': idx,
-                    'name': studio,
-                    'slug': studio.lower().replace(' ', '-')
-                }
+                {"id": idx, "name": studio, "slug": studio.lower().replace(" ", "-")}
                 for idx, studio in enumerate(studios_data)
             ]
         return studios_data
@@ -258,27 +275,27 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
         if obj.poster:
             return obj.poster.url
         # Затем используем внешний URL
-        return obj.poster_url or ''
+        return obj.poster_url or ""
 
     def get_seasons_count(self, obj):
         """Получение количества сезонов"""
-        seasons_data = getattr(obj, 'seasons', {}) or {}
+        seasons_data = getattr(obj, "seasons", {}) or {}
         return len(seasons_data) if seasons_data else 1
-    
+
     def get_translations(self, obj):
         """Получение переводов"""
         # Если у аниме есть переводы из Kodik, возвращаем их
-        translations_data = getattr(obj, 'translations', []) or []
+        translations_data = getattr(obj, "translations", []) or []
         return translations_data
 
     def get_screenshots(self, obj):
         """Получение скриншотов в формате {url: string}"""
         from .kodik_config import KODIK_SCREENSHOTS_BASE, KODIK_OLD_DOMAINS
-        
-        screenshots = getattr(obj, 'screenshots', []) or []
+
+        screenshots = getattr(obj, "screenshots", []) or []
         if not screenshots:
             return []
-        
+
         def normalize_screenshot_url(url: str) -> str:
             """Нормализует URL скриншота - заменяет старые домены на KODIK_SCREENSHOTS_BASE"""
             if not url:
@@ -293,82 +310,155 @@ class AnimeDetailSerializer(serializers.ModelSerializer):
                     path = url.split(old_domain)[-1]
                     return f"{KODIK_SCREENSHOTS_BASE}{path}"
             return url
-        
+
         # Если скриншоты - массив строк, преобразуем в массив объектов
         if isinstance(screenshots, list) and screenshots:
             first = screenshots[0]
             if isinstance(first, str):
-                return [{'url': normalize_screenshot_url(url)} for url in screenshots]
+                return [{"url": normalize_screenshot_url(url)} for url in screenshots]
             elif isinstance(first, dict):
                 # Если уже массив объектов - нормализуем URL в каждом
-                return [{'url': normalize_screenshot_url(s.get('url', ''))} for s in screenshots]
-        
+                return [
+                    {"url": normalize_screenshot_url(s.get("url", ""))}
+                    for s in screenshots
+                ]
+
         # Если уже массив объектов, возвращаем как есть
         return screenshots
 
     class Meta:
         model = Anime
         fields = [
-            'id', 'title_ru', 'title_en', 'title_jp',
-            'description', 'year', 'release_date', 'release_date_string', 'status', 'kind', 'episodes',
-            'score', 'poster_url', 'poster', 'poster_image_url', 'genres', 'studios',
-            'movies', 'ovas', 'movie_count', 'ova_count', 'total_items',
-            'created_at', 'updated_at', 'data_source', 'shikimori_id',
+            "id",
+            "title_ru",
+            "title_en",
+            "title_jp",
+            "description",
+            "year",
+            "release_date",
+            "release_date_string",
+            "status",
+            "kind",
+            "episodes",
+            "score",
+            "poster_url",
+            "poster",
+            "poster_image_url",
+            "genres",
+            "studios",
+            "movies",
+            "ovas",
+            "movie_count",
+            "ova_count",
+            "total_items",
+            "created_at",
+            "updated_at",
+            "data_source",
+            "shikimori_id",
             # Kodik поля
-            'kodik_link', 'kodik_id', 'quality', 'screenshots',
-            'seasons', 'last_season', 'last_episode', 'seasons_count',
-            'translations',
-            'franchise_id', 'is_franchise', 'franchise_order',
+            "kodik_link",
+            "kodik_id",
+            "quality",
+            "screenshots",
+            "seasons",
+            "last_season",
+            "last_episode",
+            "seasons_count",
+            "translations",
+            "franchise_id",
+            "is_franchise",
+            "franchise_order",
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class FranchiseEntrySerializer(serializers.ModelSerializer):
     """Mini-сериалайзер элемента франшизы"""
+
     poster_image_url = serializers.SerializerMethodField()
     anime_slug = serializers.SerializerMethodField()
 
     def get_poster_image_url(self, obj):
-        if obj.poster and hasattr(obj.poster, 'url'):
+        if obj.poster and hasattr(obj.poster, "url"):
             return obj.poster.url
-        return obj.poster_url or ''
+        return obj.poster_url or ""
 
     def get_anime_slug(self, obj):
         """Генерирует slug из названия аниме для URL"""
         if not obj.title_ru:
-            return ''
+            return ""
         # Транслитерация: заменяем русские буквы на латинские
         slug = obj.title_ru.lower()
         replacements = {
-            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
-            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-            'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '',
-            'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+            "а": "a",
+            "б": "b",
+            "в": "v",
+            "г": "g",
+            "д": "d",
+            "е": "e",
+            "ё": "yo",
+            "ж": "zh",
+            "з": "z",
+            "и": "i",
+            "й": "y",
+            "к": "k",
+            "л": "l",
+            "м": "m",
+            "н": "n",
+            "о": "o",
+            "п": "p",
+            "р": "r",
+            "с": "s",
+            "т": "t",
+            "у": "u",
+            "ф": "f",
+            "х": "h",
+            "ц": "ts",
+            "ч": "ch",
+            "ш": "sh",
+            "щ": "sch",
+            "ъ": "",
+            "ы": "y",
+            "ь": "",
+            "э": "e",
+            "ю": "yu",
+            "я": "ya",
         }
         for ru, lat in replacements.items():
             slug = slug.replace(ru, lat)
         # Заменяем не буквы и не цифры на дефисы
         import re
-        slug = re.sub(r'[^a-z0-9]', '-', slug)
+
+        slug = re.sub(r"[^a-z0-9]", "-", slug)
         # Удаляем повторяющиеся дефисы
-        slug = re.sub(r'-+', '-', slug)
+        slug = re.sub(r"-+", "-", slug)
         # Удаляем дефисы в начале и конце
-        slug = slug.strip('-')
+        slug = slug.strip("-")
         return slug
 
     class Meta:
         model = Anime
         fields = [
-            'id', 'title_ru', 'title_en', 'title_jp',
-            'kind', 'episodes', 'year', 'score', 'status',
-            'poster_url', 'poster_image_url', 'anime_slug',
-            'franchise_order', 'kodik_link',
+            "id",
+            "title_ru",
+            "title_en",
+            "title_jp",
+            "kind",
+            "episodes",
+            "year",
+            "score",
+            "status",
+            "poster_url",
+            "poster_image_url",
+            "anime_slug",
+            "franchise_order",
+            "kodik_link",
         ]
 
 
 class FranchiseSerializer(serializers.ModelSerializer):
     """Список франшиз для каталога"""
+
     poster_image_url = serializers.SerializerMethodField()
     parts_count = serializers.SerializerMethodField()
     year_range = serializers.SerializerMethodField()
@@ -377,9 +467,8 @@ class FranchiseSerializer(serializers.ModelSerializer):
     all_posters = serializers.SerializerMethodField()
 
     def get_poster_image_url(self, obj):
-        if obj.poster and hasattr(obj.poster, 'url'):
-            return obj.poster.url
-        return obj.poster_url or ''
+        # Используем property из модели Franchise
+        return obj.poster_image_url
 
     def get_parts_count(self, obj):
         """Количество частей во франшизе"""
@@ -420,40 +509,51 @@ class FranchiseSerializer(serializers.ModelSerializer):
 
     def get_all_posters(self, obj):
         """Список постеров всех частей для прокрутки"""
-        entries = obj.entries.all().order_by('franchise_order')
+        entries = obj.entries.all().order_by("franchise_order")
         posters = []
         for entry in entries:
-            if entry.poster and hasattr(entry.poster, 'url'):
+            if entry.poster and hasattr(entry.poster, "url"):
                 posters.append(entry.poster.url)
             elif entry.poster_url:
                 posters.append(entry.poster_url)
         return posters
 
+    def get_poster_image_url(self, obj):
+        if obj.poster and hasattr(obj.poster, "url"):
+            return obj.poster.url
+        if obj.poster_url:
+            return obj.poster_url
+        # Если нет постера франшизы, берём постер первого аниме
+        first_entry = (
+            obj.entries.filter(poster_url__isnull=False).exclude(poster_url="").first()
+        )
+        if first_entry:
+            if first_entry.poster and hasattr(first_entry.poster, "url"):
+                return first_entry.poster.url
+            return first_entry.poster_url
+        return ""
+
     class Meta:
         model = Franchise
         fields = [
-            'id', 'name', 'slug', 'description',
-            'poster_url', 'poster_image_url',
-            'score', 'year_start', 'year_end',
-            'parts_count', 'year_range', 'avg_score', 'all_genres', 'all_posters',
-            'created_at', 'updated_at',
+            "id",
+            "name",
+            "slug",
+            "description",
+            "poster_url",
+            "poster_image_url",
+            "score",
+            "year_start",
+            "year_end",
+            "entries",
+            "parts_count",
+            "year_range",
+            "avg_score",
+            "all_genres",
+            "all_posters",
+            "created_at",
+            "updated_at",
         ]
-
-
-class FranchiseDetailSerializer(serializers.ModelSerializer):
-    """Детальная страница франшизы со всеми энтриями"""
-    poster_image_url = serializers.SerializerMethodField()
-    entries = FranchiseEntrySerializer(many=True, read_only=True)
-    parts_count = serializers.SerializerMethodField()
-    year_range = serializers.SerializerMethodField()
-    avg_score = serializers.SerializerMethodField()
-    all_genres = serializers.SerializerMethodField()
-    all_posters = serializers.SerializerMethodField()
-
-    def get_poster_image_url(self, obj):
-        if obj.poster and hasattr(obj.poster, 'url'):
-            return obj.poster.url
-        return obj.poster_url or ''
 
     def get_parts_count(self, obj):
         return obj.entries.count()
@@ -489,10 +589,10 @@ class FranchiseDetailSerializer(serializers.ModelSerializer):
         return list(genres)
 
     def get_all_posters(self, obj):
-        entries = obj.entries.all().order_by('franchise_order')
+        entries = obj.entries.all().order_by("franchise_order")
         posters = []
         for entry in entries:
-            if entry.poster and hasattr(entry.poster, 'url'):
+            if entry.poster and hasattr(entry.poster, "url"):
                 posters.append(entry.poster.url)
             elif entry.poster_url:
                 posters.append(entry.poster_url)
@@ -501,9 +601,21 @@ class FranchiseDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Franchise
         fields = [
-            'id', 'name', 'slug', 'description',
-            'poster_url', 'poster_image_url',
-            'score', 'year_start', 'year_end',
-            'entries', 'parts_count', 'year_range', 'avg_score', 'all_genres', 'all_posters',
-            'created_at', 'updated_at',
+            "id",
+            "name",
+            "slug",
+            "description",
+            "poster_url",
+            "poster_image_url",
+            "score",
+            "year_start",
+            "year_end",
+            "entries",
+            "parts_count",
+            "year_range",
+            "avg_score",
+            "all_genres",
+            "all_posters",
+            "created_at",
+            "updated_at",
         ]

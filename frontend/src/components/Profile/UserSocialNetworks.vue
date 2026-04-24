@@ -15,66 +15,13 @@
       </div>
 
       <div v-else class="social-grid">
-        <!-- Website -->
-        <div v-if="user.website" class="social-item">
-          <div class="social-icon">🌐</div>
+        <!-- Social links from social_links array -->
+        <div v-for="(link, index) in user.social_links" :key="index" class="social-item">
+          <div class="social-icon">🔗</div>
           <div class="social-info">
-            <h3>Сайт</h3>
-            <a :href="formatUrl(user.website)" target="_blank" rel="noopener noreferrer" class="social-link">
-              {{ user.website }}
-            </a>
-          </div>
-        </div>
-
-        <!-- VK -->
-        <div v-if="user.vk_profile" class="social-item">
-          <div class="social-icon"> <SakuraIcon name="message" /> </div>
-          <div class="social-info">
-            <h3>ВКонтакте</h3>
-            <a :href="`https://vk.com/${user.vk_profile}`" target="_blank" rel="noopener noreferrer" class="social-link">
-              @{{ user.vk_profile }}
-            </a>
-          </div>
-        </div>
-
-        <!-- Telegram -->
-        <div v-if="user.telegram" class="social-item">
-          <div class="social-icon"> <SakuraIcon name="plane" /> </div>
-          <div class="social-info">
-            <h3>Telegram</h3>
-            <a :href="`https://t.me/${user.telegram}`" target="_blank" rel="noopener noreferrer" class="social-link">
-              @{{ user.telegram }}
-            </a>
-          </div>
-        </div>
-
-        <!-- GitHub -->
-        <div v-if="user.github" class="social-item">
-          <div class="social-icon"> <SakuraIcon name="laptop" /> </div>
-          <div class="social-info">
-            <h3>GitHub</h3>
-            <a :href="`https://github.com/${user.github}`" target="_blank" rel="noopener noreferrer" class="social-link">
-              @{{ user.github }}
-            </a>
-          </div>
-        </div>
-
-        <!-- Discord -->
-        <div v-if="user.discord" class="social-item">
-          <div class="social-icon"> <SakuraIcon name="gamepad" /> </div>
-          <div class="social-info">
-            <h3>Discord</h3>
-            <span class="social-text">{{ user.discord }}</span>
-          </div>
-        </div>
-
-        <!-- Twitter/X -->
-        <div v-if="user.twitter" class="social-item">
-          <div class="social-icon"> <SakuraIcon name="bird" /> </div>
-          <div class="social-info">
-            <h3>Twitter / X</h3>
-            <a :href="`https://twitter.com/${user.twitter}`" target="_blank" rel="noopener noreferrer" class="social-link">
-              @{{ user.twitter }}
+            <h3>{{ link.name || 'Ссылка' }}</h3>
+            <a :href="formatUrl(link.url)" target="_blank" rel="noopener noreferrer" class="social-link">
+              {{ link.url }}
             </a>
           </div>
         </div>
@@ -106,12 +53,7 @@ defineEmits<{
 }>()
 
 const hasNoSocialNetworks = computed(() => {
-  return !props.user?.website && 
-         !props.user?.vk_profile && 
-         !props.user?.telegram && 
-         !props.user?.github && 
-         !props.user?.discord && 
-         !props.user?.twitter
+  return !(props.user?.social_links && Array.isArray(props.user.social_links) && props.user.social_links.length > 0)
 })
 
 const formatUrl = (url: string) => {

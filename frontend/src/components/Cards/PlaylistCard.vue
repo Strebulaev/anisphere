@@ -189,6 +189,7 @@ const handleImageError = (event: Event) => {
             v-if="poster.url"
             :src="getMediaUrl(poster.url)"
             :alt="poster.title"
+            loading="lazy"
             @error="handleImageError"
           />
           <div v-else class="strip-placeholder">
@@ -291,6 +292,7 @@ const handleImageError = (event: Event) => {
           :src="getMediaUrl(author.avatar_url)"
           :alt="author.username"
           class="author-avatar"
+          loading="lazy"
           @error="(e: Event) => ((e.target as HTMLImageElement).style.display = 'none')"
         />
         <div v-else class="author-avatar-ph">
@@ -489,4 +491,52 @@ const handleImageError = (event: Event) => {
 }
 .stat-item { display: flex; align-items: center; gap: 0.18rem; }
 .stat-sep { color: var(--color-divider-light); }
+
+/* ─── Мобильная адаптация ─── */
+@media (max-width: 768px) {
+  .playlist-card {
+    width: 160px;
+    height: 220px;
+  }
+
+  .playlist-cover {
+    height: 160px;
+  }
+
+  .playlist-info {
+    padding: 0.5rem;
+  }
+
+  .playlist-title {
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .author-name {
+    font-size: 0.65rem;
+  }
+
+  .playlist-stats {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .playlist-card {
+    width: 140px;
+    height: 190px;
+  }
+
+  .playlist-cover {
+    height: 140px;
+  }
+
+  .playlist-info {
+    padding: 0.45rem;
+  }
+
+  .playlist-title {
+    font-size: 0.78rem;
+  }
+}
 </style>

@@ -97,7 +97,7 @@ const loadDiscussions = async () => {
 }
 
 const goToChat = (chatId: number) => {
-  router.push(`/chat/${chatId}`)
+  router.push(`/chats/${chatId}`)
 }
 
 const formatDate = (dateString: string | undefined) => {

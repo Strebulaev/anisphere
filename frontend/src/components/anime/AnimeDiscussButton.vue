@@ -56,7 +56,7 @@ const handleDiscuss = async () => {
     }
 
     // Перенаправляем в чат
-    router.push(`/chat/${discussionGroup.id}`)
+    router.push(`/chats/${discussionGroup.id}`)
   } catch (error: any) {
     console.error('Error handling discuss:', error)
     alert('Не удалось открыть обсуждение: ' + (error.response?.data?.detail || error.message))

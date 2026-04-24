@@ -176,37 +176,10 @@ export function useAdBlocker() {
 
   /**
    * Проверка премиум статуса пользователя
-   * ТЕПЕРЬ ВСЕГДА ВОЗВРАЩАЕТ TRUE - весь функционал бесплатный
+   * AdBlocker доступен ВСЕМ пользователям
    */
   const isPremium = (): boolean => {
-    // ========================================================================
-    // ИЗМЕНЕНО: Теперь все пользователи имеют премиум доступ
-    // ========================================================================
-    
-    // Проверка через auth store (резерв)
-    if (authStore.user?.is_premium === true) {
-      return true
-    }
-    
-    // Проверка через subscription store (резерв)
-    if (subscriptionStore?.isActive) {
-      return true
-    }
-    
-    // Проверка через localStorage (резерв)
-    try {
-      const userData = localStorage.getItem('user')
-      if (userData) {
-        const user = JSON.parse(userData)
-        if (user?.is_premium === true) {
-          return true
-        }
-      }
-    } catch (e) {
-      // Игнорируем ошибки парсинга
-    }
-    
-    // ВСЕГДА ВОЗВРАЩАЕМ TRUE - весь функционал бесплатный
+    // AdBlocker доступен всем, всегда возвращаем true
     return true
   }
 
@@ -647,18 +620,9 @@ export function useAdBlocker() {
   /**
    * Основная функция инициализации AdBlocker
    * Запускает все методы блокировки рекламы
-   * ТЕПЕРЬ ДОСТУПНО ВСЕМ ПОЛЬЗОВАТЕЛЯМ БЕСПЛАТНО
+   * Доступно ВСЕМ пользователям
    */
   const init = () => {
-    // ========================================================================
-    // ИЗМЕНЕНО: Проверка отключена - AdBlocker доступен всем
-    // ========================================================================
-    // if (!isPremium()) {
-    //   console.log('[AdBlock] ⚠️ User is not premium, ad block disabled')
-    //   window.KODIK_AD_BLOCKER_ACTIVE = false
-    //   return
-    // }
-
     console.log('[AdBlock] 🛡️ === ACTIVATING AD BLOCKER (FREE FOR ALL) ===')
     window.KODIK_AD_BLOCKER_ACTIVE = true
     

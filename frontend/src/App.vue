@@ -100,7 +100,12 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const closeFloatingPlayer = () => {
+const closeFloatingPlayer = (returnTime?: number) => {
+  // Если есть время возврата, обновляем startTime для синхронизации
+  if (returnTime !== undefined && returnTime > 0) {
+    floatingPlayerState.startTime = returnTime
+  }
+  
   floatingPlayerState.show = false
   localStorage.removeItem('floating_player_data')
   localStorage.setItem('floating_player_open', '')

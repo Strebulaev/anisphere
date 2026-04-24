@@ -152,6 +152,10 @@ class Reminder(models.Model):
     repeat_weekly = models.BooleanField(default=False, verbose_name='Повторять еженедельно')
     comment = models.TextField(blank=True, verbose_name='Комментарий')
 
+    # Настройки уведомлений для этого напоминания
+    enable_sound = models.BooleanField(default=True, verbose_name='Звук уведомления')
+    enable_push = models.BooleanField(default=True, verbose_name='Пуш-уведомление')
+
     is_active = models.BooleanField(default=True, verbose_name='Активно')
     is_triggered = models.BooleanField(default=False, verbose_name='Сработало')
 

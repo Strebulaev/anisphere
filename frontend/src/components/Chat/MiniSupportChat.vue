@@ -35,13 +35,13 @@
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 <line x1="9" y1="10" x2="15" y2="10"/>
               </svg>
-              <p>Есть вопрос? Напишите нам!</p>
+              <p>Есть вопрос, идея или нашли баг/недоработку? Напишите нам!</p>
               <span>Ответим в течение дня</span>
             </div>
             <div class="mc-form">
               <textarea
                 v-model="newMessage"
-                placeholder="Опишите вашу проблему или вопрос..."
+                placeholder="Опишите вашу проблему, вопрос, идею..."
                 rows="3"
                 class="mc-textarea"
                 @keydown.enter.exact.prevent="submitNewTicket"
@@ -123,9 +123,10 @@
     <!-- Кнопка FAB (отдельный Transition) -->
     <Transition name="fab">
       <button
-        v-if="!isOpen"
+        v-if="!isOpen && !isHidden"
         class="mini-chat-fab"
         @click="openChat"
+        @contextmenu.prevent="showFabContextMenu"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -133,11 +134,28 @@
         <span v-if="unreadCount > 0" class="fab-badge">{{ unreadCount }}</span>
       </button>
     </Transition>
+
+    <!-- Контекстное меню для кнопки FAB -->
+    <Transition name="context-menu">
+      <div
+        v-if="showContextMenu"
+        class="fab-context-menu"
+        :style="{ top: contextMenuY + 'px', left: contextMenuX + 'px' }"
+      >
+        <button class="context-menu-item" @click="hideFab">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Скрыть кнопку
+        </button>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import supportApi, { type SupportTicket, type SupportMessage } from '@/api/support'
 
@@ -148,6 +166,7 @@ const isMinimized = ref(false)
 const isLoading = ref(false)
 const isLoadingMessages = ref(false)
 const isSending = ref(false)
+const isHidden = ref(false)
 
 const activeTicket = ref<SupportTicket | null>(null)
 const messages = ref<SupportMessage[]>([])
@@ -157,11 +176,16 @@ const newMessage = ref('')
 const replyMessage = ref('')
 const unreadCount = ref(0)
 
+const showContextMenu = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+
 const currentUserId = computed(() => authStore.user?.id || 0)
 
 const openChat = async () => {
   isOpen.value = true
   isMinimized.value = false
+  isHidden.value = false
   await loadActiveTicket()
 }
 
@@ -171,6 +195,23 @@ const closeChat = () => {
 
 const toggleMinimize = () => {
   isMinimized.value = !isMinimized.value
+}
+
+const showFabContextMenu = (event: MouseEvent) => {
+  event.preventDefault()
+  contextMenuX.value = event.clientX
+  contextMenuY.value = event.clientY
+  showContextMenu.value = true
+}
+
+const hideFab = () => {
+  isHidden.value = true
+  showContextMenu.value = false
+}
+
+// Закрыть контекстное меню при клике вне
+const closeContextMenu = () => {
+  showContextMenu.value = false
 }
 
 const loadActiveTicket = async () => {
@@ -217,6 +258,10 @@ const submitNewTicket = async () => {
     newMessage.value = ''
   } catch (error: any) {
     console.error('Error creating ticket:', error)
+    // Если ошибка, показываем сообщение
+    if (error.response?.status === 400) {
+      console.error('Validation error:', error.response.data)
+    }
   } finally {
     isSending.value = false
   }
@@ -230,8 +275,11 @@ const sendReply = async () => {
     await supportApi.sendMessage(activeTicket.value.id, replyMessage.value.trim())
     await loadMessages()
     replyMessage.value = ''
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending message:', error)
+    if (error.response?.status === 400) {
+      console.error('Validation error:', error.response.data)
+    }
   } finally {
     isSending.value = false
   }
@@ -299,10 +347,17 @@ watch(isOpen, (newVal) => {
   }
 })
 
+// Закрыть контекстное меню при клике вне
+document.addEventListener('click', closeContextMenu)
+
 onMounted(() => {
   if (isOpen.value) {
     startPolling()
   }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeContextMenu)
 })
 </script>
 
@@ -773,20 +828,73 @@ onMounted(() => {
   transform: scale(0.5);
 }
 
+/* Context Menu */
+.fab-context-menu {
+  position: fixed;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  z-index: 100000;
+  min-width: 140px;
+  padding: 8px 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s var(--ease-petal);
+}
+
+.context-menu-item:hover {
+  background: var(--surface-4);
+  color: var(--danger);
+}
+
+.context-menu-enter-active,
+.context-menu-leave-active {
+  transition: all 0.2s var(--ease-bloom);
+}
+
+.context-menu-enter-from,
+.context-menu-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(-10px);
+}
+
 /* Responsive */
 @media (max-width: 480px) {
   .mini-chat {
-    width: calc(100vw - 32px);
-    right: 16px;
+    width: calc(100vw - 24px);
+    right: 12px;
     left: auto;
-    bottom: 16px;
+    bottom: 12px;
+    max-height: calc(100vh - 100px);
   }
   
   .mini-chat-fab {
-    right: 16px;
-    bottom: 16px;
-    width: 44px;
-    height: 44px;
+    right: 12px;
+    bottom: 12px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .mc-content {
+    height: 350px;
+  }
+
+  .mc-textarea,
+  .mc-reply-input {
+    font-size: 14px; /* Предотвращает зум на iOS */
   }
 }
 </style>

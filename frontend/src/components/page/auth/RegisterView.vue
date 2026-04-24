@@ -219,7 +219,7 @@
   <style scoped>
   .auth-page {
     min-height: 100vh;
-    background: linear-gradient(135deg, #222222 0%, #222222 100%);
+    background: linear-gradient(135deg, #0f0a19 0%, #0f0a19 100%);
   }
 
   .auth-container {
@@ -404,7 +404,7 @@
     flex: 1;
     padding: 0.5rem;
     border: none;
-    background: #222222;
+    background: #0f0a19;
     color: #6b7280;
     font-size: 0.875rem;
     cursor: pointer;

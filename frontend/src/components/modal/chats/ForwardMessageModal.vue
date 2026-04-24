@@ -2,10 +2,10 @@
   <Teleport to="body">
     <div v-if="isOpen" class="modal-overlay" @click="close">
       <div class="modal-content" @click.stop>
-        <div class="modal-header">
+        <!-- <div class="modal-header">
           <h3>Переслать сообщение</h3>
           <button class="close-btn" @click="close">×</button>
-        </div>
+        </div> -->
 
         <div class="modal-body">
           <div v-if="messageToForward" class="message-preview">
@@ -58,13 +58,13 @@
 
           <div class="modal-actions">
             <button class="btn-cancel" @click="close">Отмена</button>
-            <button
+            <!-- <button
               class="btn-forward"
               @click="forwardMessage"
               :disabled="!selectedChatId || loading"
             >
               {{ loading ? 'Пересылка...' : 'Переслать' }}
-            </button>
+            </button> -->
           </div>
         </div>
       </div>

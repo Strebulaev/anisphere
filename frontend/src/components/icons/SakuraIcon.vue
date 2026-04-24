@@ -175,7 +175,9 @@ defineProps<{
 
     <!-- Корона -->
     <template v-else-if="name === 'crown'">
-      <path d="M2 17l3-7 5 4 2-6 2 6 5-4 3 7h-16z" fill="currentColor" />
+      <path d="M5 16L3 5l5.5 4L12 4l3.5 5L21 5l-2 11H5z" fill="currentColor" />
+      <circle cx="8" cy="16" r="1" fill="currentColor" />
+      <circle cx="16" cy="16" r="1" fill="currentColor" />
     </template>
 
     <!-- Бег -->

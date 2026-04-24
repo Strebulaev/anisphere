@@ -18,6 +18,8 @@ export interface Reminder {
   reminder_time: string
   repeat_weekly: boolean
   comment: string
+  enable_sound: boolean
+  enable_push: boolean
   is_active: boolean
   is_triggered: boolean
   created_at: string
@@ -358,7 +360,7 @@ export const useNotificationStore = defineStore('notifications', () => {
   function connectWS(token: string) {
     if (ws && ws.readyState === WebSocket.OPEN) return
 
-    const base = import.meta.env.VITE_API_URL || 'https://anisphere.ru'
+    const base = import.meta.env.VITE_API_URL || 'https://anisphere.org'
     const wsBase = base.replace(/^https/, 'wss').replace(/^http/, 'ws')
     const url = `${wsBase}/ws/global/?token=${token}`
 

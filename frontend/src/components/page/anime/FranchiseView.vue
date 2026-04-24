@@ -102,7 +102,15 @@
 
       <!-- Список частей -->
       <div class="entries-section">
-        <h2 class="entries-title">Все части</h2>
+        <div class="entries-header">
+          <h2 class="entries-title">Все части</h2>
+          <select v-model="sortBy" class="sort-select">
+            <option value="order">По порядку</option>
+            <option value="year">По году</option>
+            <option value="episodes">По сериям</option>
+            <option value="score">По рейтингу</option>
+          </select>
+        </div>
 
         <div class="entries-grid">
           <div
@@ -224,12 +232,23 @@ interface FranchiseDetail {
 const franchise = ref<FranchiseDetail | null>(null)
 const loading   = ref(true)
 const error     = ref(false)
+const sortBy    = ref('order')
 
-const sortedEntries = computed(() =>
-  [...(franchise.value?.entries || [])].sort(
-    (a, b) => a.franchise_order - b.franchise_order || (a.year || 0) - (b.year || 0)
-  )
-)
+const sortedEntries = computed(() => {
+  const entries = [...(franchise.value?.entries || [])]
+  switch (sortBy.value) {
+    case 'year':
+      return entries.sort((a, b) => (b.year || 0) - (a.year || 0))
+    case 'episodes':
+      return entries.sort((a, b) => (b.episodes || 0) - (a.episodes || 0))
+    case 'score':
+      return entries.sort((a, b) => (b.score || 0) - (a.score || 0))
+    default:
+      return entries.sort(
+        (a, b) => a.franchise_order - b.franchise_order || (a.year || 0) - (b.year || 0)
+      )
+  }
+})
 
 const heroBg = computed(() => {
   const url = franchise.value?.poster_image_url || franchise.value?.poster_url
@@ -437,12 +456,29 @@ onMounted(load)
 /* ── Секция частей ───────────────────────────────────────── */
 /* .entries-section { } */
 
+.entries-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
 .entries-title {
   font-size: var(--text-2xl);
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 var(--space-6);
+  margin: 0;
   letter-spacing: -0.01em;
+}
+
+.sort-select {
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  cursor: pointer;
 }
 
 .entries-grid {

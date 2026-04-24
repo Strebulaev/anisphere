@@ -647,6 +647,6 @@ onMounted(async () => {
   .tabs-row { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .filters-bar { flex-direction: column; }
   .sort-select { width: 100%; }
-  .playlists-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }
+  .playlists-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.85rem; }
 }
 </style>

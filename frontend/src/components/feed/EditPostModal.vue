@@ -129,7 +129,9 @@ const savePost = async () => {
     }
 
     const { data } = await apiClient.put(`/social/posts/${props.post.id}/edit/`, payload)
-    emit('updated', data)
+    // Ответ сервера может быть {success: true, post: {...}} или просто {...}
+    const updatedPost = data.post || data
+    emit('updated', updatedPost)
   } catch (e: any) {
     alert('Ошибка при сохранении: ' + (e.response?.data?.detail || e.message))
   } finally {

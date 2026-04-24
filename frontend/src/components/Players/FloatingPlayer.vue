@@ -12,10 +12,10 @@
         }"
         :style="playerStyle"
         @mousedown="startDrag"
-        @touchstart.prevent="startDrag"
+        @touchstart="startDrag"
       >
         <!-- Заголовок с информацией -->
-        <div class="fp-header" @dblclick="toggleMinimize">
+        <div class="fp-header" @dblclick="toggleMinimize" @touchend.stop="handleHeaderTouch">
           <div class="fp-info">
             <span class="fp-title">{{ animeTitle }}</span>
             <span class="fp-episode" v-if="episodeInfo">Серия {{ episodeInfo }}</span>
@@ -130,10 +130,12 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  close: []
+  close: [time?: number]
   expand: []
   play: []
   pause: []
+  'time-update': [time: number]
+  'duration-update': [duration: number]
 }>()
 
 const router = useRouter()
@@ -146,8 +148,12 @@ const isDragging = ref(false)
 const isResizing = ref(false)
 const isFullscreen = ref(false)
 const playerReady = ref(false)
-const isVisible = ref(true) // Для отслеживания видимости вкладки
 const preserveAspectRatio = ref(true) // Сохранять пропорции при resize
+
+// Время из основного плеера на момент открытия мини-плеера
+const mainPlayerTimeAtOpen = ref(0)
+// Текущее время в мини-плеере для отправки обратно
+const floatingPlayerTime = ref(0)
 
 // Флаг для отслеживания необходимости перемотки
 const needsSeek = ref(false)
@@ -162,8 +168,8 @@ const resizeStart = ref({ x: 0, y: 0, width: 0, height: 0 })
 // Вычисляемые
 const episodeInfo = computed(() => props.episode)
 
-// Итоговая видимость с учётом состояния вкладки
-const isPlayerVisible = computed(() => props.visible && isVisible.value)
+// Плеер всегда видимый если props.visible = true (не зависит от видимости вкладки)
+const isPlayerVisible = computed(() => props.visible)
 
 const progressPercent = computed(() => {
   if (duration.value === 0) return 0
@@ -173,11 +179,30 @@ const progressPercent = computed(() => {
 const currentTime = ref(0)
 const duration = ref(0)
 
+// Синхронизация времени между мини-плеером и основным плеером
+watch(() => props.startTime, (newTime) => {
+  // При открытии мини-плеера запоминаем время из основного плеера
+  if (newTime > 0 && !playerReady.value) {
+    mainPlayerTimeAtOpen.value = newTime
+    currentTime.value = newTime
+  }
+})
+
+// Обновляем floatingPlayerTime при изменении currentTime
+watch(currentTime, (newTime) => {
+  floatingPlayerTime.value = newTime
+})
+
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
+
+// Определяем, мобильное ли устройство
+const isMobile = computed(() => {
+  return window.innerWidth <= 768
+})
 
 const playerStyle = computed(() => {
   if (isFullscreen.value) {
@@ -186,23 +211,52 @@ const playerStyle = computed(() => {
       top: '0px',
       width: '100vw',
       height: '100vh',
-      zIndex: '9999999',
       borderRadius: '0'
     }
   }
+  
+  let width = isMinimized.value ? '280px' : `${size.value.width}px`
+  let height = isMinimized.value ? '42px' : `${size.value.height}px`
+  
+  if (isMobile.value && !isMinimized.value) {
+    const maxWidth = window.innerWidth - 20
+    const currentWidth = size.value.width
+    
+    if (currentWidth > maxWidth) {
+      width = `${maxWidth}px`
+      const videoHeight = maxWidth / aspectRatio.value
+      height = `${videoHeight + HEADER_HEIGHT}px`
+    }
+  }
+  
   return {
     left: `${position.value.x}px`,
     top: `${position.value.y}px`,
-    width: isMinimized.value ? '280px' : `${size.value.width}px`,
-    height: isMinimized.value ? '42px' : `${size.value.height}px`,
-    zIndex: '999999'
+    width,
+    height
   }
 })
 
+// Обработчик touch-события для хедера (отличаем тап от драг)
+const handleHeaderTouch = (e: TouchEvent) => {
+  // Если это был короткий тап (не драг), позволяем кнопкам работать
+  if (!isDragging.value) {
+    // Ничего не делаем, позволяем событию распространиться на кнопки
+  }
+}
+  
 // Drag
 const startDrag = (e: MouseEvent | TouchEvent) => {
+  // Игнорируем клики по кнопкам
   if ((e.target as HTMLElement).closest('.fp-btn') || (e.target as HTMLElement).closest('.fp-resize-handle')) {
     return
+  }
+  
+  // На мобильных устройствах - проверяем, что это не тап по контенту
+  const isTouch = 'touches' in e
+  if (isTouch) {
+    // Запоминаем время начала касания
+    (e as TouchEvent).touches[0]?.target
   }
   
   isDragging.value = true
@@ -217,12 +271,13 @@ const startDrag = (e: MouseEvent | TouchEvent) => {
 
   document.addEventListener('mousemove', onDrag)
   document.addEventListener('mouseup', stopDrag)
-  document.addEventListener('touchmove', onDrag)
+  document.addEventListener('touchmove', onDrag, { passive: false })
   document.addEventListener('touchend', stopDrag)
 }
 
 const onDrag = (e: MouseEvent | TouchEvent) => {
   if (!isDragging.value) return
+  e.preventDefault()
 
   const touch = 'touches' in e ? e.touches[0] : null
   const clientX = touch ? touch.clientX : (e as MouseEvent).clientX
@@ -251,6 +306,8 @@ const stopDrag = () => {
 
 // Resize
 const startResize = (e: MouseEvent | TouchEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
   isResizing.value = true
   const touch = 'touches' in e ? e.touches[0] : null
   const clientX = touch ? touch.clientX : (e as MouseEvent).clientX
@@ -265,7 +322,7 @@ const startResize = (e: MouseEvent | TouchEvent) => {
 
   document.addEventListener('mousemove', onResize)
   document.addEventListener('mouseup', stopResize)
-  document.addEventListener('touchmove', onResize)
+  document.addEventListener('touchmove', onResize, { passive: false })
   document.addEventListener('touchend', stopResize)
 }
 
@@ -273,6 +330,8 @@ const HEADER_HEIGHT = 42 // Высота заголовка
 
 const onResize = (e: MouseEvent | TouchEvent) => {
   if (!isResizing.value) return
+  e.preventDefault()
+  e.stopPropagation()
 
   const touch = 'touches' in e ? e.touches[0] : null
   const clientX = touch ? touch.clientX : (e as MouseEvent).clientX
@@ -281,7 +340,12 @@ const onResize = (e: MouseEvent | TouchEvent) => {
   const deltaX = clientX - resizeStart.value.x
   const deltaY = clientY - resizeStart.value.y
 
-  let newWidth = Math.max(320, Math.min(window.innerWidth - position.value.x, resizeStart.value.width + deltaX))
+  // Максимальная ширина на мобильных
+  const maxWidth = isMobile.value 
+    ? window.innerWidth - 20 
+    : window.innerWidth - position.value.x
+
+  let newWidth = Math.max(320, Math.min(maxWidth, resizeStart.value.width + deltaX))
   let newHeight: number
 
   if (preserveAspectRatio.value) {
@@ -315,13 +379,15 @@ const toggleMinimize = () => {
 }
 
 const close = () => {
-  emit('close')
+  // Передаем текущее время обратно в основной плеер
+  const timeToReturn = floatingPlayerTime.value || currentTime.value
+  emit('close', timeToReturn)
 }
 
 const goToWatch = () => {
   if (props.animeId) {
     router.push(`/anime/${props.animeId}/watch?episode=${props.episode}`)
-    emit('close')
+    emit('close', floatingPlayerTime.value)
   }
 }
 
@@ -369,11 +435,13 @@ const handlePlayerMessage = (event: MessageEvent) => {
     case 'kodik_player_time_update':
       if (typeof value === 'number') {
         currentTime.value = value
+        emit('time-update', value)
       }
       break
     case 'kodik_player_duration_update':
       if (typeof value === 'number') {
         duration.value = value
+        emit('duration-update', value)
         // После получения duration делаем перемотку если нужно
         if (needsSeek.value && props.startTime > 0) {
           setTimeout(() => {
@@ -422,12 +490,8 @@ const saveSize = () => {
   }))
 }
 
-// Убрано: обработка видимости вкладки - плеер теперь не исчезает при переключении вкладок
-// const handleVisibilityChange = () => { ... }
-
 onMounted(() => {
   document.addEventListener('fullscreenchange', handleFullscreenChange)
-  // Убрано: document.addEventListener('visibilitychange', handleVisibilityChange)
   window.addEventListener('message', handlePlayerMessage)
   
   const saved = localStorage.getItem('floating_player_state')
@@ -436,22 +500,17 @@ onMounted(() => {
       const parsed = JSON.parse(saved)
       position.value = parsed.position || position.value
       size.value = parsed.size || size.value
-      // Загружаем сохранённое соотношение сторон (видео без заголовка)
       if (parsed.aspectRatio) {
         aspectRatio.value = parsed.aspectRatio
       } else if (size.value.width > 0 && size.value.height > HEADER_HEIGHT) {
-        // Рассчитываем из сохранённого размера
         aspectRatio.value = size.value.width / (size.value.height - HEADER_HEIGHT)
       }
     } catch {}
   }
-  
-  isVisible.value = true
 })
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
-  // Убрано: document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('message', handlePlayerMessage)
 })
 
@@ -471,13 +530,29 @@ watch(() => props.episode, () => {
 })
 
 // Следим за изменением startTime
-watch(() => props.startTime, (newTime) => {
-  if (newTime > 0 && playerReady.value && kodikIframe.value?.contentWindow) {
-    // Если плеер уже готов - сразу перематываем
-    sendMessage({ key: 'kodik_player_api', value: { method: 'seek', seconds: newTime } })
-  } else if (newTime > 0) {
-    // Иначе ждём когда плеер будет готов
+watch(() => props.startTime, (newTime, oldTime) => {
+  // При открытии мини-плеера - ставим время как в основном плеере
+  if (newTime > 0 && oldTime === 0 && !playerReady.value) {
+    mainPlayerTimeAtOpen.value = newTime
+    currentTime.value = newTime
     needsSeek.value = true
+  }
+  
+  // Если плеер уже готов и это не открытие - перематываем
+  if (newTime > 0 && playerReady.value && kodikIframe.value?.contentWindow && newTime !== oldTime && oldTime !== 0) {
+    sendMessage({ key: 'kodik_player_api', value: { method: 'seek', seconds: newTime } })
+  }
+})
+
+// Следим за видимостью - при показе мини-плеера ставим видео на паузу в основном плеере
+watch(() => props.visible, (newVisible, oldVisible) => {
+  console.log('[FloatingPlayer] Visible changed:', { new: newVisible, old: oldVisible, playerLink: props.playerLink })
+  if (newVisible && !oldVisible && newVisible) {
+    // Мини-плеер только что открылся - запоминаем время из основного плеера
+    mainPlayerTimeAtOpen.value = props.startTime || 0
+    currentTime.value = mainPlayerTimeAtOpen.value
+    needsSeek.value = true
+    console.log('[FloatingPlayer] Player opened, position:', position.value, 'size:', size.value)
   }
 })
 </script>
@@ -492,7 +567,13 @@ watch(() => props.startTime, (newTime) => {
   transition: width 0.2s ease, height 0.2s ease;
   cursor: default;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  z-index: 10001;
+  /* z-index должен быть самым высоким */
+  z-index: 999999 !important;
+  /* Гарантируем что плеер виден */
+  display: flex !important;
+  flex-direction: column;
+  min-width: 320px;
+  min-height: 200px;
 }
 
 .floating-player.is-dragging {
@@ -517,6 +598,10 @@ watch(() => props.startTime, (newTime) => {
   background: rgba(0, 0, 0, 0.4);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  z-index: 20;
+  position: relative;
 }
 
 .fp-info {
@@ -559,6 +644,13 @@ watch(() => props.startTime, (newTime) => {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.fp-btn:active {
+  transform: scale(0.9);
+  opacity: 0.8;
 }
 
 .fp-btn:hover {
@@ -581,18 +673,28 @@ watch(() => props.startTime, (newTime) => {
   display: flex;
   flex-direction: column;
   height: calc(100% - 42px);
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .fp-video-wrapper {
   flex: 1;
   background: #000;
   min-height: 0;
+  position: relative;
+  pointer-events: auto;
 }
 
 .kodik-iframe {
   width: 100%;
   height: 100%;
   border: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  /* Гарантируем что iframe виден */
+  display: block;
+  position: relative;
+  z-index: 10;
 }
 
 .fp-no-video {
@@ -634,11 +736,29 @@ watch(() => props.startTime, (newTime) => {
   color: #555;
   opacity: 0.5;
   transition: opacity 0.15s;
+  z-index: 10;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fp-resize-handle::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  z-index: -1;
 }
 
 .fp-resize-handle:hover {
   opacity: 1;
   color: #888;
+}
+
+.fp-resize-handle:active {
+  opacity: 1;
+  color: #4ade80;
 }
 
 .fp-resize-handle.fp-resize-hidden {
@@ -655,5 +775,70 @@ watch(() => props.startTime, (newTime) => {
 .float-leave-to {
   opacity: 0;
   transform: scale(0.9);
+}
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+  .floating-player {
+    max-width: calc(100vw - 20px) !important;
+    touch-action: none; /* Предотвращаем скролл при драге */
+  }
+  
+  .fp-header {
+    padding: 8px 10px;
+    min-height: 44px; /* Минимальная высота для touch */
+  }
+  
+  .fp-title {
+    font-size: 13px;
+  }
+  
+  .fp-episode {
+    font-size: 11px;
+  }
+  
+  .fp-controls {
+    gap: 4px;
+  }
+  
+  .fp-btn {
+    width: 32px; /* Увеличенные кнопки для touch */
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+  
+  .fp-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .fp-resize-handle {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Очень маленькие экраны */
+@media (max-width: 480px) {
+  .fp-header {
+    padding: 6px 8px;
+  }
+  
+  .fp-controls .fp-btn:first-child {
+    display: none; /* Скрываем кнопку пропорций на очень маленьких экранах */
+  }
+  
+  .fp-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+  
+  .fp-btn svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 </style>

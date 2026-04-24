@@ -781,6 +781,24 @@
               </div>
             </section>
 
+            <!-- ============ УЧАСТИЕ ============ -->
+            <section v-if="activeSection === 'participation' && chatType === 'group'" class="settings-section">
+              <div class="section-header"><h2><SakuraIcon name="users" /> Участие в группе</h2></div>
+
+              <div class="settings-group-card danger-card">
+                <div class="sgc-title" style="color:#ef4444"><SakuraIcon name="warning" />️ Действия</div>
+                <div class="danger-list">
+                  <div class="danger-row">
+                    <div class="dr-info">
+                      <span class="dr-title">Выйти из группы</span>
+                      <span class="dr-desc">Покинуть эту групповую беседу</span>
+                    </div>
+                    <button @click="leaveGroup" class="danger-btn danger-btn--critical">Выйти</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
           </template>
         </div>
 
@@ -980,6 +998,7 @@ const availableSections = computed(() => {
     s.push({ id: 'avatar', name: 'Аватар', icon: '🧑' })
   }
   if (props.chatType === 'private') s.push({ id: 'privacy', name: 'Приватность', icon: '🔐' })
+  if (props.chatType === 'group') s.push({ id: 'participation', name: 'Участие', icon: '👥' })
   return s
 })
 
@@ -1447,6 +1466,20 @@ async function deleteChat() {
   if (!confirm('Удалить чат? Это действие необратимо!')) return
   showToast('Чат удалён')
   emit('close')
+}
+
+async function leaveGroup() {
+  if (!confirm('Выйти из этой группы? Вы больше не сможете видеть сообщения.')) return
+  
+  try {
+    await apiClient.post(`/social/group-chats/${props.chatId}/leave_group_chat/`)
+    showToast('Вы покинули группу', 'success')
+    emit('close')
+    emit('settings-saved', { type: 'leave' })
+  } catch (error) {
+    console.error('Error leaving group:', error)
+    showToast('Ошибка при выходе из группы', 'error')
+  }
 }
 
 async function saveGroupSettings() {

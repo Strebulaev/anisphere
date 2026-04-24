@@ -6,7 +6,7 @@
       <div class="page-header">
         <h1><SakuraIcon name="bell" /> Уведомления</h1>
         <div class="header-actions">
-          <router-link to="/notifications/settings" class="btn-action btn-dim" title="Настройки"><SakuraIcon name="settings" /> Настройки</router-link>
+          <!-- <router-link to="/notifications/settings" class="btn-action btn-dim" title="Настройки"><SakuraIcon name="settings" /> Настройки</router-link> -->
           <button
             v-if="store.unreadCount > 0"
             class="btn-action btn-green"
@@ -15,7 +15,7 @@
           >
             ✓ Все прочитано
           </button>
-          <button
+          <!-- <button
             class="btn-action btn-dim"
             @click="handleCleanRead"
             title="Удалить все прочитанные"
@@ -27,8 +27,8 @@
             @click="confirmDeleteAll"
             title="Удалить все (кроме важных)"
           >
-            <SakuraIcon name="trash" /> Все
-          </button>
+            <SakuraIcon name="trash" /> Все 
+          </button> -->
         </div>
       </div>
 
@@ -237,13 +237,13 @@ const tabs = [
 
 const notificationFilters = [
   { key: 'all',             icon: 'bell', label: 'Все' },
-  { key: 'like',            icon: 'heart', label: 'Лайки' },
-  { key: 'comment',         icon: 'message', label: 'Комментарии' },
-  { key: 'follow',          icon: 'users', label: 'Подписки' },
-  { key: 'mention',         icon: 'at',  label: 'Упоминания' },
-  { key: 'contest_win',     icon: 'crown', label: 'Конкурсы' },
-  { key: 'system',          icon: 'settings', label: 'Системные' },
-  { key: 'warning',         icon: 'alert-triangle', label: 'Предупреждения' },
+  // { key: 'like',            icon: 'heart', label: 'Лайки' },
+  // { key: 'comment',         icon: 'message', label: 'Комментарии' },
+  // { key: 'follow',          icon: 'users', label: 'Подписки' },
+  // { key: 'mention',         icon: 'at',  label: 'Упоминания' },
+  // { key: 'contest_win',     icon: 'crown', label: 'Конкурсы' },
+  // { key: 'system',          icon: 'settings', label: 'Системные' },
+  // { key: 'warning',         icon: 'alert-triangle', label: 'Предупреждения' },
 ]
 
 // ── Icons / Colors ─────────────────────────────────────────────────

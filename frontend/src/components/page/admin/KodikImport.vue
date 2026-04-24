@@ -567,7 +567,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   padding: 0.5rem;
-  background: #222222;
+  background: #0f0a19;
   border-radius: 0.375rem;
 }
 
@@ -640,7 +640,7 @@ onMounted(() => {
 }
 
 .filter-card {
-  background: #222222;
+  background: #0f0a19;
   border-radius: 0.5rem;
   padding: 1rem;
 }

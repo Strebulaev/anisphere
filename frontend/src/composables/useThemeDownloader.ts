@@ -29,6 +29,7 @@ export interface CustomSegmentOpts {
   label?: string
   animeTitle?: string
   format?: 'video' | 'audio'
+  state?: any
 }
 
 export interface DownloadThemeOpts {
@@ -39,6 +40,7 @@ export interface DownloadThemeOpts {
   translationId?: string | number
   animeTitle?: string
   format?: 'video' | 'audio'
+  state?: any
 }
 
 // ── Composable ────────────────────────────────────────────────────
@@ -50,7 +52,7 @@ export function useThemeDownloader() {
 
   // Скачивает опенинг или эндинг текущей серии
   async function downloadTheme(opts: DownloadThemeOpts) {
-    const state = opts.kind === 'opening' ? openingState : endingState
+    const state = opts.state || (opts.kind === 'opening' ? openingState : endingState)
     if (state.value.loading) return
     state.value = { loading: true, progress: 10, error: '', done: false }
     
@@ -130,8 +132,9 @@ export function useThemeDownloader() {
   }
 
   async function downloadSegment(opts: CustomSegmentOpts) {
-    if (customState.value.loading) return
-    customState.value = { loading: true, progress: 10, error: '', done: false }
+    const currentState = opts.state || customState
+    if (currentState.value.loading) return
+    currentState.value = { loading: true, progress: 10, error: '', done: false }
 
     const isAudio = opts.format === 'audio'
     const extension = isAudio ? 'mp3' : 'mp4'
@@ -151,7 +154,7 @@ export function useThemeDownloader() {
       if (translationId) params.translation_id = String(translationId)
       if (isAudio) params.format = 'audio'
 
-      customState.value.progress = 20
+      currentState.value.progress = 20
 
       // Запрос к бэкенду — сервер нарезает и отдаёт файл
       const response = await apiClient.get(`/anime/${animeId}/clip/`, {
@@ -160,15 +163,15 @@ export function useThemeDownloader() {
         timeout: 360_000, // 6 минут — ffmpeg может работать долго
         onDownloadProgress: (evt) => {
           if (evt.total && evt.total > 0) {
-            customState.value.progress = 20 + Math.round((evt.loaded / evt.total) * 75)
+            currentState.value.progress = 20 + Math.round((evt.loaded / evt.total) * 75)
           } else {
             // Нет Content-Length — просто показываем анимацию
-            customState.value.progress = Math.min(90, customState.value.progress + 5)
+            currentState.value.progress = Math.min(90, currentState.value.progress + 5)
           }
         },
       })
 
-      customState.value.progress = 97
+      currentState.value.progress = 97
 
       // Определяем имя файла из заголовка или генерируем
       const disposition = response.headers['content-disposition'] || ''
@@ -189,8 +192,8 @@ export function useThemeDownloader() {
       document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 5000)
 
-      customState.value = { loading: false, progress: 100, error: '', done: true }
-      setTimeout(() => { customState.value.done = false }, 3000)
+      currentState.value = { loading: false, progress: 100, error: '', done: true }
+      setTimeout(() => { currentState.value.done = false }, 3000)
 
     } catch (err: any) {
       // Axios получил blob с ошибкой — читаем текст
@@ -202,7 +205,7 @@ export function useThemeDownloader() {
           message = parsed.error || message
         } catch { /* ignore */ }
       }
-      customState.value = { loading: false, progress: 0, error: message, done: false }
+      currentState.value = { loading: false, progress: 0, error: message, done: false }
     }
   }
 

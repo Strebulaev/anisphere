@@ -156,6 +156,41 @@
             </Transition>
           </div>
 
+          <!-- ── Секция: Уведомления ─────────────────────────── -->
+          <div class="section">
+            <div class="section-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              Уведомления
+            </div>
+
+            <div class="notification-settings">
+              <label class="notification-toggle">
+                <input v-model="enableSound" type="checkbox" class="toggle-check" />
+                <span class="toggle-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  </svg>
+                  Звук уведомления
+                </span>
+              </label>
+
+              <label class="notification-toggle">
+                <input v-model="enablePush" type="checkbox" class="toggle-check" />
+                <span class="toggle-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                  Пуш-уведомление
+                </span>
+              </label>
+            </div>
+          </div>
+
           <!-- ── Секция: Заметка ─────────────────────────────── -->
           <div class="section">
             <div class="section-label">
@@ -224,6 +259,8 @@ export interface ReminderData {
   repeatIntervalDays?: number
   endDate?: Date
   comment?: string
+  enableSound?: boolean
+  enablePush?: boolean
 }
 
 // ── Состояние ────────────────────────────────────────────────
@@ -237,6 +274,10 @@ const hasEndDate  = ref(false)
 const endDate     = ref('')
 
 const comment = ref('')
+
+// Настройки уведомлений
+const enableSound = ref(true)
+const enablePush  = ref(true)
 
 // ── Постер ───────────────────────────────────────────────────
 const animePosterUrl = computed(() => {
@@ -369,6 +410,8 @@ const handleSave = () => {
     repeatIntervalDays: repeatIntervalDays.value,
     endDate:            (hasEndDate.value && endDate.value) ? new Date(endDate.value) : undefined,
     comment:            comment.value || undefined,
+    enableSound:        enableSound.value,
+    enablePush:         enablePush.value,
   }
   emit('save', data)
   resetForm()
@@ -390,6 +433,8 @@ const resetForm = () => {
   hasEndDate.value   = false
   endDate.value      = ''
   comment.value      = ''
+  enableSound.value  = true
+  enablePush.value   = true
 }
 
 watch(() => props.show, (v) => { if (!v) resetForm() })
@@ -759,6 +804,33 @@ watch(() => props.show, (v) => { if (!v) resetForm() })
   font-size: .75rem;
   color: var(--text-tertiary);
   text-align: right;
+}
+
+/* ── Настройки уведомлений ───────────────────────────────── */
+.notification-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface-3);
+  border-radius: 10px;
+}
+
+.notification-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.notification-toggle .toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .875rem;
+  color: var(--text-secondary);
+  user-select: none;
 }
 
 /* ── Футер ───────────────────────────────────────────────── */

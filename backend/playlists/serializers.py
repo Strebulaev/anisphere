@@ -9,7 +9,7 @@ def get_full_url(url):
         return None
     if url.startswith('https://') or url.startswith('http://'):
         return url
-    base_url = getattr(settings, 'SITE_URL', 'https://anisphere.ru')
+    base_url = getattr(settings, 'SITE_URL', 'https://anisphere.org')
     if url.startswith('/media/media/'):
         url = url.replace('/media/media/', '/media/')
     return f"{base_url}{url if url.startswith('/') else '/' + url}"

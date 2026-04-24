@@ -289,7 +289,7 @@ const handleCreate = async () => {
       const chatId = response.data.id
       emit('created', chatId)
       handleClose()
-      router.push(`/chat/${chatId}`)
+      router.push(`/chats/${chatId}`)
     } else {
       const response = await apiClient.post('/social/group-chats/', {
         name: groupForm.value.name,
@@ -299,7 +299,7 @@ const handleCreate = async () => {
       const chatId = response.data.id
       emit('created', chatId)
       handleClose()
-      router.push(`/chat/${chatId}`)
+      router.push(`/chats/${chatId}`)
     }
   } catch (error: any) {
     console.error('Error creating chat:', error)

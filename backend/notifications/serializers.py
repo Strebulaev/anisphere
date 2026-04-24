@@ -45,7 +45,7 @@ class ReminderSerializer(serializers.ModelSerializer):
         model = Reminder
         fields = [
             'id', 'anime', 'anime_detail', 'reminder_time', 'repeat_weekly',
-            'comment', 'is_active', 'is_triggered', 'created_at'
+            'comment', 'enable_sound', 'enable_push', 'is_active', 'is_triggered', 'created_at'
         ]
         read_only_fields = ['id', 'is_triggered', 'created_at']
 
@@ -59,6 +59,8 @@ class ReminderCreateSerializer(serializers.Serializer):
     reminder_time = serializers.DateTimeField()
     repeat_weekly = serializers.BooleanField(default=False)
     comment = serializers.CharField(required=False, allow_blank=True, default='')
+    enable_sound = serializers.BooleanField(default=True, required=False)
+    enable_push = serializers.BooleanField(default=True, required=False)
 
 
 class NotificationSettingSerializer(serializers.ModelSerializer):

@@ -126,9 +126,9 @@ const goToMessage = (message: any) => {
   emit('message-selected', message.id)
   close()
   if (message.chat_id) {
-    router.push(`/chat/${message.chat_id}`)
+    router.push(`/chats/${message.chat_id}`)
   } else if (message.private_chat_id) {
-    router.push(`/chat/${message.private_chat_id}`)
+    router.push(`/chats/${message.private_chat_id}`)
   }
 }
 

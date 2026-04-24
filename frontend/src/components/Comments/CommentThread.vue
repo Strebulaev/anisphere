@@ -126,12 +126,16 @@ const submitComment = async () => {
 
 const handleReply = async (replyText: string, parentId: number) => {
   try {
-    await api.post('/social/comments/', {
+    const response = await api.post('/social/comments/', {
       text: replyText,
       parent: parentId,
       content_type: props.contentType,
       object_id: props.objectId
     })
+    // Immediately add the new comment to the list with is_reply: true
+    const newComment = { ...response.data, is_reply: true }
+    comments.value.push(newComment)
+    // Then fetch to update the tree
     await fetchComments()
   } catch (error) {
     console.error('Failed to reply to comment:', error)

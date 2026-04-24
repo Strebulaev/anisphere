@@ -184,6 +184,14 @@ export const useChatFoldersStore = defineStore('chatFolders', () => {
         return false
       }
 
+      // Особая логика для папки "Обсуждения"
+      if (folder.id === -4 && rules?.include_anime_discussions) {
+        if (chat.type === 'group' && chat.anime_id) {
+          return true
+        }
+        return false
+      }
+
       // Проверка исключающих ключевых слов
       if (rules?.exclude_keywords && rules.exclude_keywords.length > 0) {
         const chatName = chat.type === 'private' 

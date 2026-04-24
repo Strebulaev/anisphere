@@ -241,13 +241,23 @@ def pin_post(request, post_id):
 @permission_classes([IsAuthenticated])
 def unpin_post(request, post_id):
     """Открепить пост - работает без ограничения по времени"""
-    post = get_object_or_404(Post, id=post_id, author=request.user)
+    import logging
+    logger = logging.getLogger(__name__)
     
-    post.is_pinned = False
-    post.pinned_at = None
-    post.save(update_fields=['is_pinned', 'pinned_at'])
-    
-    return Response({'success': True, 'message': 'Пост откреплен', 'is_pinned': False})
+    try:
+        post = get_object_or_404(Post, id=post_id, author=request.user)
+        
+        if not post.is_pinned:
+            return Response({'success': True, 'message': 'Пост уже откреплён', 'is_pinned': False})
+        
+        post.is_pinned = False
+        post.pinned_at = None
+        post.save(update_fields=['is_pinned', 'pinned_at'])
+        
+        return Response({'success': True, 'message': 'Пост откреплён', 'is_pinned': False})
+    except Exception as e:
+        logger.error(f"Error unpinning post {post_id}: {e}", exc_info=True)
+        return Response({'error': 'Ошибка при откреплении поста', 'detail': str(e)}, status=500)
 
 
 @api_view(['POST'])
@@ -374,168 +384,181 @@ def repost_post(request, post_id):
     - В группу (destination='group', target_id=group_id)
     - В чат (destination='chat', target_id=chat_id)
     """
-    original_post = get_object_or_404(Post, id=post_id)
+    import logging
+    logger = logging.getLogger(__name__)
     
-    # Проверяем действие
-    action = request.data.get('action', 'repost')  # repost, unrepost, forward
-    destination = request.data.get('destination', 'feed')  # feed, group, chat
-    
-    if action == 'unrepost':
-        # Удалить репост
-        deleted = Repost.objects.filter(
-            original_post=original_post,
-            user=request.user
-        ).delete()[0]
+    try:
+        original_post = get_object_or_404(Post, id=post_id)
         
-        if deleted:
-            original_post.reposts_count = max(0, original_post.reposts_count - 1)
-            original_post.save(update_fields=['reposts_count'])
+        # Проверяем действие
+        action = request.data.get('action', 'repost')  # repost, unrepost, forward
+        destination = request.data.get('destination', 'feed')  # feed, group, chat
         
-        return Response({'success': True, 'removed': deleted > 0, 'action': 'unrepost'})
-    
-    elif action == 'forward' or destination == 'chat':
-        # Переслать в чат
-        chat_id = request.data.get('chat_id') or request.data.get('target_id')
-        chat_type = request.data.get('chat_type', 'private')
-        message_text = request.data.get('message', '')
+        if action == 'unrepost':
+            # Удалить репост
+            deleted = Repost.objects.filter(
+                original_post=original_post,
+                user=request.user
+            ).delete()[0]
+            
+            if deleted:
+                original_post.reposts_count = max(0, original_post.reposts_count - 1)
+                original_post.save(update_fields=['reposts_count'])
+            
+            return Response({'success': True, 'removed': deleted > 0, 'action': 'unrepost'})
         
-        if not chat_id:
-            return Response({'error': 'Требуется chat_id или target_id'}, status=400)
-        
-        # Проверяем доступ к чату
-        if chat_type == 'group':
-            chat = get_object_or_404(GroupChat, id=chat_id)
-            if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
-                return Response({'error': 'Нет доступа к чату'}, status=403)
-        else:
-            chat = get_object_or_404(PrivateChat, id=chat_id)
-            if request.user not in [chat.user1, chat.user2]:
-                return Response({'error': 'Нет доступа к чату'}, status=403)
-        
-        # Создаём сообщение с постом
-        message = Message.objects.create(
-            sender=request.user,
-            text=message_text,
-            shared_post=original_post
-        )
-        
-        if chat_type == 'group':
-            message.chat = chat
-        else:
-            message.private_chat = chat
-        
-        message.save()
-        
-        # Обновляем счётчик
-        original_post.shares_count += 1
-        original_post.save(update_fields=['shares_count'])
-        
-        return Response({
-            'success': True,
-            'message_id': message.id,
-            'chat_id': chat.id,
-            'action': 'forward'
-        })
-    
-    elif destination == 'group':
-        # Репост в группу - создаём пост в группе
-        group_id = request.data.get('target_id') or request.data.get('group_id')
-        comment = request.data.get('comment', '')
-        
-        if not group_id:
-            return Response({'error': 'Требуется group_id или target_id'}, status=400)
-        
-        group = get_object_or_404(GroupChat, id=group_id)
-        
-        # Проверяем доступ к группе
-        if not ChatMember.objects.filter(chat=group, user=request.user).exists():
-            return Response({'error': 'Нет доступа к группе'}, status=403)
-        
-        # Создаём новый пост в группе как репост
-        new_post = Post.objects.create(
-            author=request.user,
-            group=group,
-            post_type='repost',
-            original_post=original_post,
-            text=comment,
-            title=original_post.title,
-            visibility='public',
-            allow_comments=True,
-        )
-        
-        # Копируем медиа если есть
-        for media in original_post.media_files.all():
-            PostMedia.objects.create(
-                post=new_post,
-                media=media.media,
-                media_type=media.media_type,
-                order=media.order
+        elif action == 'forward' or destination == 'chat':
+            # Переслать в чат
+            chat_id = request.data.get('chat_id') or request.data.get('target_id')
+            chat_type = request.data.get('chat_type', 'private')
+            message_text = request.data.get('message', '')
+            
+            if not chat_id:
+                return Response({'error': 'Требуется chat_id или target_id'}, status=400)
+            
+            # Проверяем доступ к чату
+            if chat_type == 'group':
+                chat = get_object_or_404(GroupChat, id=chat_id)
+                if not ChatMember.objects.filter(chat=chat, user=request.user).exists():
+                    return Response({'error': 'Нет доступа к чату'}, status=403)
+            else:
+                chat = get_object_or_404(PrivateChat, id=chat_id)
+                if request.user not in [chat.user1, chat.user2]:
+                    return Response({'error': 'Нет доступа к чату'}, status=403)
+            
+            # Создаём сообщение с постом
+            message = Message.objects.create(
+                sender=request.user,
+                text=message_text,
+                shared_post=original_post
             )
-        
-        # Обновляем счётчик
-        original_post.reposts_count += 1
-        original_post.save(update_fields=['reposts_count'])
-        
-        from .serializers import PostSerializer
-        return Response({
-            'success': True,
-            'post_id': new_post.id,
-            'action': 'repost_to_group',
-            'post': PostSerializer(new_post, context={'request': request}).data
-        })
-    
-    else:
-        # Обычный репост в ленту
-        if original_post.post_type == 'system':
-            return Response({'error': 'Нельзя репостнуть системный пост'}, status=400)
-        
-        if original_post.visibility == 'private':
-            return Response({'error': 'Нельзя репостнуть приватный пост'}, status=400)
-        
-        # Проверяем, не делал ли пользователь уже репост
-        existing_repost = Repost.objects.filter(
-            original_post=original_post,
-            user=request.user
-        ).first()
-        
-        if existing_repost:
+            
+            if chat_type == 'group':
+                message.chat = chat
+            else:
+                message.private_chat = chat
+            
+            message.save()
+            
+            # Обновляем счётчик
+            original_post.shares_count += 1
+            original_post.save(update_fields=['shares_count'])
+            
             return Response({
                 'success': True,
-                'repost_id': existing_repost.id,
-                'already_reposted': True,
-                'action': 'repost'
+                'message_id': message.id,
+                'chat_id': chat.id,
+                'action': 'forward'
             })
         
-        comment = request.data.get('comment', '')
+        elif destination == 'group':
+            # Репост в группу - создаём пост в группе
+            group_id = request.data.get('target_id') or request.data.get('group_id')
+            comment = request.data.get('comment', '')
+            
+            if not group_id:
+                return Response({'error': 'Требуется group_id или target_id'}, status=400)
+            
+            group = get_object_or_404(GroupChat, id=group_id)
+            
+            # Проверяем доступ к группе
+            if not ChatMember.objects.filter(chat=group, user=request.user).exists():
+                return Response({'error': 'Нет доступа к группе'}, status=403)
+            
+            # Создаём новый пост в группе как репост
+            new_post = Post.objects.create(
+                author=request.user,
+                group=group,
+                post_type='repost',
+                original_post=original_post,
+                text=comment,
+                title=original_post.title or '',
+                visibility='public',
+                allow_comments=True,
+            )
+
+            # Копируем медиа если есть
+            try:
+                for media in original_post.media_files.all():
+                    PostMedia.objects.create(
+                        post=new_post,
+                        media=media.media,
+                        media_type=media.media_type,
+                        order=media.order
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to copy media files for repost: {e}")
+            
+            # Обновляем счётчик
+            original_post.reposts_count += 1
+            original_post.save(update_fields=['reposts_count'])
+            
+            from .serializers import PostSerializer
+            serializer = PostSerializer(new_post, context={'request': request})
+            return Response({
+                'success': True,
+                'post_id': new_post.id,
+                'action': 'repost_to_group',
+                'post': serializer.data
+            })
         
-        repost = Repost.objects.create(
-            original_post=original_post,
-            user=request.user,
-            comment=comment
-        )
-        
-        # Создаём пост-репост в ленте
-        new_post = Post.objects.create(
-            author=request.user,
-            post_type='repost',
-            original_post=original_post,
-            text=comment,
-            title=original_post.title,
-            visibility='public',
-            allow_comments=True,
-        )
-        
-        original_post.reposts_count += 1
-        original_post.save(update_fields=['reposts_count'])
-        
-        from .serializers import PostSerializer
-        return Response({
-            'success': True,
-            'repost_id': repost.id,
-            'post_id': new_post.id,
-            'action': 'repost',
-            'post': PostSerializer(new_post, context={'request': request}).data
-        })
+        else:
+            # Обычный репост в ленту
+            if original_post.post_type == 'system':
+                return Response({'error': 'Нельзя репостнуть системный пост'}, status=400)
+            
+            if original_post.visibility == 'private':
+                return Response({'error': 'Нельзя репостнуть приватный пост'}, status=400)
+            
+            # Проверяем, не делал ли пользователь уже репост
+            existing_repost = Repost.objects.filter(
+                original_post=original_post,
+                user=request.user
+            ).first()
+            
+            if existing_repost:
+                return Response({
+                    'success': True,
+                    'repost_id': existing_repost.id,
+                    'already_reposted': True,
+                    'action': 'repost'
+                })
+            
+            comment = request.data.get('comment', '')
+            
+            repost = Repost.objects.create(
+                original_post=original_post,
+                user=request.user,
+                comment=comment
+            )
+            
+            # Создаём пост-репост в ленте
+            new_post = Post.objects.create(
+                author=request.user,
+                post_type='repost',
+                original_post=original_post,
+                text=comment,
+                title=original_post.title or '',
+                visibility='public',
+                allow_comments=True,
+            )
+            
+            original_post.reposts_count += 1
+            original_post.save(update_fields=['reposts_count'])
+            
+            from .serializers import PostSerializer
+            serializer = PostSerializer(new_post, context={'request': request})
+            return Response({
+                'success': True,
+                'repost_id': repost.id,
+                'post_id': new_post.id,
+                'action': 'repost',
+                'post': serializer.data
+            })
+    
+    except Exception as e:
+        logger.error(f"Error in repost_post {post_id}: {e}", exc_info=True)
+        return Response({'error': 'Ошибка при создании репоста', 'detail': str(e)}, status=500)
 
 
 @api_view(['POST'])
@@ -655,45 +678,52 @@ def report_comment(request, comment_id):
 def edit_post(request, post_id):
     """Редактировать пост"""
     from .serializers import PostSerializer
+    import logging
+    logger = logging.getLogger(__name__)
     
-    post = get_object_or_404(Post, id=post_id, author=request.user)
-    
-    # Проверка времени (5 минут)
-    if (timezone.now() - post.created_at).total_seconds() > 300:
-        return Response({'error': 'Время редактирования истекло'}, status=400)
-    
-    # Нельзя менять тип поста
-    new_type = request.data.get('post_type')
-    if new_type and new_type != post.post_type:
-        return Response({'error': 'Нельзя менять тип поста'}, status=400)
-    
-    if 'title' in request.data:
-        post.title = request.data['title'][:200] if request.data['title'] else None
-    
-    if 'text' in request.data:
-        text = request.data['text']
-        if text and len(text) > 5000:
-            return Response({'error': 'Максимум 5000 символов'}, status=400)
-        post.text = text
-    
-    if 'visibility' in request.data:
-        if request.data['visibility'] in ['public', 'followers', 'friends', 'private']:
-            post.visibility = request.data['visibility']
-    
-    if 'allow_comments' in request.data:
-        post.allow_comments = bool(request.data['allow_comments'])
-    
-    if 'is_spoiler' in request.data:
-        post.is_spoiler = bool(request.data['is_spoiler'])
-    
-    post.edited_at = timezone.now()
-    post.save()
-    
-    return Response({
-        'success': True,
-        'message': 'Пост обновлён',
-        'post': PostSerializer(post, context={'request': request}).data
-    })
+    try:
+        post = get_object_or_404(Post, id=post_id, author=request.user)
+        
+        # Проверка времени (5 минут)
+        if (timezone.now() - post.created_at).total_seconds() > 300:
+            return Response({'error': 'Время редактирования истекло'}, status=400)
+        
+        # Нельзя менять тип поста
+        new_type = request.data.get('post_type')
+        if new_type and new_type != post.post_type:
+            return Response({'error': 'Нельзя менять тип поста'}, status=400)
+        
+        if 'title' in request.data:
+            post.title = request.data['title'][:200] if request.data['title'] else None
+        
+        if 'text' in request.data:
+            text = request.data['text']
+            if text and len(text) > 5000:
+                return Response({'error': 'Максимум 5000 символов'}, status=400)
+            post.text = text
+        
+        if 'visibility' in request.data:
+            if request.data['visibility'] in ['public', 'followers', 'friends', 'private']:
+                post.visibility = request.data['visibility']
+        
+        if 'allow_comments' in request.data:
+            post.allow_comments = bool(request.data['allow_comments'])
+        
+        if 'is_spoiler' in request.data:
+            post.is_spoiler = bool(request.data['is_spoiler'])
+        
+        post.edited_at = timezone.now()
+        post.save()
+        
+        serializer = PostSerializer(post, context={'request': request})
+        return Response({
+            'success': True,
+            'message': 'Пост обновлён',
+            'post': serializer.data
+        })
+    except Exception as e:
+        logger.error(f"Error editing post {post_id}: {e}", exc_info=True)
+        return Response({'error': 'Ошибка при редактировании поста', 'detail': str(e)}, status=500)
 
 
 @api_view(['PUT'])
@@ -2597,162 +2627,7 @@ def get_franchise_discussions(request):
             'franchise_id': group.franchise_id,
             'members_count': members_count,
             'topics_count': topics.count(),
-            'avatar_url': group.avatar.url if group.avatar else None,
-            'created_at': group.created_at,
         })
-    
-    return Response({
-        'discussions': result,
-        'total': len(result)
-    })
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_franchise_discussion_group(request, franchise_id):
-    """Получить групповой чат для обсуждения франшизы по franchise_id.
-    
-    Если группа ещё не создана — создаём её автоматически.
-    """
-    from anime.models import Franchise, Anime
-    from .models import GroupChat, ChatMember
-    from .models_chat import ChatTopic
-    
-    # Получаем чистый Django request для построения URL
-    django_request = request._request if hasattr(request, '_request') else request
-    
-    def _get_poster_url(obj, req=None):
-        if obj is None:
-            return None
-        if getattr(obj, 'poster', None) and hasattr(obj.poster, 'url'):
-            url = obj.poster.url
-            if req:
-                return req.build_absolute_uri(url)
-            return url
-        if getattr(obj, 'poster_url', None):
-            return obj.poster_url
-        return None
-
-    try:
-        franchise = Franchise.objects.get(id=franchise_id)
-    except Franchise.DoesNotExist:
-        return Response({'error': 'Франшиза не найдена'}, status=404)
-    
-    # Постер франшизы — берём у первой части
-    first_part = (
-        Anime.objects.filter(franchise=franchise)
-        .order_by('franchise_order', 'year', 'id')
-        .first()
-    )
-    franchise_poster_url = _get_poster_url(franchise, django_request) or _get_poster_url(first_part, django_request)
-    
-    # Ищем или создаём главную группу франшизы
-    chat, created = GroupChat.objects.get_or_create(
-        franchise_id=franchise.id,
-        defaults={
-            'name': franchise.name,
-            'description': franchise.description or '',
-            'created_by': request.user,
-            'is_public': True,
-            'discussion_type': 'franchise',
-            'folder_type': 'discussions',
-        }
-    )
-    
-    # Исправляем название если нужно
-    if not created:
-        dirty = False
-        clean_name = franchise.name
-        if chat.name != clean_name and (
-            chat.name.startswith('Обсуждение:') or
-            chat.name.startswith('Обсуждение ') or
-            chat.name.lower().startswith('обсуждение')
-        ):
-            chat.name = clean_name
-            dirty = True
-        if dirty:
-            chat.save(update_fields=['name'])
-    
-    # Убеждаемся что пользователь в чате
-    ChatMember.objects.get_or_create(
-        chat=chat, user=request.user,
-        defaults={'is_admin': created}
-    )
-     
-    # Общая тема
-    ChatTopic.objects.get_or_create(
-        chat=chat, anime=None,
-        defaults={'title': franchise.name, 'order': 0}
-    )
-    
-    # Темы для каждой части
-    parts = Anime.objects.filter(franchise=franchise).order_by('franchise_order', 'year', 'id')
-    for idx, part in enumerate(parts, start=1):
-        ChatTopic.objects.get_or_create(
-            chat=chat, anime=part,
-            defaults={
-                'title': part.title_ru or part.title_en or f'Часть #{part.id}',
-                'order': idx,
-            }
-        )
-        
-    # Сериализуем с топиками
-    topics = ChatTopic.objects.filter(chat=chat).order_by('order').select_related('anime')
-    topics_data = []
-    for t in topics:
-        poster = _get_poster_url(t.anime, django_request) if t.anime else franchise_poster_url
-        topics_data.append({
-            'id': t.id,
-            'title': t.title,
-            'order': t.order,
-            'anime_id': t.anime_id,
-            'anime_title': (t.anime.title_ru or t.anime.title_en) if t.anime else None,
-            'poster_url': poster,
-            'is_general': t.anime_id is None,
-            'is_current': False,
-        })
-    
-    chat_data = GroupChatSerializer(chat, context={'request': request}).data
-    if not chat_data.get('avatar') and franchise_poster_url:
-        chat_data['avatar'] = franchise_poster_url
-    if not chat_data.get('avatar_url') and franchise_poster_url:
-        chat_data['avatar_url'] = franchise_poster_url
-    chat_data['topics'] = topics_data
-    chat_data['discussion_type'] = 'franchise'
-    chat_data['type'] = 'franchise'
-    chat_data['franchise_id'] = franchise.id
-    chat_data['franchise'] = {
-        'id': franchise.id,
-        'name': franchise.name,
-    }
-    
-    return Response(chat_data)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def join_franchise_discussion_group(request, franchise_id):
-    """Присоединиться к групповому чату обсуждения франшизы"""
-    from anime.models import Franchise
-    from .models import GroupChat, ChatMember
-    
-    try:
-        franchise = Franchise.objects.get(id=franchise_id)
-    except Franchise.DoesNotExist:
-        return Response({'error': 'Франшиза не найдена'}, status=404)
-    
-    # Ищем группу
-    chat = GroupChat.objects.filter(franchise_id=franchise_id).first()
-    if not chat:
-        return Response({'error': 'Группа обсуждения не найдена. Сначала получите её через GET /franchise/<id>/discussion/'}, status=404)
-    
-    # Проверяем, не забанен ли пользователь
-    member = ChatMember.objects.filter(chat=chat, user=request.user).first()
-    if member and member.is_banned:
-        return Response({'error': 'Вы заблокированы в этом чате'}, status=403)
-    
-    # Добавляем пользователя
-    ChatMember.objects.get_or_create(chat=chat, user=request.user)
-    
-    return Response({'success': True, 'chat_id': chat.id})
-     
+         
+    return Response({'results': result})
+         

@@ -1,10 +1,10 @@
 <template>
   <div class="modal-overlay" @click="$emit('close')">
     <div class="forward-modal" @click.stop>
-      <div class="modal-header">
+      <!-- <div class="modal-header">
         <h3>Переслать пост</h3>
         <button class="close-btn" @click="$emit('close')">✕</button>
-      </div>
+      </div> -->
 
       <div class="search-section">
         <input
@@ -62,13 +62,13 @@
 
       <div class="modal-footer">
         <button class="btn-cancel" @click="$emit('close')">Отмена</button>
-        <button
+        <!-- <button
           class="btn-send"
           :disabled="!selectedChatId || sending"
           @click="sendForward"
         >
           {{ sending ? 'Отправка...' : 'Переслать' }}
-        </button>
+        </button> -->
       </div>
     </div>
   </div>

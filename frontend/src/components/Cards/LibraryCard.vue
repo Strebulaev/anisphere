@@ -486,7 +486,7 @@ const handleDiscuss = async () => {
       } else throw e
     }
     if (!group.user_joined) group = await animeDiscussionsApi.joinDiscussionGroup(props.item.anime)
-    router.push(`/chat/${group.id}`)
+    router.push(`/chats/${group.id}`)
   } catch (e: any) {
     toast.error(e.response?.data?.detail || 'Не удалось открыть обсуждение')
   }
@@ -499,8 +499,9 @@ const handleReminderSave = async (data: any) => {
       reminder_time: new Date(data.reminderTime).toISOString(),
       repeat_weekly: data.repeatWeekly || false,
       repeat_interval_days: data.repeatIntervalDays,
-      end_date: data.endDate ? new Date(data.endDate).toISOString().slice(0, 10) : undefined,
-      comment: data.comment || ''
+      comment: data.comment || '',
+      enable_sound: data.enableSound ?? true,
+      enable_push: data.enablePush ?? true,
     })
     toast.success('Напоминание установлено!')
     showReminderModal.value = false

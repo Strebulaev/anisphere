@@ -120,7 +120,7 @@ def import_all_translations():
 if __name__ == '__main__':
     import django
     import sys
-    sys.path.insert(0, '/var/www/www-root/data/www/anisphere.ru')
+    sys.path.insert(0, '/var/www/www-root/data/www/anisphere.org')
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
     django.setup()
     

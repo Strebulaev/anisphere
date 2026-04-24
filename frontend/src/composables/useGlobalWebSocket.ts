@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
 
 let globalWs: WebSocket | null = null
-let isConnected = ref(false)
+const isConnected = ref(false)
 let reconnectAttempts = 0
 const MAX_RECONNECT_ATTEMPTS = 10
 

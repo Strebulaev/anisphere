@@ -198,6 +198,30 @@
                 Смотреть
               </button>
             </div>
+
+            <!-- Уведомления о новых сериях -->
+            <!-- <div class="detail-row">
+              <span class="detail-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 17h5l-5 5V17z"/>
+                  <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6"/>
+                  <circle cx="9" cy="7" r="1"/>
+                  <circle cx="9" cy="12" r="1"/>
+                  <circle cx="9" cy="17" r="1"/>
+                </svg>
+                Уведомления:
+              </span>
+              <button @click="toggleEpisodeNotifications" :class="['notification-btn', { active: episodeNotificationsSubscribed }]">
+                <svg width="18" height="18" viewBox="0 0 24 24" :fill="episodeNotificationsSubscribed ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+                  <path d="M15 17h5l-5 5V17z"/>
+                  <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6"/>
+                  <circle cx="9" cy="7" r="1"/>
+                  <circle cx="9" cy="12" r="1"/>
+                  <circle cx="9" cy="17" r="1"/>
+                </svg>
+                {{ episodeNotificationsSubscribed ? 'Отписаться' : 'Подписаться' }}
+              </button>
+            </div> -->
     
             <!-- Действия -->
             <div class="action-buttons">
@@ -598,6 +622,7 @@
   const loadingPlaylists = ref(false)
   const userPlaylists = ref<any[]>([])
   const error = ref<string | null>(null)
+  const episodeNotificationsSubscribed = ref(false)
 
   // Фильтрация озвучек
   type DubFilterType = 'all' | 'voice' | 'subtitles' | 'raw'
@@ -730,7 +755,7 @@
       // Используем chat_id из ответа если есть
       const chatId = discussionGroup.chat_id || discussionGroup.id
       if (chatId) {
-        router.push(`/chat/${chatId}`)
+        router.push(`/chats/${chatId}`)
       } else {
         toast.error('Не удалось получить ID чата')
       }
@@ -893,10 +918,32 @@
     return getPosterUrl(anime.value.poster) || getPosterUrl(anime.value.poster_url)
   }
 
+  // Уведомления о новых сериях
+  const loadEpisodeNotificationStatus = async () => {
+    if (!anime.value?.id) return
+    try {
+      const response = await apiClient.get(`/anime/${anime.value.id}/episode-notifications/`)
+      episodeNotificationsSubscribed.value = response.data.subscribed
+    } catch (error) {
+      console.error('Error loading episode notification status:', error)
+    }
+  }
+
+  const toggleEpisodeNotifications = async () => {
+    if (!anime.value?.id) return
+    try {
+      const response = await apiClient.post(`/anime/${anime.value.id}/episode-notifications/`)
+      episodeNotificationsSubscribed.value = response.data.subscribed
+    } catch (error) {
+      console.error('Error toggling episode notifications:', error)
+    }
+  }
+
   onMounted(async () => {
     await fetchAnime()
     if (anime.value) {
       await fetchDubs()
+      await loadEpisodeNotificationStatus()
       const fid = (anime.value as any).franchise_id
       if (fid) await fetchFranchise(fid)
     }
@@ -1268,6 +1315,33 @@
 .watch-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+}
+
+/* Notification Button */
+.notification-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.notification-btn:hover {
+  background: var(--color-surface-3);
+  border-color: var(--color-accent);
+}
+
+.notification-btn.active {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
 }
 
 /* Action Buttons */
@@ -1789,6 +1863,24 @@
   .rating-section {
     max-width: 220px;
     margin: 0 auto;
+  }
+}
+  
+/* Мобильные вертикальные устройства — постер перемещаем к описанию */
+@media (max-width: 480px) and (orientation: portrait) {
+  .anime-main-info {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  
+  .anime-description-section {
+    position: relative;
+  }
+  
+  /* Постер появляется перед описанием */
+  .poster-section {
+    order: 1;
+    margin-bottom: 1rem;
   }
 }
   

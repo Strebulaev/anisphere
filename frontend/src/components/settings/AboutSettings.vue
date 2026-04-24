@@ -172,7 +172,7 @@
           <span class="link-icon">🌐</span>
           <div class="link-info">
             <span class="link-name">Веб-сайт</span>
-            <span class="link-url">anisphere.com</span>
+            <span class="link-url">anisphere.org</span>
           </div>
         </a>
 

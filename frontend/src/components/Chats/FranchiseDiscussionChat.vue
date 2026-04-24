@@ -13,7 +13,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <button @click="showSearch = true" class="search-btn" title="Поиск сообщений"> <SakuraIcon name="search" /> </button>
+        <!-- <button @click="showSearch = true" class="search-btn" title="Поиск сообщений"> <SakuraIcon name="search" /> </button> -->
         <button @click="showTopics = !showTopics" class="topics-btn" :title="showTopics ? 'Скрыть темы' : 'Показать темы'"> <SakuraIcon name="clipboard" /> </button>
         <button @click="showSettings = true" class="settings-btn" title="Настройки">⋮</button>
       </div>
@@ -67,6 +67,19 @@
             <!-- Имя отправителя для групповых чатов -->
             <div v-if="message.sender_id !== currentUserId" class="message-sender">
               {{ message.sender_username || 'Unknown' }}
+            </div>
+
+            <!-- Цитата ответа -->
+            <div v-if="message.reply_to_message" class="message-reply-quote" @click="scrollToMessage(message.reply_to_message.id)">
+              <div class="reply-quote-author" :style="{ color: getMessageAuthorColor(message.reply_to_message.sender_id) }">
+                {{ message.reply_to_message.sender_username || 'Пользователь' }}
+              </div>
+              <div v-if="message.reply_to_message.text" class="reply-quote-text">
+                {{ truncateText(message.reply_to_message.text, 100) }}
+              </div>
+              <div v-if="message.reply_to_message.media && message.reply_to_message.media_type === 'image'" class="reply-quote-image">
+                <img :src="message.reply_to_message.media" alt="attachment" />
+              </div>
             </div>
 
             <!-- Текст сообщения -->
@@ -151,9 +164,9 @@
         <button v-if="selectedMessage" class="context-menu-item" @click="handleReply(selectedMessage)">
           <span class="context-menu-icon">↩️</span> Ответить
         </button>
-        <button v-if="selectedMessage" class="context-menu-item" @click="handleForward(selectedMessage)">
+        <!-- <button v-if="selectedMessage" class="context-menu-item" @click="handleForward(selectedMessage)">
           <span class="context-menu-icon"> <SakuraIcon name="arrow-up-right" /> </span> Переслать
-        </button>
+        </button> -->
         <button v-if="selectedMessage && selectedMessage.sender_id === currentUserId" class="context-menu-item delete" @click="handleDelete(selectedMessage.id)">
           <span class="context-menu-icon"> <SakuraIcon name="trash" /> </span> Удалить
         </button>
@@ -195,8 +208,10 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import apiClient from '@/api/client'
+import { messageActionsApi } from '@/api/chats'
 import { useAuthStore } from '@/stores/auth'
 import { useChatExtrasStore } from '@/stores/chatExtras'
+import { useOnlineStatus } from '@/composables/useOnlineStatus'
 import ChatSettingsModal from './ChatSettingsModal.vue'
 import MessageSearchModal from '@/components/modal/chats/MessageSearchModal.vue'
 import ForwardMessageModal from '@/components/modal/chats/ForwardMessageModal.vue'
@@ -228,6 +243,17 @@ interface Message {
   media_type?: string
   created_at: string
   topic_id: number | null
+  reply_to?: number
+  reply_to_message?: {
+    id: number
+    sender_id: number
+    sender_username: string
+    sender_avatar?: string | null
+    text: string
+    media?: string | null
+    media_type?: string | null
+    created_at: string
+  } | null
 }
 
 const props = defineProps<{
@@ -243,6 +269,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const chatExtrasStore = useChatExtrasStore()
+const { isUserOnline } = useOnlineStatus()
 const currentUserId = computed(() => authStore.user?.id)
 
 // ── State ──────────────────────────────────────────────────
@@ -496,12 +523,26 @@ const connectWsSingle = (groupId: number, topicId: number | null = null) => {
     } else if (data.action === 'new_message') {
       const msg = data.message
       if (topicId === null || msg.topic_id === topicId) {
-        messages.value.push(msg)
+        // Проверяем, есть ли временное сообщение с таким же текстом и отправителем
+        const existingIndex = messages.value.findIndex(m =>
+          m.id < 0 && m.text === msg.text && m.sender_id === msg.sender_id
+        )
+
+        if (existingIndex !== -1) {
+          // Заменяем временное сообщение на реальное
+          messages.value[existingIndex] = msg
+        } else {
+          // Добавляем новое сообщение
+          messages.value.push(msg)
+        }
+        messages.value = [...messages.value]
         await nextTick()
         scrollToBottom()
       }
     } else if (data.action === 'typing_status') {
       // Можно добавить индикатор печати
+    } else if (data.action === 'message_deleted') {
+      messages.value = messages.value.filter(m => m.id !== data.message_id)
     }
   }
   ws.onclose = () => { 
@@ -527,12 +568,48 @@ const sendMessage = async () => {
 
   if (ws?.readyState === WebSocket.OPEN) {
     const messageData: any = { action: 'send_message', text, topic_id: topicId }
-    
+
     // Добавляем reply_to если есть ответ
     if (replyToMessage.value) {
       messageData.reply_to = replyToMessage.value.id
     }
-    
+
+    // Создаем временное сообщение для немедленного отображения
+    const tempMessage = {
+      id: -Date.now(), // Временный отрицательный ID
+      text: text,
+      sender_id: currentUserId.value || 0,
+      sender_username: authStore.user?.username || '',
+      sender_avatar: authStore.user?.avatar || null,
+      created_at: new Date().toISOString(),
+      reply_to: replyToMessage.value?.id,
+      reply_to_message: replyToMessage.value ? {
+        id: replyToMessage.value.id,
+        sender_id: replyToMessage.value.sender_id,
+        sender_username: replyToMessage.value.sender_username,
+        sender_avatar: replyToMessage.value.sender_avatar || null,
+        text: replyToMessage.value.text,
+        media: replyToMessage.value.media || null,
+        media_type: replyToMessage.value.media_type || null,
+        created_at: replyToMessage.value.created_at
+      } : null,
+      topic_id: topicId,
+      is_edited: false,
+      media: undefined,
+      media_type: undefined,
+      attachments: [],
+      reactions: [],
+      is_read_by_other: false,
+      read_count: 0,
+      is_mine: true
+    }
+
+    // Добавляем сообщение локально
+    messages.value.push(tempMessage)
+    messages.value = [...messages.value] // Триггерим реактивность
+    await nextTick()
+    scrollToBottom()
+
     ws.send(JSON.stringify(messageData))
     newMessage.value = ''
     replyToMessage.value = null
@@ -553,10 +630,21 @@ const sendMessage = async () => {
         sender_username: data.sender_username || authStore.user?.username || '',
         sender_avatar: data.sender_avatar || null,
         text: data.text,
-        media: data.media,
-        media_type: data.media_type,
+        media: data.media || undefined,
+        media_type: data.media_type || undefined,
         created_at: data.created_at,
         topic_id: data.topic_id || null,
+        reply_to: replyToMessage.value?.id,
+        reply_to_message: replyToMessage.value ? {
+          id: replyToMessage.value.id,
+          sender_id: replyToMessage.value.sender_id,
+          sender_username: replyToMessage.value.sender_username,
+          sender_avatar: replyToMessage.value.sender_avatar || null,
+          text: replyToMessage.value.text,
+          media: replyToMessage.value.media || null,
+          media_type: replyToMessage.value.media_type || null,
+          created_at: replyToMessage.value.created_at
+        } : null,
       })
       newMessage.value = ''
       replyToMessage.value = null
@@ -725,9 +813,9 @@ const handleForward = (message: Message) => {
 
 const handleDelete = async (messageId: number) => {
   if (!confirm('Удалить сообщение?')) return
-  
+
   try {
-    await apiClient.delete(`/social/messages/${messageId}/`)
+    await messageActionsApi.delete(messageId)
     messages.value = messages.value.filter(m => m.id !== messageId)
   } catch (error) {
     console.error('Delete error:', error)
@@ -765,6 +853,19 @@ const scrollToMessage = (messageId: number) => {
   messageElement.classList.add('highlighted')
   setTimeout(() => messageElement.classList.remove('highlighted'), 2000)
   closeContextMenu()
+}
+
+// ── Utilities ───────────────────────────────────────────────
+const truncateText = (text: string, maxLen: number): string => {
+  if (!text) return ''
+  const cleaned = text.replace(/\n/g, ' ').trim()
+  return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned
+}
+
+const getMessageAuthorColor = (senderId: number): string => {
+  const colors = ['#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140']
+  const index = senderId % colors.length
+  return colors[index] || '#667eea'
 }
 
 // ── Typing ─────────────────────────────────────────────────
@@ -1446,5 +1547,65 @@ onUnmounted(() => {
 @keyframes highlight-pulse {
   0%, 100% { background: transparent; }
   50% { background: var(--accent-subtle, rgba(58, 134, 255, 0.15)); }
+}
+
+/* Цитаты ответов */
+.message-reply-quote {
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-petal);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.message-reply-quote:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.reply-quote-author {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-quote-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-quote-image {
+  margin-top: 0.35rem;
+}
+
+.reply-quote-image img {
+  max-width: 100px;
+  max-height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+/* Для собственных сообщений */
+.own-message .message-reply-quote {
+  background: rgba(255, 255, 255, 0.15);
+  border-left-color: rgba(255, 255, 255, 0.5);
+}
+
+.own-message .message-reply-quote:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.own-message .reply-quote-text {
+  color: rgba(255, 255, 255, 0.8);
 }
 </style>

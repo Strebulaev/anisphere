@@ -228,7 +228,7 @@
       </router-link>
 
       <!-- Подписка -->
-      <!-- <router-link
+      <router-link
         to="/subscription"
         class="nav-item-secondary nav-item-premium"
         :class="{ active: isActiveRoute('/subscription') }"
@@ -238,7 +238,7 @@
           <path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/>
         </svg>
         <span>Подписка</span>
-      </router-link> -->
+      </router-link>
 
       <!-- Админская панель — только для админа -->
       <router-link
@@ -720,7 +720,8 @@ onMounted(() => {
 /* ── Адаптивность ──────────────────────────────────────────── */
 @media (max-width: 1023px) {
   .sidebar {
-    display: none;
+    overflow-y: auto;
+    /* display: flex; уже есть */
   }
 }
 </style>

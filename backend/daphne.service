@@ -6,10 +6,10 @@ After=network.target
 Type=simple
 User=www-root
 Group=www-root
-WorkingDirectory=/var/www/www-root/data/www/anisphere.ru/backend
+WorkingDirectory=/var/www/www-root/data/www/anisphere.org/backend
 Environment="DJANGO_SETTINGS_MODULE=config.settings"
-Environment="PATH=/var/www/www-root/data/www/anisphere.ru/venv/bin"
-ExecStart=/var/www/www-root/data/www/anisphere.ru/venv/bin/daphne -b 127.0.0.1 -p 8002 config.asgi:application
+Environment="PATH=/var/www/www-root/data/www/anisphere.org/venv/bin"
+ExecStart=/var/www/www-root/data/www/anisphere.org/venv/bin/daphne -b 127.0.0.1 -p 8002 config.asgi:application
 Restart=always
 RestartSec=5
 

@@ -209,23 +209,38 @@ const router = createRouter({
       component: CreateGroupView,
       meta: { requiresAuth: true }
     },
-    // Универсальный маршрут для всех чатов: /chats/{slug}
+    // Маршрут для всех чатов (франшизы, аниме, личные) - через ChatsView
     // - /chats/hunter-x-hunter → аниме чат
     // - /chats/friren → общее обсуждение франшизы
     // - /chats/friren-chronicle → топик франшизы
+    // - /chats/142 → личный чат (числовой ID)
     {
-      path: '/chats/:slug',
-      name: 'chat-slug',
+      path: '/chats/:slug?',
+      name: 'chats-detail',
       component: ChatsView,
-      props: (route) => ({ slug: route.params.slug }),
+      props: (route) => ({ slug: route.params.slug || null }),
       meta: { requiresAuth: true }
     },
-    // Маршрут для чатов по ID (для редиректов после создания)
+    // Старый маршрут /chat/:id - редирект на /chats/:id
     {
-      path: '/chat/:id',
+      path: '/chat/:id(\\d+)',
+      name: 'chat-by-id-legacy',
+      redirect: (to) => ({ name: 'chats-detail', params: { slug: to.params.id } }),
+      meta: { requiresAuth: true }
+    },
+    // Маршрут для чатов по ID (для редиректов после создания) - child route
+    {
+      path: '/chats/:id(\\d+)',
       name: 'chat-by-id',
-      component: ChatDetailView,
-      props: true,
+      component: ChatsView,
+      props: (route) => ({ slug: route.params.id }),
+      meta: { requiresAuth: true }
+    },
+    // Старый маршрут /chat/:id - редирект на /chats/:id
+    {
+      path: '/chat/:id(\\d+)',
+      name: 'chat-by-id-legacy',
+      redirect: (to) => ({ name: 'chat-by-id', params: { id: to.params.id } }),
       meta: { requiresAuth: true }
     },
     {

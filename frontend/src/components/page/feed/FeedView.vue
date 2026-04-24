@@ -265,7 +265,6 @@
                 @dislike="handleDislike"
                 @bookmark="toggleBookmark"
                 @menu="openPostMenu"
-                @repost="openRepostModal"
                 @comment="openComments"
               />
             </div>
@@ -297,7 +296,6 @@
                   @dislike="handleDislike"
                   @bookmark="toggleBookmark"
                   @menu="openPostMenu"
-                  @repost="openRepostModal"
                   @comment="openComments"
                 />
                 <button class="btn-unpin" @click="unpinPostFromTab(post)"><SakuraIcon name="pin" /> Открепить</button>
@@ -553,8 +551,6 @@
                   @like="handleLike"
                   @dislike="handleDislike"
                   @comment="openComments"
-                  @repost="openRepostModal"
-                  @share="sharePost"
                   @bookmark="toggleBookmark"
                   @menu="openPostMenu"
                   @report="openReportModal"
@@ -592,9 +588,7 @@
     <CreatePostModal v-if="showCreatePost" :initial-type="createPostType" @close="showCreatePost = false" @created="onPostCreated" />
     <EditPostModal v-if="showEditPost && selectedPost" :post="selectedPost" @close="showEditPost = false" @updated="onPostEdited" />
     <CommentsModal v-if="showComments" :post="selectedPost" @close="showComments = false" @comment-added="onCommentAdded" />
-    <RepostModal v-if="showRepost" :post="selectedPost" @close="showRepost = false" @reposted="onReposted" />
-    <PostMenu v-if="showMenu && selectedPost" :post="selectedPost" @close="showMenu = false" @edit="editPost" @delete="deletePost" @pin="pinPost" @report="openReportModal" @bookmark="toggleBookmark" @hide="hidePost" @hide-author="hidePostByAuthor" @repost="openRepostModal" @forward="openForwardModal" />
-    <ForwardModal v-if="showForward && selectedPost" :post="selectedPost" @close="showForward = false" />
+    <PostMenu v-if="showMenu && selectedPost" :post="selectedPost" @close="showMenu = false" @edit="editPost" @delete="deletePost" @report="openReportModal" @bookmark="toggleBookmark" @hide="hidePost" @hide-author="hidePostByAuthor" @followed="fetchCurrentUser" />
     <ReportModal v-if="showReport" content-type="post" :content-id="selectedPost?.id" @close="showReport = false" />
     <PostDetailModal v-if="showPostDetail" :post="selectedPost" @close="showPostDetail = false" />
     
@@ -637,9 +631,7 @@ import PostCard from '@/components/feed/PostCard.vue'
 import CreatePostModal from '@/components/feed/CreatePostModal.vue'
 import EditPostModal from '@/components/feed/EditPostModal.vue'
 import CommentsModal from '@/components/feed/CommentsModal.vue'
-import RepostModal from '@/components/feed/RepostModal.vue'
 import PostMenu from '@/components/feed/PostMenu.vue'
-import ForwardModal from '@/components/feed/ForwardModal.vue'
 import ReportModal from '@/components/feed/ReportModal.vue'
 import PostDetailModal from '@/components/feed/PostDetailModal.vue'
 import type { FeedPost } from '@/api/feed'
@@ -762,11 +754,9 @@ const moderationComment = ref('')
 const showCreatePost = ref(false)
 const showEditPost = ref(false)
 const showComments = ref(false)
-const showRepost = ref(false)
 const showMenu = ref(false)
 const showReport = ref(false)
 const showPostDetail = ref(false)
-const showForward = ref(false)
 const createPostType = ref<string | null>(null)
 
 // Selected items
@@ -783,7 +773,7 @@ const feedTabs = computed(() => {
     { id: 'popular',     label: 'Популярное' },
     { id: 'subscriptions', label: 'Подписки' },
     // { id: 'bookmarks',   label: '🌠 Избранное' },
-    { id: 'pinned',      label: 'Пины' },
+    // { id: 'pinned',      label: 'Пины' }, // Отключено
     { id: 'not_interested', label: 'Не интересно' }
   ]
   if (currentUser.value?.is_moderator || currentUser.value?.is_staff) {
@@ -1091,8 +1081,8 @@ const unfollowUser = async (userId: number) => {
 
 const openChat = async (userId: number) => {
   try {
-    const response = await apiClient.post('/chats/private/', { user2: userId })
-    router.push(`/chat/${response.data.id}`)
+    const response = await apiClient.post('/social/private-chats/', { user2: userId })
+    router.push(`/chats/${response.data.id}`)
   } catch (error) {
     console.error('Error creating chat:', error)
     alert('Не удалось создать чат')
@@ -1205,7 +1195,6 @@ const handleCreatePlaylist = () => openCreatePostModal('playlist')
 const handleCreateAnime = () => openCreatePostModal('anime')
 
 const openComments = (post: any) => { selectedPost.value = post; showComments.value = true }
-const openRepostModal = (post: any) => { selectedPost.value = post; showRepost.value = true }
 const openPostMenu = (post: any) => { selectedPost.value = post; showMenu.value = true }
 const openReportModal = (post: any) => { selectedPost.value = post; showReport.value = true }
 // Removed: clicking on post should NOT open modal
@@ -1306,10 +1295,7 @@ const toggleBookmark = async (post: any) => {
   } catch (error) { console.error('Error toggling bookmark:', error) }
 }
 
-const sharePost = (post: any) => {
-  selectedPost.value = post
-  showRepost.value = true
-}
+
 
 const editPost = (post: any) => { 
   selectedPost.value = post
@@ -1317,25 +1303,54 @@ const editPost = (post: any) => {
   showEditPost.value = true 
 }
 
-const onPostEdited = (updatedPost: any) => {
+const onPostEdited = (updatedPost: Record<string, any> | null | undefined) => {
   // Обновляем пост в списке
-  const idx = posts.value.findIndex(p => p.id === updatedPost.id)
+  if (!updatedPost || !updatedPost.id) return
+  const postId: number = updatedPost.id
+  const idx = posts.value.findIndex(p => p.id === postId)
   if (idx !== -1) {
-    posts.value[idx] = normalizePost(updatedPost)
+    // Полная замена объекта поста с сохранением реактивности
+    const updated = { ...posts.value[idx], ...updatedPost }
+    posts.value[idx] = updated as typeof posts.value[number]
   }
+  // Также обновляем в других списках (bookmarks, pinned, popular)
+  bookmarkedPosts.value = bookmarkedPosts.value.map(p => 
+    p.id === updatedPost.id ? { ...p, ...updatedPost } : p
+  )
+  pinnedPosts.value = pinnedPosts.value.map(p => 
+    p.id === updatedPost.id ? { ...p, ...updatedPost } : p
+  )
+  popularPosts.value = popularPosts.value.map(p => 
+    p.id === updatedPost.id ? { ...p, ...updatedPost } : p
+  )
+  favoritePosts.value = favoritePosts.value.map(p => 
+    p.id === updatedPost.id ? { ...p, ...updatedPost } : p
+  )
   showEditPost.value = false
 }
 const deletePost = async (post: any) => {
+  // Оптимистично сохраняем текущее состояние для возможности отката
+  const originalPosts = [...posts.value]
+  
   try {
-    await apiClient.delete(`/social/posts/${post.id}/`)
+    // Оптимистично удаляем пост из списка ПЕРЕД запросом
     posts.value = posts.value.filter(p => p.id !== post.id)
     showMenu.value = false
-  } catch (error) { console.error('Error deleting post:', error) }
+    
+    // Делаем запрос к API
+    await apiClient.delete(`/social/posts/${post.id}/`)
+    
+    // Если успешно - пост уже удалён из UI
+    // Показываем уведомление (опционально)
+  } catch (error: any) {
+    console.error('Error deleting post:', error)
+    // При ошибке возвращаем пост обратно в список
+    posts.value = originalPosts
+    alert('Произошла ошибка при удалении поста. Пожалуйста, попробуйте позже.')
+  }
 }
-const pinPost = async (post: any) => {
-  try { await apiClient.post(`/social/posts/${post.id}/pin/`); post.is_pinned = true; showMenu.value = false }
-  catch (error) { console.error('Error pinning post:', error) }
-}
+// pinPost - ОТКЛЮЧЕНО вместе с функцией закрепления постов
+// const pinPost = async (post: any) => { ... }
 const hidePost = async (post: any) => {
   try {
     await postsApi.notInterestedPost(post.id)
@@ -1356,11 +1371,14 @@ const hidePostByAuthor = async (post: any) => {
   showMenu.value = false
 }
 
-const openForwardModal = (post: any) => { selectedPost.value = post; showForward.value = true; showMenu.value = false }
-
 const onPostCreated = (post: any) => { posts.value.unshift(post); showCreatePost.value = false }
-const onCommentAdded = (_comment: any) => { if (selectedPost.value && selectedPost.value.comments_count !== undefined) selectedPost.value.comments_count++ }
-const onReposted = (_post: any) => { if (selectedPost.value) selectedPost.value.reposts_count++; showRepost.value = false }
+const onCommentAdded = (comment: any) => { 
+  if (selectedPost.value && selectedPost.value.comments_count !== undefined) {
+    selectedPost.value.comments_count++
+  }
+  // Если есть ответ на комментарий, не сбрасываем replyToComment здесь
+  // Это делает CommentsModal сам после отправки
+}
 
 // Fetch current user
 const fetchCurrentUser = async () => {
@@ -1818,11 +1836,17 @@ onUnmounted(() => { window.removeEventListener('scroll', handleScroll) })
   border-color: var(--accent);
 }
 
-.feed-layout { 
-  display: grid; 
-  grid-template-columns: 1fr 280px; 
-  gap: 1.5rem; 
-  padding: 1.5rem 0; 
+.feed-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1.5rem;
+  padding: 1.5rem 0;
+}
+
+@media (max-width: 899px) {
+  .feed-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 .feed-main { 

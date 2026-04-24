@@ -71,7 +71,7 @@ const unreadChats = computed(() => chatExtrasStore.unreadChats)
 const totalUnreadCount = computed(() => chatExtrasStore.totalUnreadCount)
 
 const openChat = (chat: any) => {
-  router.push(`/chat/${chat.id}`)
+  router.push(`/chats/${chat.id}`)
 }
 
 const getInitials = (name: string) => {

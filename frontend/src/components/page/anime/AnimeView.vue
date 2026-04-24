@@ -323,6 +323,15 @@ const startWatching = (anime: Anime) => router.push(`/anime/${anime.id}/watch`)
 
 @media (max-width: 767px) {
   .av-container { padding: var(--space-4) var(--space-3) var(--space-10); }
-  .av-tab { flex: 1; justify-content: center; min-width: calc(50% - var(--space-1)); }
+  .av-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .av-tabs::-webkit-scrollbar { display: none; }
+  .av-tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 }
 </style>

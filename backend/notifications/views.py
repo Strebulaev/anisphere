@@ -230,6 +230,8 @@ class ReminderViewSet(ModelViewSet):
             reminder_time=serializer.validated_data['reminder_time'],
             repeat_weekly=serializer.validated_data.get('repeat_weekly', False),
             comment=serializer.validated_data.get('comment', ''),
+            enable_sound=serializer.validated_data.get('enable_sound', True),
+            enable_push=serializer.validated_data.get('enable_push', True),
         )
         return Response(ReminderSerializer(reminder).data, status=status.HTTP_201_CREATED)
 

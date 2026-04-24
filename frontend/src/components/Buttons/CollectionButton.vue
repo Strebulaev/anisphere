@@ -179,7 +179,7 @@ watch(() => props.animeId, () => checkLibrary())
 }
 
 .col-btn:hover { border-color: var(--border-default); color: var(--text-primary); background: var(--surface-4); }
-.col-btn.has-status { background: var(--accent-subtle); border-color: currentColor; }
+.col-btn.has-status { background: transparent; border-color: currentColor; color: var(--accent); }
 
 .di-icon { line-height: 1; color: currentColor; }
 .di-label { flex: 1; font-weight: 500; }

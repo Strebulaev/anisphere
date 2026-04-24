@@ -96,7 +96,7 @@
         <div v-else-if="post.image_url" class="single-media"><OptimizedImage :src="post.image_url" alt="" layout="fullWidth" @click.stop /></div>
         <div v-else-if="post.video_url" class="single-media"><video :src="post.video_url" controls preload="metadata"></video></div>
 
-        <!-- Anime Card -->
+        <!-- Anime Card (основная) -->
         <div v-if="post.anime" class="anime-card" @click.stop="$router.push('/anime/'+post.anime.id)">
           <div class="anime-poster-wrap">
             <OptimizedImage 
@@ -119,7 +119,27 @@
           </div>
         </div>
 
-        <!-- Playlist Card -->
+        <!-- Additional Anime Cards -->
+        <div v-for="(anime, idx) in additionalAnimes" :key="'anime-'+idx" class="anime-card anime-card-compact" @click.stop="$router.push('/anime/'+anime.id)">
+          <div class="anime-poster-wrap">
+            <OptimizedImage
+              v-if="getPosterUrl(anime)"
+              :src="getPosterUrl(anime) || anime.poster_url"
+              class="anime-poster" 
+              alt="poster"
+              @error="onPosterError($event, anime)"
+            >
+            </OptimizedImage>
+            <div v-else class="anime-poster-placeholder"> <SakuraIcon name="play" /> </div>
+          </div>
+          <div class="anime-info">
+            <span class="anime-title">{{ anime.title_ru || anime.title_en || 'Название не известно' }}</span>
+            <span v-if="anime.year" class="anime-year">{{ anime.year }}</span>
+            <span v-if="anime.rating" class="anime-rating"><SakuraIcon name="star" /> {{ anime.rating }}/10</span>
+          </div>
+        </div>
+
+        <!-- Playlist Card (основная) -->
         <div v-if="post.playlist && post.playlist.id" class="playlist-card" @click.stop="goToPlaylist(post.playlist)">
           <div class="playlist-poster-wrap">
             <OptimizedImage
@@ -136,6 +156,26 @@
             <span class="playlist-title">{{ post.playlist.title || 'Плейлист' }}</span>
             <span v-if="post.playlist.description" class="playlist-desc">{{ truncateText(post.playlist.description, 80) }}</span>
             <span class="playlist-count">{{ post.playlist.anime_count || post.playlist.items_count || 0 }} аниме</span>
+          </div>
+          <span class="playlist-arrow">›</span>
+        </div>
+
+        <!-- Additional Playlist Cards -->
+        <div v-for="(playlist, idx) in additionalPlaylists" :key="'playlist-'+idx" class="playlist-card playlist-card-compact" @click.stop="goToPlaylist(playlist)">
+          <div class="playlist-poster-wrap">
+            <OptimizedImage
+              v-if="getPosterUrl(playlist)"
+              :src="getPosterUrl(playlist)"
+              class="playlist-poster"
+              alt="poster"
+              @error="onPlaylistPosterError($event)"
+            >
+            </OptimizedImage>
+            <div v-else class="playlist-poster-placeholder"> <SakuraIcon name="folder" /> </div>
+          </div>
+          <div class="playlist-info">
+            <span class="playlist-title">{{ playlist.title || playlist.name || 'Плейлист' }}</span>
+            <span class="playlist-count">{{ playlist.anime_count || playlist.items_count || 0 }} аниме</span>
           </div>
           <span class="playlist-arrow">›</span>
         </div>
@@ -205,11 +245,11 @@
       <div class="action-group">
         <button class="action-btn" @click.stop="toggleComments"> <SakuraIcon name="message" /> <span>{{ fmt(post.comments_count) }}</span>
         </button>
-        <button class="action-btn" @click.stop="$emit('repost', post)"> <SakuraIcon name="refresh" /> <span>{{ fmt(post.reposts_count) }}</span>
-        </button>
+        <!-- <button class="action-btn" @click.stop="$emit('repost', post)"> <SakuraIcon name="refresh" /> <span>{{ fmt(post.reposts_count) }}</span>
+        </button> -->
       </div>
       <div class="action-group">
-        <button class="action-btn" @click.stop="$emit('share', post)"> <SakuraIcon name="export" /> </button>
+        <!-- <button class="action-btn" @click.stop="$emit('share', post)"> <SakuraIcon name="export" /> </button> -->
         <button class="action-btn" :class="{ bookmarked: post.is_bookmarked }" @click.stop="$emit('bookmark', post)">
           <SakuraIcon v-if="post.is_bookmarked" name="star" />
           <span v-else>☆</span>
@@ -317,6 +357,37 @@ const displayMedia = computed<MediaItem[]>(() =>
   }))
 )
 const openMedia = (_idx: number) => {}
+
+// Additional anime and playlists
+const additionalAnimes = computed(() => {
+  const attachments = props.post.attachments_data || []
+  return attachments
+    .filter((a: any) => a.content_type === 'anime' && a.anime_data)
+    .map((a: any) => ({
+      id: a.anime_data.id,
+      title_ru: a.anime_data.title_ru,
+      title_en: a.anime_data.title_en,
+      year: a.anime_data.year,
+      poster_url: a.anime_data.poster_url,
+      poster: a.anime_data.poster,
+      rating: a.anime_data.rating
+    }))
+})
+
+const additionalPlaylists = computed(() => {
+  const attachments = props.post.attachments_data || []
+  return attachments
+    .filter((a: any) => a.content_type === 'playlist' && a.playlist_data)
+    .map((a: any) => ({
+      id: a.playlist_data.id,
+      title: a.playlist_data.title || a.playlist_data.name,
+      name: a.playlist_data.name,
+      anime_count: a.playlist_data.anime_count,
+      items_count: a.playlist_data.items_count,
+      cover_image: a.playlist_data.cover_image,
+      poster_url: a.playlist_data.poster_url
+    }))
+})
 
 // ── Helpers ──────────────────────────────────────────
 const fmt = (n?: number) => {
@@ -727,7 +798,7 @@ const goToPost = (postId: number) => {
   height: 100%;
   object-fit: contain;
   background: var(--surface-2, #080808);
-  max-height: 450px;
+  max-height: 350px;
 }
 
 .single-media {
@@ -740,7 +811,7 @@ const goToPost = (postId: number) => {
 .single-media img,
 .single-media video {
   width: 100%;
-  max-height: 550px;
+  max-height: 400px;
   object-fit: contain;
   background: var(--surface-2, #080808);
   display: block;
@@ -829,6 +900,40 @@ const goToPost = (postId: number) => {
   display: block;
 }
 
+/* Компактная карточка аниме (дополнительная) */
+.anime-card-compact {
+  padding: 0.5rem;
+  gap: 0.5rem;
+}
+
+.anime-card-compact .anime-poster-wrap {
+  width: 36px;
+  height: 52px;
+}
+
+.anime-card-compact .anime-poster {
+  width: 36px;
+}
+
+.anime-card-compact .anime-poster-placeholder {
+  width: 36px;
+  height: 52px;
+  font-size: 1rem;
+}
+
+.anime-card-compact .anime-title {
+  font-size: 0.78rem;
+}
+
+.anime-card-compact .anime-year,
+.anime-card-compact .anime-rating {
+  font-size: 0.68rem;
+}
+
+.anime-card-compact .anime-desc {
+  display: none;
+}
+
 /* ═══ Playlist Card ═════════════════════════════════════════════ */
 .playlist-card {
   display: flex;
@@ -837,7 +942,7 @@ const goToPost = (postId: number) => {
   background: var(--surface-2, #0e0e0e);
   border-radius: 10px;
   padding: 0.625rem 0.875rem;
-  cursor: pointer;
+  cursor: pointer; 
   margin-bottom: 0.5rem;
   transition: background 0.2s;
   border: 1px solid var(--border-subtle, #151515);

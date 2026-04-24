@@ -61,34 +61,64 @@
         <!-- ─── Быстрые кнопки скачивания ─────────────────── -->
         <div class="quick-dl-bar">
           <!-- Опенинг -->
-          <button
-            class="qdl-btn"
-            :class="{ 'qdl-loading': openingState.loading, 'qdl-done': openingState.done, 'qdl-error': openingState.error }"
-            :disabled="openingState.loading"
-            @click="handleDownloadOpening"
-            title="Скачать опенинг этой серии"
-          >
-            <span v-if="openingState.loading" class="qdl-spinner"></span>
-            <svg v-else-if="openingState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span class="qdl-label">{{ openingState.loading ? `${openingState.progress}%` : openingState.done ? 'Готово' : 'Опенинг' }}</span>
-            <div v-if="openingState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: openingState.progress + '%' }"></div></div>
-          </button>
+          <div class="qdl-group">
+            <button
+              class="qdl-btn"
+              :class="{ 'qdl-loading': openingVideoState.loading, 'qdl-done': openingVideoState.done, 'qdl-error': openingVideoState.error }"
+              :disabled="openingVideoState.loading"
+              @click="handleDownloadOpening('video')"
+              title="Скачать опенинг этой серии (видео)"
+            >
+              <span v-if="openingVideoState.loading" class="qdl-spinner"></span>
+              <svg v-else-if="openingVideoState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span class="qdl-label">{{ openingVideoState.loading ? `${openingVideoState.progress}%` : openingVideoState.done ? 'Готово' : 'Опенинг MP4' }}</span>
+              <div v-if="openingVideoState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: openingVideoState.progress + '%' }"></div></div>
+            </button>
+            <button
+              class="qdl-btn qdl-secondary"
+              :class="{ 'qdl-loading': openingAudioState.loading, 'qdl-done': openingAudioState.done, 'qdl-error': openingAudioState.error }"
+              :disabled="openingAudioState.loading"
+              @click="handleDownloadOpening('audio')"
+              title="Скачать опенинг этой серии (аудио)"
+            >
+              <span v-if="openingAudioState.loading" class="qdl-spinner"></span>
+              <svg v-else-if="openingAudioState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              <span class="qdl-label">{{ openingAudioState.loading ? `${openingAudioState.progress}%` : openingAudioState.done ? 'Готово' : 'Опенинг MP3' }}</span>
+              <div v-if="openingAudioState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: openingAudioState.progress + '%' }"></div></div>
+            </button>
+          </div>
 
           <!-- Эндинг -->
-          <button
-            class="qdl-btn"
-            :class="{ 'qdl-loading': endingState.loading, 'qdl-done': endingState.done, 'qdl-error': endingState.error }"
-            :disabled="endingState.loading"
-            @click="handleDownloadEnding"
-            title="Скачать эндинг этой серии"
-          >
-            <span v-if="endingState.loading" class="qdl-spinner"></span>
-            <svg v-else-if="endingState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span class="qdl-label">{{ endingState.loading ? `${endingState.progress}%` : endingState.done ? 'Готово' : 'Эндинг' }}</span>
-            <div v-if="endingState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: endingState.progress + '%' }"></div></div>
-          </button>
+          <div class="qdl-group">
+            <button
+              class="qdl-btn"
+              :class="{ 'qdl-loading': endingVideoState.loading, 'qdl-done': endingVideoState.done, 'qdl-error': endingVideoState.error }"
+              :disabled="endingVideoState.loading"
+              @click="handleDownloadEnding('video')"
+              title="Скачать эндинг этой серии (видео)"
+            >
+              <span v-if="endingVideoState.loading" class="qdl-spinner"></span>
+              <svg v-else-if="endingVideoState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span class="qdl-label">{{ endingVideoState.loading ? `${endingVideoState.progress}%` : endingVideoState.done ? 'Готово' : 'Эндинг MP4' }}</span>
+              <div v-if="endingVideoState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: endingVideoState.progress + '%' }"></div></div>
+            </button>
+            <button
+              class="qdl-btn qdl-secondary"
+              :class="{ 'qdl-loading': endingAudioState.loading, 'qdl-done': endingAudioState.done, 'qdl-error': endingAudioState.error }"
+              :disabled="endingAudioState.loading"
+              @click="handleDownloadEnding('audio')"
+              title="Скачать эндинг этой серии (аудио)"
+            >
+              <span v-if="endingAudioState.loading" class="qdl-spinner"></span>
+              <svg v-else-if="endingAudioState.done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              <span class="qdl-label">{{ endingAudioState.loading ? `${endingAudioState.progress}%` : endingAudioState.done ? 'Готово' : 'Эндинг MP3' }}</span>
+              <div v-if="endingAudioState.loading" class="qdl-bar"><div class="qdl-fill" :style="{ width: endingAudioState.progress + '%' }"></div></div>
+            </button>
+          </div>
 
           <!-- Серия целиком -->
           <button
@@ -136,8 +166,8 @@
           </button>
 
           <!-- Ошибки под кнопками -->
-          <p v-if="openingState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Опенинг: {{ openingState.error }}</p>
-          <p v-if="endingState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Эндинг: {{ endingState.error }}</p>
+          <p v-if="openingVideoState.error || openingAudioState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Опенинг: {{ openingVideoState.error || openingAudioState.error }}</p>
+          <p v-if="endingVideoState.error || endingAudioState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Эндинг: {{ endingVideoState.error || endingAudioState.error }}</p>
           <p v-if="episodeDownloadState.error" class="qdl-err-text"><SakuraIcon name="warning" /> Серия: {{ episodeDownloadState.error }}</p>
         </div>
 
@@ -263,48 +293,37 @@
       </div>
 
       <!-- ══════════════════════════════════════════════
-           ПРАВАЯ КОЛОНКА: постер + серии + жанры
+           ПРАВАЯ КОЛОНКА: постер + кнопка + серии + жанры
       ══════════════════════════════════════════════ -->
       <div class="right-column">
 
-        <!-- Постер с оверлеем прогресса -->
-        <div class="poster-side" ref="posterSide">
-          <img
-            v-if="posterSrc"
-            :src="posterSrc"
-            :alt="anime?.title_ru"
-            class="poster-image"
-            @load="syncPosterHeight"
-          />
-          <div v-else class="poster-placeholder">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <path d="M21 15l-5-5L5 21"/>
-            </svg>
-          </div>
-
-          <!-- Круглый бейдж прогресса в правом нижнем углу -->
-          <div
-            v-if="anime?.episodes && epPercent > 0"
-            class="poster-progress-badge"
-            :class="{ completed: epPercent >= 100 }"
-            :title="`Просмотрено ${epWatchedCount} из ${anime.episodes} серий`"
-          >
-            <svg class="ppb-svg" viewBox="0 0 36 36">
-              <circle class="ppb-track" cx="18" cy="18" r="15" />
-              <circle
-                class="ppb-fill"
-                cx="18" cy="18" r="15"
-                :stroke-dasharray="`${epPercent * 0.942} 94.2`"
-              />
-            </svg>
-            <span class="ppb-label">
-              <span v-if="epPercent >= 100">✓</span>
-              <span v-else>{{ epPercent }}%</span>
-            </span>
+        <!-- Постер аниме - ПЕРВЫЙ ЭЛЕМЕНТ -->
+        <div v-if="posterSrc" class="poster-card">
+          <div class="poster-image-wrapper">
+            <img
+              :src="posterSrc" 
+              :alt="anime?.title_ru || anime?.title_en"
+              class="anime-poster-img"
+              @error="(e) => ((e.target as HTMLImageElement).style.display='none')"
+            />
+            <div v-if="!posterSrc" class="poster-placeholder">
+              <SakuraIcon name="play" />
+            </div>
           </div>
         </div>
+
+        <!-- Кнопка «Подробнее» - сразу после постера -->
+        <router-link
+          :to="`/anime/${anime?.id}`"
+          class="more-info-btn"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <span>Подробнее об аниме</span>
+        </router-link>
 
         <!-- Серии + прогресс -->
         <div v-if="anime?.episodes" class="episodes-card">
@@ -440,8 +459,10 @@
       :season="currentSeason"
       :player-link="kodikLink"
       :translation-id="selectedTranslation?.id ?? null"
-      :start-time="currentTime"
-      @close="floatingPlayerVisible = false"
+      :start-time="mainPlayerTimeAtFloatOpen"
+      @close="handleFloatingPlayerClose"
+      @time-update="handleFloatingPlayerTimeUpdate"
+      @duration-update="handleFloatingPlayerDurationUpdate"
     />
 
     <EpisodeProgressModal
@@ -479,7 +500,16 @@ import { getMediaUrl } from '@/api/client'
 const route = useRoute()
 const authStore = useAuthStore()
 const toast = useToast()
-const { openingState, endingState, customState, downloadTheme, downloadSegment } = useThemeDownloader()
+const { downloadTheme, downloadSegment } = useThemeDownloader()
+
+// Отдельные состояния для видео и аудио
+const openingVideoState = ref({ loading: false, progress: 0, error: '', done: false })
+const openingAudioState = ref({ loading: false, progress: 0, error: '', done: false })
+const endingVideoState = ref({ loading: false, progress: 0, error: '', done: false })
+const endingAudioState = ref({ loading: false, progress: 0, error: '', done: false })
+
+// Состояние для кастомного клипа
+const customState = ref({ loading: false, progress: 0, error: '', done: false })
 
 // ── Трекер активной вкладки («Сейчас смотрят») ──
 // animeId может быть недоступен при первом рендере, поэтому берём из роута
@@ -494,14 +524,56 @@ const episodeDownloadState = ref({ loading: false, progress: 0, error: '', done:
 
 // ── Мини-плеер (FloatingPlayer) ─────────────────────────────────
 const floatingPlayerVisible = ref(false)
+// Время в основном плеере на момент открытия мини-плеера
+const mainPlayerTimeAtFloatOpen = ref(0)
+// Флаг: был ли мини-плеер открыт
+const wasFloatingPlayerOpened = ref(false)
 
 const launchFloatingPlayer = () => {
+  mainPlayerTimeAtFloatOpen.value = currentTime.value
+  wasFloatingPlayerOpened.value = true
   floatingPlayerVisible.value = true
+  if (kodikPlayer.value) {
+    kodikPlayer.value.pause()
+  }
+}
+
+// Отправляем время обратно в основной плеер при обновлении в мини-плеере
+const handleFloatingPlayerTimeUpdate = (time: number) => {
+  // Обновляем currentTime в реальном времени только если мини-плеер открыт
+  if (floatingPlayerVisible.value) {
+    currentTime.value = time
+  }
+}
+
+// Обработка закрытия мини-плеера с временем
+const handleFloatingPlayerClose = (floatTime?: number) => {
+  floatingPlayerVisible.value = false
+  
+  // Если было время от мини-плеера - обновляем основной плеер
+  if (floatTime !== undefined && floatTime > 0) {
+    // Обновляем currentTime
+    currentTime.value = floatTime
+    // Перематываем основной плеер
+    if (kodikPlayer.value) {
+      kodikPlayer.value.seek(floatTime)
+    }
+  }
+  
+  wasFloatingPlayerOpened.value = false
+}
+
+// Обработка обновления длительности из мини-плеера
+const handleFloatingPlayerDurationUpdate = (dur: number) => {
+  duration.value = dur
 }
 
 // Быстрая скачка опенинга
-const handleDownloadOpening = () => {
+const handleDownloadOpening = (format: 'video' | 'audio' = 'video') => {
   if (!anime.value?.id) return
+  const state = format === 'video' ? openingVideoState : openingAudioState
+  if (state.value.loading) return
+
   downloadTheme({
     animeId: anime.value.id,
     kind: 'opening',
@@ -509,12 +581,16 @@ const handleDownloadOpening = () => {
     season: currentSeason.value,
     translationId: selectedTranslation.value?.id,
     animeTitle: anime.value?.title_ru || anime.value?.title_en || '',
+    format,
+    state,
   })
 }
 
-// Быстрая скачка эндинга
-const handleDownloadEnding = () => {
+const handleDownloadEnding = (format: 'video' | 'audio' = 'video') => {
   if (!anime.value?.id) return
+  const state = format === 'video' ? endingVideoState : endingAudioState
+  if (state.value.loading) return
+
   downloadTheme({
     animeId: anime.value.id,
     kind: 'ending',
@@ -522,8 +598,12 @@ const handleDownloadEnding = () => {
     season: currentSeason.value,
     translationId: selectedTranslation.value?.id,
     animeTitle: anime.value?.title_ru || anime.value?.title_en || '',
+    format,
+    state,
   })
 }
+
+
 
 // Скачка серии целиком (0 — конец)
 const handleDownloadEpisode = async () => {
@@ -622,6 +702,7 @@ const handleDownloadSegment = () => {
     stopSec: end,
     label: clipLabel.value || 'clip',
     animeTitle: anime.value?.title_ru || anime.value?.title_en || '',
+    state: customState,
   })
 }
 
@@ -658,7 +739,6 @@ const duration    = ref(0)
 const isPlaying   = ref(false)
 
 const playerContainer = ref<HTMLElement | null>(null)
-const posterSide      = ref<HTMLElement | null>(null)
 const kodikPlayer     = ref<InstanceType<typeof KodikPlayer> | null>(null)
 
 // Старая система прогресса (localStorage fallback)
@@ -766,8 +846,14 @@ const posterSrc = computed((): string | null => {
   if (!anime.value) return null
   // poster_image_url — серверный метод: сначала смотрит на локальный файл, потом poster_url
   const local = anime.value.poster_image_url || anime.value.poster
-  if (local) return getMediaUrl(local) || null
-  return anime.value.poster_url || null
+  const result = local ? getMediaUrl(local) || null : anime.value.poster_url || null
+  console.log('[AnimeWatch] posterSrc:', {
+    poster_image_url: anime.value.poster_image_url,
+    poster: anime.value.poster,
+    poster_url: anime.value.poster_url,
+    result
+  })
+  return result
 })
 
 // ── Хелперы ──────────────────────────────────────────────────────
@@ -1021,12 +1107,14 @@ const loadTranslations = async () => {
 }
 
 const loadKodikPlayer = async () => {
-  if (!anime.value?.id || kodikLink.value) return
+  if (!anime.value?.id) return
   try {
     const response = await apiClient.get(`/anime/${anime.value.id}/kodik_player/`)
     kodikLink.value = normalizeKodikPlayerLink(response.data.kodik_link)
+    console.log('[AnimeWatch] Kodik player loaded:', kodikLink.value)
     if (response.data.last_episode) currentEpisode.value = 1
   } catch (err: any) {
+    console.error('[AnimeWatch] Error loading kodik player:', err)
     if (err.response?.status === 404) error.value = 'Видео для этого аниме не найдено'
     else if (err.response?.status === 503) error.value = 'Сервис временно недоступен'
     else error.value = 'Не удалось загрузить плеер'
@@ -1065,10 +1153,9 @@ const onSelectEpisodeFromList = (num: number) => {
 // ── События плеера ───────────────────────────────────────────────
 const onPlayerReady = () => {
   loading.value = false
-  setTimeout(syncPosterHeight, 100)
 }
 
-const onVideoStarted = () => { setTimeout(syncPosterHeight, 200) }
+const onVideoStarted = () => { }
 const onPlay  = () => {
   isPlaying.value = true
   animeTab?.setPlayerActive(true, currentEpisode.value)
@@ -1267,23 +1354,6 @@ const onDubAdded = () => {
   showAddDubModal.value = false
 }
 
-// ── Синхронизация высоты постера ─────────────────────────────────
-const syncPosterHeight = () => {
-  if (!playerContainer.value || !posterSide.value) return
-  const h = playerContainer.value.offsetHeight
-  posterSide.value.style.height    = `${h}px`
-  posterSide.value.style.maxHeight = `${h}px`
-  posterSide.value.style.minHeight = `${h}px`
-  posterSide.value.style.aspectRatio = 'auto'
-  const img = posterSide.value.querySelector('.poster-image') as HTMLImageElement
-  if (img) {
-    img.style.height    = `${h}px`
-    img.style.maxHeight = `${h}px`
-    img.style.width     = 'auto'
-    img.style.maxWidth  = '100%'
-  }
-}
-
 // ── Горячие клавиши ──────────────────────────────────────────────
 const handleKeyPress = (event: KeyboardEvent) => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
@@ -1305,16 +1375,6 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeyPress)
   window.addEventListener('scroll', checkScrollPosition)
 
-  nextTick(syncPosterHeight)
-  ;[100,300,500,1000,2000].forEach(d => setTimeout(syncPosterHeight, d))
-
-  if (playerContainer.value) {
-    const ro = new ResizeObserver(syncPosterHeight)
-    ro.observe(playerContainer.value)
-    ;(window as any)._playerRO = ro
-  }
-  window.addEventListener('resize', syncPosterHeight)
-  
   // Проверяем позицию скролла после загрузки
   setTimeout(checkScrollPosition, 500)
 })
@@ -1322,7 +1382,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyPress)
   window.removeEventListener('scroll', checkScrollPosition)
-  window.removeEventListener('resize', syncPosterHeight)
   saveWatchProgress()
   const ro = (window as any)._playerRO
   if (ro) { ro.disconnect(); delete (window as any)._playerRO }
@@ -1410,6 +1469,29 @@ watch(selectedTranslation, (v) => {
    ИНФО ПОД ПЛЕЕРОМ
 ════════════════════════════════════════════════════════ */
 .anime-info-under { display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* Постер в описании */
+.anime-poster-inline {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.poster-inline-image {
+  max-width: 200px;
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+/* Постер (общий стиль) */
+.poster-image {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}
+
 .anime-header { display: flex; flex-direction: column; gap: 0.6rem; }
 
 .anime-title {
@@ -1549,89 +1631,43 @@ watch(selectedTranslation, (v) => {
    ПРАВАЯ КОЛОНКА
 ════════════════════════════════════════════════════════ */
 
-/* Постер */
-.poster-side {
-  background: rgba(0,0,0,0.3);
-  border-radius: 12px;
-  overflow: hidden;
-  width: 100%;
-  max-width: 350px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  aspect-ratio: 2/3;
-  position: relative;
-}
-
-.poster-image {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  object-position: center;
-  border-radius: 8px;
-  display: block;
-  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-}
-
-.poster-placeholder {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  color: #6b7280; background: rgba(255,255,255,0.03);
-}
-
-/* ── Бейдж прогресса на постере ──────────────────────── */
-.poster-progress-badge {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  width: 40px;
-  height: 40px;
-  background: rgba(0,0,0,0.75);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-  cursor: default;
-  z-index: 2;
-}
-
-.ppb-svg {
-  position: absolute;
-  width: 40px; height: 40px;
-  transform: rotate(-90deg);
-}
-
-.ppb-track {
-  fill: none;
-  stroke: rgba(255,255,255,0.15);
-  stroke-width: 3;
-}
-
-.ppb-fill {
-  fill: none;
-  stroke: #3b82f6;
-  stroke-width: 3;
-  stroke-linecap: round;
-  transition: stroke-dasharray .4s ease;
-}
-
-.poster-progress-badge.completed .ppb-fill { stroke: #22c55e; }
-
-.ppb-label {
-  font-size: 0.55rem;
-  font-weight: 700;
-  color: #fff;
-  z-index: 1;
-  line-height: 1;
-}
-
 /* Серии */
 .episodes-card {
   background: rgba(255,255,255,0.03);
   border-radius: 14px;
   padding: 1.25rem;
   border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Кнопка «Подробнее» */
+.more-info-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(139,92,246,0.15) 100%);
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: 12px;
+  color: #60a5fa;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s var(--ease-petal);
+  margin-bottom: 1.5rem;
+}
+
+.more-info-btn:hover {
+  background: linear-gradient(135deg, rgba(59,130,246,0.25) 0%, rgba(139,92,246,0.25) 100%);
+  border-color: rgba(59,130,246,0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59,130,246,0.2);
+}
+
+.more-info-btn svg {
+  flex-shrink: 0;
 }
 
 .ec-header {
@@ -1698,59 +1734,107 @@ watch(selectedTranslation, (v) => {
   box-shadow: 0 2px 8px rgba(139,92,246,0.2);
 }
 
+/* Постер в правой колонке */
+.poster-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 1.25rem;
+  border: 1px solid rgba(255,255,255,0.06);
+  text-align: center;
+}
+
+.poster-image-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.3);
+}
+
+.anime-poster-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  transition: transform 0.3s;
+}
+
+.anime-poster-img:hover {
+  transform: scale(1.03);
+}
+
+.poster-placeholder {
+  width: 100%;
+  aspect-ratio: 2/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: #444;
+  font-size: 3rem;
+}
+
 /* Действия */
 .actions-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 1.25rem;
+  border: 1px solid rgba(255,255,255,0.06);
   display: flex;
-  gap: 0.75rem;
+  flex-direction: row;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .action-btn {
-  flex: 1;
-  padding: 0.75rem;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  color: #9ca3af;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all .2s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
 }
-.action-btn:hover { background: rgba(255,255,255,0.1); color: #fff; transform: translateY(-1px); }
-.action-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 
-.action-icon { font-size: 1rem; }
-.action-icon-filled { font-size: 1rem; color: #ef4444; }
-.action-label { flex: 1; text-align: center; }
+.action-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.action-btn.is-favorite {
+  background: rgba(251,191,36,0.15);
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
 
 .action-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255,255,255,0.15);
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
-/* Избранное - активное состояние */
-.action-btn.is-favorite {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-}
-.action-btn.is-favorite:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #f87171;
+.action-icon-filled {
+  font-size: 1.2rem;
+  color: #fbbf24;
 }
 
-/* Загрузка */
-.action-btn.is-loading {
-  pointer-events: none;
+.action-icon {
+  font-size: 1.2rem;
+}
+
+.action-label {
+  font-size: 0.9rem;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -1769,24 +1853,32 @@ watch(selectedTranslation, (v) => {
   margin-top: -0.5rem;
 }
 
+.qdl-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
 .qdl-btn {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.4rem;
-  height: 32px;
-  padding: 0 0.75rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 7px;
-  color: #d1d5db;
-  font-size: 0.78rem;
-  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  overflow: hidden;
-  white-space: nowrap;
-  flex-shrink: 0;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  justify-content: center;
+}
+
+.qdl-btn.qdl-secondary {
+  background: var(--color-surface-3);
+  border-color: var(--color-border-light);
 }
 .qdl-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
@@ -2472,20 +2564,12 @@ watch(selectedTranslation, (v) => {
   .watch-container { grid-template-columns: 1fr; }
 
   .right-column {
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 1rem;
   }
 
-  .poster-side {
-    width: 180px;
-    flex-shrink: 0;
-    height: auto !important;
-    aspect-ratio: 2/3 !important;
-  }
-
-  .episodes-card { flex: 1; min-width: 280px; }
-  .genres-card, .actions-card { flex: 1; min-width: 200px; }
+  .episodes-card { flex: 1; }
+  .genres-card, .actions-card { flex: 1; }
 }
 
 @media (max-width: 768px) {

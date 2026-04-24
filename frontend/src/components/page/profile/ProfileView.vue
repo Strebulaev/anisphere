@@ -40,7 +40,6 @@
       <ProfileHeader
         :user="user"
         :is-following="isFollowing"
-        @edit-profile="showEditModal = true"
         @show-followers="showFollowers = true"
         @show-following="showFollowing = true"
         @go-to-playlists="activeTab = 'playlists'"
@@ -124,15 +123,6 @@
         />
       </div>
     </template>
-
-    <!-- Edit Profile Modal -->
-    <EditProfileModal
-      v-if="showEditModal"
-      :is-visible="showEditModal"
-      :user="authStore.user"
-      @close="showEditModal = false"
-      @save="handleProfileSave"
-    />
 
     <!-- Avatar Editor Modal -->
     <AvatarEditorModal
@@ -229,7 +219,7 @@ import ProfilePlaylistsTab from '@/components/profile/ProfilePlaylistsTab.vue'
 import ProfileShortsTab from '@/components/profile/ProfileShortsTab.vue'
 import ProfileDubsTab from '@/components/profile/ProfileDubsTab.vue'
 import ProfileSearch from '@/components/profile/ProfileSearch.vue'
-import EditProfileModal from '@/components/modal/profile/EditProfileModal.vue'
+
 import AvatarEditorModal from '@/components/modal/profile/AvatarEditorModal.vue'
 import FollowersModal from '@/components/modal/profile/FollowersModal.vue'
 import AchievementsModal from '@/components/modal/profile/AchievementsModal.vue'
@@ -263,7 +253,6 @@ const achievementsLoading = ref(false)
 const profileStats = ref<any>(null)
 const statsLoading = ref(false)
 
-const showEditModal = ref(false)
 const showAvatarEditor = ref(false)
 const showFollowers = ref(false)
 const showFollowing = ref(false)
@@ -605,7 +594,7 @@ const handleUnblock = async () => {
 const handleMessage = async () => {
   if (!user.value) return
   try {
-    const response = await fetch('/api/chats/private/', {
+    const response = await fetch('/api/social/private-chats/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -615,7 +604,7 @@ const handleMessage = async () => {
     })
     if (response.ok) {
       const data = await response.json()
-      router.push(`/chat/${data.id}`)
+      router.push(`/chats/${data.id}`)
     }
   } catch (error) {
     console.error('Error creating chat:', error)
@@ -631,16 +620,7 @@ const handleReport = () => {
   }
 }
 
-const handleProfileSave = async (updatedProfile: any) => {
-  try {
-    await authStore.updateProfile(updatedProfile)
-    await fetchUserProfile()
-    showEditModal.value = false
-  } catch (error) {
-    console.error('Error saving profile:', error)
-    alert('Ошибка при сохранении профиля')
-  }
-}
+
 
 const handleAvatarUpdated = (avatarUrl: string) => {
   if (user.value) {
