@@ -48,23 +48,17 @@ export type SortOrder =
   | 'title_en' | '-title_en'
   | 'episodes' | '-episodes'
   | 'created_at' | '-created_at'
-  | (string & {})  // разрешает произвольные строки без потери типовых подсказок
+  | (string & {})
 
 export interface AnimeFilters {
-  // Поиск
   search?: string
 
-  // Жанры
   genres?: string[] | string
   genre_logic?: 'AND' | 'OR'
 
-  // Тип и статус - multi-select, передаются через запятую
-  // Допустимые status: ongoing | finished | announced | canceled
-  // Допустимые type:   tv | movie | ova | ona | special | music
   status?: string[] | string
   type?:   string[] | string
 
-  // Диапазоны
   year_from?: number
   year_to?: number
   score_from?: number
