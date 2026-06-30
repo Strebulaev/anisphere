@@ -22,7 +22,7 @@ class FeedWebSocketService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) return
 
     const wsBase = import.meta.env.VITE_WS_URL || 
-      (window.location.protocol === 'https:' ? 'wss' : 'ws') + `://${window.location.host}/ws`
+      (window.location.protocol === 'https:' ? 'wss' : 'ws') + `:
 
     const url = `${wsBase}/global/?token=${token}`
 
@@ -37,7 +37,7 @@ class FeedWebSocketService {
         const msg: FeedWsEvent = JSON.parse(event.data)
         this.dispatch(msg.type, msg.data)
       } catch {
-        // ignore malformed messages
+        
       }
     }
 
@@ -80,7 +80,7 @@ class FeedWebSocketService {
     const list = this.handlers.get(type) || []
     list.forEach(h => h(data))
 
-    // Also dispatch to wildcard handlers
+    
     const wildcards = this.handlers.get('*') || []
     wildcards.forEach(h => h({ type, data }))
   }

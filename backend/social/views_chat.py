@@ -253,7 +253,7 @@ def private_chat_user_settings(request, chat_id):
     if request.method == 'GET':
         return Response(_serialize_private_settings(settings_obj, request))
 
-    # PUT/PATCH — обновление
+    # PUT/PATCH - обновление
     data = request.data
     updatable = [
         'custom_name', 'notifications_enabled', 'sound_enabled',
@@ -1151,7 +1151,7 @@ def init_franchise_discussion(request):
         franchise_name = f'Франшиза #{franchise_id}'
         franchise = None
 
-    # Постер франшизы — берём у первой части
+    # Постер франшизы - берём у первой части
     first_part = None
     if franchise:
         first_part = (
@@ -1170,7 +1170,7 @@ def init_franchise_discussion(request):
 
     franchise_poster = _poster(franchise) or _poster(first_part)
 
-    # Основная группа обсуждения — название без префиксов
+    # Основная группа обсуждения - название без префиксов
     main_group, created = GroupChat.objects.get_or_create(
         franchise_id=franchise_id,
         defaults={
@@ -1190,7 +1190,7 @@ def init_franchise_discussion(request):
     # Автодобавляем текущего пользователя в группу
     ChatMember.objects.get_or_create(chat=main_group, user=request.user)
 
-    # Тема «Общее» — название = название франшизы
+    # Тема «Общее» - название = название франшизы
     general_topic, _ = ChatTopic.objects.get_or_create(
         chat=main_group,
         anime=None,
@@ -1220,8 +1220,8 @@ def init_franchise_discussion(request):
     for t in topics_qs:
         poster = _poster(t.anime) if t.anime else franchise_poster
         topics_out.append({
-            'id': t.id,           # ChatTopic.id — для фильтрации
-            'chat_id': main_group.id,  # GroupChat.id — для WebSocket и messages
+            'id': t.id,           # ChatTopic.id - для фильтрации
+            'chat_id': main_group.id,  # GroupChat.id - для WebSocket и messages
             'title': t.title,
             'order': t.order,
             'anime_id': t.anime_id,
@@ -1260,7 +1260,7 @@ def global_chat_style(request):
             'time_format':       obj.time_format,
         })
 
-    # PUT — обновляем
+    # PUT - обновляем
     fields = [
         'wallpaper_type', 'wallpaper_color', 'wallpaper_color2',
         'bubble_style', 'accent_color', 'font_size',

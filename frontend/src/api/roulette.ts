@@ -15,7 +15,7 @@ export interface RouletteItem {
 }
 
 export interface RouletteSettings {
-  // Внешний вид
+  
   theme: 'light' | 'dark' | 'anime'
   wheel_size: 'small' | 'medium' | 'large'
   display_mode: 'posters' | 'titles' | 'both'
@@ -24,18 +24,18 @@ export interface RouletteSettings {
   sound_enabled: boolean
   sound_type: string
 
-  // Поведение
+  
   default_spin_count: number
   weight_mode: 'proportional' | 'rating' | 'manual'
   exclude_recent: boolean
   exclusion_period: number
 
-  // Лимиты
+  
   max_items: number
   max_spin_items: number
   history_limit: number
 
-  // Автоматическое добавление
+  
   auto_add_from_collection: boolean
   auto_add_from_playlists: boolean
 }
@@ -52,7 +52,7 @@ export interface Roulette {
   last_spin_at: string | null
   created_at: string
   updated_at: string
-  // Настройки
+  
   theme: string
   wheel_size: string
   display_mode: string
@@ -128,7 +128,7 @@ export interface RoulettePreset {
 }
 
 export const rouletteApi = {
-  // === Рулетки ===
+  
 
   getRoulettes: () =>
     apiClient.get<Roulette[]>('/roulette/roulettes/'),
@@ -145,7 +145,7 @@ export const rouletteApi = {
   deleteRoulette: (id: string) =>
     apiClient.delete(`/roulette/roulettes/${id}/`),
 
-  // === Настройки ===
+  
 
   getSettings: async (rouletteId: string) => {
     try {
@@ -165,7 +165,7 @@ export const rouletteApi = {
     }
   },
 
-  // === Элементы рулетки ===
+  
 
   addItem: (rouletteId: string, data: {
     anime_id: number
@@ -190,7 +190,7 @@ export const rouletteApi = {
   updateWeights: (rouletteId: string, weights: Record<string, number>) =>
     apiClient.post(`/roulette/roulettes/${rouletteId}/update_weights/`, { weights }),
 
-  // === Крутка ===
+  
 
   spin: async (rouletteId: string) => {
     try {
@@ -219,7 +219,7 @@ export const rouletteApi = {
     }
   },
 
-  // === История и статистика ===
+  
 
   getHistory: async (rouletteId: string, params?: {
     spin_type?: string
@@ -241,7 +241,7 @@ export const rouletteApi = {
       return await apiClient.get<RouletteStatistics>(`/roulette/roulettes/${rouletteId}/statistics/`)
     } catch (error) {
       console.warn('Statistics not available:', error)
-      // Возвращаем пустую статистику
+      
       return {
         data: {
           total_spins: 0,
@@ -260,7 +260,7 @@ export const rouletteApi = {
     }
   },
 
-  // === Добавление из источников ===
+  
 
   addFromCollection: async (rouletteId: string, params: {
     collection_status?: string[]
@@ -287,12 +287,12 @@ export const rouletteApi = {
     }
   },
 
-  // === Очистка ===
+  
 
   clear: (rouletteId: string) =>
     apiClient.post(`/roulette/roulettes/${rouletteId}/clear/`),
 
-  // === Пресеты ===
+  
 
   getPresets: async () => {
     try {

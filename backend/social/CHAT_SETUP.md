@@ -80,79 +80,79 @@ sudo systemctl restart nginx
 ## Новые API Endpoints
 
 ### Личные чаты
-- `GET /api/social/private-chats/` — список чатов
-- `POST /api/social/private-chats/` — создать чат
-- `GET /api/social/private-chats/{id}/` — детали чата
-- `DELETE /api/social/private-chats/{id}/` — удалить чат
-- `GET /api/social/private-chats/{id}/messages/` — сообщения
-- `POST /api/social/private-chats/{id}/messages/` — отправить сообщение
-- `POST /api/social/private-chats/{id}/mark_as_read/` — пометить как прочитанное
-- `POST /api/social/chats/{id}/clear-history/` — очистить историю
-- `PUT /api/social/private-chats/{id}/settings/` — персональные настройки
+- `GET /api/social/private-chats/` - список чатов
+- `POST /api/social/private-chats/` - создать чат
+- `GET /api/social/private-chats/{id}/` - детали чата
+- `DELETE /api/social/private-chats/{id}/` - удалить чат
+- `GET /api/social/private-chats/{id}/messages/` - сообщения
+- `POST /api/social/private-chats/{id}/messages/` - отправить сообщение
+- `POST /api/social/private-chats/{id}/mark_as_read/` - пометить как прочитанное
+- `POST /api/social/chats/{id}/clear-history/` - очистить историю
+- `PUT /api/social/private-chats/{id}/settings/` - персональные настройки
 
 ### Групповые чаты
-- `GET /api/social/group-chats/` — список групп
-- `POST /api/social/group-chats/create/` — создать группу
-- `GET /api/social/group-chats/{id}/` — детали группы
-- `PATCH /api/social/group-chats/{id}/` — обновить группу
-- `DELETE /api/social/group-chats/{id}/` — удалить группу
-- `GET /api/social/group-chats/{id}/members/` — участники
-- `POST /api/social/group-chats/{id}/invite_user/` — пригласить
-- `POST /api/social/group-chats/{id}/remove_member/` — исключить
-- `POST /api/social/group-chats/{id}/ban_user/` — забанить
-- `POST /api/social/group-chats/{id}/unban_user/` — разбанить
-- `POST /api/social/group-chats/{id}/leave_chat/` — покинуть группу
-- `GET /api/social/group-chats/{id}/roles/` — роли
-- `POST /api/social/group-chats/{id}/roles/` — создать роль
-- `GET /api/social/group-chats/{id}/invite-links/` — ссылки-приглашения
-- `POST /api/social/group-chats/{id}/invite-links/` — создать ссылку
-- `GET /api/social/group-chats/{id}/admin-logs/` — журнал действий
-- `GET /api/social/group-chats/{id}/banned-users/` — забаненные
-- `GET /api/social/group-chats/{id}/restricted-users/` — ограниченные
-- `GET /api/social/group-chats/{id}/analytics/` — аналитика
+- `GET /api/social/group-chats/` - список групп
+- `POST /api/social/group-chats/create/` - создать группу
+- `GET /api/social/group-chats/{id}/` - детали группы
+- `PATCH /api/social/group-chats/{id}/` - обновить группу
+- `DELETE /api/social/group-chats/{id}/` - удалить группу
+- `GET /api/social/group-chats/{id}/members/` - участники
+- `POST /api/social/group-chats/{id}/invite_user/` - пригласить
+- `POST /api/social/group-chats/{id}/remove_member/` - исключить
+- `POST /api/social/group-chats/{id}/ban_user/` - забанить
+- `POST /api/social/group-chats/{id}/unban_user/` - разбанить
+- `POST /api/social/group-chats/{id}/leave_chat/` - покинуть группу
+- `GET /api/social/group-chats/{id}/roles/` - роли
+- `POST /api/social/group-chats/{id}/roles/` - создать роль
+- `GET /api/social/group-chats/{id}/invite-links/` - ссылки-приглашения
+- `POST /api/social/group-chats/{id}/invite-links/` - создать ссылку
+- `GET /api/social/group-chats/{id}/admin-logs/` - журнал действий
+- `GET /api/social/group-chats/{id}/banned-users/` - забаненные
+- `GET /api/social/group-chats/{id}/restricted-users/` - ограниченные
+- `GET /api/social/group-chats/{id}/analytics/` - аналитика
 
 ### Сообщения
-- `GET /api/social/messages/{id}/` — детали сообщения
-- `POST /api/social/messages/` — создать сообщение
-- `PATCH /api/social/messages/{id}/` — редактировать
-- `DELETE /api/social/messages/{id}/` — удалить
-- `POST /api/social/messages/{id}/react/` — добавить реакцию
-- `POST /api/social/messages/{id}/pin/` — закрепить
-- `POST /api/social/messages/{id}/unpin/` — открепить
-- `POST /api/social/messages/{id}/forward/` — переслать
+- `GET /api/social/messages/{id}/` - детали сообщения
+- `POST /api/social/messages/` - создать сообщение
+- `PATCH /api/social/messages/{id}/` - редактировать
+- `DELETE /api/social/messages/{id}/` - удалить
+- `POST /api/social/messages/{id}/react/` - добавить реакцию
+- `POST /api/social/messages/{id}/pin/` - закрепить
+- `POST /api/social/messages/{id}/unpin/` - открепить
+- `POST /api/social/messages/{id}/forward/` - переслать
 
 ### Папки чатов
-- `GET /api/social/chat-folders/` — список папок
-- `POST /api/social/chat-folders/` — создать папку
-- `PATCH /api/social/chat-folders/{id}/` — обновить папку
-- `DELETE /api/social/chat-folders/{id}/` — удалить папку
-- `POST /api/social/chat-folders/reorder/` — изменить порядок
-- `GET /api/social/chat-folders/{id}/chats/` — чаты в папке
+- `GET /api/social/chat-folders/` - список папок
+- `POST /api/social/chat-folders/` - создать папку
+- `PATCH /api/social/chat-folders/{id}/` - обновить папку
+- `DELETE /api/social/chat-folders/{id}/` - удалить папку
+- `POST /api/social/chat-folders/reorder/` - изменить порядок
+- `GET /api/social/chat-folders/{id}/chats/` - чаты в папке
 
 ### Кастомизация
-- `GET /api/social/chat-wallpapers/` — доступные обои
-- `POST /api/social/chat-wallpapers/` — загрузить обои
-- `PUT /api/social/chats/{id}/wallpaper/` — установить обои
-- `GET /api/social/chat-themes/` — доступные темы
-- `PUT /api/social/chats/{id}/theme/` — установить тему
+- `GET /api/social/chat-wallpapers/` - доступные обои
+- `POST /api/social/chat-wallpapers/` - загрузить обои
+- `PUT /api/social/chats/{id}/wallpaper/` - установить обои
+- `GET /api/social/chat-themes/` - доступные темы
+- `PUT /api/social/chats/{id}/theme/` - установить тему
 
 ### Ссылки-приглашения
-- `GET /api/social/chat-invite-links/` — список ссылок
-- `POST /api/social/chat-invite-links/` — создать ссылку
-- `DELETE /api/social/chat-invite-links/{id}/` — отозвать ссылку
-- `POST /api/social/invite-links/join/{token}/` — присоединиться по ссылке
+- `GET /api/social/chat-invite-links/` - список ссылок
+- `POST /api/social/chat-invite-links/` - создать ссылку
+- `DELETE /api/social/chat-invite-links/{id}/` - отозвать ссылку
+- `POST /api/social/invite-links/join/{token}/` - присоединиться по ссылке
 
 ### Массовые операции
-- `POST /api/social/group-chats/{id}/messages/bulk-delete/` — массовое удаление сообщений
-- `POST /api/social/group-chats/{id}/members/bulk-add/` — массовое добавление участников
-- `POST /api/social/group-chats/{id}/members/bulk-remove/` — массовое удаление участников
+- `POST /api/social/group-chats/{id}/messages/bulk-delete/` - массовое удаление сообщений
+- `POST /api/social/group-chats/{id}/members/bulk-add/` - массовое добавление участников
+- `POST /api/social/group-chats/{id}/members/bulk-remove/` - массовое удаление участников
 
 ### Экспорт/Импорт
-- `GET /api/social/chat-settings/export/` — экспорт настроек
-- `POST /api/social/chat-settings/import/` — импорт настроек
+- `GET /api/social/chat-settings/export/` - экспорт настроек
+- `POST /api/social/chat-settings/import/` - импорт настроек
 
 ### Журнал безопасности
-- `GET /api/social/security-logs/` — журнал безопасности
+- `GET /api/social/security-logs/` - журнал безопасности
 
 ## WebSocket события
 
@@ -163,19 +163,19 @@ ws://domain/ws/events/?token={jwt_token}
 ```
 
 ### События
-- `new_message` — новое сообщение
-- `message_edited` — сообщение отредактировано
-- `message_deleted` — сообщение удалено
-- `messages_read` — сообщения прочитаны
-- `reaction_added` — реакция добавлена
-- `reaction_removed` — реакция удалена
-- `user_typing` — пользователь печатает
-- `user_online` — пользователь онлайн/офлайн
-- `user_joined` — пользователь присоединился
-- `user_left` — пользователь покинул чат
-- `chat_updated` — настройки чата изменены
-- `role_changed` — роль изменена
-- `settings_changed` — настройки изменены
+- `new_message` - новое сообщение
+- `message_edited` - сообщение отредактировано
+- `message_deleted` - сообщение удалено
+- `messages_read` - сообщения прочитаны
+- `reaction_added` - реакция добавлена
+- `reaction_removed` - реакция удалена
+- `user_typing` - пользователь печатает
+- `user_online` - пользователь онлайн/офлайн
+- `user_joined` - пользователь присоединился
+- `user_left` - пользователь покинул чат
+- `chat_updated` - настройки чата изменены
+- `role_changed` - роль изменена
+- `settings_changed` - настройки изменены
 
 ## Использование сервисов
 

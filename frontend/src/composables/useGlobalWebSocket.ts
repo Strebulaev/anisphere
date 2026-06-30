@@ -10,7 +10,7 @@ const isConnected = ref(false)
 let reconnectAttempts = 0
 const MAX_RECONNECT_ATTEMPTS = 10
 
-// Event callbacks storage
+
 type EventCallback = (data: any) => void
 const eventListeners: Record<string, EventCallback[]> = {}
 
@@ -28,7 +28,7 @@ export function useGlobalWebSocket() {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
-    const wsUrl = `${protocol}//${host}/ws/global/?token=${token}`
+    const wsUrl = `${protocol}
 
     globalWs = new WebSocket(wsUrl)
 
@@ -51,7 +51,7 @@ export function useGlobalWebSocket() {
       isConnected.value = false
       globalWs = null
       
-      // Reconnect with exponential backoff
+      
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
@@ -67,59 +67,59 @@ export function useGlobalWebSocket() {
   const handleEvent = (data: any) => {
     const { action } = data
 
-    // Call registered listeners
+    
     if (eventListeners[action]) {
       eventListeners[action].forEach(callback => callback(data))
     }
 
-    // Default handlers
+    
     switch (action) {
       case 'chat_created':
-        // Обновить списки чатов
+        
         privateChatStore.loadChats()
-        // Загрузить групповые чаты
+        
         groupChatStore.loadGroupChats()
         break
 
       case 'chat_deleted':
-        // Обновить списки чатов
+        
         privateChatStore.loadChats()
         groupChatStore.loadGroupChats()
         break
 
       case 'group_chat_created':
-        // Новый групповой чат
+        
         groupChatStore.loadGroupChats()
         break
 
       case 'new_message':
-        // Новое сообщение
+        
         const chatId = data.message?.chat_id || data.chat_id
         if (chatId) {
-          // Обновить непрочитанные
+          
           chatExtrasStore.loadUnreadChats()
         }
-        // Обновить списки чатов
+        
         privateChatStore.loadChats()
         groupChatStore.loadGroupChats()
         break
 
       case 'message_read':
-        // Сообщение прочитано - обновить непрочитанные
+        
         chatExtrasStore.loadUnreadChats()
         privateChatStore.loadChats()
         groupChatStore.loadGroupChats()
         break
 
       case 'chat_updated':
-        // Чат обновлён - перезагрузить списки
+        
         privateChatStore.loadChats()
         groupChatStore.loadGroupChats()
         chatExtrasStore.loadUnreadChats()
         break
 
       case 'message_deleted':
-        // Сообщение удалено - перезагрузить сообщения
+        
         window.dispatchEvent(new CustomEvent('messageDeleted', { 
           detail: { messageId: data.message_id, chatId: data.chat_id } 
         }))
@@ -127,23 +127,23 @@ export function useGlobalWebSocket() {
         break
 
       case 'unread_updated':
-        // Обновить непрочитанные
+        
         chatExtrasStore.loadUnreadChats()
         privateChatStore.loadChats()
         break
 
       case 'user_online':
-        // Пользователь онлайн - обновить статус
+        
         authStore.updateUserOnlineStatus(data.user_id, true)
         break
 
       case 'user_offline':
-        // Пользователь офлайн - обновить статус
+        
         authStore.updateUserOnlineStatus(data.user_id, false)
         break
 
       case 'user_typing':
-        // Пользователь печатает - обрабатывается в компоненте чата
+        
         window.dispatchEvent(new CustomEvent('userTyping', { 
           detail: { 
             chatId: data.chat_id, 
@@ -155,21 +155,21 @@ export function useGlobalWebSocket() {
         break
 
       case 'notification':
-        // Новое уведомление — добавляем в стор и обновляем список
+        
         chatExtrasStore.loadNotifications()
-        // Диспатчим событие — NavBar/NotificationsStore подхватит сам
+        
         window.dispatchEvent(new CustomEvent('newNotification', { detail: data.notification || null }))
         break
 
       case 'invite_received':
-        // Получено приглашение в чат
+        
         chatExtrasStore.loadInvites()
         break
 
       case 'friend_request':
-        // Новый запрос в друзья
+        
         authStore.loadFriendRequests()
-        // Показать уведомление
+        
         window.dispatchEvent(new CustomEvent('newFriendRequest', { 
           detail: { 
             from_user_id: data.from_user_id,
@@ -180,7 +180,7 @@ export function useGlobalWebSocket() {
         break
 
       case 'friend_accepted':
-        // Запрос в друзья принят
+        
         window.dispatchEvent(new CustomEvent('friendAccepted', { 
           detail: { 
             user_id: data.user_id,
@@ -190,7 +190,7 @@ export function useGlobalWebSocket() {
         break
 
       case 'pong':
-        // Heartbeat response
+        
         break
     }
   }
@@ -209,7 +209,7 @@ export function useGlobalWebSocket() {
     }
     eventListeners[action].push(callback)
 
-    // Return unsubscribe function
+    
     return () => {
       const index = eventListeners[action]?.indexOf(callback) ?? -1
       if (index > -1) {
@@ -231,7 +231,7 @@ export function useGlobalWebSocket() {
     })
   }
 
-  // Heartbeat
+  
   let heartbeatInterval: number | null = null
   const startHeartbeat = () => {
     if (heartbeatInterval) return
@@ -259,7 +259,7 @@ export function useGlobalWebSocket() {
   }
 }
 
-// Auto-connect on import if authenticated
+
 export function initGlobalWebSocket() {
   const authStore = useAuthStore()
   if (authStore.isAuthenticated) {

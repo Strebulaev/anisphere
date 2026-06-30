@@ -35,7 +35,7 @@ import PeopleDetailView from '@/views/PeopleDetailView.vue'
 import UsersView from '@/views/UsersView.vue'
 import StudiosView from '@/views/studios/StudiosView.vue'
 import StudioDetailView from '@/views/studios/StudioDetailView.vue'
-// import DubStudioView from '@/views/studios/DubStudioView.vue' // Закомментировано
+import DubStudioView from '@/views/studios/DubStudioView.vue' 
 import SharedPlaylistView from '@/components/page/playlists/SharedPlaylistView.vue'
 import WheelView from '@/views/WheelView.vue'
 import WheelSettingsView from '@/views/WheelSettingsView.vue'
@@ -46,6 +46,8 @@ import SupportView from '@/views/SupportView.vue'
 import SubscriptionView from '@/views/SubscriptionView.vue'
 import CreateGroupView from '@/components/page/chats/CreateGroupView.vue'
 import GroupsView from '@/components/page/chats/GroupsView.vue'
+import AnnouncementDetailView from '@/views/AnnouncementDetailView.vue'
+import ModerationView from '@/views/ModerationView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -78,7 +80,13 @@ const router = createRouter({
       component: AnimeView
     },
     {
-      path: '/anime/:id',
+      path: '/anime/:slug',
+      name: 'anime-by-slug',
+      component: AnimeDetailView,
+      props: (route) => ({ id: route.params.slug })
+    },
+    {
+      path: '/anime/:id(\\d+)',
       name: 'anime-detail',
       component: AnimeDetailView,
       props: true
@@ -90,7 +98,13 @@ const router = createRouter({
       props: true
     },
     {
-      path: '/anime/:id/watch',
+      path: '/anime/:slug/watch',
+      name: 'anime-by-slug-watch',
+      component: AnimeWatchView,
+      props: (route) => ({ id: route.params.slug })
+    },
+    {
+      path: '/anime/:id(\\d+)/watch',
       name: 'anime-watch',
       component: AnimeWatchView,
       props: true
@@ -114,14 +128,14 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      // Маршрут /profile/@nickname — переходим на UserProfileView с поиском по никнейму
+      
       path: '/profile/@:nickname',
       name: 'user-profile-by-nickname',
       component: UserProfileView,
       props: (route) => ({ nickname: route.params.nickname }),
     },
     {
-      // Альтернативный URL — короткая запись /@nickname
+      
       path: '/@:nickname',
       name: 'user-short-nickname',
       component: UserProfileView,
@@ -209,11 +223,6 @@ const router = createRouter({
       component: CreateGroupView,
       meta: { requiresAuth: true }
     },
-    // Маршрут для всех чатов (франшизы, аниме, личные) - через ChatsView
-    // - /chats/hunter-x-hunter → аниме чат
-    // - /chats/friren → общее обсуждение франшизы
-    // - /chats/friren-chronicle → топик франшизы
-    // - /chats/142 → личный чат (числовой ID)
     {
       path: '/chats/:slug?',
       name: 'chats-detail',
@@ -221,14 +230,12 @@ const router = createRouter({
       props: (route) => ({ slug: route.params.slug || null }),
       meta: { requiresAuth: true }
     },
-    // Старый маршрут /chat/:id - редирект на /chats/:id
     {
       path: '/chat/:id(\\d+)',
       name: 'chat-by-id-legacy',
       redirect: (to) => ({ name: 'chats-detail', params: { slug: to.params.id } }),
       meta: { requiresAuth: true }
     },
-    // Маршрут для чатов по ID (для редиректов после создания) - child route
     {
       path: '/chats/:id(\\d+)',
       name: 'chat-by-id',
@@ -236,7 +243,6 @@ const router = createRouter({
       props: (route) => ({ slug: route.params.id }),
       meta: { requiresAuth: true }
     },
-    // Старый маршрут /chat/:id - редирект на /chats/:id
     {
       path: '/chat/:id(\\d+)',
       name: 'chat-by-id-legacy',
@@ -299,7 +305,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      // Share-ссылка — доступна без авторизации
       path: '/playlist/shared/:token',
       name: 'playlist-shared',
       component: SharedPlaylistView,
@@ -356,24 +361,29 @@ const router = createRouter({
       component: StudioDetailView,
       props: true
     },
-    // === ЗАКОММЕНТИРОВАННЫЕ МАРШРУТЫ СТУДИЙ ОЗВУЧКИ (В РАЗРАБОТКЕ) ===
-    // {
-    //   path: '/dub-groups',
-    //   name: 'dub-groups',
-    //   component: StudiosView
-    // },
-    // {
-    //   path: '/dub-groups/:slug',
-    //   name: 'dub-group-detail',
-    //   component: DubStudioView,
-    //   props: true
-    // },
-    // {
-    //   path: '/dubs/:id',
-    //   name: 'dub-studio-detail',
-    //   component: DubStudioView,
-    //   props: true
-    // },
+    {
+      path: '/announcements/:slug',
+      name: 'announcement-detail',
+      component: AnnouncementDetailView,
+      props: (route) => ({ slug: route.params.slug })
+    },
+    {
+      path: '/dub-groups',
+      name: 'dub-groups',
+      component: StudiosView
+    },
+    {
+      path: '/dub-groups/:slug',
+      name: 'dub-group-detail',
+      component: DubStudioView,
+      props: true
+    },
+    {
+      path: '/dubs/:id',
+      name: 'dub-studio-detail',
+      component: DubStudioView,
+      props: true
+    },
     {
       path: '/wheel',
       name: 'wheel',
@@ -408,31 +418,21 @@ const router = createRouter({
       name: 'subscription',
       component: SubscriptionView,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/moderation',
+      name: 'moderation',
+      component: ModerationView,
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ]
 })
 
-// Check if running in local development mode
-const isLocalDevelopment = () => {
-  const hostname = window.location.hostname
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
-}
-
-// Navigation guards
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
 
-  // Skip auth checks in local development mode
-  if (isLocalDevelopment()) {
-    console.log('🔓 Local development mode: Auth checks skipped')
-    next()
-    return
-  }
-
-  // Check if route requires authentication
   if (to.matched.some(record => record.meta.requiresAuth)) {
     if (!authStore.isAuthenticated) {
-      // Try to check authentication status
       try {
         await authStore.checkAuth()
         if (!authStore.isAuthenticated) {
@@ -446,7 +446,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
   
-  // Check if route requires guest (not authenticated)
   if (to.matched.some(record => record.meta.requiresGuest)) {
     if (authStore.isAuthenticated) {
       next('/anime')
@@ -454,7 +453,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Check if route requires admin
   if (to.matched.some(record => record.meta.requiresAdmin)) {
     const u = authStore.user
     const isAdmin = u && (u.is_admin || u.is_staff || u.username === 'kaiden812')

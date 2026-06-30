@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <div class="info-section">
+      <!-- <div class="info-section">
         <h3>Статистика</h3>
         
         <div class="stats-grid">
@@ -86,7 +86,7 @@
             <div class="stat-label">Плейлисты</div>
           </div>
         </div>
-      </div>
+      </div> -->
 
 
     </div>

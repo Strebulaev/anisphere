@@ -21,33 +21,28 @@ class SubscriptionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """
-        GET /users/subscription/ - получить информацию о подписке
-
-        ИЗМЕНЕНО: Теперь всегда возвращает is_premium=True для всех
-        """
         from users.models import Subscription
         from django.utils import timezone
+        from datetime import timedelta
 
         sub, created = Subscription.objects.get_or_create(user=request.user)
-
+        
         is_premium = sub.is_premium
-
-        # Считаем оставшиеся дни (всегда 999 - "бесконечно")
-        days_left = 999
-
-        return Response(
-            {
-                "is_active": is_premium,
-                "is_premium": is_premium,
-                "started_at": sub.started_at.isoformat() if sub.started_at else None,
-                "expires_at": sub.expires_at.isoformat() if sub.expires_at else None,
-                "auto_renew": sub.auto_renew,
-                "payment_method": sub.payment_method,
-                "days_left": days_left,
-                "note": "Весь функционал бесплатный!",  # Добавленная заметка
-            }
-        )
+        days_left = 0
+        
+        if is_premium and sub.expires_at:
+            delta = sub.expires_at - timezone.now()
+            days_left = max(delta.days, 0)
+        
+        return Response({
+            "is_active": is_premium,
+            "is_premium": is_premium,
+            "started_at": sub.started_at.isoformat() if sub.started_at else None,
+            "expires_at": sub.expires_at.isoformat() if sub.expires_at else None,
+            "auto_renew": sub.auto_renew,
+            "payment_method": sub.payment_method,
+            "days_left": days_left,  # ← правильное вычисление
+        })
 
 
 class SubscriptionActivateView(APIView):
@@ -81,7 +76,7 @@ class SubscriptionActivateView(APIView):
                 )
 
             # Активируем подписку на 30 дней
-            sub.activate(days=30, payment_method="promo")
+            sub.activate(days=186, payment_method="promo")
             sub.save()
 
             # Записываем использование промокода
@@ -108,7 +103,7 @@ class SubscriptionActivateView(APIView):
                     if sub.expires_at
                     else None,
                     "days_left": 30,
-                    "message": "Подписка активирована! Теперь доступно скачивание опенингов/эндингов/фрагментов.",
+                    "message": "Подписка активирована!",
                 }
             )
         except PromoCode.DoesNotExist:

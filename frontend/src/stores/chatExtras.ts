@@ -17,7 +17,7 @@ import {
 import apiClient from '@/api/client'
 
 export const useChatExtrasStore = defineStore('chatExtras', () => {
-  // State
+  
   const invites = ref<ChatInvite[]>([])
   const loadingInvites = ref(false)
   const messageReactions = ref<Map<number, Reaction[]>>(new Map())
@@ -32,7 +32,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
   const searchResults = ref<any[]>([])
   const searching = ref(false)
 
-  // Invites
+  
   const loadInvites = async () => {
     loadingInvites.value = true
     try {
@@ -104,7 +104,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     }
   }
 
-  // Reactions
+  
   const loadMessageReactions = async (messageId: number) => {
     loadingReactions.value = true
     try {
@@ -159,7 +159,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     return reactions.filter((r) => r.emoji === emoji).length
   }
 
-  // Attachments
+  
   const loadMessageAttachments = async (messageId: number) => {
     loadingAttachments.value = true
     try {
@@ -204,7 +204,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     return messageAttachments.value.get(messageId) || []
   }
 
-  // Pinned Messages
+  
   const loadPinnedMessages = async (chatId: number) => {
     loadingPinned.value = true
     try {
@@ -240,7 +240,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     }
   }
 
-  // Unread
+  
   const loadUnreadCount = async (chatId?: number) => {
     loadingUnread.value = true
     try {
@@ -286,7 +286,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     return chat?.unread_count || 0
   }
 
-  // Notifications
+  
   const notifications = ref<any[]>([])
   const loadingNotifications = ref(false)
 
@@ -306,7 +306,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     }
   }
 
-  // Search
+  
   const searchMessages = async (query: string, filters?: {
     chat_id?: number
     media_type?: string
@@ -329,7 +329,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     }
   }
 
-  // Utilities
+  
   const clearMessageData = (messageId: number) => {
     messageReactions.value.delete(messageId)
     messageAttachments.value.delete(messageId)
@@ -345,7 +345,7 @@ export const useChatExtrasStore = defineStore('chatExtras', () => {
     searchResults.value = []
   }
 
-  // Computed
+  
   const hasUnreadChats = computed(() => unreadChats.value.length > 0)
   const totalUnreadCount = computed(() => {
     return unreadChats.value.reduce((sum, chat) => sum + chat.unread_count, 0)

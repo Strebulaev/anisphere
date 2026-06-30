@@ -4,9 +4,7 @@
     @click="handleClick"
     :class="{ 'has-live-cover': hasLiveCover }"
   >
-    <!-- Постер франшизы с прокруткой -->
     <div class="anime-poster" @mouseenter="startPosterRotation" @mouseleave="stopPosterRotation">
-      <!-- Основной постер -->
       <img
         v-if="currentPosterUrl"
         :src="currentPosterUrl"
@@ -25,7 +23,6 @@
         </svg>
       </div>
 
-      <!-- Стрелка влево -->
       <button
         v-if="allPosters.length > 1"
         class="poster-nav-btn poster-nav-left"
@@ -40,7 +37,6 @@
         </svg>
       </button>
 
-      <!-- Стрелка вправо -->
       <button
         v-if="allPosters.length > 1"
         class="poster-nav-btn poster-nav-right"
@@ -55,7 +51,6 @@
         </svg>
       </button>
 
-      <!-- Счётчик частей (верхний левый угол) -->
       <div class="parts-badge">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="7" height="7"/>
@@ -66,10 +61,8 @@
         <span>{{ partsCount }} {{ partsWord }}</span>
       </div>
 
-      <!-- Градиентный оверлей снизу -->
       <div class="poster-overlay"></div>
 
-      <!-- Оверлей с кнопкой play при наведении -->
       <div class="hover-overlay" @click.stop="handleClick">
         <button class="play-btn" @click.stop="handleClick">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -78,7 +71,6 @@
         </button>
       </div>
 
-      <!-- Индикатор живой обложки (правый верхний угол) -->
       <div 
         v-if="hasLiveCover" 
         class="live-cover-indicator"
@@ -90,7 +82,6 @@
         </svg>
       </div>
 
-      <!-- Кнопки действий (правый верхний угол, появляются при наведении) -->
       <div v-if="showActions" class="card-actions">
         <button
           :class="['action-btn', 'favorite-btn']"
@@ -137,7 +128,6 @@
         </button>
       </div>
 
-      <!-- Рейтинг (левый нижний угол) -->
       <div v-if="avgScore" class="score-badge">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -146,7 +136,6 @@
       </div>
     </div>
 
-    <!-- Информационный слой -->
     <div class="anime-info">
       <h3 class="anime-title">{{ franchise.name }}</h3>
       
@@ -164,7 +153,6 @@
         </span>
       </div>
 
-      <!-- Жанры (совокупность всех частей) -->
       <div v-if="showGenres && displayGenres.length > 0" class="anime-genres">
         <span
           v-for="(genre, index) in displayGenres"
@@ -179,11 +167,9 @@
         </span>
       </div>
 
-      <!-- Статусная полоска -->
       <div class="status-bar status-bar-franchise"></div>
     </div>
 
-    <!-- Модальное окно добавления в плейлист -->
     <PlaylistSelectModal
       v-if="showPlaylistModal"
       :show="showPlaylistModal"
@@ -195,7 +181,6 @@
       @create-playlist="handleCreatePlaylist"
     />
 
-    <!-- Модальное окно напоминания -->
     <ReminderModal
       v-if="showReminderModal && reminderAnime"
       :show="showReminderModal"
@@ -204,7 +189,6 @@
       @save="handleReminderSave"
     />
 
-    <!-- Модалка создания нового плейлиста -->
     <Teleport to="body">
       <Transition name="psm-anim">
         <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:10001;padding:1rem;">
@@ -309,12 +293,10 @@ const creatingPlaylist = ref(false)
 const playlists = ref<any[]>([])
 const playlistsLoading = ref(false)
 
-// Прокрутка постеров
 const currentPosterIndex = ref(0)
 const isTransitioning = ref(false)
 let rotationTimer: ReturnType<typeof setInterval> | null = null
 
-// Вычисляемые свойства
 const partsCount = computed(() => {
   return props.franchise.parts_count || props.franchise.entries?.length || 0
 })
@@ -364,7 +346,6 @@ const allPosters = computed(() => {
     return props.franchise.all_posters.map(p => getMediaUrl(p))
   }
   
-  // Если нет all_posters, собираем из entries
   if (props.franchise.entries && props.franchise.entries.length > 0) {
     return props.franchise.entries
       .sort((a, b) => (a.franchise_order || 0) - (b.franchise_order || 0))
@@ -385,7 +366,6 @@ const currentPosterUrl = computed(() => {
     return allPosters.value[currentPosterIndex.value]
   }
   
-  // Fallback на основной постер франшизы
   if (props.franchise.poster && typeof props.franchise.poster === 'string') {
     return getMediaUrl(props.franchise.poster)
   }
@@ -399,7 +379,6 @@ const currentPosterUrl = computed(() => {
   return null
 })
 
-// Прокрутка постеров
 const startPosterRotation = () => {
   if (allPosters.value.length <= 1) return
   
@@ -438,7 +417,6 @@ const nextPoster = () => {
   }, 150)
 }
 
-// Для совместимости с PlaylistSelectModal
 const franchiseAsAnime = computed(() => ({
   id: props.franchise.id,
   title_ru: props.franchise.name,
@@ -448,12 +426,10 @@ const franchiseAsAnime = computed(() => ({
   poster: props.franchise.poster || undefined
 }))
 
-// Для напоминания - берём первое онгоинг или первое аниме из франшизы
 const reminderAnime = computed(() => {
   const entries = props.franchise.entries || []
   if (entries.length === 0) return null
   
-  // Ищем онгоинг
   const ongoing = entries.find((e: any) => e.status === 'ongoing')
   if (ongoing) {
     return {
@@ -465,7 +441,6 @@ const reminderAnime = computed(() => {
     }
   }
   
-  // Берём первое аниме
   const first = entries[0]
   if (!first) return null
   
@@ -506,7 +481,7 @@ const checkFavorite = async () => {
     const response = await playlistsApi.checkAnimeInFavorites(props.franchise.id)
     isFavorite.value = response.data.is_favorite
   } catch (error: any) {
-    // Тихо игнорируем
+    // игнорируем
   }
 }
 
@@ -577,7 +552,6 @@ const saveNewPlaylist = async () => {
 
 const handleDiscuss = async () => {
   try {
-    // Для франшизы используем отдельный API
     const franchiseId = props.franchise.id
     
     let discussionGroup
@@ -591,7 +565,6 @@ const handleDiscuss = async () => {
       }
     }
 
-    // Переходим к чату - используем chat_id из ответа если есть
     const chatId = discussionGroup.chat_id || discussionGroup.group?.id || discussionGroup.id
     const topicId = discussionGroup.current_topic_id
     
@@ -654,12 +627,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ── Франшиза карточка ───────────────────────────────────── */
 .franchise-card {
   position: relative;
 }
 
-/* ── Бейдж количества частей ─────────────────────────────── */
 .parts-badge {
   position: absolute;
   top: var(--space-2);
@@ -681,7 +652,6 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* ── Стрелки навигации ───────────────────────────────────── */
 .poster-nav-btn {
   position: absolute;
   top: 50%;
@@ -723,13 +693,11 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* ── Переход постера ─────────────────────────────────────── */
 .poster-transitioning {
   opacity: 0.5;
   transform: scale(1.02);
 }
 
-/* ── Мета информация ─────────────────────────────────────── */
 .meta-highlight {
   color: var(--accent);
   font-weight: 600;
@@ -740,14 +708,10 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-/* ── Статусная полоска франшизы ──────────────────────────── */
 .status-bar-franchise {
   background: linear-gradient(90deg, var(--accent) 0%, #a855f7 100%);
 }
-</style>
 
-<style>
-/* ── Общие стили карточки (наследуются от AnimeCard) ─────── */
 .anime-card {
   background-color: var(--surface-3);
   border-radius: var(--radius-card);
@@ -770,7 +734,6 @@ onUnmounted(() => {
   border-color: var(--border-default);
 }
 
-/* ── Постер ──────────────────────────────────────────────── */
 .anime-poster {
   position: relative;
   width: 100%;
@@ -805,7 +768,6 @@ onUnmounted(() => {
   color: var(--text-tertiary);
 }
 
-/* ── Градиент ────────────────────────────────────────────── */
 .poster-overlay {
   position: absolute;
   bottom: 0;
@@ -821,7 +783,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* ── Hover оверлей с кнопкой play ────────────────────────── */
 .hover-overlay {
   position: absolute;
   inset: 0;
@@ -838,7 +799,6 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* Квадратная синяя кнопка с анимацией распыления */
 .play-btn {
   width: 64px;
   height: 64px;
@@ -872,7 +832,6 @@ onUnmounted(() => {
   margin-left: 4px;
 }
 
-/* ── Live cover ──────────────────────────────────────────── */
 .live-cover-indicator {
   position: absolute;
   top: var(--space-2);
@@ -890,7 +849,6 @@ onUnmounted(() => {
 
 .anime-card:hover .live-cover-indicator { opacity: 1; }
 
-/* ── Кнопки действий ─────────────────────────────────────── */
 .card-actions {
   position: absolute;
   top: var(--space-2);
@@ -934,7 +892,6 @@ onUnmounted(() => {
 .playlist-btn:hover         { background-color: var(--accent-2); }
 .reminder-btn:hover         { background-color: var(--warning); }
 
-/* ── Рейтинг ─────────────────────────────────────────────── */
 .score-badge {
   position: absolute;
   bottom: var(--space-2);
@@ -952,7 +909,6 @@ onUnmounted(() => {
   z-index: 5;
 }
 
-/* ── Информация ──────────────────────────────────────────── */
 .anime-info {
   padding: var(--space-2) var(--space-3) var(--space-3);
   background-color: var(--surface-3);
@@ -989,7 +945,6 @@ onUnmounted(() => {
 .meta-separator { color: var(--text-tertiary); }
 .meta-status    { font-weight: 500; }
 
-/* ── Жанры ───────────────────────────────────────────────── */
 .anime-genres {
   display: flex;
   flex-wrap: wrap;
@@ -1011,7 +966,6 @@ onUnmounted(() => {
   color: var(--text-tertiary);
 }
 
-/* ── Статусная полоска ───────────────────────────────────── */
 .status-bar {
   height: 2px;
   width: 100%;
@@ -1019,7 +973,6 @@ onUnmounted(() => {
   margin-top: auto;
 }
 
-/* ── Мобильная адаптация ─────────────────────────────────── */
 @media (max-width: 767px) {
   .card-actions {
     opacity: 1;

@@ -20,7 +20,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // Вычисляемые свойства
+  
   const isActive = computed(() => subscription.value?.is_active ?? false)
   const isPremium = computed(() => subscription.value?.is_premium ?? false)
   const daysLeft = computed(() => subscription.value?.days_left ?? 0)
@@ -37,9 +37,9 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       const response = await apiClient.get('/users/subscription/')
       subscription.value = response.data
       
-      // Синхронизируем с auth store если есть премиум
+      
       if (response.data.is_premium) {
-        // Обновляем локальные данные пользователя
+        
         try {
           const userData = localStorage.getItem('user')
           if (userData) {
@@ -97,7 +97,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       await apiClient.post('/users/subscription/deactivate/')
       subscription.value = null
       
-      // Обновляем локальные данные
+      
       try {
         const userData = localStorage.getItem('user')
         if (userData) {
@@ -123,7 +123,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
    * Проверка премиум статуса (быстрая, без запроса к API)
    */
   const checkPremiumSync = (): boolean => {
-    // Проверяем локальные данные
+    
     try {
       const userData = localStorage.getItem('user')
       if (userData) {
@@ -133,10 +133,10 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         }
       }
     } catch (e) {
-      // Игнорируем
+      
     }
     
-    // Проверяем store
+    
     return subscription.value?.is_premium ?? false
   }
 
@@ -158,18 +158,18 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   }
 
   return {
-    // State
+    
     subscription,
     loading,
     error,
     
-    // Getters
+    
     isActive,
     isPremium,
     daysLeft,
     expiresAt,
     
-    // Actions
+    
     fetchSubscription,
     activateWithPromo,
     deactivateSubscription,

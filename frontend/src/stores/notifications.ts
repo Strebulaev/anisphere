@@ -27,38 +27,31 @@ export interface Reminder {
 
 export const useNotificationStore = defineStore('notifications', () => {
   const notifications   = ref<NotificationItem[]>([])
-  const recentNotifications = ref<NotificationItem[]>([])  // только для дропдауна
+  const recentNotifications = ref<NotificationItem[]>([]) 
   const reminders       = ref<Reminder[]>([])
   const unreadCount     = ref(0)
-  const flashingCount   = ref(0)  // Количество сверкающих уведомлений
+  const flashingCount   = ref(0) 
   const loading         = ref(false)
   const loadingMore     = ref(false)
   const hasMore         = ref(true)
   const currentPage     = ref(1)
   const settings        = ref<NotificationSettings | null>(null)
 
-  // Сверкающие напоминания: id напоминаний которые сейчас сверкают (первая минута)
   const ringingReminderIds = ref<number[]>([])
   
-  // Сверкает ли колокольчик сейчас (есть новые уведомления или непрочитанные)
   const isBellRinging = computed(() => {
-    // Звеним если есть сверкающие уведомления
     if (flashingCount.value > 0) return true
-    // Или есть сверкающие напоминания
     if (ringingReminderIds.value.length > 0) return true
     return false
   })
 
-  // Таймеры сверкания (id напоминания -> timer handle)
   const _ringTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
   function startRinging(reminderId: number) {
-    // Добавляем в массив если ещё нет
     if (!ringingReminderIds.value.includes(reminderId)) {
       ringingReminderIds.value = [...ringingReminderIds.value, reminderId]
     }
 
-    // Через 1 минуту прекращаем сверкание
     const t = setTimeout(() => {
       stopRinging(reminderId)
     }, 60_000)
@@ -71,19 +64,15 @@ export const useNotificationStore = defineStore('notifications', () => {
     ringingReminderIds.value = ringingReminderIds.value.filter(id => id !== reminderId)
   }
 
-  // Проверка, сверкает ли напоминание
   function isReminderRinging(reminderId: number): boolean {
     return ringingReminderIds.value.includes(reminderId)
   }
 
-  // WS
   let ws: WebSocket | null = null
   let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
   let wsReconnectDelay = 2000
 
   const hasUnread = computed(() => unreadCount.value > 0)
-
-  // ── Notifications ─────────────────────────────────────────────────
 
   async function fetchNotifications(reset = true) {
     if (reset) {
@@ -129,9 +118,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       const { data } = await notificationsApi.recent()
       unreadCount.value = data.unread_count
       flashingCount.value = data.flashing_count || 0
-      // Обновляем отдельный список для дропдауна (последние 5)
       recentNotifications.value = data.results.slice(0, 5)
-      // Также мержим в основной список если он уже загружен
       const existing = new Set(notifications.value.map(n => n.id))
       const fresh = data.results.filter(n => !existing.has(n.id))
       if (fresh.length) {
@@ -232,18 +219,14 @@ export const useNotificationStore = defineStore('notifications', () => {
     if (!notifications.value.some(n => n.id === notification.id)) {
       notifications.value.unshift(notification)
     }
-    // Обновляем recent список для дропдауна
     if (!recentNotifications.value.some(n => n.id === notification.id)) {
       recentNotifications.value = [notification, ...recentNotifications.value].slice(0, 5)
     }
     if (!notification.is_read) unreadCount.value++
-    // Если уведомление новое (сверкает)
     if ((notification as any).is_flashing) {
       flashingCount.value++
     }
   }
-
-  // ── Reminders ─────────────────────────────────────────────────────
 
   async function fetchReminders() {
     try {
@@ -281,7 +264,6 @@ export const useNotificationStore = defineStore('notifications', () => {
   }
 
   async function acknowledgeReminder(id: number) {
-    // Пользователь кликнул на напоминание - перестаёт сверчать
     const { default: apiClient } = await import('@/api/client')
     await apiClient.post(`/notifications/reminders/${id}/acknowledge/`)
     const r = reminders.value.find(r => r.id === id)
@@ -290,29 +272,23 @@ export const useNotificationStore = defineStore('notifications', () => {
   }
 
   async function checkAndTriggerReminders() {
-    // Проверяет и запускает сработавшие напоминания
     try {
       const { default: apiClient } = await import('@/api/client')
       const { data } = await apiClient.post('/notifications/reminders/check_and_trigger/')
       
-      // Обновляем напоминания если что-то сработало
       if (data.triggered_count > 0) {
-        // Перезагружаем напоминания
         await fetchReminders()
         
-        // Запускаем сверкание для каждого сработавшего напоминания
         data.triggered_ids.forEach((id: number) => {
           startRinging(id)
         })
         
-        // Загружаем новые уведомления
         await fetchRecent()
         
-        // Воспроизводим звук уведомления
         try {
           const audio = new Audio('/sounds/notification.mp3')
           audio.volume = 0.5
-          audio.play().catch(() => {}) // Игнорируем ошибки автоплея
+          audio.play().catch(() => {})
         } catch {}
       }
       return data
@@ -335,8 +311,6 @@ export const useNotificationStore = defineStore('notifications', () => {
       .sort((a, b) => new Date(b.reminder_time).getTime() - new Date(a.reminder_time).getTime())
   )
 
-  // ── Settings ──────────────────────────────────────────────────────
-
   async function fetchSettings() {
     try {
       const { data } = await notificationsApi.getSettings()
@@ -355,7 +329,6 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
-  // ── WebSocket ─────────────────────────────────────────────────────
 
   function connectWS(token: string) {
     if (ws && ws.readyState === WebSocket.OPEN) return
@@ -381,7 +354,6 @@ export const useNotificationStore = defineStore('notifications', () => {
 
     ws.onclose = () => {
       ws = null
-      // Reconnect with backoff
       wsReconnectTimer = setTimeout(() => {
         connectWS(token)
         wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000)

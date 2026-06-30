@@ -1,11 +1,11 @@
-// Оптимизированные компоненты
+
 export { default as OptimizedImage } from './common/OptimizedImage.vue'
 
-// Компоненты поиска
-export { default as SearchBar } from './Search/SearchBar.vue'
-export { default as SearchSuggestions } from './Search/SearchSuggestions.vue'
 
-// Компоненты фильтров
+export { default as SearchBar } from './Search/SearchBar.vue'
+export { default as SuggestionItem } from './Search/SuggestionItem.vue'
+
+
 export { default as FilterBlock } from './Filters/FilterBlock.vue'
 export { default as GenreFilter } from './Filters/GenreFilter.vue'
 export { default as YearFilter } from './Filters/YearFilter.vue'
@@ -17,12 +17,12 @@ export { default as ActiveFilters } from './Filters/ActiveFilters.vue'
 export { default as SortDropdown } from './Filters/SortDropdown.vue'
 export { default as ItemsPerPage } from './Filters/ItemsPerPage.vue'
 
-// Компоненты карточек
+
 export { default as AnimeCard } from './Cards/AnimeCard.vue'
 export { default as PlaylistCard } from './Cards/PlaylistCard.vue'
 export { default as UserCard } from './Cards/UserCard.vue'
 
-// Компоненты модальных окон
+
 export { 
   ReminderModal,
   QuickViewModal,
@@ -31,14 +31,14 @@ export {
   ReportModal
 } from './Modals'
 
-// Модуль навигационных элементов
+
 export {
   Breadcrumbs,
   Pagination,
   LoadMoreButton
 } from './Navigation'
 
-// Модуль информационных блоков
+
 export {
   PageTitle,
   LoadingState,
@@ -47,7 +47,7 @@ export {
   RecommendationBanner
 } from './Info'
 
-// Модуль кнопок действий
+
 export {
   CollectionButton,
   ShareButton,
@@ -56,14 +56,14 @@ export {
   AddToFavoriteButton
 } from './Buttons'
 
-// Модуль уведомлений
+
 export {
   Toast,
   ToastContainer,
   useToast
 } from './Notifications'
 
-// Модуль секций аниме
+
 export {
   AnimeSection,
   RandomSection

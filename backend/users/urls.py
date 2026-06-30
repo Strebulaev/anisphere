@@ -81,7 +81,7 @@ urlpatterns = [
         views.UserPublicProfileView.as_view(),
         name="user_public_profile",
     ),
-    # Профиль по никнейму — /api/users/by-nickname/@kaiden812/
+    # Профиль по никнейму - /api/users/by-nickname/@kaiden812/
     path(
         "by-nickname/<str:nickname>/",
         views.UserProfileByNicknameView.as_view(),
@@ -117,6 +117,18 @@ urlpatterns = [
     # path('settings/cache/clear/', views.AllSettingsView.as_view({'post': 'clear_cache'}), name='clear_settings_cache'),
     # Загрузка аватара
     path("avatar/", views.AvatarUploadView.as_view(), name="avatar_upload"),
+    # Установка аватара из скриншота
+    path(
+        "avatar/from-screenshot/",
+        views.AvatarFromScreenshotView.as_view(),
+        name="avatar_from_screenshot",
+    ),
+    # Установка обложки из скриншота
+    path(
+        "cover/from-screenshot/",
+        views.CoverFromScreenshotView.as_view(),
+        name="cover_from_screenshot",
+    ),
     # Смена пароля
     path(
         "change-password/", views.ChangePasswordView.as_view(), name="change_password"

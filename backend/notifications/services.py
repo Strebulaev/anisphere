@@ -1,5 +1,5 @@
 """
-NotificationService — централизованный сервис создания уведомлений
+NotificationService - централизованный сервис создания уведомлений
 с отправкой через Django Channels (channel_layer → group user_{id}).
 """
 import logging
@@ -267,7 +267,7 @@ class NotificationService:
             user=user,
             notification_type='contest_win',
             title=f'Вы заняли {place} место в конкурсе!',
-            content=f'«{contest_title}» — поздравляем!',
+            content=f'«{contest_title}» - поздравляем!',
             link='/reactor/competitions',
         )
 

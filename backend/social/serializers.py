@@ -90,6 +90,7 @@ class ReportSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source="author.username", read_only=True)
     author_avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    author_is_premium = serializers.BooleanField(source="author.is_premium", read_only=True)
     replies_count = serializers.SerializerMethodField()
     is_reply = serializers.ReadOnlyField()
     parent_id = serializers.IntegerField(source="parent.id", read_only=True)
@@ -105,6 +106,7 @@ class CommentSerializer(serializers.ModelSerializer):
             "author",
             "author_username",
             "author_avatar",
+            "author_is_premium",
             "text",
             "parent",
             "parent_id",
@@ -167,10 +169,12 @@ class CommentCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Parent comment must be on the same object."
                 )
-            if parent.is_reply:
-                raise serializers.ValidationError("Cannot reply to a reply.")
 
         return data
+
+    def create(self, validated_data):
+        validated_data["author"] = self.context["request"].user
+        return super().create(validated_data)
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -229,7 +233,8 @@ class GroupSerializer(serializers.ModelSerializer):
 class GroupCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
-        fields = ["name", "description", "avatar_url", "banner_url", "is_private"]
+        fields = ["name", "description", "avatar_url", "banner_url", "is_private", "anime"]
+        read_only_fields = ["slug", "creator", "members_count", "posts_count", "created_at", "updated_at"]
 
 
 class GroupMembershipSerializer(serializers.ModelSerializer):
@@ -256,12 +261,12 @@ class PostSerializer(serializers.ModelSerializer):
         source="author.display_name", read_only=True
     )
     author_avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    author_is_premium = serializers.BooleanField(source="author.is_premium", read_only=True)
     anime_title = serializers.CharField(source="anime.title_ru", read_only=True)
     anime_poster = serializers.ImageField(source="anime.poster", read_only=True)
     anime = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", read_only=True)
     group_avatar = serializers.ImageField(source="group.avatar_file", read_only=True)
-    playlist_title = serializers.CharField(source="playlist.title", read_only=True)
     media_url = serializers.ReadOnlyField()
     is_liked = serializers.SerializerMethodField()
     is_disliked = serializers.SerializerMethodField()
@@ -286,6 +291,7 @@ class PostSerializer(serializers.ModelSerializer):
             "author_username",
             "author_display_name",
             "author_avatar",
+            "author_is_premium",
             "title",
             "text",
             "image_url",
@@ -299,8 +305,6 @@ class PostSerializer(serializers.ModelSerializer):
             "group",
             "group_name",
             "group_avatar",
-            "playlist",
-            "playlist_title",
             "reactor_post",
             "post_type",
             "original_post",
@@ -353,119 +357,142 @@ class PostSerializer(serializers.ModelSerializer):
         ]
 
     def get_group(self, obj):
-        if obj.group:
+        if not obj.group:
+            return None
+
+        try:
             return {
                 "id": obj.group.id,
-                "name": obj.group.name,
+                "name": obj.group.name or "",
                 "avatar": obj.group.avatar_file.url if obj.group.avatar_file else None,
             }
-        return None
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error getting group for post {obj.id}: {e}")
+            return None
 
     def get_anime(self, obj):
+        """Сначала ищем в attachments, потом в ForeignKey"""
+        # Проверяем attachments через prefetch
+        if hasattr(obj, '_prefetched_objects_cache') and 'attachments' in obj._prefetched_objects_cache:
+            attachments = obj.attachments.filter(content_type='anime')
+        else:
+            from .models import PostAttachment
+            attachments = PostAttachment.objects.filter(post=obj, content_type='anime')
+
+        first_attachment = attachments.first()
+        if first_attachment:
+            try:
+                from anime.models import Anime
+                anime = Anime.objects.get(id=first_attachment.object_id)
+                poster_url = None
+                # Сначала проверяем локальный файл
+                if anime.poster:
+                    try:
+                        if anime.poster.storage.exists(anime.poster.name):
+                            poster_url = anime.poster.url
+                            request = self.context.get("request")
+                            if request and poster_url and not poster_url.startswith("http"):
+                                poster_url = request.build_absolute_uri(poster_url)
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Error getting poster for anime {anime.id}: {e}")
+                        poster_url = None
+                if not poster_url:
+                    poster_url = anime.poster_url or None
+
+                return {
+                    "id": anime.id,
+                    "title_ru": anime.title_ru or "",
+                    "title_en": anime.title_en or "",
+                    "poster": poster_url,
+                    "poster_url": poster_url,
+                }
+            except Anime.DoesNotExist:
+                pass
+
+        # Fallback к ForeignKey
         if obj.anime:
             poster_url = None
-            # Сначала проверяем локальный файл
             if obj.anime.poster:
                 try:
-                    # Проверяем что файл существует
                     if obj.anime.poster.storage.exists(obj.anime.poster.name):
                         poster_url = obj.anime.poster.url
-                        # Сделать абс. ссылку если нужно
                         request = self.context.get("request")
                         if request and poster_url and not poster_url.startswith("http"):
                             poster_url = request.build_absolute_uri(poster_url)
                 except Exception as e:
                     import logging
-
                     logger = logging.getLogger(__name__)
-                    logger.warning(
-                        f"Error getting poster for anime {obj.anime.id}: {e}"
-                    )
+                    logger.warning(f"Error getting poster for anime {obj.anime.id}: {e}")
                     poster_url = None
-            # Fallback to external CDN URL
             if not poster_url:
                 poster_url = obj.anime.poster_url or None
 
             return {
                 "id": obj.anime.id,
-                "title_ru": obj.anime.title_ru,
-                "title_en": obj.anime.title_en,
-                "poster": poster_url,  # Для совместимости с фронтендом
+                "title_ru": obj.anime.title_ru or "",
+                "title_en": obj.anime.title_en or "",
+                "poster": poster_url,
                 "poster_url": poster_url,
             }
         return None
 
     def get_playlist(self, obj):
-        if obj.playlist:
-            # Используем аннотированное поле если есть, иначе items.count()
-            anime_count = getattr(obj, "playlist_items_count", None)
-            if anime_count is None:
-                anime_count = obj.playlist.items.count()
+        """Возвращает данные плейлиста ТОЛЬКО если нет attachments"""
+        # Если есть attachments с плейлистами - не показываем старый playlist
+        if hasattr(obj, 'attachments') and obj.attachments.filter(content_type='playlist').exists():
+            return None
+        
+        if not obj.playlist:
+            return None
 
-            # Если всё ещё 0, пробуем посчитать напрямую
-            if anime_count == 0:
-                anime_count = obj.playlist.items.filter(anime__isnull=False).count()
-
-            # Получаем URL обложки
-            cover_image_url = None
-            if obj.playlist.cover_image and hasattr(obj.playlist.cover_image, "url"):
-                cover_image_url = obj.playlist.cover_image.url
-                if cover_image_url.startswith("/media/media/"):
-                    cover_image_url = cover_image_url.replace(
-                        "/media/media/", "/media/"
-                    )
-                request = self.context.get("request")
-                if (
-                    request
-                    and cover_image_url
-                    and not cover_image_url.startswith("http")
-                ):
-                    cover_image_url = request.build_absolute_uri(cover_image_url)
-
-            # Если нет cover_image, берём постер первого аниме
-            poster_url = cover_image_url
-            if not poster_url:
-                first_item = (
-                    obj.playlist.items.select_related("anime")
-                    .filter(anime__isnull=False)
-                    .first()
-                )
-                if first_item and first_item.anime:
-                    if first_item.anime.poster and hasattr(
-                        first_item.anime.poster, "url"
-                    ):
-                        poster_url = first_item.anime.poster.url
-                        if poster_url.startswith("/media/media/"):
-                            poster_url = poster_url.replace("/media/media/", "/media/")
-                        request = self.context.get("request")
-                        if request and poster_url and not poster_url.startswith("http"):
-                            poster_url = request.build_absolute_uri(poster_url)
-                    elif first_item.anime.poster_url:
-                        poster_url = first_item.anime.poster_url
+        try:
+            poster_url = None
+            if obj.playlist.cover_image:
+                try:
+                    request = self.context.get("request")
+                    poster_url = obj.playlist.cover_image.url
+                    if request and poster_url and not poster_url.startswith("http"):
+                        poster_url = request.build_absolute_uri(poster_url)
+                except Exception:
+                    pass
 
             return {
                 "id": obj.playlist.id,
-                "title": obj.playlist.title,
-                "anime_count": anime_count,
-                "items_count": anime_count,
-                "description": obj.playlist.description,
-                "cover_image": cover_image_url,
+                "title": obj.playlist.title or "",
+                "anime_count": obj.playlist.items.count() if hasattr(obj.playlist, "items") else 0,
                 "poster_url": poster_url,
             }
-        return None
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error getting playlist for post {obj.id}: {e}")
+            return None
 
     def get_reactor_post(self, obj):
-        if obj.reactor_post:
+        if not obj.reactor_post:
+            return None
+
+        try:
             return {
                 "id": obj.reactor_post.id,
-                "title": obj.reactor_post.title,
-                "video_url": obj.reactor_post.video_url,
+                "title": obj.reactor_post.title or "",
+                "video_url": obj.reactor_post.video_url or "",
                 "user": {
                     "id": obj.reactor_post.user.id,
                     "username": obj.reactor_post.user.username,
                 },
             }
-        return None
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error getting reactor_post for post {obj.id}: {e}")
+            return None
 
     def get_is_liked(self, obj):
         request = self.context.get("request")
@@ -522,10 +549,34 @@ class PostSerializer(serializers.ModelSerializer):
             return []
 
     def get_attachments_data(self, obj):
-        attachments = obj.attachments.all() if hasattr(obj, "attachments") else []
-        return PostAttachmentSerializer(
-            attachments, many=True, context=self.context
-        ).data
+        """Возвращает ВСЕ attachments для поста"""
+        try:
+            # Используем prefetch_related если доступен
+            if hasattr(obj, '_prefetched_objects_cache') and 'attachments' in obj._prefetched_objects_cache:
+                attachments = obj.attachments.all()
+            elif hasattr(obj, 'attachments'):
+                attachments = obj.attachments.all()
+            else:
+                from .models import PostAttachment
+                attachments = PostAttachment.objects.filter(post_id=obj.id)
+            
+            # DEBUG лог
+            import logging
+            logger = logging.getLogger(__name__)
+            attachments_list = list(attachments)
+            logger.info(f"DEBUG: Post {obj.id} has {len(attachments_list)} attachments")
+            
+            result = PostAttachmentSerializer(
+                attachments_list, many=True, context=self.context
+            ).data
+            
+            logger.info(f"DEBUG: Attachments data: {result}")
+            return result
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error getting attachments for post {obj.id}: {e}")
+            return []
 
     def get_content_preview(self, obj):
         text = obj.text or ""
@@ -586,6 +637,11 @@ FeedPostSerializer = PostSerializer
 
 
 class PostCreateSerializer(serializers.ModelSerializer):
+    # Убираем ListField - обрабатываем raw данные в create()
+    anime_ids = serializers.CharField(required=False, write_only=True)
+    playlist_ids = serializers.CharField(required=False, write_only=True)
+    reactor_ids = serializers.CharField(required=False, write_only=True)
+
     class Meta:
         model = Post
         fields = [
@@ -608,7 +664,284 @@ class PostCreateSerializer(serializers.ModelSerializer):
             "is_spoiler",
             "spoiler_description",
             "spoiler_for",
+            # Новые поля для множественных привязок
+            "anime_ids",
+            "playlist_ids",
+            "reactor_ids",
         ]
+
+    def create(self, validated_data):
+        # Получаем request из контекста
+        request = self.context.get('request')
+        
+        # Извлекаем множественные ID - убираем из validated_data чтобы не передавать в Post.objects.create()
+        anime_ids = validated_data.pop("anime_ids", [])
+        playlist_ids = validated_data.pop("playlist_ids", [])
+        reactor_ids = validated_data.pop("reactor_ids", [])
+        
+        if request:
+            # Для FormData с множественными значениями используем getlist()
+            # Поддерживаем оба формата: 'anime_ids' и 'anime_ids[]'
+            anime_raw = request.data.getlist('anime_ids[]') or request.data.getlist('anime_ids') or []
+            playlist_raw = request.data.getlist('playlist_ids[]') or request.data.getlist('playlist_ids') or []
+            reactor_raw = request.data.getlist('reactor_ids[]') or request.data.getlist('reactor_ids') or []
+            
+            # Преобразуем в списки целых чисел
+            if anime_raw:
+                anime_ids = [int(x) for x in anime_raw if x]
+            else:
+                anime_ids = []
+            
+            if playlist_raw:
+                playlist_ids = [int(x) for x in playlist_raw if x]
+            else:
+                playlist_ids = []
+            
+            if reactor_raw:
+                reactor_ids = [int(x) for x in reactor_raw if x]
+            else:
+                reactor_ids = []
+        
+        # Создаём пост
+        post = super().create(validated_data)
+
+        # Создаём attachments для множественных привязок
+        if anime_ids:
+            from anime.models import Anime
+
+            for anime_id in anime_ids:
+                try:
+                    anime = Anime.objects.get(id=anime_id)
+                    attachment = PostAttachment(
+                        post=post,
+                        object_id=anime.id,
+                        content_type="anime",
+                        metadata={"title": anime.title_ru or anime.title_en},
+                    )
+                    attachment.save()
+                except Anime.DoesNotExist:
+                    pass
+            # Для обратной совместимости устанавливаем первое аниме
+            try:
+                post.anime = Anime.objects.get(id=anime_ids[0])
+                post.save(update_fields=["anime"])
+            except (Anime.DoesNotExist, IndexError):
+                pass
+
+        if playlist_ids:
+            from playlists.models import Playlist
+
+            for playlist_id in playlist_ids:
+                try:
+                    playlist = Playlist.objects.get(id=playlist_id)
+                    attachment = PostAttachment(
+                        post=post,
+                        object_id=playlist.id,
+                        content_type="playlist",
+                        metadata={"title": playlist.title},
+                    )
+                    attachment.save()
+                except Playlist.DoesNotExist:
+                    pass
+            # Для обратной совместимости
+            try:
+                post.playlist = Playlist.objects.get(id=playlist_ids[0])
+                post.save(update_fields=["playlist"])
+            except (Playlist.DoesNotExist, IndexError):
+                pass
+
+        if reactor_ids:
+            from reactor.models import ReactorPost
+
+            for reactor_id in reactor_ids:
+                try:
+                    reactor = ReactorPost.objects.get(id=reactor_id)
+                    attachment = PostAttachment(
+                        post=post,
+                        object_id=reactor.id,
+                        content_type="shorts",
+                        metadata={"title": reactor.title},
+                    )
+                    attachment.save()
+                except ReactorPost.DoesNotExist:
+                    pass
+            # Для обратной совместимости
+            try:
+                post.reactor_post = ReactorPost.objects.get(id=reactor_ids[0])
+                post.save(update_fields=["reactor_post"])
+            except (ReactorPost.DoesNotExist, IndexError):
+                pass
+
+        return post
+
+
+class PostUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для обновления поста - обрабатывает attachments правильно"""
+    
+    # Поля для attachments
+    anime_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        write_only=True,
+        allow_empty=True
+    )
+    playlist_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        write_only=True,
+        allow_empty=True
+    )
+    
+    # Для обратной совместимости - single anime_id
+    anime_id = serializers.IntegerField(
+        required=False,
+        write_only=True,
+        allow_null=True
+    )
+    playlist_id = serializers.IntegerField(
+        required=False,
+        write_only=True,
+        allow_null=True
+    )
+
+    # Для чтения - возвращаем attachments_data
+    attachments_data = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Post
+        fields = [
+            "title",
+            "text",
+            "visibility",
+            "allow_comments",
+            "is_spoiler",
+            "spoiler_description",
+            "spoiler_for",
+            # Attachments - новые поля
+            "anime_ids",
+            "playlist_ids",
+            # Для обратной совместимости
+            "anime_id",
+            "playlist_id",
+            # Для чтения
+            "attachments_data",
+        ]
+
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+        
+        # Импорты моделей
+        from anime.models import Anime
+        from playlists.models import Playlist
+        
+        # Проверяем request.data напрямую - важно для FormData
+        # Если поле передано (даже пустым) - обновляем, если нет - не трогаем
+        anime_ids_changed = False
+        playlist_ids_changed = False
+        anime_ids = None
+        playlist_ids = None
+        
+        if request and hasattr(request.data, 'getlist'):
+            # Проверяем через getlist для FormData
+            # ВАЖНО: getlist возвращает [] если ключа нет, или [''] если ключ есть но пустой
+            anime_raw = request.data.getlist('anime_ids[]') or request.data.getlist('anime_ids')
+            playlist_raw = request.data.getlist('playlist_ids[]') or request.data.getlist('playlist_ids')
+            
+            # Проверяем ЧЕРЕЗ getlist - если вернул что-то (даже ['']) значит поле было передано
+            anime_ids_changed = bool(anime_raw) or 'anime_ids[]' in request.data or 'anime_ids' in request.data
+            playlist_ids_changed = bool(playlist_raw) or 'playlist_ids[]' in request.data or 'playlist_ids' in request.data
+            
+            # ОЧИЩАЕМ пустые строки и '0' (маркер удаления) из списков
+            if anime_ids_changed:
+                # Фильтруем None, пустые строки, пробелы и '0'
+                anime_ids = [int(x) for x in anime_raw if x and str(x).strip() and str(x).strip() != '0'] if anime_raw else []
+            if playlist_ids_changed:
+                playlist_ids = [int(x) for x in playlist_raw if x and str(x).strip() and str(x).strip() != '0'] if playlist_raw else []
+        else:
+            # Fallback для JSON
+            anime_ids = validated_data.get("anime_ids")
+            playlist_ids = validated_data.get("playlist_ids")
+            anime_ids_changed = anime_ids is not None
+            playlist_ids_changed = playlist_ids is not None
+        
+        # DEBUG логи
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"UPDATE POST {instance.id}: anime_ids_changed={anime_ids_changed}, anime_ids={anime_ids}")
+        logger.info(f"UPDATE POST {instance.id}: playlist_ids_changed={playlist_ids_changed}, playlist_ids={playlist_ids}")
+        
+        # Обновляем основное поле anime
+        if anime_ids_changed:
+            if anime_ids:
+                try:
+                    instance.anime = Anime.objects.get(id=anime_ids[0])
+                except (Anime.DoesNotExist, IndexError):
+                    instance.anime = None
+            else:
+                instance.anime = None
+            instance.save(update_fields=["anime"])
+        
+        # Обновляем основное поле playlist
+        if playlist_ids_changed:
+            if playlist_ids:
+                try:
+                    instance.playlist = Playlist.objects.get(id=playlist_ids[0])
+                except (Playlist.DoesNotExist, IndexError):
+                    instance.playlist = None
+            else:
+                instance.playlist = None
+            instance.save(update_fields=["playlist"])
+        
+        # Обновляем обычные поля
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Обновляем attachments ТОЛЬКО если поля были переданы
+        if anime_ids_changed or playlist_ids_changed:
+            self._update_attachments(instance, anime_ids, playlist_ids)
+        
+        return instance
+
+    def _update_attachments(self, post, anime_ids, playlist_ids):
+        """Обновляем PostAttachment записи"""
+        from anime.models import Anime
+        from playlists.models import Playlist
+
+        # Очищаем старые attachments
+        PostAttachment.objects.filter(post=post).delete()
+
+        # Создаем новые
+        if anime_ids:
+            for anime_id in anime_ids:
+                try:
+                    anime = Anime.objects.get(id=anime_id)
+                    PostAttachment.objects.create(
+                        post=post,
+                        object_id=anime.id,
+                        content_type="anime",
+                        metadata={"title": anime.title_ru or anime.title_en},
+                    )
+                except Anime.DoesNotExist:
+                    pass
+        
+        if playlist_ids:
+            for playlist_id in playlist_ids:
+                try:
+                    playlist = Playlist.objects.get(id=playlist_id)
+                    PostAttachment.objects.create(
+                        post=post,
+                        object_id=playlist.id,
+                        content_type="playlist",
+                        metadata={"title": playlist.title},
+                    )
+                except Playlist.DoesNotExist:
+                    pass
+
+    def get_attachments_data(self, obj):
+        from .serializers import PostAttachmentSerializer
+        attachments = obj.attachments.all().distinct()
+        return PostAttachmentSerializer(attachments, many=True, context=self.context).data
 
 
 class PostMediaSerializer(serializers.ModelSerializer):
@@ -739,6 +1072,7 @@ class MessageSerializer(serializers.ModelSerializer):
     sender_id = serializers.IntegerField(source="sender.id", read_only=True)
     sender_username = serializers.CharField(source="sender.username", read_only=True)
     sender_avatar = serializers.ImageField(source="sender.avatar", read_only=True)
+    sender_nickname = serializers.CharField(source="sender.nickname", read_only=True)
     reply_text = serializers.CharField(source="reply_to.text", read_only=True)
     reply_sender_username = serializers.CharField(
         source="reply_to.sender.username", read_only=True
@@ -775,6 +1109,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "sender",
             "sender_id",
             "sender_username",
+            "sender_nickname",
             "sender_avatar",
             "text",
             "topic_id",
@@ -840,7 +1175,7 @@ class MessageSerializer(serializers.ModelSerializer):
         Возвращает True, если сообщение прочитано собеседником
         """
         request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
+        if not request or not getattr(request, 'user', None) or not request.user.is_authenticated:
             return False
 
         # Если сообщение отправлено текущим пользователем,
@@ -855,9 +1190,14 @@ class MessageSerializer(serializers.ModelSerializer):
                     other_user_id = obj.private_chat.user1_id
 
                 # Проверяем, есть ли запись о прочтении
-                return MessageReadStatus.objects.filter(
+                is_read = MessageReadStatus.objects.filter(
                     message=obj, user_id=other_user_id
                 ).exists()
+
+                # DEBUG лог
+                print(f"DEBUG: is_read_by_other for msg {obj.id}: other_user={other_user_id}, is_read={is_read}")
+                
+                return is_read
 
             # Для группового чата - проверяем, прочитал ли кто-то кроме отправителя
             elif obj.chat:
@@ -868,11 +1208,7 @@ class MessageSerializer(serializers.ModelSerializer):
                 )
 
         # Если сообщение от другого пользователя,
-        # для получателя всегда показываем статус прочтения самого себя
-        else:
-            # Для получателя это поле не нужно, но возвращаем False
-            return False
-
+        # для получателя это поле не нужно, но возвращаем False
         return False
 
     def get_read_count(self, obj):
@@ -948,9 +1284,111 @@ class MessageSerializer(serializers.ModelSerializer):
         return None
 
     def get_attachments(self, obj):
-        """Получаем вложения сообщения"""
-        attachments = obj.attachments.all()
-        return AttachmentSerializer(attachments, many=True, context=self.context).data
+        """Получаем вложения сообщения (медиафайлы + контент: аниме, плейлисты, shorts, посты)"""
+        # Файловые вложения
+        file_attachments = obj.attachments.all()
+        attachments_data = AttachmentSerializer(file_attachments, many=True, context=self.context).data
+        
+        # Контент-вложения (аниме, плейлисты, shorts, посты)
+        content_attachments = obj.content_attachments.all().select_related(
+            'message'
+        )
+
+        for ca in content_attachments:
+            attachment_data = {
+                'id': ca.id,
+                'type': ca.content_type,
+                'object_id': ca.object_id,
+                'data': None,
+            }
+            
+            if ca.content_type == 'anime':
+                from anime.models import Anime
+                try:
+                    anime = Anime.objects.get(id=ca.object_id)
+                    attachment_data['data'] = {
+                        'id': anime.id,
+                        'title_ru': anime.title_ru,
+                        'title_en': anime.title_en,
+                        'poster_url': anime.poster.url if anime.poster else anime.poster_url,
+                        'kind': anime.kind,
+                        'year': anime.year,
+                    }
+                except Anime.DoesNotExist:
+                    pass
+                    
+            elif ca.content_type == 'playlist':
+                from playlists.models import Playlist
+                try:
+                    playlist = Playlist.objects.get(id=ca.object_id)
+                    items = playlist.items.select_related('anime')[:4]
+                    posters = []
+                    for item in items:
+                        if item.anime:
+                            poster = item.anime.poster.url if item.anime.poster else item.anime.poster_url
+                            if poster:
+                                posters.append(poster)
+                    
+                    attachment_data['data'] = {
+                        'id': playlist.id,
+                        'title': playlist.title,
+                        'description': playlist.description,
+                        'poster_url': posters[0] if posters else None,
+                        'posters': posters,
+                        'items_count': playlist.items.count(),
+                        'user': {
+                            'id': playlist.user.id,
+                            'username': playlist.user.username,
+                        } if playlist.user else None,
+                    }
+                except Playlist.DoesNotExist:
+                    pass
+                    
+            elif ca.content_type == 'shorts':
+                from reactor.models import ReactorPost
+                try:
+                    shorts = ReactorPost.objects.get(id=ca.object_id)
+                    attachment_data['data'] = {
+                        'id': shorts.id,
+                        'video_url': shorts.video_url,
+                        'thumbnail_url': shorts.thumbnail_url,
+                        'text': shorts.text,
+                        'author': {
+                            'id': shorts.author.id,
+                            'username': shorts.author.username,
+                            'avatar_url': shorts.author.avatar.url if shorts.author.avatar else None,
+                        } if shorts.author else None,
+                        'anime': {
+                            'id': shorts.anime.id,
+                            'title_ru': shorts.anime.title_ru,
+                        } if shorts.anime else None,
+                        'likes_count': shorts.likes_count,
+                        'views_count': shorts.views_count,
+                    }
+                except ReactorPost.DoesNotExist:
+                    pass
+                    
+            elif ca.content_type == 'post':
+                try:
+                    post = Post.objects.get(id=ca.object_id)
+                    attachment_data['data'] = {
+                        'id': post.id,
+                        'text': post.text[:200],
+                        'author': {
+                            'id': post.author.id,
+                            'username': post.author.username,
+                            'avatar_url': post.author.avatar.url if post.author.avatar else None,
+                        } if post.author else None,
+                        'likes_count': post.likes_count,
+                        'comments_count': post.comments_count,
+                    }
+                except Post.DoesNotExist:
+                    pass
+            
+            if attachment_data['data']:
+                attachments_data.append(attachment_data)
+        
+        return attachments_data
 
     def get_shared_anime_data(self, obj):
         """Получаем данные прикреплённого аниме"""
@@ -1040,16 +1478,43 @@ class MessageSerializer(serializers.ModelSerializer):
         shared_playlist = data.get("shared_playlist")
         shared_shorts = data.get("shared_shorts")
 
-        # Сообщение должно содержать что-то из: текст, медиа, геолокация, пост, аниме, плейлист, shorts
+        # Проверяем есть ли вложения (anime_ids, playlist_ids и т.д.)
+        # Проверяем оба формата: с [] и без (для обратной совместимости)
+        request = self.context.get("request")
+        has_attachments = False
+        if request and hasattr(request.data, 'getlist'):
+            # Проверяем через getlist для FormData
+            anime_ids = request.data.getlist('anime_ids[]') or request.data.getlist('anime_ids')
+            playlist_ids = request.data.getlist('playlist_ids[]') or request.data.getlist('playlist_ids')
+            reactor_ids = request.data.getlist('reactor_ids[]') or request.data.getlist('reactor_ids')
+            has_attachments = bool(anime_ids or playlist_ids or reactor_ids)
+        else:
+            has_attachments = (
+                data.get('anime_ids') or 
+                data.get('playlist_ids') or 
+                data.get('reactor_ids')
+            )
+
+        # Проверяем есть ли media_* файлы (media_0, media_1, etc)
+        has_media_files = False
+        if request and hasattr(request, 'FILES'):
+            for key in request.FILES.keys():
+                if key.startswith('media_'):
+                    has_media_files = True
+                    break
+
+        # Сообщение должно содержать что-то из: текст, медиа, геолокация, пост, аниме, плейлист, shorts, или вложения
         if not any(
             [
                 text,
                 media,
+                has_media_files,  # Добавляем проверку на media_* файлы
                 location_latitude,
                 shared_post,
                 shared_anime,
                 shared_playlist,
                 shared_shorts,
+                has_attachments,
             ]
         ):
             raise serializers.ValidationError(
@@ -1180,7 +1645,7 @@ class ChatSettingsSerializer(serializers.ModelSerializer):
 
 # Group Chat Serializers
 class UserSimpleSerializer(serializers.ModelSerializer):
-    avatar_url = serializers.ImageField(source="avatar", read_only=True)
+    avatar_url = serializers.SerializerMethodField()
     is_online = serializers.SerializerMethodField()
     last_seen = serializers.SerializerMethodField()
 
@@ -1196,6 +1661,28 @@ class UserSimpleSerializer(serializers.ModelSerializer):
             "is_online",
             "last_seen",
         ]
+
+    def get_avatar_url(self, obj):
+        """Получаем avatar_url с фоллбэком на дефолтную аватарку"""
+        if obj.avatar:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        
+        # Возвращаем путь к дефолтной аватарке из папки def_avatars
+        from django.conf import settings
+        from pathlib import Path
+        
+        def_ava_dir = settings.MEDIA_ROOT / "def_avatars"
+        if def_ava_dir.exists():
+            jpg_files = list(def_ava_dir.glob("*.jpg")) + list(def_ava_dir.glob("*.jpeg"))
+            if jpg_files:
+                # Используем deterministic выбор на основе user.id
+                selected_avatar = jpg_files[obj.id % len(jpg_files)]
+                return f"/media/def_avatars/{selected_avatar.name}"
+        
+        return None
 
     def get_is_online(self, obj):
         """Проверяем онлайн статус через Redis"""
@@ -1236,10 +1723,20 @@ class GroupChatCreateSerializer(serializers.ModelSerializer):
         child=serializers.IntegerField(), write_only=True, required=False, default=list
     )
     avatar = serializers.ImageField(required=False, allow_null=True)
+    anime = serializers.PrimaryKeyRelatedField(
+        queryset=None, required=False, allow_null=True, read_only=True
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Dynamically set anime queryset to avoid circular import
+        if 'anime' in self.fields:
+            from anime.models import Anime
+            self.fields['anime'].queryset = Anime.objects.all()
 
     class Meta:
         model = GroupChat
-        fields = ["name", "description", "avatar", "participants"]
+        fields = ["name", "description", "avatar", "participants", "anime", "is_public"]
 
     def validate_participants(self, value):
         return value
@@ -1472,7 +1969,7 @@ class GroupChatSerializer(serializers.ModelSerializer):
         except Exception:
             pass
 
-        # Franchise-чат без anime — берём постер первого аниме франшизы
+        # Franchise-чат без anime - берём постер первого аниме франшизы
         try:
             if getattr(obj, "franchise_id", None):
                 from anime.models import Anime as AnimeModel
@@ -2474,9 +2971,6 @@ class PostMediaSerializer(serializers.ModelSerializer):
         return None
 
 
-
-
-
 class PostCommentSerializer(serializers.ModelSerializer):
     """Сериализатор комментариев к посту"""
 
@@ -2764,6 +3258,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
     author_display_name = serializers.CharField(
         source="author.display_name", read_only=True
     )
+    author_is_premium = serializers.BooleanField(source="author.is_premium", read_only=True)
 
     anime = serializers.SerializerMethodField()
     playlist = serializers.SerializerMethodField()
@@ -2771,6 +3266,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
     original_post_data = serializers.SerializerMethodField()
 
     media_files = PostMediaSerializer(many=True, read_only=True)
+    attachments_data = serializers.SerializerMethodField()
     hashtags = serializers.SerializerMethodField()
 
     is_liked = serializers.SerializerMethodField()
@@ -2791,6 +3287,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             "author_username",
             "author_avatar",
             "author_display_name",
+            "author_is_premium",
             "title",
             "post_type",
             "status",
@@ -2825,6 +3322,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "media_files",
+            "attachments_data",
             "hashtags",
             "is_liked",
             "is_disliked",
@@ -2942,6 +3440,12 @@ class FeedPostSerializer(serializers.ModelSerializer):
 
     def get_content_preview(self, obj):
         return obj.get_content_preview(500)
+
+    def get_attachments_data(self, obj):
+        attachments = obj.attachments.all() if hasattr(obj, "attachments") else []
+        return PostAttachmentSerializer(
+            attachments, many=True, context=self.context
+        ).data
 
 
 class FavoriteSerializer(serializers.ModelSerializer):

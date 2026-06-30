@@ -1,5 +1,5 @@
 /**
- * useEpisodeProgress — управление прогрессом просмотра по сериям.
+ * useEpisodeProgress - управление прогрессом просмотра по сериям.
  *
  * Возможности:
  *  - Загрузка прогресса с сервера (GET /anime/{id}/episode-progress/)
@@ -16,7 +16,7 @@ import apiClient from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
-// ── Типы ───────────────────────────────────────────────────────────────────
+
 
 export type EpisodeStatus = 'not_started' | 'in_progress' | 'watched' | 'skipped'
 
@@ -38,23 +38,23 @@ export interface AnimeProgressSummary {
   episodes: EpisodeProgressItem[]
 }
 
-// ── Composable ─────────────────────────────────────────────────────────────
+
 
 export function useEpisodeProgress(animeId: number) {
   const toast   = useToast()
   const auth    = useAuthStore()
 
-  // Реактивное состояние
+  
   const episodes      = ref<Map<number, EpisodeProgressItem>>(new Map())
   const totalEpisodes = ref(0)
   const loading       = ref(false)
   const loaded        = ref(false)
 
-  // Throttle-таймер для сохранения позиции
+  
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   let lastSavedTime = 0
 
-  // ── Вычисляемые ───────────────────────────────────────────
+  
 
   const watchedCount = computed(() =>
     [...episodes.value.values()].filter(e => e.status === 'watched' || e.status === 'skipped').length
@@ -85,7 +85,7 @@ export function useEpisodeProgress(animeId: number) {
     return last || null
   })
 
-  // ── Вспомогательные ───────────────────────────────────────
+  
 
   const getEpisode = (num: number): EpisodeProgressItem => {
     return episodes.value.get(num) ?? {
@@ -106,7 +106,7 @@ export function useEpisodeProgress(animeId: number) {
 
   const isInProgress = (num: number) => episodes.value.get(num)?.status === 'in_progress'
 
-  // ── Загрузка прогресса с сервера ──────────────────────────
+  
 
   const loadProgress = async () => {
     if (!auth.isAuthenticated) return
@@ -128,12 +128,12 @@ export function useEpisodeProgress(animeId: number) {
     }
   }
 
-  // ── Обновление позиции (каждые 10 сек из плеера) ──────────
+  
 
   const updatePosition = (episodeNum: number, position: number, duration?: number) => {
     if (!auth.isAuthenticated) return
 
-    // Обновляем локально немедленно
+    
     const existing = getEpisode(episodeNum)
     const updated: EpisodeProgressItem = {
       ...existing,
@@ -147,14 +147,14 @@ export function useEpisodeProgress(animeId: number) {
       episodes.value.set(episodeNum, updated)
     }
 
-    // Дебаунс: не чаще чем раз в 10 сек
+    
     const now = Date.now()
     if (now - lastSavedTime < 9500) return
     lastSavedTime = now
 
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(async () => {
-      if (isWatched(episodeNum)) return // уже просмотрено
+      if (isWatched(episodeNum)) return 
       try {
         await apiClient.post(`/anime/${animeId}/episode-progress/`, {
           episode_number: episodeNum,
@@ -168,13 +168,13 @@ export function useEpisodeProgress(animeId: number) {
     }, 500)
   }
 
-  // ── Авто-отметка "просмотрено" (85% / эндинг) ────────────
+  
 
   const autoMarkWatched = async (episodeNum: number) => {
     if (!auth.isAuthenticated) return
     if (isWatched(episodeNum)) return
 
-    // Обновляем локально
+    
     const existing = getEpisode(episodeNum)
     episodes.value.set(episodeNum, {
       ...existing,
@@ -184,7 +184,7 @@ export function useEpisodeProgress(animeId: number) {
       is_manually_marked: false,
     })
 
-    // Тост с кнопкой "Отменить"
+    
     toast.success(`Серия ${episodeNum} просмотрена`, {
       duration: 5000,
       action: {
@@ -203,7 +203,7 @@ export function useEpisodeProgress(animeId: number) {
     }
   }
 
-  // ── Ручная отметка ─────────────────────────────────────────
+  
 
   const markWatched = async (episodeNum: number) => {
     if (!auth.isAuthenticated) return
@@ -233,13 +233,13 @@ export function useEpisodeProgress(animeId: number) {
       })
     } catch (e) {
       console.warn('[EpisodeProgress] Ошибка ручной отметки:', e)
-      // Откат
+      
       episodes.value.set(episodeNum, existing)
       toast.error('Не удалось сохранить отметку')
     }
   }
 
-  // ── Пропустить серию ──────────────────────────────────────
+  
 
   const skipEpisode = async (episodeNum: number) => {
     if (!auth.isAuthenticated) return
@@ -270,7 +270,7 @@ export function useEpisodeProgress(animeId: number) {
     }
   }
 
-  // ── Отменить отметку (undo) ───────────────────────────────
+  
 
   const undoMark = async (episodeNum: number) => {
     if (!auth.isAuthenticated) return
@@ -292,7 +292,7 @@ export function useEpisodeProgress(animeId: number) {
     }
   }
 
-  // ── Булк-синхр (ползунок) ─────────────────────────────────
+  
 
   const bulkSyncUpTo = async (watchedUpTo: number) => {
     if (!auth.isAuthenticated) return
@@ -303,7 +303,7 @@ export function useEpisodeProgress(animeId: number) {
         watched_up_to: watchedUpTo,
       })
 
-      // Обновляем локальное состояние
+      
       const now = new Date().toISOString()
       for (let i = 1; i <= watchedUpTo; i++) {
         episodes.value.set(i, {
@@ -326,7 +326,7 @@ export function useEpisodeProgress(animeId: number) {
     }
   }
 
-  // ── Сброс (начать заново) ─────────────────────────────────
+  
 
   const resetProgress = async () => {
     if (!auth.isAuthenticated) return
@@ -346,24 +346,24 @@ export function useEpisodeProgress(animeId: number) {
   }
 
   return {
-    // Состояние
+    
     episodes: readonly(episodes),
     totalEpisodes: readonly(totalEpisodes),
     loading: readonly(loading),
     loaded: readonly(loaded),
 
-    // Вычисляемые
+    
     watchedCount,
     progressPercent,
     nextEpisodeToWatch,
     lastWatchedEpisode,
 
-    // Хелперы
+    
     getEpisode,
     isWatched,
     isInProgress,
 
-    // Действия
+    
     loadProgress,
     updatePosition,
     autoMarkWatched,

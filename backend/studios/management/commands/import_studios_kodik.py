@@ -26,7 +26,7 @@ def transliterate_slug(name: str) -> str:
     """
     Генерирует slug из названия студии.
     Для ASCII-имён (Studio Deen, J.C.Staff) работает django slugify.
-    Для японских — транслитерируем вручную.
+    Для японских - транслитерируем вручную.
     """
     ru_en = {
         'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e',
@@ -237,7 +237,7 @@ class Command(BaseCommand):
                     if prev is None or (a.get('score') or 0) > (prev.get('score') or 0):
                         unique_map[sid] = a
                 else:
-                    # Без shikimori_id — дедуплицируем по заголовку
+                    # Без shikimori_id - дедуплицируем по заголовку
                     title_key = (a.get('title') or '').strip().lower()
                     if title_key not in {(x.get('title') or '').lower() for x in no_shiki}:
                         no_shiki.append(a)
@@ -251,7 +251,7 @@ class Command(BaseCommand):
             scores = [a['score'] for a in unique_anime if a.get('score')]
             avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
 
-            # Жанровая статистика — считаем по уникальным аниме
+            # Жанровая статистика - считаем по уникальным аниме
             total_unique = len(unique_anime) or 1
             genre_raw: dict[str, int] = {}
             for a in unique_anime:
@@ -284,7 +284,7 @@ class Command(BaseCommand):
 
             # Сохраняем связи с аниме
             for a in anime_list:
-                title = a.get('title') or a.get('title_orig') or '—'
+                title = a.get('title') or a.get('title_orig') or '-'
                 kind = a.get('kind', 'tv')
                 # Нормализуем тип
                 kind_map = {

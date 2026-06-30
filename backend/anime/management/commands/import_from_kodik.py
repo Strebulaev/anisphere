@@ -40,16 +40,13 @@ class Command(BaseCommand):
         params = {
             "token": self.KODIK_TOKEN,
             "types": "anime,anime-serial",
-            "limit": min(limit, 100),  # Kodik limit per request
-            "with_material_data": "true",  # Get additional data
+            "limit": 100,
+            "with_material_data": "true",
         }
 
-        page = 1
         imported = 0
 
         while imported < limit:
-            params["limit"] = min(100, limit - imported)
-
             try:
                 response = requests.get(url, params=params, timeout=30)
                 response.raise_for_status()
@@ -59,37 +56,42 @@ class Command(BaseCommand):
                 if not results:
                     break
 
-                for item in results:
-                    if self.import_anime_item(item, update_existing):
-                        imported += 1
+                self.stdout.write(f"Page: {len(results)} anime")
 
+                for item in results:
                     if imported >= limit:
                         break
 
-                # Next page
+                    try:
+                        if self.import_anime_item(item, update_existing):
+                            imported += 1
+                    except Exception as e:
+                        self.stderr.write(f"  Skip: {e}")
+                        continue
+
+                # Next page - use next_page URL from response
                 next_page = data.get("next_page")
                 if not next_page:
                     break
 
-                # Parse next_page URL for params
-                # For simplicity, assume we can continue with page
-                page += 1
-                params["next"] = data.get("pagination", {}).get("current_page_token")
-
-                time.sleep(1)  # Rate limit
+                url = next_page
+                time.sleep(0.5)  # Rate limit
 
             except Exception as e:
-                self.stderr.write(f"Error importing page {page}: {e}")
+                self.stderr.write(f"Error: {e}")
                 break
 
     def import_anime_item(self, item, update_existing):
         """Import single anime item from Kodik"""
         shikimori_id = item.get("shikimori_id")
-        mal_id = item.get("kinopoisk_id") or item.get(
-            "imdb_id"
-        )  # Kodik uses kinopoisk_id as mal-like
+        
+        # Kodik may return imdb_id (tt...) or kinopoisk_id - only use numeric IDs
+        mal_id = None
+        kp_id = item.get("kinopoisk_id")
+        if kp_id and isinstance(kp_id, int):
+            mal_id = kp_id
 
-        if not shikimori_id and not mal_id:
+        if not shikimori_id:
             return False
 
         title_ru = item.get("title")
@@ -151,7 +153,35 @@ class Command(BaseCommand):
                 except Anime.DoesNotExist:
                     pass
 
-            if anime and update_existing:
+            # Используем get_or_create для избежания дубликатов
+            defaults = {"title_ru": title_ru or "", "data_source": "kodik"}
+
+            if title_orig:
+                defaults["title_en"] = title_orig
+            if description:
+                defaults["description"] = description
+            if year:
+                defaults["year"] = year
+            if episodes:
+                defaults["episodes"] = episodes
+            if status:
+                defaults["status"] = status
+            if genres_str:
+                defaults["genres"] = genres_str
+            if poster_url:
+                defaults["poster_url"] = poster_url
+            if shikimori_id:
+                try:
+                    defaults["shikimori_id"] = int(shikimori_id)
+                except (ValueError, TypeError):
+                    pass
+
+            anime, created = Anime.objects.get_or_create(
+                shikimori_id=int(shikimori_id),
+                defaults=defaults
+            )
+
+            if not created and update_existing:
                 # Update existing
                 if title_ru:
                     anime.title_ru = title_ru
@@ -170,38 +200,6 @@ class Command(BaseCommand):
                     anime.poster_url = poster_url
                 anime.data_source = "kodik"
                 anime.save()
-                created = False
-            else:
-                # Create new
-                defaults = {"title_ru": title_ru or "", "data_source": "kodik"}
-
-                if title_orig:
-                    defaults["title_en"] = title_orig
-                if description:
-                    defaults["description"] = description
-                if year:
-                    defaults["year"] = year
-                if episodes:
-                    defaults["episodes"] = episodes
-                if status:
-                    defaults["status"] = status
-                if genres_str:
-                    defaults["genres"] = genres_str
-                if poster_url:
-                    defaults["poster_url"] = poster_url
-                if shikimori_id:
-                    try:
-                        defaults["shikimori_id"] = int(shikimori_id)
-                    except (ValueError, TypeError):
-                        pass
-                if mal_id:
-                    try:
-                        defaults["mal_id"] = int(mal_id)
-                    except (ValueError, TypeError):
-                        pass
-
-                anime = Anime.objects.create(**defaults)
-                created = True
 
             if created:
                 self.stdout.write(f"Created anime: {title_ru}")

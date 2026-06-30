@@ -41,10 +41,10 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const router = useRouter()
 
-  // Login function
+  
   const login = async (username: string, password: string) => {
     try {
-      // console.log('🔑 Auth Store: Attempting login for', username)
+      
 
       const response = await apiClient.post('/users/login/', {
         username,
@@ -53,34 +53,34 @@ export const useAuthStore = defineStore('auth', () => {
 
       const { user: userData, tokens } = response.data
       
-      // console.log('✅ Login response received', {
-      //   hasAccessToken: !!tokens?.access,
-      //   hasRefreshToken: !!tokens?.refresh,
-      //   accessTokenPreview: tokens?.access ? `${tokens.access.substring(0, 20)}...` : 'none',
-      //   user: userData?.username
-      // })
+      
+      
+      
+      
+      
+      
 
-      // Store tokens
+      
       localStorage.setItem('access_token', tokens.access)
       localStorage.setItem('refresh_token', tokens.refresh)
       localStorage.setItem('user', JSON.stringify(userData))
 
-      // console.log('💾 Tokens saved to localStorage')
+      
 
-      // Update state
+      
       user.value = userData
       isAuthenticated.value = true
 
-      // console.log('✅ Auth Store: Login successful', userData)
+      
       return { success: true, user: userData }
     } catch (error: any) {
-      // console.error('❌ Auth Store: Login failed', error)
+      
       const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Неверные учетные данные'
       return { success: false, error: errorMessage }
     }
   }
 
-  // Register function
+  
   const register = async (data: {
     username: string
     email: string
@@ -94,7 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
       await apiClient.post('/users/register/', data)
       return { success: true }
     } catch (error: any) {
-      // console.error('Auth Store: Registration failed', error)
+      
       const errorMessage = error.response?.data?.password?.[0] || 
                           error.response?.data?.username?.[0] || 
                           error.response?.data?.email?.[0] || 
@@ -103,7 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Google OAuth
+  
   const googleLogin = async (idToken: string) => {
     try {
       const response = await apiClient.post('/users/google/', {
@@ -120,12 +120,12 @@ export const useAuthStore = defineStore('auth', () => {
       
       return { success: true, user: userData }
     } catch (error: any) {
-      // console.error('Auth Store: Google login failed', error)
+      
       return { success: false, error: 'Ошибка входа через Google' }
     }
   }
 
-  // Phone verification
+  
   const verifyPhone = async (phoneNumber: string, action: 'send' | 'verify', code?: string) => {
     try {
       const response = await apiClient.post('/users/verify/phone/', {
@@ -135,12 +135,12 @@ export const useAuthStore = defineStore('auth', () => {
       })
       return { success: true, data: response.data }
     } catch (error: any) {
-      // console.error('Auth Store: Phone verification failed', error)
+      
       return { success: false, error: error.response?.data?.error || 'Ошибка верификации телефона' }
     }
   }
 
-  // Email verification
+  
   const verifyEmail = async (email: string, action: 'send' | 'verify', code?: string) => {
     try {
       const response = await apiClient.post('/users/verify/email/', {
@@ -148,19 +148,19 @@ export const useAuthStore = defineStore('auth', () => {
       })
       return { success: true, data: response.data }
     } catch (error: any) {
-      // console.error('Auth Store: Email verification failed', error)
+      
       return { success: false, error: error.response?.data?.error || 'Ошибка верификации email' }
     }
   }
 
-  // Logout function
+  
   const logout = async () => {
     try {
       await apiClient.post('/users/logout/')
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      // Clear local storage and state
+      
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user')
@@ -172,30 +172,30 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Fetch user data
+  
   const fetchUser = async () => {
     try {
-      // console.log('👤 Auth Store: fetchUser called')
+      
       const response = await apiClient.get('/users/profile/')
-      // console.log('✅ Auth Store: fetchUser successful, user data:', response.data.username)
+      
       user.value = response.data
       isAuthenticated.value = true
       return { success: true, user: response.data }
     } catch (error: any) {
-      // console.error('❌ Auth Store: fetchUser failed:', error)
-      // console.log('❌ Auth Store: error response:', error.response?.data)
+      
+      
 
-      // If unauthorized, clear auth state
+      
       if (error.response?.status === 401) {
         console.log('❌ Auth Store: 401 response, calling logout')
-        // Don't call logout here to avoid redirect loop, let the caller handle it
+        
       }
       
       return { success: false, error: error.message }
     }
   }
 
-  // Password reset
+  
   const passwordReset = async (email: string) => {
     try {
       await apiClient.post('/users/password-reset/', { email })
@@ -206,7 +206,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Update profile
+  
   const updateProfile = async (profileData: FormData | object) => {
     try {
       const response = await apiClient.patch('/users/profile/', profileData)
@@ -218,7 +218,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Change password
+  
   const changePassword = async (currentPassword: string, newPassword: string) => {
     try {
       const response = await apiClient.post('/users/change-password/', {
@@ -233,7 +233,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Check nickname availability
+  
   const checkNickname = async (nickname: string) => {
     try {
       const response = await apiClient.post('/users/nickname/check/', { nickname })
@@ -246,7 +246,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Get user sessions
+  
   const getUserSessions = async () => {
     try {
       const response = await apiClient.get('/users/sessions/')
@@ -257,7 +257,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Revoke session
+  
   const revokeSession = async (sessionId: number) => {
     try {
       await apiClient.delete(`/users/sessions/${sessionId}/`)
@@ -268,7 +268,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Get user settings
+  
   const getUserSettings = async () => {
     try {
       const response = await apiClient.get('/users/settings/')
@@ -279,7 +279,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Update user settings
+  
   const updateUserSettings = async (settings: object) => {
     try {
       const response = await apiClient.patch('/users/settings/', settings)
@@ -290,7 +290,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Two-factor authentication
+  
   const setupTwoFactor = async (action: 'enable' | 'disable' | 'verify', code?: string) => {
     try {
       const response = await apiClient.post('/users/two-factor/', {
@@ -304,18 +304,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Check if running in local development mode
+  
   const isLocalDevelopment = () => {
     const hostname = window.location.hostname
     return  hostname === '127.0.0.1' || hostname === '::1'
   }
 
-  // Check authentication status
+  
   const checkAuth = async () => {
-    // Skip auth checks in local development mode
+    
     if (isLocalDevelopment()) {
       console.log('🔓 Local development mode: Auth check skipped')
-      // Set a mock user for development
+      
       if (!user.value) {
         user.value = {
           id: 1,
@@ -341,22 +341,22 @@ export const useAuthStore = defineStore('auth', () => {
     const refreshToken = localStorage.getItem('refresh_token')
     const userData = localStorage.getItem('user')
 
-    // console.log('🔐 Auth Store: checkAuth called', {
-    //   hasAccessToken: !!accessToken,
-    //   hasRefreshToken: !!refreshToken,
-    //   hasUserData: !!userData,
-    //   tokenPreview: accessToken ? `${accessToken.substring(0, 20)}...` : 'none'
-    // })
+    
+    
+    
+    
+    
+    
 
     if (accessToken) {
       try {
-        // Set token for requests
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
-        // console.log('✅ Set Authorization header for requests')
         
-        // Try to fetch user data
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+        
+        
+        
         await fetchUser()
-        // console.log('✅ User data fetched successfully')
+        
         
         return { success: true }
       } catch (error: any) {
@@ -364,43 +364,43 @@ export const useAuthStore = defineStore('auth', () => {
 
         if (refreshToken) {
           try {
-            // Пытаемся обновить токен
+            
             const refreshResponse = await apiClient.post('/users/token/refresh/', {
               refresh: refreshToken
             })
 
             const { access } = refreshResponse.data
-            // console.log('✅ Token refreshed successfully')
             
-            // Update stored tokens
+            
+            
             localStorage.setItem('access_token', access)
             apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`
             
-            // Retry user fetch
+            
             await fetchUser()
             console.log('✅ User data fetched after refresh')
             
             return { success: true }
           } catch (refreshError) {
-            // console.log('❌ Auth Store: Refresh failed, clearing auth', refreshError)
+            
             logout()
             return { success: false }
           }
         } else {
-          // console.log('❌ Auth Store: No refresh token, clearing auth')
+          
           logout()
           return { success: false }
         }
       }
     } else {
-      // console.log('ℹ️ Auth Store: No access token found')
+      
       return { success: false }
     }
   }
 
-  // Initialize auth state from localStorage
+  
   const initializeAuth = () => {
-    // Skip initialization in local development mode - checkAuth will handle it
+    
     if (isLocalDevelopment()) {
       console.log('🔓 Local development mode: Auth initialization skipped')
       return
@@ -415,7 +415,7 @@ export const useAuthStore = defineStore('auth', () => {
         isAuthenticated.value = true
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
         
-        // Verify token is still valid
+        
         checkAuth()
       } catch (error) {
         console.error('Auth Store: Failed to parse stored user data', error)
@@ -424,7 +424,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Follow user
+  
   const followUser = async (userId: number) => {
     try {
       await apiClient.post(`/users/${userId}/follow`)
@@ -438,7 +438,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Unfollow user
+  
   const unfollowUser = async (userId: number) => {
     try {
       await apiClient.delete(`/users/${userId}/follow`)
@@ -452,7 +452,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Block user
+  
   const blockUser = async (userId: number) => {
     try {
       await apiClient.post(`/users/${userId}/block`)
@@ -463,7 +463,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Unblock user
+  
   const unblockUser = async (userId: number) => {
     try {
       await apiClient.delete(`/users/${userId}/block`)
@@ -474,7 +474,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Report user
+  
   const reportUser = async (userId: number, reason: string) => {
     try {
       await apiClient.post(`/users/${userId}/report`, { reason })
@@ -485,7 +485,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Upload avatar
+  
   const uploadAvatar = async (file: File): Promise<string> => {
     try {
       const formData = new FormData()
@@ -509,7 +509,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Remove avatar
+  
   const removeAvatar = async () => {
     try {
       await apiClient.delete('/users/avatar')
@@ -524,7 +524,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Update privacy settings
+  
   const updatePrivacySettings = async (settings: any) => {
     try {
       const response = await apiClient.patch('/users/privacy', settings)
@@ -539,12 +539,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Online status management
+  
   const onlineUsers = ref<Map<number, { is_online: boolean; last_seen?: string }>>(new Map())
 
   const updateUserOnlineStatus = (userId: number, isOnline: boolean) => {
     onlineUsers.value.set(userId, { is_online: isOnline })
-    // Диспатчим событие для обновления UI
+    
     window.dispatchEvent(new CustomEvent('userOnlineStatusChanged', { 
       detail: { userId, isOnline } 
     }))
@@ -554,7 +554,7 @@ export const useAuthStore = defineStore('auth', () => {
     return onlineUsers.value.get(userId)?.is_online ?? false
   }
 
-  // Friends / Followers
+  
   const friendRequests = ref<any[]>([])
   const loadingFriendRequests = ref(false)
 
@@ -594,7 +594,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Get token
+  
   const token = computed(() => localStorage.getItem('access_token'))
 
   return {

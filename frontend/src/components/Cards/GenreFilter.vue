@@ -1,6 +1,5 @@
 <template>
   <div class="gf">
-    <!-- Поиск жанров -->
     <div class="gf-search">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -130,7 +129,6 @@ onMounted(async () => {
   min-width: 0;
 }
 
-/* ── Поиск жанров ──────────────────────────────────────────── */
 .gf-search {
   position: relative;
   flex-shrink: 0;
@@ -167,7 +165,6 @@ onMounted(async () => {
   display: flex; padding: 2px;
 }
 
-/* ── Список чипов ─────────────────────────────────────────── */
 .gf-scroll {
   display: flex;
   gap: 6px;

@@ -14,7 +14,7 @@ export type ThemeKind = 'opening' | 'ending'
 
 export interface DownloadState {
   loading: boolean
-  progress: number   // 0 или 100
+  progress: number   
   error: string
   done: boolean
 }
@@ -43,14 +43,14 @@ export interface DownloadThemeOpts {
   state?: any
 }
 
-// ── Composable ────────────────────────────────────────────────────
+
 export function useThemeDownloader() {
   const openingState = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
   const endingState  = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
   const episodeState = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
   const customState  = ref<DownloadState>({ loading: false, progress: 0, error: '', done: false })
 
-  // Скачивает опенинг или эндинг текущей серии
+  
   async function downloadTheme(opts: DownloadThemeOpts) {
     const state = opts.state || (opts.kind === 'opening' ? openingState : endingState)
     if (state.value.loading) return
@@ -62,7 +62,7 @@ export function useThemeDownloader() {
     try {
       const { animeId, kind, episode, season = 1, translationId, animeTitle = '' } = opts
 
-      // 1. Получаем тайминги темы
+      
       const themeParams: Record<string, string> = {
         episode: String(episode),
         season:  String(season),
@@ -77,7 +77,7 @@ export function useThemeDownloader() {
 
       state.value.progress = 25
 
-      // 2. Нарезаем через /clip/
+      
       const clipParams: Record<string, string> = {
         episode: String(episode),
         season:  String(season),
@@ -143,7 +143,7 @@ export function useThemeDownloader() {
       const { animeId, episode, season = 1, translationId, startSec, stopSec, label = 'clip', animeTitle = '' } = opts
 
       if (stopSec <= startSec) throw new Error('Конец должен быть позже начала')
-      // Формируем параметры
+      
       const params: Record<string, string> = {
         episode: String(episode),
         season:  String(season),
@@ -156,16 +156,16 @@ export function useThemeDownloader() {
 
       currentState.value.progress = 20
 
-      // Запрос к бэкенду — сервер нарезает и отдаёт файл
+      
       const response = await apiClient.get(`/anime/${animeId}/clip/`, {
         params,
         responseType: 'blob',
-        timeout: 360_000, // 6 минут — ffmpeg может работать долго
+        timeout: 360_000, 
         onDownloadProgress: (evt) => {
           if (evt.total && evt.total > 0) {
             currentState.value.progress = 20 + Math.round((evt.loaded / evt.total) * 75)
           } else {
-            // Нет Content-Length — просто показываем анимацию
+            
             currentState.value.progress = Math.min(90, currentState.value.progress + 5)
           }
         },
@@ -173,7 +173,7 @@ export function useThemeDownloader() {
 
       currentState.value.progress = 97
 
-      // Определяем имя файла из заголовка или генерируем
+      
       const disposition = response.headers['content-disposition'] || ''
       let filename = `${animeTitle || 'anime'} - Ep${episode} - ${label}.${extension}`
       const fnMatch = disposition.match(/filename\*=UTF-8''([^;\n]+)/)
@@ -182,7 +182,7 @@ export function useThemeDownloader() {
         filename = decodeURIComponent(fnMatch[1])
       }
 
-      // Скачиваем blob
+      
       const url = URL.createObjectURL(response.data)
       const a = document.createElement('a')
       a.href = url
@@ -196,7 +196,7 @@ export function useThemeDownloader() {
       setTimeout(() => { currentState.value.done = false }, 3000)
 
     } catch (err: any) {
-      // Axios получил blob с ошибкой — читаем текст
+      
       let message = err?.message || 'Ошибка скачивания'
       if (err?.response?.data instanceof Blob) {
         try {
@@ -209,7 +209,7 @@ export function useThemeDownloader() {
     }
   }
 
-  // Скачивание серии целиком
+  
   async function downloadEpisode(opts: DownloadThemeOpts) {
     const state = episodeState
     if (state.value.loading) return
@@ -221,7 +221,7 @@ export function useThemeDownloader() {
     try {
       const { animeId, episode, season = 1, translationId, animeTitle = '' } = opts
 
-      // Нарезаем через /clip/ от 0 до конца
+      
       const clipParams: Record<string, string> = {
         episode: String(episode),
         season:  String(season),

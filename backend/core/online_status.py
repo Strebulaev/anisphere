@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Ключ в Redis: user_online:{user_id}
 ONLINE_KEY_PREFIX = 'user_online:'
-# TTL в секундах — 2 минуты (пользователь считается онлайн пока активно использует сайт)
+# TTL в секундах - 2 минуты (пользователь считается онлайн пока активно использует сайт)
 # Если вкладка активна - heartbeat обновляет TTL каждые 30 секунд
 ONLINE_TTL = 120
 # TTL для неактивных пользователей (отошёл от компа) - 5 минут
@@ -72,10 +72,34 @@ class RedisOnlineStatus:
                 **(extra_data or {})
             }
             self.redis_client.setex(key, ttl, json.dumps(data))
+            
+            # Отправляем событие в channel layer для WebSocket
+            self._send_online_event(user_id, username, True)
         except (redis.ConnectionError, redis.TimeoutError) as e:
             logger.debug(f"Redis set_online error (ignored): {e}")
         except Exception as e:
             logger.debug(f"Redis error: {e}")
+
+    def _send_online_event(self, user_id: int, username: str, is_online: bool) -> None:
+        """Отправить событие онлайн статуса в channel layer"""
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                group_name = f"user_online_{user_id}"
+                async_to_sync(channel_layer.group_send)(
+                    group_name,
+                    {
+                        "type": "user_online",
+                        "user_id": user_id,
+                        "username": username,
+                        "is_online": is_online,
+                    }
+                )
+        except Exception as e:
+            logger.debug(f"Channel layer send error: {e}")
 
     def set_offline(self, user_id: int) -> None:
         """Установить статус оффлайн для пользователя"""
@@ -85,6 +109,12 @@ class RedisOnlineStatus:
         try:
             key = f"{ONLINE_KEY_PREFIX}{user_id}"
             self.redis_client.delete(key)
+            
+            # Отправляем событие в channel layer для WebSocket
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            username = User.objects.filter(id=user_id).values_list('username', flat=True).first() or 'Unknown'
+            self._send_online_event(user_id, username, False)
         except (redis.ConnectionError, redis.TimeoutError) as e:
             logger.debug(f"Redis set_offline error (ignored): {e}")
         except Exception as e:

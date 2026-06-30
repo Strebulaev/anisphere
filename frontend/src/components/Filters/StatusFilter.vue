@@ -57,9 +57,9 @@ const selectedStatuses = ref<string[]>([...props.modelValue])
 
 const statusOptions = [
   { value: 'ongoing', label: 'Онгоинг', icon: '🔄' },
-  { value: 'finished', label: 'Завершён', icon: '☑️' },
+  { value: 'finished', label: 'Завершён', icon: '☑️' },  // Включает finished и released
   { value: 'announced', label: 'Анонсирован', icon: '📢' },
-  { value: 'released', label: 'Вышедший', icon: '▶' }
+  { value: 'canceled', label: 'Отменён', icon: '❌' }
 ]
 
 const isSelected = (value: string) => {
@@ -74,6 +74,26 @@ const toggleStatus = (value: string) => {
     selectedStatuses.value.push(value)
   }
   emit('update:modelValue', [...selectedStatuses.value])
+}
+
+/**
+ * Преобразует frontend статусы в backend статусы
+ * finished → [finished, released]
+ */
+const getBackendStatuses = (): string[] => {
+  const backendStatuses: string[] = []
+  
+  for (const status of selectedStatuses.value) {
+    if (status === 'finished') {
+      // "Завершён" включает оба backend статуса
+      backendStatuses.push('finished', 'released')
+    } else {
+      backendStatuses.push(status)
+    }
+  }
+  
+  // Удаляем дубликаты
+  return [...new Set(backendStatuses)]
 }
 
 const selectAll = () => {

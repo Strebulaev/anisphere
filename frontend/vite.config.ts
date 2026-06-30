@@ -6,7 +6,6 @@ import autoprefixer from 'autoprefixer'
 import tailwindcss from 'tailwindcss'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
@@ -14,28 +13,28 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       strategies: 'generateSW',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.ico', 'sakura.png', 'mask-icon.svg'],
       manifest: {
-        name: 'AnimeCore',
-        short_name: 'AnimeCore',
+        name: 'AniSphere',
+        short_name: 'AniSphere',
         description: 'Социальная сеть для анимешников',
         theme_color: '#7c5cfc',
         background_color: '#080809',
         display: 'standalone',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'sakura.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
+            src: 'sakura.png',
+            sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
+            src: 'sakura.png',
+            sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           }
@@ -43,9 +42,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: null,
-        // ИСКЛЮЧАЕМ изображения из пре-кэша - они будут кэшироваться динамически
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // Исключаем изображения из прекэша явно
         globIgnores: [
           '**/*.jpg', 
           '**/*.jpeg', 
@@ -56,21 +53,19 @@ export default defineConfig({
         ],
         runtimeCaching: [
           {
-            // Динамическое кэширование изображений с ЖЁСТКИМИ ЛИМИТАМИ
             urlPattern: /\.(?:jpg|jpeg|png|gif|webp|avif|svg)$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images-cache',
               expiration: {
-                maxEntries: 50,           // Не более 50 файлов
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 дней
+                maxEntries: 50,         
+                maxAgeSeconds: 60 * 60 * 24 * 7
               },
               cacheableResponse: {
                 statuses: [0, 200]
               }
             }
           },
-          // Шрифты - тоже с лимитами
           {
             urlPattern: /\.(?:woff|woff2|ttf|otf)$/i,
             handler: 'CacheFirst',
@@ -78,7 +73,7 @@ export default defineConfig({
               cacheName: 'fonts-cache',
               expiration: {
                 maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 дней
+                maxAgeSeconds: 60 * 60 * 24 * 30 
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -104,6 +99,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
+    },
+  },
+  server: {
+    proxy: {
+      '/media': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
   css: {

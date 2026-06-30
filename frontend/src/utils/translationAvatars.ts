@@ -14,7 +14,7 @@ export function normalizeTranslationName(name: string): string {
     .toLowerCase()
     .trim()
     .replace(/[а-яё]/g, (char) => {
-      // Транслитерация для кириллицы
+      
       const map: Record<string, string> = {
         'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
         'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
@@ -24,9 +24,9 @@ export function normalizeTranslationName(name: string): string {
       }
       return map[char] || char
     })
-    .replace(/[^a-z0-9]/g, '-') // заменяем всё кроме букв и цифр на дефис
-    .replace(/-+/g, '-') // заменяем множественные дефисы на один
-    .replace(/^-|-$/g, '') // удаляем дефисы в начале и конце
+    .replace(/[^a-z0-9]/g, '-') 
+    .replace(/-+/g, '-') 
+    .replace(/^-|-$/g, '') 
 }
 
 /**
@@ -62,27 +62,27 @@ export function getTranslationAvatarUrl(name: string): string | undefined {
 
   const normalizedName = normalizeTranslationName(name)
 
-  // Список поддерживаемых расширений
+  
   const extensions = ['svg', 'png', 'jpg', 'jpeg', 'webp']
 
-  // Проверяем каждое расширение
+  
   for (const ext of extensions) {
     try {
-      // Пытаемся создать URL (ошибка НЕ выбрасывается, если файл не найден в рантайме)
+      
       const url = new URL(`../assets/translation-avatars/${normalizedName}.${ext}`, import.meta.url)
       
-      // В Vite/Webpack проверка существования файла происходит на этапе сборки
-      // Если файл есть, URL будет валидным, если нет - конструктор НЕ выбрасывает ошибку
-      // Поэтому просто возвращаем URL
+      
+      
+      
       return url.href
     } catch (e) {
-      // Ошибка может быть только если URL некорректен (например, недопустимые символы)
+      
       console.warn(`[TranslationAvatar] Invalid URL for ${normalizedName}.${ext}:`, e)
       continue
     }
   }
 
-  // Если файл не найден, пробуем популярные альтернативные названия
+  
   const alternativeNames = getAlternativeNames(normalizedName)
   for (const altName of alternativeNames) {
     for (const ext of extensions) {
@@ -106,7 +106,7 @@ export function getTranslationAvatarUrl(name: string): string | undefined {
 function getAlternativeNames(name: string): string[] {
   const alternatives: string[] = [name]
 
-  // Удаляем суффиксы
+  
   const withoutSuffix = name
     .replace(/-dub$/, '')
     .replace(/-team$/, '')
@@ -117,7 +117,7 @@ function getAlternativeNames(name: string): string[] {
     alternatives.push(withoutSuffix)
   }
 
-  // Удаляем префиксы
+  
   const withoutPrefix = name
     .replace(/^dub-/, '')
     .replace(/^sub-/, '')
@@ -127,13 +127,13 @@ function getAlternativeNames(name: string): string[] {
     alternatives.push(withoutPrefix)
   }
 
-  // Добавляем вариант с подчёркиваниями вместо дефисов
+  
   alternatives.push(name.replace(/-/g, '_'))
 
-  // Добавляем вариант без дефисов
+  
   alternatives.push(name.replace(/-/g, ''))
 
-  // Для популярных озвучек добавляем основные варианты
+  
   if (POPULAR_TRANSLATIONS.has(name)) {
     if (name === 'anilibria') {
       alternatives.push('anilibria', 'ani-lib')
@@ -146,7 +146,7 @@ function getAlternativeNames(name: string): string[] {
     }
   }
 
-  // Убираем дубликаты
+  
   return [...new Set(alternatives)]
 }
 

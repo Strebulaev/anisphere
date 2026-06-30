@@ -106,6 +106,20 @@ class Group(models.Model):
             while Group.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
                 self.slug = f"{original_slug}-{counter}"
                 counter += 1
+        
+        # Конвертируем аватар и баннер в WebP
+        if self.avatar_file:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.avatar_file, max_size=(500, 500), quality=85)
+            if webp_file:
+                self.avatar_file = webp_file
+        
+        if self.banner_file:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.banner_file, max_size=(1920, 500), quality=85)
+            if webp_file:
+                self.banner_file = webp_file
+        
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -252,6 +266,24 @@ class Post(models.Model):
     def __str__(self):
         return f"Post by {self.author.username}: {self.text[:50]}"
 
+    def save(self, *args, **kwargs):
+        """Переопределяем save для конвертации изображений в WebP и видео в WebM"""
+        # Конвертация изображений в WebP
+        if self.image_file:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.image_file, max_size=(1920, 1920), quality=85)
+            if webp_file:
+                self.image_file = webp_file
+        
+        # Конвертация видео в WebM
+        if self.video_file:
+            from social.services.video_processor import convert_to_webm
+            webm_file = convert_to_webm(self.video_file, max_width=1280, max_height=720, crf=35, fps=24)
+            if webm_file:
+                self.video_file = webm_file
+        
+        super().save(*args, **kwargs)
+
     @property
     def media_url(self):
         """URL для медиа контента"""
@@ -387,6 +419,52 @@ class GroupChat(models.Model):
         """Обновить счётчик участников"""
         self.members_count = self.members.count()
         self.save(update_fields=['members_count'])
+
+    def mark_as_read(self, user):
+        """Отметить все сообщения в чате как прочитанные для пользователя"""
+        from django.utils import timezone
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        from .models import Message, MessageReadStatus
+        
+        # Получаем все сообщения которые ещё не прочитаны этим пользователем
+        unread_messages = Message.objects.filter(
+            chat=self
+        ).exclude(
+            read_statuses__user=user
+        ).distinct()
+        
+        # Создаём записи о прочтении
+        read_message_ids = []
+        sender_ids = set()
+        
+        for message in unread_messages:
+            MessageReadStatus.objects.get_or_create(
+                message=message,
+                user=user
+            )
+            read_message_ids.append(message.id)
+            sender_ids.add(message.sender_id)
+        
+        # Отправляем WebSocket событие всем отправителям прочитанных сообщений
+        if read_message_ids:
+            channel_layer = get_channel_layer()
+            try:
+                for sender_id in sender_ids:
+                    if sender_id != user.id:  # Не отправлять самому себе
+                        async_to_sync(channel_layer.group_send)(
+                            f'chat_user_{sender_id}',
+                            {
+                                'type': 'messages_read_event',
+                                'user_id': user.id,
+                                'message_ids': read_message_ids,
+                                'read_at': timezone.now().isoformat(),
+                                'sender_ids': list(sender_ids),
+                            }
+                        )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f'Error sending read status: {e}')
 
 
 class ChatRole(models.Model):
@@ -609,6 +687,55 @@ class PrivateChat(models.Model):
                 setattr(self, f'user2_{key}', value)
         self.save()
 
+    def mark_as_read(self, user):
+        """Отметить все сообщения в чате как прочитанные для пользователя"""
+        from django.utils import timezone
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+
+        # Определяем другого пользователя
+        other_user = self.other_user(user)
+        if not other_user:
+            return
+        
+        # Получаем все сообщения от другого пользователя которые ещё не прочитаны
+        from .models import Message, MessageReadStatus
+        
+        unread_messages = Message.objects.filter(
+            private_chat=self,
+            sender=other_user
+        ).exclude(
+            read_statuses__user=user
+        ).distinct()
+        
+        # Создаём записи о прочтении
+        read_message_ids = []
+        for message in unread_messages:
+            MessageReadStatus.objects.get_or_create(
+                message=message,
+                user=user
+            )
+            read_message_ids.append(message.id)
+        
+        # Отправляем WebSocket событие отправителю сообщений
+        if read_message_ids:
+            channel_layer = get_channel_layer()
+            try:
+                # Отправляем событие в группу отправителя
+                async_to_sync(channel_layer.group_send)(
+                    f'chat_user_{other_user.id}',
+                    {
+                        'type': 'messages_read_event',
+                        'user_id': user.id,
+                        'message_ids': read_message_ids,
+                        'read_at': timezone.now().isoformat(),
+                        'sender_ids': [other_user.id],
+                    }
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f'Error sending read status: {e}')
+
 
 class Message(models.Model):
     """Общая модель сообщения для всех типов чатов"""
@@ -670,6 +797,15 @@ class Message(models.Model):
     def __str__(self):
         return f"Сообщение от {self.sender.username}"
 
+    def save(self, *args, **kwargs):
+        """Переопределяем save для конвертации изображений в WebP"""
+        if self.media and self.media_type == 'image':
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.media, max_size=(1920, 1920), quality=85)
+            if webp_file:
+                self.media = webp_file
+        super().save(*args, **kwargs)
+
     @property
     def parent_chat(self):
         """Получить родительский чат (групповой или личный)"""
@@ -706,6 +842,38 @@ class Message(models.Model):
                 return False
 
         return False
+
+
+class MessageAttachment(models.Model):
+    """Вложение контента к сообщению (аналог PostAttachment для чатов)"""
+
+    CONTENT_TYPE_CHOICES = [
+        ('anime', 'Аниме'),
+        ('playlist', 'Плейлист'),
+        ('shorts', 'Shorts'),
+        ('post', 'Пост'),
+    ]
+
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='content_attachments')
+    content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
+
+    # ID прикреплённого объекта
+    object_id = models.PositiveIntegerField()
+
+    # Дополнительные данные (JSON)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['message', 'content_type']),
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.content_type} attachment for message {self.message.id}"
 
 
 class MessageReadStatus(models.Model):
@@ -891,6 +1059,15 @@ class ContestEntry(models.Model):
     def __str__(self):
         return f"{self.participant.username} in {self.contest.title}"
 
+    def save(self, *args, **kwargs):
+        """Конвертируем изображения конкурса в WebP"""
+        if self.image_file:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.image_file, max_size=(1920, 1920), quality=85)
+            if webp_file:
+                self.image_file = webp_file
+        super().save(*args, **kwargs)
+
 
 class ContestVote(models.Model):
     """Голос в конкурсе"""
@@ -1031,6 +1208,15 @@ class Achievement(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_level_display()})"
 
+    def save(self, *args, **kwargs):
+        """Конвертируем иконку достижения в WebP"""
+        if self.icon:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.icon, max_size=(200, 200), quality=85)
+            if webp_file:
+                self.icon = webp_file
+        super().save(*args, **kwargs)
+
 
 class UserAchievement(models.Model):
     """Полученное достижение"""
@@ -1078,6 +1264,20 @@ class UploadedFile(models.Model):
 
     def __str__(self):
         return f"{self.file_name} by {self.user.username}"
+
+    def save(self, *args, **kwargs):
+        """Конвертируем изображения в WebP"""
+        if self.file and self.file_type == 'image':
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.file, max_size=(1920, 1920), quality=85)
+            if webp_file:
+                self.file = webp_file
+        if self.thumbnail:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.thumbnail, max_size=(400, 400), quality=80)
+            if webp_file:
+                self.thumbnail = webp_file
+        super().save(*args, **kwargs)
 
 
 class ChatInvite(models.Model):
@@ -1190,6 +1390,20 @@ class Attachment(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()}: {self.file_name}"
+
+    def save(self, *args, **kwargs):
+        """Конвертируем изображения и миниатюры в WebP"""
+        if self.file and self.type == 'image':
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.file, max_size=(1920, 1920), quality=85)
+            if webp_file:
+                self.file = webp_file
+        if self.thumbnail:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.thumbnail, max_size=(400, 400), quality=80)
+            if webp_file:
+                self.thumbnail = webp_file
+        super().save(*args, **kwargs)
 
 
 class EmailLog(models.Model):
@@ -1367,6 +1581,20 @@ class PostMedia(models.Model):
     def __str__(self):
         return f"Media for post {self.post.id} (#{self.order})"
 
+    def save(self, *args, **kwargs):
+        """Конвертируем изображения и миниатюры в WebP"""
+        if self.file and self.media_type == 'image':
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.file, max_size=(1920, 1920), quality=85)
+            if webp_file:
+                self.file = webp_file
+        if self.thumbnail:
+            from social.services.image_processor import convert_to_webp
+            webp_file = convert_to_webp(self.thumbnail, max_size=(400, 400), quality=80)
+            if webp_file:
+                self.thumbnail = webp_file
+        super().save(*args, **kwargs)
+
 
 class PostAttachment(models.Model):
     """Прикреплённый контент к посту"""
@@ -1379,19 +1607,16 @@ class PostAttachment(models.Model):
 
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='attachments')
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
-
-    # ID прикреплённого объекта
     object_id = models.PositiveIntegerField()
-
-    # Дополнительные данные (JSON)
     metadata = models.JSONField(default=dict, blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [
             models.Index(fields=['post', 'content_type']),
         ]
+        # ✅ ДОБАВИТЬ ЭТУ СТРОКУ:
+        unique_together = ['post', 'content_type', 'object_id']
 
     def __str__(self):
         return f"{self.content_type} attachment for post {self.post.id}"

@@ -41,7 +41,7 @@ class Command(BaseCommand):
         quiet = options['quiet']
         
         if not quiet:
-            self.stdout.write(self.style.SUCCESS('AnimeCore - Anime import through AnimeParsers'))
+            self.stdout.write(self.style.SUCCESS('anisphere - Anime import through AnimeParsers'))
             self.stdout.write('=' * 50)
         
         total_imported = 0

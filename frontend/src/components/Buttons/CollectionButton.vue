@@ -1,6 +1,5 @@
 <template>
   <div class="col-btn-wrap" ref="wrapRef">
-    <!-- Кнопка с текущим статусом -->
     <button
       class="col-btn"
       :class="{ 'has-status': !!libraryStatus }"
@@ -21,7 +20,6 @@
       </svg>
     </button>
 
-    <!-- Дропдаун -->
     <Transition name="drop">
       <div v-if="dropOpen" class="col-drop">
         <div class="drop-label">Добавить в коллекцию</div>
@@ -79,7 +77,6 @@ const currentStatus = computed(() =>
   STATUS_LIST.find(s => s.key === libraryStatus.value) ?? null
 )
 
-// ── Загрузка статуса ──────────────────────────────────────────
 const checkLibrary = async () => {
   if (!props.animeId) return
   try {
@@ -88,7 +85,6 @@ const checkLibrary = async () => {
     })
     if (res.data.in_library) {
       libraryStatus.value = res.data.status
-      // Загружаем ID элемента библиотеки
       const listRes = await apiClient.get('/users/library/', {
         params: { status: res.data.status }
       })
@@ -99,7 +95,6 @@ const checkLibrary = async () => {
   } catch (e) { /* silent */ }
 }
 
-// ── Переключение ──────────────────────────────────────────────
 const toggleDropdown = () => {
   dropOpen.value = !dropOpen.value
 }
@@ -109,10 +104,8 @@ const selectStatus = async (status: string) => {
   loading.value  = true
   try {
     if (libraryItemId.value) {
-      // Обновляем существующий
       await apiClient.patch(`/users/library/${libraryItemId.value}/`, { status })
     } else {
-      // Добавляем новый
       const res = await apiClient.post('/users/library/', {
         anime: props.animeId,
         status
@@ -134,7 +127,6 @@ const removeFromLibrary = async () => {
   } catch (e) { console.error(e) } finally { loading.value = false }
 }
 
-// ── Клик вне компонента ───────────────────────────────────────
 const onOutsideClick = (e: MouseEvent) => {
   if (wrapRef.value && !wrapRef.value.contains(e.target as Node)) {
     dropOpen.value = false
@@ -161,7 +153,6 @@ watch(() => props.animeId, () => checkLibrary())
   gap: 0;
 }
 
-/* ── Главная кнопка ──────────────────────────────────────────  */
 .col-btn {
   display: inline-flex;
   align-items: center;
@@ -192,7 +183,6 @@ watch(() => props.animeId, () => checkLibrary())
 
 .chevron.open { transform: rotate(180deg); }
 
-/* ── Дропдаун ────────────────────────────────────────────────  */
 .col-drop {
   position: absolute;
   top: calc(100% + 6px);
@@ -243,7 +233,6 @@ watch(() => props.animeId, () => checkLibrary())
 
 .drop-sep { height: 1px; background: var(--border-subtle); margin: 3px 0; }
 
-/* Анимация */
 .drop-enter-active,
 .drop-leave-active { transition: opacity .15s, transform .15s; }
 .drop-enter-from,

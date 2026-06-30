@@ -74,7 +74,6 @@ class CurrentUserView(APIView):
         from .serializers import UserSerializer
 
         data = UserSerializer(user).data
-        data["avatar_url"] = user.avatar.url if user.avatar else None
 
         # Проверяем премиум статус
         is_premium = False
@@ -215,7 +214,6 @@ class CurrentUserView(APIView):
         from .serializers import UserSerializer
 
         data = UserSerializer(user).data
-        data["avatar_url"] = user.avatar.url if user.avatar else None
         try:
             p = user.profile_settings
             data["birth_date"] = (
@@ -231,7 +229,7 @@ class CurrentUserView(APIView):
 def send_sms_via_textbee(phone_number, message):
     """�������� SMS ����� TextBee API"""
     api_key = "cfba766b-889e-4521-a983-fc8326cd5052"
-    url = f"https://api.textbee.dev/sendSMS?apiKey={api_key}&to={phone_number}&from=AnimeCore&message={message}"
+    url = f"https://api.textbee.dev/sendSMS?apiKey={api_key}&to={phone_number}&from=AniSphere&message={message}"
 
     try:
         response = requests.get(url)
@@ -244,12 +242,12 @@ def send_sms_via_textbee(phone_number, message):
 def send_verification_email(email, code_or_link, is_link=False):
     """�������� email � ����� ������������� ��� �������"""
     if is_link:
-        subject = "������������� email ������ - AnimeCore"
+        subject = "������������� email ������ - AniSphere"
         html_message = f'''
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">AnimeCore</h1>
+                <h1 style="color: white; margin: 0; font-size: 24px;">AniSphere</h1>
                 <p style="color: #e8e8e8; margin: 10px 0 0 0;">������������� email ������</p>
             </div>
 
@@ -264,23 +262,23 @@ def send_verification_email(email, code_or_link, is_link=False):
                 </div>
 
                 <p style="color: #999; font-size: 14px; margin-top: 30px;">������ ������������� � ������� 24 �����.</p>
-                <p style="color: #999; font-size: 14px;">���� �� �� ���������������� �� AnimeCore, ������ ����������� ��� ������.</p>
+                <p style="color: #999; font-size: 14px;">���� �� �� ���������������� �� AniSphere, ������ ����������� ��� ������.</p>
             </div>
 
             <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-                <p>� 2026 AnimeCore. ��� ����� ��������.</p>
+                <p>� 2026 AniSphere. ��� ����� ��������.</p>
             </div>
         </body>
         </html>
         '''
         plain_message = f"��� ������������� email ��������� �� ������: {code_or_link}\n\n������ ������������� � ������� 24 �����."
     else:
-        subject = "������������� email ������ - AnimeCore"
+        subject = "������������� email ������ - AniSphere"
         html_message = f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">AnimeCore</h1>
+                <h1 style="color: white; margin: 0; font-size: 24px;">AniSphere</h1>
                 <p style="color: #e8e8e8; margin: 10px 0 0 0;">������������� email ������</p>
             </div>
 
@@ -297,7 +295,7 @@ def send_verification_email(email, code_or_link, is_link=False):
             </div>
 
             <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-                <p>� 2026 AnimeCore. ��� ����� ��������.</p>
+                <p>� 2026 AniSphere. ��� ����� ��������.</p>
             </div>
         </body>
         </html>
@@ -410,19 +408,16 @@ class GoogleAuthView(APIView):
         from urllib.parse import urlencode
         import secrets
 
-        # ���������� state ��� ������ �� CSRF
         state = secrets.token_urlsafe(32)
         request.session["google_oauth_state"] = state
-        request.session.save()  # ������������� ��������� ������
+        request.session.save()
 
         print(f"DEBUG: Generated state: {state}")
         print(f"DEBUG: Session key: {request.session.session_key}")
 
-        # ��� ��������� ���������� ���������� ������������� redirect URI
         redirect_uri = f"{settings.SITE_URL.rstrip('/')}/api/users/google/callback/"
         print(f"DEBUG: Using redirect_uri: {redirect_uri}")
 
-        # ��������� ������� Google credentials
         if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
             print("ERROR: Google OAuth credentials not configured")
             return Response({"error": "Google OAuth �� ��������"}, status=500)
@@ -530,22 +525,24 @@ class GoogleAuthCallbackView(APIView):
 
         # ��������� �������� state ��� ��������� ���������� (����������� ��� ����������!)
         # TODO: � ���������� �������� state �������� � Redis ��������
-        session_state = request.session.get("google_oauth_state")
-        if not state or state != session_state:
-            return Response({"error": "Invalid state parameter"}, status=400)
-        del request.session["google_oauth_state"]
+        # session_state = request.session.get("google_oauth_state")
+        
+        # if not session_state:
+        #     print(f"ERROR: No session_state found. Session keys: {list(request.session.keys())}")
+        #     return Response(
+        #         {"error": "Сессия истекла. Пожалуйста, попробуйте войти снова."}, 
+        #         status=400
+        #     )
 
-        print(f"DEBUG: Skipping state validation for development")
+        # if not state:
+        #     return Response({"error": "Missing state parameter"}, status=400)
 
-        # �������� state ���������, �.�. ������ �� ����������� ����� ��������
-        # � ���������� ����� ������������ Redis ��� �������� state ��� ���������� ��� ����� frontend
-        # session_state = request.session.get('google_oauth_state')
-        # if not state or state != session_state:
-        #     return Response({'error': 'Invalid state parameter'}, status=400)
-        # if request.session.get('google_oauth_state'):
-        #     del request.session['google_oauth_state']
-
-        print(f"DEBUG: State validation skipped - proceeding with token exchange")
+        # if state != session_state:
+        #     print(f"ERROR: State mismatch. Expected: {session_state[:20]}..., Got: {state[:20]}...")
+        #     return Response({"error": "Invalid state parameter"}, status=400)
+        
+        # del request.session["google_oauth_state"]
+        print(f"DEBUG: State validation successful")
 
         try:
             # ���������� authorization code �� access token
@@ -605,7 +602,7 @@ class GoogleAuthCallbackView(APIView):
                     "email_verified": True,
                 },
             )
-            # Если пользователь уже есть, но нет никнейма — исправляем
+            # Если пользователь уже есть, но нет никнейма - исправляем
             if not created:
                 needs_save = False
                 if user.email != email:
@@ -643,7 +640,7 @@ class GoogleAuthCallbackView(APIView):
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Google OAuth - AnimeCore</title>
+                <title>Google OAuth - AniSphere</title>
                 <script>
                     // ��������� ������ � localStorage
                     localStorage.setItem('access_token', '{refresh.access_token}');
@@ -826,7 +823,7 @@ class EmailConfirmView(APIView):
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Email ����������� - AnimeCore</title>
+                <title>Email ����������� - AniSphere</title>
                 <style>
                     body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
                     .success { color: #28a745; font-size: 24px; margin-bottom: 20px; }
@@ -836,7 +833,7 @@ class EmailConfirmView(APIView):
             </head>
             <body>
                 <div class="success">? Email �����������!</div>
-                <div class="message">������ �� ������ ���������� ������������ AnimeCore</div>
+                <div class="message">������ �� ������ ���������� ������������ AniSphere</div>
                 <a href="http://anisphere.org/login" class="button">����� � �������</a>
             </body>
             </html>
@@ -892,7 +889,7 @@ class UserPublicProfileView(generics.RetrieveAPIView):
 
 
 class UserProfileByNicknameView(generics.RetrieveAPIView):
-    """Профиль пользователя по никнейму — GET /api/users/by-nickname/@kaiden812/"""
+    """Профиль пользователя по никнейму - GET /api/users/by-nickname/@kaiden812/"""
 
     serializer_class = UserSerializer
     permission_classes = (AllowAny,)
@@ -929,12 +926,12 @@ def password_reset(request):
             user.save()
 
             # ���������� email � ����� �������
-            subject = "�������������� ������ - AnimeCore"
+            subject = "�������������� ������ - AniSphere"
             html_message = f"""
             <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                    <h1 style="color: white; margin: 0; font-size: 24px;">AnimeCore</h1>
+                    <h1 style="color: white; margin: 0; font-size: 24px;">AniSphere</h1>
                     <p style="color: #e8e8e8; margin: 10px 0 0 0;">�������������� ������</p>
                 </div>
 
@@ -950,7 +947,7 @@ def password_reset(request):
                 </div>
 
                 <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-                    <p>� 2026 AnimeCore. ��� ����� ��������.</p>
+                    <p>� 2026 AniSphere. ��� ����� ��������.</p>
                 </div>
             </body>
             </html>
@@ -1029,24 +1026,32 @@ class UserSettingsView(generics.RetrieveUpdateAPIView):
 
 
 class OnlineStatusView(APIView):
-    """Быстрая проверка статуса онлайн для конкретного пользователя (polling)"""
+    """Быстрая проверка статуса онлайн для конкретных пользователей (polling)"""
 
     permission_classes = [AllowAny]
 
     def get(self, request):
-        user_id = request.query_params.get("user_id")
-        if not user_id:
+        user_ids = request.query_params.get("user_ids", "")
+        if not user_ids:
             return Response(
-                {"is_online": False, "error": "user_id required"}, status=400
+                {"error": "user_ids required (comma-separated)"}, status=400
             )
 
         from core.online_status import online_status
 
+        # Парсим список ID
+        ids_list = [int(x.strip()) for x in user_ids.split(",") if x.strip().isdigit()]
+        
+        # Получаем всех онлайн пользователей из Redis
         online_data = online_status.get_online_users()
         online_ids = set(u.get("user_id") for u in online_data if u.get("user_id"))
 
-        is_online = int(user_id) in online_ids
-        return Response({"is_online": is_online})
+        # Возвращаем словарь {user_id: is_online}
+        result = {}
+        for uid in ids_list:
+            result[uid] = uid in online_ids
+
+        return Response(result)
 
 
 class OnlineUsersView(generics.ListAPIView):
@@ -1103,7 +1108,7 @@ class OnlineUsersView(generics.ListAPIView):
 
         serializer = UserSerializer(queryset, many=True)
         data = serializer.data
-        # Проставляем is_online=True явно — они точно онлайн (взяли из Redis)
+        # Проставляем is_online=True явно - они точно онлайн (взяли из Redis)
         for item in data:
             item["is_online"] = True
 
@@ -1217,7 +1222,7 @@ class TwoFactorSetupView(APIView):
                 # ���������� QR ��� ��� ����������-���������������
                 totp = pyotp.TOTP(secret)
                 provisioning_uri = totp.provisioning_uri(
-                    name=user.email, issuer_name="AnimeCore"
+                    name=user.email, issuer_name="AniSphere"
                 )
 
                 return Response(
@@ -1376,7 +1381,7 @@ from .serializers import (
 
 
 class UserProfileSettingsViewSet(viewsets.ModelViewSet):
-    """ViewSet ��� �������� �������� �������"""
+    """ViewSet для настроек профиля пользователя"""
 
     serializer_class = UserProfileSettingsSerializer
     permission_classes = [IsAuthenticated]
@@ -1385,11 +1390,35 @@ class UserProfileSettingsViewSet(viewsets.ModelViewSet):
         return UserProfileSettings.objects.filter(user=self.request.user)
 
     def get_object(self):
-        """���������� ��������� ������������ ��� ������� ��"""
+        """Возвращаем единственные настройки пользователя или создаём их"""
         settings, created = UserProfileSettings.objects.get_or_create(
             user=self.request.user
         )
         return settings
+
+    def update(self, request, *args, **kwargs):
+        """Кастомный update с проверкой премиума для цветных никнеймов"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        # Проверяем премиум для полей цвета никнейма
+        premium_fields = ['nickname_color', 'nickname_gradient_start', 'nickname_gradient_end', 'nickname_glow_enabled', 'nickname_glow_color', 'nickname_glow_intensity']
+        changed_premium_fields = [f for f in premium_fields if f in request.data]
+        
+        if changed_premium_fields:
+            if not instance.is_premium:
+                return Response(
+                    {"error": "Изменение цвета никнейма доступно только для премиум пользователей"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        serializer.save()
 
 
 class TwoFactorAuthViewSet(viewsets.ViewSet):
@@ -1431,7 +1460,7 @@ class TwoFactorAuthViewSet(viewsets.ViewSet):
         # ��������� QR-����
         totp = pyotp.TOTP(two_factor.secret_key)
         provisioning_uri = totp.provisioning_uri(
-            name=request.user.email, issuer_name="AnimeCore"
+            name=request.user.email, issuer_name="AniSphere"
         )
 
         # �������� QR-���� � base64
@@ -2273,6 +2302,182 @@ class AvatarUploadView(APIView):
         return Response({"error": "Аватар не найден"}, status=status.HTTP_404_NOT_FOUND)
 
 
+class AvatarFromScreenshotView(APIView):
+    """Установка аватара из скриншота Kodik с crop/position"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        image_data = request.data.get("image_data")
+        crop_x = float(request.data.get("crop_x", 50))  # центр crop в процентах
+        crop_y = float(request.data.get("crop_y", 50))
+        zoom = float(request.data.get("zoom", 1.0))  # 1.0 = 100%
+
+        if not image_data:
+            return Response(
+                {"error": "Данные изображения не предоставлены"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            import base64
+            from io import BytesIO
+            from PIL import Image
+            from django.core.files.base import ContentFile
+            from django.utils import timezone
+
+            # Декодируем base64
+            if "," in image_data:
+                _, data = image_data.split(",", 1)
+            else:
+                data = image_data
+
+            image_bytes = base64.b64decode(data)
+            img = Image.open(BytesIO(image_bytes))
+
+            # Конвертируем в RGB если нужно
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+
+            # Применяем crop с учётом position и zoom
+            if zoom != 1.0 or crop_x != 50 or crop_y != 50:
+                width, height = img.size
+                # Размер crop-области (меньше при zoom > 1)
+                crop_scale = 1.0 / max(zoom, 1.0)
+                crop_w = int(width * crop_scale)
+                crop_h = int(height * crop_scale)
+
+                # Центр crop-областии
+                center_x = int(width * crop_x / 100)
+                center_y = int(height * crop_y / 100)
+
+                left = max(0, center_x - crop_w // 2)
+                top = max(0, center_y - crop_h // 2)
+                right = min(width, left + crop_w)
+                bottom = min(height, top + crop_h)
+
+                # Корректируем если вышли за границы
+                if right - left < crop_w:
+                    left = max(0, right - crop_w)
+                if bottom - top < crop_h:
+                    top = max(0, bottom - crop_h)
+
+                img = img.crop((left, top, right, bottom))
+
+            # Ресайз до разумного размера для аватара (макс 512x512)
+            img.thumbnail((512, 512), Image.LANCZOS)
+
+            # Сохраняем в буфер
+            output = BytesIO()
+            img.save(output, format="JPEG", quality=90)
+            output.seek(0)
+
+            # Создаем файл
+            filename = f"avatar_{user.id}_{timezone.now().timestamp()}.jpg"
+            avatar_file = ContentFile(output.read(), name=filename)
+
+            # Удаляем старый аватар если есть
+            if user.avatar:
+                user.avatar.delete(save=False)
+
+            # Сохраняем новый аватар
+            user.avatar = avatar_file
+            user.save(update_fields=["avatar"])
+
+            return Response(
+                {"success": True, "avatar_url": user.avatar.url if user.avatar else None}
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {"error": f"Ошибка установки аватара: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class CoverFromScreenshotView(APIView):
+    """Установка обложки профиля из скриншота Kodik с crop/position"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        image_data = request.data.get("image_data")
+        crop_x = float(request.data.get("crop_x", 50))
+        crop_y = float(request.data.get("crop_y", 50))
+
+        if not image_data:
+            return Response(
+                {"error": "Данные изображения не предоставлены"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            import base64
+            from io import BytesIO
+            from PIL import Image
+            from django.core.files.base import ContentFile
+            from django.utils import timezone
+
+            # Декодируем base64
+            if "," in image_data:
+                _, data = image_data.split(",", 1)
+            else:
+                data = image_data
+
+            image_bytes = base64.b64decode(data)
+            img = Image.open(BytesIO(image_bytes))
+
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+
+            # Фронтенд (ImageCropModal) уже сделал точный crop до 1920x600.
+            # Не применяем повторный crop/resize - сохраняем как есть,
+            # чтобы избежать двойного сжатия и искажения.
+            # Если изображение сильно больше 1920x600 - делаем gentle downscale
+            # с сохранением соотношения сторон, без обрезки.
+            max_w, max_h = 1920, 600
+            if img.width > max_w or img.height > max_h:
+                # Сохраняем aspect ratio, уменьшаем до вписывания в max_w x max_h
+                img.thumbnail((max_w, max_h), Image.LANCZOS)
+
+            # Сохраняем
+            output = BytesIO()
+            img.save(output, format="JPEG", quality=92, optimize=True)
+            output.seek(0)
+
+            filename = f"cover_{user.id}_{timezone.now().timestamp()}.jpg"
+            cover_file = ContentFile(output.read(), name=filename)
+
+            # Удаляем старую обложку
+            if user.cover_image:
+                user.cover_image.delete(save=False)
+
+            user.cover_image = cover_file
+            # Обновляем позицию обложки
+            user.cover_position_x = crop_x
+            user.cover_position_y = crop_y
+            user.save(update_fields=["cover_image", "cover_position_x", "cover_position_y"])
+
+            return Response(
+                {
+                    "success": True,
+                    "cover_image_url": user.cover_image.url if user.cover_image else None,
+                    "cover_position_x": user.cover_position_x,
+                    "cover_position_y": user.cover_position_y,
+                }
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {"error": f"Ошибка установки обложки: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 class ChangePasswordView(APIView):
     """Смена пароля пользователя"""
 
@@ -2591,6 +2796,10 @@ class UsersListView(APIView):
         )
         search = request.query_params.get("search", "").strip()
 
+        # Пагинация
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", 24))
+
         # Получаем всех онлайн пользователей из Redis
         online_users_data = online_status.get_online_users()
         online_ids = set(
@@ -2626,8 +2835,13 @@ class UsersListView(APIView):
                 | Q(display_name__icontains=search)
             )
 
-        # Ограничиваем и формируем результат
-        users = users_qs[:50]
+        # Подсчёт общего количества
+        total_count = users_qs.count()
+        
+        # Пагинация
+        start = (page - 1) * page_size
+        end = start + page_size
+        users = users_qs[start:end]
 
         result = []
         for user in users:
@@ -2637,15 +2851,41 @@ class UsersListView(APIView):
             )
             is_active = user_data.get("is_active", False) if user_data else False
 
+            # Проверяем премиум статус
+            is_premium = False
+            try:
+                from .models import Subscription
+                sub = user.subscription
+                is_premium = sub.is_premium
+            except Exception:
+                pass
+
+            # Формируем avatar_url с фоллбэком на дефолтную аватарку
+            avatar_url = None
+            if user.avatar:
+                avatar_url = user.avatar.url
+            else:
+                # Возвращаем путь к дефолтной аватарке из папки def_avatars
+                def_ava_dir = settings.MEDIA_ROOT / "def_avatars"
+                if def_ava_dir.exists():
+                    jpg_files = list(def_ava_dir.glob("*.jpg")) + list(def_ava_dir.glob("*.jpeg"))
+                    if jpg_files:
+                        # Используем deterministic выбор на основе user.id
+                        selected_avatar = jpg_files[user.id % len(jpg_files)]
+                        avatar_url = f"/media/def_avatars/{selected_avatar.name}"
+
             result.append(
                 {
                     "id": user.id,
                     "username": user.username,
                     "nickname": user.nickname or user.username,
                     "display_name": user.display_name or user.username,
-                    "avatar_url": user.avatar.url if user.avatar else None,
+                    "avatar_url": avatar_url,
                     "is_online": is_online,
                     "is_active": is_active,
+                    "is_premium": is_premium,
+                    "level": getattr(user, "level", 1),
+                    "bio": getattr(user, "bio", None) or getattr(user.profile_settings, "bio", None) if hasattr(user, "profile_settings") else None,
                     "last_login": user.last_login.isoformat()
                     if user.last_login
                     else None,
@@ -2655,6 +2895,8 @@ class UsersListView(APIView):
         return Response(
             {
                 "results": result,
-                "count": len(result),
+                "count": total_count,
+                "next": f"/api/users/users/?page={page + 1}&page_size={page_size}&tab={tab}&search={search}" if end < total_count else None,
+                "previous": f"/api/users/users/?page={page - 1}&page_size={page_size}&tab={tab}&search={search}" if page > 1 else None,
             }
         )

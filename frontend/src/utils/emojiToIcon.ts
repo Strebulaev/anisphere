@@ -1,16 +1,16 @@
-// Карта соответствия эмодзи и имен иконок (уникальные ключи)
+
 export const emojiToIconMap: Record<string, string> = {
-  // Колесо фортуны
+  
   '🎡': 'wheel',
   '🎯': 'target',
   '🎲': 'dice',
   
-  // Статистика и графики
+  
   '📊': 'chart',
   '📈': 'trending-up',
   '📉': 'trending-down',
 
-  // Самые часто используемые в проекте
+  
   '🎬': 'play',
   '✅': 'check',
   '⚠': 'warning',
@@ -40,26 +40,26 @@ export const emojiToIconMap: Record<string, string> = {
   '👁': 'eye',
   '🔁': 'refresh',
 
-  // Настройки
+  
   '⚙️': 'settings',
   
-  // Корзина
+  
   '🗑️': 'trash',
   
-  // Кино и видео
+  
   '📹': 'video',
   '🎥': 'film',
   
-  // Действия
+  
   '➕': 'plus',
   '✖️': 'x',
   '✏️': 'edit',
   
-  // Время и история
+  
   '📜': 'history',
   '⏱️': 'timer',
   
-  // Внешний вид
+  
   '🎨': 'palette',
   '🌞': 'sun',
   '🌙': 'moon',
@@ -71,22 +71,22 @@ export const emojiToIconMap: Record<string, string> = {
   '🔊': 'volume',
   '🔇': 'volume-x',
   
-  // Баланс
+  
   '⚖️': 'scale',
   
-  // Обновление
+  
   '🔄': 'refresh',
   
-  // Коллекции
+  
   '📚': 'book',
   '📂': 'folder-open',
   '📦': 'package',
   
-  // Импорт/экспорт
+  
   '📤': 'export',
   '📥': 'import',
   
-  // Достижения
+  
   '👑': 'crown',
   '⭐': 'star',
   '🌟': 'glowing-star',
@@ -94,7 +94,7 @@ export const emojiToIconMap: Record<string, string> = {
   '❤️': 'heart',
   '💔': 'heart-broken',
   
-  // Люди
+  
   '👨': 'user',
   '👩': 'user',
   '🧑': 'user',
@@ -104,50 +104,50 @@ export const emojiToIconMap: Record<string, string> = {
   '👭': 'users',
   '💼': 'briefcase',
   
-  // Здания
+  
   '🏢': 'building',
   '🏠': 'home',
   '🏭': 'factory',
   '🏰': 'castle',
   '🏛️': 'landmark',
   
-  // Чат
+  
   '🗯️': 'message-circle',
   '✉️': 'mail',
   '📧': 'mail',
   '📨': 'inbox',
   
-  // Идеи
+  
   '💡': 'lightbulb',
   
-  // Крепление
+  
   '📍': 'map-pin',
   '🗺️': 'map',
   
-  // Путешествие
+  
   '🚀': 'rocket',
   '✈️': 'plane',
   '🚗': 'car',
   '🚂': 'train',
   
-  // Развлечения
+  
   '🎮': 'gamepad',
   '🎵': 'music',
   '🎶': 'music-note',
   '🎤': 'mic',
   '🎧': 'headphones',
   
-  // Фотография
+  
   '📷': 'camera',
   '📸': 'camera',
   
-  // Деньги
+  
   '💰': 'dollar',
   '💵': 'dollar',
   '💳': 'credit-card',
   '🎁': 'gift',
   
-  // Природа
+  
   '🌸': 'flower',
   '🌺': 'flower',
   '🌻': 'sunflower',
@@ -157,7 +157,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🌿': 'leaf',
   '🍃': 'leaf',
   
-  // Погода
+  
   '☀️': 'sun',
   '⛅': 'cloud-sun',
   '🌥️': 'cloud',
@@ -167,7 +167,7 @@ export const emojiToIconMap: Record<string, string> = {
   '❄️': 'snowflake',
   '🌬️': 'wind',
   
-  // Смайлики
+  
   '😀': 'smile',
   '😂': 'joy',
   '😊': 'blush',
@@ -219,7 +219,7 @@ export const emojiToIconMap: Record<string, string> = {
   '👾': 'gamepad',
   '🤖': 'robot',
   
-  // Жесты
+  
   '👋': 'wave',
   '🤚': 'hand',
   '✋': 'hand',
@@ -235,7 +235,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🙌': 'raised-hands',
   '🙏': 'pray',
   
-  // Одежда
+  
   '👕': 'shirt',
   '👖': 'jeans',
   '👗': 'dress',
@@ -250,7 +250,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🎒': 'backpack',
   '👜': 'handbag',
   
-  // Предметы
+  
   '⌚': 'watch',
   '📱': 'phone',
   '💻': 'laptop',
@@ -277,7 +277,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🖋️': 'pen',
   '🖌️': 'brush',
   
-  // Символы любви
+  
   '🧡': 'heart',
   '💛': 'heart',
   '💚': 'heart',
@@ -291,41 +291,41 @@ export const emojiToIconMap: Record<string, string> = {
   '💓': 'heart',
   '💗': 'heart',
   
-  // Флаги
+  
   '🏳️': 'flag-white',
   '🏴': 'flag-black',
   
-  // Эмоции
+  
   '🙈': 'eye-off',
   '🙉': 'eye-off',
   '🙊': 'eye-off',
   '💋': 'heart',
   '💌': 'mail',
   
-  // Специальные
+  
   '🔓': 'unlock',
   '🔐': 'lock',
   '🔧': 'wrench',
   '🔨': 'hammer',
   '🛠️': 'tools',
   
-  // Телефон
+  
   '📞': 'phone',
   '☎️': 'phone',
   
-  // Кнопки
+  
   '✔️': 'check',
   '☑️': 'check',
   '🔘': 'radio',
   '🔴': 'circle',
   '🔵': 'circle',
   
-  // Время
+  
   '⌛': 'hourglass',
   '🕰️': 'clock',
   '🕛': 'clock',
   
-  // Еда
+  
   '🍚': 'rice',
   '🍜': 'noodles',
   '🍣': 'sushi',
@@ -339,7 +339,7 @@ export const emojiToIconMap: Record<string, string> = {
   '☕': 'coffee',
   '🍵': 'tea',
   
-  // Животные
+  
   '🐱': 'cat',
   '🐶': 'dog',
   '🐰': 'rabbit',
@@ -365,7 +365,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🐝': 'bee',
   '🐞': 'lady-beetle',
   
-  // Растения
+  
   '🌲': 'tree',
   '🌳': 'tree',
   '🌴': 'palm-tree',
@@ -375,11 +375,11 @@ export const emojiToIconMap: Record<string, string> = {
   '🍁': 'maple-leaf',
   '🍂': 'leaf',
   
-  // Созвездия
+  
   '🌠': 'star',
   '🌌': 'milky-way',
   
-  // Дополнительные
+  
   '🧬': 'dna',
   '🧲': 'magnet',
   '🧪': 'test-tube',
@@ -389,11 +389,11 @@ export const emojiToIconMap: Record<string, string> = {
   '🛰️': 'satellite',
   '🛸': 'flying-saucer',
   
-  // Деньги
+  
   '💸': 'dollar',
   '💹': 'trending-up',
   
-  // Символы погоды
+  
   '🌡️': 'thermometer',
   '🌤️': 'sun',
   '🌦️': 'cloud-sun',
@@ -402,7 +402,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🌪️': 'wind',
   '🌫️': 'cloud',
   
-  // Карты
+  
   '🏔️': 'mountain',
   '⛰️': 'mountain',
   '🌋': 'volcano',
@@ -415,7 +415,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🏟️': 'stadium',
   '🏗️': 'building',
   
-  // Транспорт
+  
   '🚁': 'helicopter',
   '🚃': 'train',
   '🚄': 'train',
@@ -451,7 +451,7 @@ export const emojiToIconMap: Record<string, string> = {
   '⛴️': 'ferry',
   '🛳️': 'ship',
   
-  // Здания
+  
   '⛺': 'tent',
   '🛖': 'hut',
   '🏡': 'house',
@@ -473,7 +473,7 @@ export const emojiToIconMap: Record<string, string> = {
   '🕍': 'synagogue',
   '⛩️': 'shrine',
   
-  // Время суток
+  
   '🌅': 'sunrise',
   '🌄': 'sunrise',
   '🌇': 'sunset',
@@ -482,23 +482,23 @@ export const emojiToIconMap: Record<string, string> = {
   '🌉': 'bridge',
   '🌁': 'fog',
   
-  // Кнопки UI
+  
   '🔚': 'arrow-right',
   '🔙': 'arrow-left',
   '🔛': 'arrow-right',
   '🔝': 'arrow-up',
   '🔜': 'arrow-right',
   
-  // Метки
+  
   '〰️': 'wave',
   '➰': 'loop',
   '➿': 'loop',
   
-  // Флаги
+  
   '🚩': 'flag',
   '🎌': 'flag',
 
-  // Дополнительные часто используемые эмодзи
+  
   '📢': 'megaphone',
   '🆕': 'new',
   '🟢': 'circle',
@@ -798,17 +798,17 @@ export const emojiToIconMap: Record<string, string> = {
   '➾': 'arrow-right',
 }
 
-// Получить имя иконки по эмодзи
+
 export function getIconName(emoji: string): string | undefined {
   return emojiToIconMap[emoji]
 }
 
-// Проверить, является ли символ эмодзи
+
 export function isEmoji(char: string): boolean {
   return char in emojiToIconMap
 }
 
-// Получить все доступные имена иконок
+
 export function getAllIconNames(): string[] {
   return [...new Set(Object.values(emojiToIconMap))]
 }

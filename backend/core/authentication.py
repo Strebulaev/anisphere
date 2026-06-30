@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class SoftJWTAuthentication(JWTAuthentication):
     """
     JWT-аутентификация, которая не блокирует анонимный доступ
-    при невалидном токене. Если токен невалиден — возвращает None
+    при невалидном токене. Если токен невалиден - возвращает None
     вместо 401, позволяя permission_classes решить доступ.
     """
 
@@ -29,7 +29,7 @@ class SoftJWTAuthentication(JWTAuthentication):
         try:
             return super().authenticate(request)
         except (InvalidToken, TokenError, AuthenticationFailed) as e:
-            # Токен есть, но невалиден/истёк — не блокируем, возвращаем анонима
+            # Токен есть, но невалиден/истёк - не блокируем, возвращаем анонима
             # Permission-класс сам решит, нужна ли авторизация
             logger.debug(f"SoftJWTAuthentication: token invalid for {request.path}: {e}")
             return None

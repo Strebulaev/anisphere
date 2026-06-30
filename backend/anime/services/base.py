@@ -8,7 +8,7 @@ class BaseAnimeParser(abc.ABC):
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'AnimeCore Parser/1.0 (+https://animecore.app)'
+            'User-Agent': 'anisphere Parser/1.0 (+https://anisphere.app)'
         })
     
     @abc.abstractmethod

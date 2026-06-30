@@ -12,6 +12,13 @@ export interface User {
   last_login: string | null
   level: number
   bio: string | null
+  is_premium?: boolean
+  nickname_color?: string
+  nickname_gradient_start?: string
+  nickname_gradient_end?: string
+  nickname_glow_enabled?: boolean
+  nickname_glow_color?: string
+  nickname_glow_intensity?: number
 }
 
 export interface UsersListParams {
@@ -38,25 +45,25 @@ export interface OnlineStatusResponse {
 }
 
 const usersApi = {
-  // Получить список пользователей с фильтрами
+  
   getUsers: (params?: UsersListParams): Promise<AxiosResponse<UsersListResponse>> => {
     return apiClient.get('/users/users/', { params })
   },
 
-  // Получить онлайн пользователей
+  
   getOnlineUsers: (search?: string): Promise<AxiosResponse<UsersListResponse>> => {
     return apiClient.get('/users/users/', {
       params: { status: 'online', search }
     })
   },
 
-  // Быстрая проверка статуса онлайн (для polling)
+  
   getOnlineStatus: (userIds?: number[]): Promise<AxiosResponse<OnlineStatusResponse>> => {
     const params = userIds ? { user_ids: userIds.join(',') } : {}
     return apiClient.get('/users/online-status/', { params })
   },
 
-  // Поиск пользователей
+  
   searchUsers: (query: string): Promise<AxiosResponse<UsersListResponse>> => {
     return apiClient.get('/users/users/', {
       params: { search: query }

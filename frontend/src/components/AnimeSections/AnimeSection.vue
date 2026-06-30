@@ -60,7 +60,7 @@
           min="1900"
           :max="new Date().getFullYear()"
         />
-        <span class="filter-year-sep">—</span>
+        <span class="filter-year-sep">-</span>
         <input
           v-model="filters.yearTo"
           type="number"
@@ -191,7 +191,6 @@ const hasActiveFilters = computed(() => {
 const filteredAnimeList = computed(() => {
   let list = [...props.animeList]
   
-  // Фильтр по поиску
   if (filters.value.search) {
     const searchLower = filters.value.search.toLowerCase()
     list = list.filter(anime => 
@@ -244,7 +243,6 @@ const resetFilters = () => {
   }
 }
 
-// Обработчики
 const handleShuffle = () => {
   emit('shuffle')
 }
@@ -341,9 +339,15 @@ const handleAnimeClick = (anime: Anime) => {
   router.push(`/anime/${anime.id}`)
 }
 
-const handleWatchAnime = (anime: Anime) => {
+const startWatching = (anime: any) => {
   emit('watchAnime', anime)
   router.push(`/anime/${anime.id}/watch`)
+}
+
+const handleWatchAnime = (anime: Anime) => {
+  emit('watchAnime', anime)
+  const identifier = (anime as any).slug || anime.id
+  router.push(`/anime/${identifier}/watch`)
 }
 
 const handleEmptyAction = () => {
@@ -576,7 +580,17 @@ const handleEmptyAction = () => {
 .anime-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1.5rem;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+  .anime-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
 }
 
 .spin {
@@ -604,8 +618,88 @@ const handleEmptyAction = () => {
   }
 
   .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .anime-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 320px) and (max-width: 374px) {
+  .anime-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 375px) and (max-width: 413px) {
+  .anime-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 414px) and (max-width: 767px) {
+  .anime-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 768px) {
+  .anime-grid {
+    grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1024px) {
+  .anime-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1280px) {
+  .anime-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1536px) {
+  .anime-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 }
 </style>

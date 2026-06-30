@@ -1,4 +1,4 @@
-<template>
+  <template>
   <div class="anime-detail">
     <div class="container detail-content">
       <div v-if="loading" class="loading-state">
@@ -667,7 +667,7 @@
     'ongoing': 'Онгоинг',
     'finished': 'Завершён',
     'announced': 'Анонсирован',
-    'released': 'Вышедший'
+    'released': 'Завершён'
   }[status] || status)
   
   const getStatusClass = (status: string) => ({
@@ -1106,13 +1106,13 @@
 .anime-poster-large {
   position: relative;
   display: block;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   overflow: hidden;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   background: transparent;
   width: 100%;
   margin: 0;
-  aspect-ratio: 2 / 3;
+  /* aspect-ratio: 2 / 3; */
 }
 
 .poster-image {
@@ -1120,6 +1120,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  border-radius: 5%;
 }
 
 .poster-placeholder {

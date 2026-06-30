@@ -10,7 +10,7 @@ import type { Reminder } from '@/stores/notifications'
 
 const FIRED_KEY = 'fired_reminders'
 
-// Звук уведомления (base64 короткий beep)
+
 const NOTIFICATION_SOUND = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU')
 
 function getFired(): Set<number> {
@@ -26,7 +26,7 @@ function saveFired(set: Set<number>) {
   sessionStorage.setItem(FIRED_KEY, JSON.stringify([...set]))
 }
 
-// Запрос права на пуш-уведомления
+
 async function requestPushPermission(): Promise<boolean> {
   if (!('Notification' in window)) return false
   if (Notification.permission === 'granted') return true
@@ -35,7 +35,7 @@ async function requestPushPermission(): Promise<boolean> {
   return result === 'granted'
 }
 
-// Отправить пуш-уведомление
+
 async function sendPushNotification(title: string, body: string, clickAction?: string) {
   if (!('Notification' in window)) return
   
@@ -51,10 +51,10 @@ async function sendPushNotification(title: string, body: string, clickAction?: s
   } as NotificationOptions)
 }
 
-// Воспроизвести звук
+
 function playNotificationSound() {
   try {
-    // Создаем AudioContext для воспроизведения звука
+    
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
     const oscillator = ctx.createOscillator()
     const gainNode = ctx.createGain()
@@ -96,22 +96,22 @@ export function useReminderNotifier() {
           : r.reminder_time.replace(' ', 'T') + 'Z'
       ).getTime()
 
-      // Срабатывает в диапазоне [-30 сек, +5 мин]
+      
       if (rTime >= now - 30_000 && rTime <= now + 300_000) {
         const animeTitle = r.anime_detail?.title_ru || 'Аниме'
         const animeId    = r.anime_detail?.id
         const comment    = r.comment || ''
 
-        // Получаем настройки уведомлений из напоминания
-        const enableSound = r.enable_sound !== false  // По умолчанию true
-        const enablePush  = r.enable_push !== false   // По умолчанию true
+        
+        const enableSound = r.enable_sound !== false  
+        const enablePush  = r.enable_push !== false   
 
-        // Воспроизводим звук если включен
+        
         if (enableSound) {
           playNotificationSound()
         }
 
-        // Отправляем пуш-уведомление если включен
+        
         if (enablePush && animeTitle) {
           sendPushNotification(
             '⏰ Напоминание о просмотре',
@@ -131,7 +131,7 @@ export function useReminderNotifier() {
         fired.add(r.id)
         saveFired(fired)
 
-        // Деактивируем одноразовые напоминания после срабатывания
+        
         if (!r.repeat_weekly) {
           store.deactivateReminder(r.id).catch(() => {})
         }
@@ -139,9 +139,9 @@ export function useReminderNotifier() {
     }
   }
 
-  // Проверяем каждые 30 секунд
+  
   interval = setInterval(check, 30_000)
-  // И сразу при инициализации
+  
   check()
 
   onUnmounted(() => {

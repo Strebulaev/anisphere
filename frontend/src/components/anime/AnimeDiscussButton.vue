@@ -37,12 +37,10 @@ const handleDiscuss = async () => {
   isLoading.value = true
 
   try {
-    // Сначала пробуем получить существующую группу
     let discussionGroup
     try {
       discussionGroup = await animeDiscussionsApi.getDiscussionGroup(props.anime.id)
     } catch (error: any) {
-      // Группы нет, создаём новую
       if (error.response?.status === 404) {
         discussionGroup = await animeDiscussionsApi.createDiscussionGroup(props.anime.id)
       } else {
@@ -50,12 +48,10 @@ const handleDiscuss = async () => {
       }
     }
 
-    // Если пользователь ещё не вступил, вступаем
     if (!discussionGroup.user_joined) {
       discussionGroup = await animeDiscussionsApi.joinDiscussionGroup(props.anime.id)
     }
 
-    // Перенаправляем в чат
     router.push(`/chats/${discussionGroup.id}`)
   } catch (error: any) {
     console.error('Error handling discuss:', error)

@@ -17,6 +17,6 @@ urlpatterns = [
     path('', include(router.urls)),
     path('add-to-playlist/', AddToPlaylistView.as_view(), name='add-to-playlist'),
     path('playlists/search/', PlaylistSearchView.as_view(), name='playlist-search'),
-    # Share-ссылка — открыть плейлист по токену
+    # Share-ссылка - открыть плейлист по токену
     path('playlists/shared/<str:token>/', PlaylistByShareTokenView.as_view(), name='playlist-by-token'),
 ]

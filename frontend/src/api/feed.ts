@@ -15,6 +15,7 @@ export interface FeedPost {
   author_username: string
   author_display_name: string | null
   author_avatar: string | null
+  author_is_premium: boolean
   title: string
   post_type: 'text' | 'image' | 'video' | 'playlist' | 'anime' | 'repost' | 'system'
   status: 'published' | 'draft' | 'deleted' | 'moderated'
@@ -58,6 +59,7 @@ export interface FeedPost {
   is_liked: boolean
   is_disliked: boolean
   is_bookmarked: boolean
+  is_owner?: boolean
   can_edit: boolean
   can_delete: boolean
   system_type?: string | null
@@ -83,8 +85,8 @@ export interface AnimeCard {
   title_en?: string
   year?: number
   description?: string
-  poster_url?: string  // URL Shikimori (не использовать)
-  poster?: string | null  // Локальный путь к файлу (приоритетный)
+  poster_url?: string  
+  poster?: string | null  
   rating?: number
 }
 
@@ -92,10 +94,10 @@ export interface PlaylistCard {
   id: number
   title: string
   anime_count: number
-  items_count?: number  // Альтернативное поле
+  items_count?: number  
   description?: string
-  poster_url?: string | null  // URL постера
-  cover_image?: string | null  // URL обложки
+  poster_url?: string | null  
+  cover_image?: string | null  
   anime?: (AnimeCard & { poster?: string | null })[]
 }
 
@@ -106,7 +108,8 @@ export interface ReactorCard {
   duration?: number
   likes_count: number
   comments_count: number
-  user?: { username: string }
+  user?: { username: string; is_premium?: boolean }
+  user_is_premium?: boolean
 }
 
 export interface GroupCard {
@@ -122,6 +125,7 @@ export interface PostComment {
   author_username: string
   author_display_name: string | null
   author_avatar: string | null
+  author_is_premium: boolean
   parent: number | null
   content: string
   is_edited: boolean
@@ -144,7 +148,7 @@ export interface FeedPage {
   previous: number | null
 }
 
-// ==================== FEED ====================
+
 
 export const feedApi = {
   getWeightedFeed: (page = 1, pageSize = 20) =>
@@ -162,14 +166,14 @@ export const feedApi = {
   getTrendingFeed: (hours = 6, limit = 20) =>
     apiClient.get<FeedPost[]>('/social/feed/trending/', { params: { hours, limit } }),
 
-  // Популярные посты (по лайкам)
+  
   getPopularFeed: (page = 1, pageSize = 20, period = 'week') =>
     apiClient.get<FeedPage>('/social/feed/popular/', { 
       params: { page, page_size: pageSize, period } 
     }),
 }
 
-// ==================== POSTS ====================
+
 
 export const postsApi = {
   getPost: (id: number) =>
@@ -240,7 +244,7 @@ export const postsApi = {
     apiClient.get<FeedPage>(`/social/users/${userId}/posts/`, { params: { page } }),
 }
 
-// ==================== COMMENTS ====================
+
 
 export const commentsApi = {
   getComments: (postId: number, page = 1) =>
@@ -273,7 +277,7 @@ export const commentsApi = {
     apiClient.post(`/social/comments/${commentId}/report/`, { reason }),
 }
 
-// ==================== SUBSCRIPTIONS ====================
+
 
 export interface SubscriptionUser {
   id: number
@@ -304,23 +308,28 @@ export interface HiddenPost {
 
 export interface ReportItem {
   id: number
-  reporter: number
-  reporter_username: string
-  content_type: 'post' | 'comment'
+  reporter: {
+    id: number
+    username: string
+    display_name?: string | null
+  }
+  content_type: 'post' | 'comment' | 'user'
   content_id: number
   reason: string
+  reason_display?: string
   comment: string
   status: 'pending' | 'resolved' | 'rejected'
-  resolved_by: number | null
-  resolved_at: string | null
+  status_display?: string
+  resolved_by?: {
+    id: number
+    username: string
+  } | null
+  resolved_at?: string | null
   created_at: string
-  content_preview?: string
-  content_author?: string
-  moderation_comment?: string
 }
 
 export const subscriptionsApi = {
-  // Подписки
+  
   getSubscriptions: (page = 1, search?: string, sort = 'date') =>
     apiClient.get<{ results: SubscriptionUser[]; count: number; next: number | null }>('/social/subscriptions/', {
       params: { page, search, sort }
@@ -329,13 +338,13 @@ export const subscriptionsApi = {
   unfollow: (userId: number) =>
     apiClient.delete<{ success: boolean; message: string }>(`/social/subscriptions/${userId}/unfollow/`),
 
-  // Скрытые профили
+  
   getNotInterested: (page = 1, search?: string) =>
     apiClient.get<{ results: NotInterestedUser[]; count: number; next: number | null }>('/social/not-interested/', {
       params: { page, search }
     }),
 
-  // Скрытые посты
+  
   getHiddenPosts: (page = 1) =>
     apiClient.get<{ results: HiddenPost[]; count: number; next: number | null }>('/social/hidden-posts/', {
       params: { page }
@@ -350,18 +359,15 @@ export const subscriptionsApi = {
   addNotInterested: (userId: number) =>
     apiClient.post<{ success: boolean; message: string }>(`/social/users/${userId}/hide/`),
 
-  // Жалобы
-  getReports: (params?: { status?: string; content_type?: string; reason?: string; page?: number }) =>
-    apiClient.get<{ results: ReportItem[]; count: number; next: number | null }>('/social/moderation/reports/', { params }),
+  
+  getReports: (params?: { status?: string; content_type?: string; reason?: string; page?: number; per_page?: number }) =>
+    apiClient.get<{ results: ReportItem[]; count: number; page: number; per_page: number; total_pages: number }>('/social/moderation/reports/', { params }),
 
-  resolveReport: (id: number, action: string, comment?: string) =>
-    apiClient.patch<ReportItem>(`/social/moderation/reports/${id}/`, { status: action === 'reject' ? 'rejected' : 'resolved', action, moderator_comment: comment }),
-
-  rejectReport: (id: number, comment?: string) =>
-    apiClient.patch<ReportItem>(`/social/moderation/reports/${id}/`, { status: 'rejected', moderator_comment: comment }),
+  resolveReport: (id: number, status: 'resolved' | 'rejected') =>
+    apiClient.post<{ success: boolean; message: string; report: { id: number; status: string; resolved_by: string; resolved_at: string } }>(`/social/moderation/reports/${id}/resolve/`, { status }),
 }
 
-// ==================== BOOKMARKS ====================
+
 
 export const bookmarksApi = {
   getPosts: (page = 1) =>
@@ -370,7 +376,7 @@ export const bookmarksApi = {
     }),
 }
 
-// ==================== CHATS FOR FORWARD ====================
+
 
 export interface ForwardChat {
   id: number
@@ -393,7 +399,7 @@ export const chatsApi = {
     }),
 }
 
-// ==================== EXTENDED FEED ====================
+
 
 export interface ExtendedFeedParams {
   page?: number
@@ -415,7 +421,7 @@ export const extendedFeedApi = {
     ),
 }
 
-// ==================== FOLLOWS ====================
+
 
 export const followsApi = {
   toggleFollow: (userId: number) =>

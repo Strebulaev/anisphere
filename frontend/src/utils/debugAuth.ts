@@ -17,7 +17,7 @@ export const debugAuth = {
     const token = localStorage.getItem('access_token')
     if (token) {
       try {
-        // Decode JWT token (payload part)
+        
         const payload = token.split('.')[1]
         if (!payload) {
           console.log('⚠️ Invalid token format - no payload part')
@@ -25,7 +25,7 @@ export const debugAuth = {
           const decoded = JSON.parse(atob(payload))
           console.log('Token payload:', decoded)
 
-          // Check if token is expired
+          
           const now = Math.floor(Date.now() / 1000)
           const isExpired = decoded.exp < now
           console.log('Token expiration:', {
@@ -146,7 +146,7 @@ export const debugAuth = {
   }
 }
 
-// Expose to window object for console access
+
 declare global {
   interface Window {
     debugAuth: typeof debugAuth

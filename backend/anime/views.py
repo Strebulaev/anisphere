@@ -1,8 +1,11 @@
 ﻿from django.http import (
+    Http404,
     HttpResponseBadRequest,
     HttpResponseServerError,
     StreamingHttpResponse,
 )
+import tempfile
+import os
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import viewsets, status, permissions
@@ -28,6 +31,7 @@ from .models import (
     WatchProgress,
     CustomDub,
     UserEpisodeProgress,
+    AnimeAnnouncement,
 )
 from .serializers import (
     AnimeSerializer,
@@ -35,6 +39,7 @@ from .serializers import (
     GenreSerializer,
     FranchiseSerializer,
     FranchiseSerializer,
+    AnnouncementSerializer,
 )
 from .services.anime_parser_service import (
     AnimeParserService,
@@ -70,13 +75,35 @@ except Exception as _svc_init_err:
 
 
 # Функция для нормализации строки поиска
+# Знаки -, :, и пробел считаются за один разделитель
 def normalize_search_string(text: str) -> str:
     if not text:
         return ""
     text = text.lower()
     text = text.replace("ё", "е")
+    # Заменяем дефисы, двоеточия и множественные пробелы на одиночные пробелы
+    text = re.sub(r"[-:\s]+", " ", text)
+    # Убираем все кроме букв, цифр и пробелов
     text = re.sub(r"[^а-яa-z0-9\s]", "", text)
+    # Убираем лишние пробелы
     text = " ".join(text.split())
+    return text
+
+
+def normalize_search_stringFlexible(text: str) -> str:
+    """
+    Гибкая нормализация: сохраняет возможность поиска и слитно, и раздельно.
+    "ван-пис" → "ванпис" (слитно)
+    "ван пис" → "ван пис" (раздельно)
+    """
+    if not text:
+        return ""
+    text = text.lower()
+    text = text.replace("ё", "е")
+    # Убираем дефисы и двоеточия ВООБЩЕ (не заменяем на пробел)
+    text = text.replace("-", "").replace(":", "")
+    # Убираем все кроме букв и цифр
+    text = re.sub(r"[^а-яa-z0-9]", "", text)
     return text
 
 
@@ -95,25 +122,84 @@ def fuzzy_match(query: str, text: str, threshold: float = 0.6) -> float:
 
 
 def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    """
+    Нечеткий поиск аниме.
+    Поддерживает поиск "ван-пис", "ван пис", "ванпис" - все варианты находят одно и то же.
+    """
     if not query or len(query.strip()) < 2:
         return []
+    
     try:
         query = query.strip()
         logging.getLogger(__name__).debug("fuzzy_search_anime query=%r", query)
+        
+        # Создаем два варианта нормализации:
+        # 1. Слитный: "ван-пис" → "ванпис", "ван пис" → "ванпис"
+        query_compact = normalize_search_stringFlexible(query)
+        # 2. Раздельный: "ван-пис" → "ван пис", "ван пис" → "ван пис"
+        query_normalized = normalize_search_string(query)
+        search_words = query_normalized.split()
+        
+        logging.getLogger(__name__).debug(f"Compact: {query_compact!r}, Normalized: {query_normalized!r}, Words: {search_words}")
+        
+        # Получаем аниме с русскими буквами в названии, сортируем по рейтингу
         queryset = Anime.objects.filter(
-            Q(title_ru__icontains=query)
-            | Q(title_en__icontains=query)
-            | Q(title_jp__icontains=query)
-        ).order_by("-score")[:limit]
-        formatted_results = []
+            title_ru__regex=r"[а-яёА-ЯЁ]"
+        ).order_by("-score")[:limit * 5]  # Берем с запасом
+        
+        # Фильтруем в Python
+        results = []
+        seen_ids = set()  # Для удаления дубликатов
+        
         for anime in queryset:
-            poster_url = (
-                anime.poster_image_url
-                if hasattr(anime, "poster_image_url")
-                else anime.poster_url
-            )
-            formatted_results.append(
-                {
+            if len(results) >= limit:
+                break
+
+            # Пропускаем дубликаты
+            if anime.id in seen_ids:
+                continue
+            
+            # Собираем все текстовые поля для поиска (оба варианта нормализации)
+            searchable_compact = [
+                normalize_search_stringFlexible(anime.title_ru or ""),
+                normalize_search_stringFlexible(anime.title_en or ""),
+                normalize_search_stringFlexible(anime.title_jp or ""),
+                normalize_search_stringFlexible(anime.slug or ""),
+            ]
+            
+            searchable_split = [
+                normalize_search_string(anime.title_ru or ""),
+                normalize_search_string(anime.title_en or ""),
+                normalize_search_string(anime.title_jp or ""),
+                normalize_search_string(anime.slug or ""),
+            ]
+            
+            # Проверяем совпадение
+            found = False
+            
+            # Вариант 1: Ищем слитный запрос (для "ван-пис", "ванпис")
+            if len(query_compact) >= 2:
+                for text in searchable_compact:
+                    if query_compact in text:
+                        found = True
+                        break
+                
+            # Вариант 2: Если не нашли слитно, ищем по словам (AND логика)
+            if not found and search_words:
+                for text in searchable_split:
+                    if all(word in text for word in search_words if len(word) >= 2):
+                        found = True
+                        break
+            
+            # Если нашли - добавляем результат
+            if found:
+                seen_ids.add(anime.id)
+                poster_url = (
+                    anime.poster_image_url
+                    if hasattr(anime, "poster_image_url")
+                    else anime.poster_url
+                )
+                results.append({
                     "id": anime.id,
                     "title_ru": anime.title_ru or "",
                     "title_en": anime.title_en or "",
@@ -127,16 +213,14 @@ def fuzzy_search_anime(query: str, limit: int = 20) -> List[Dict[str, Any]]:
                     "description": anime.description,
                     "match_score": 1.0,
                     "source": "database",
-                }
-            )
-        logging.getLogger(__name__).debug(
-            "fuzzy_search_anime returned %d results", len(formatted_results)
-        )
-        return formatted_results
+                })
+        
+        logging.getLogger(__name__).debug(f"fuzzy_search_anime returned {len(results)} results")
+        return results
+        
     except Exception as e:
         logging.getLogger(__name__).exception("Ошибка в fuzzy_search_anime")
         import traceback
-
         traceback.print_exc()
         return []
 
@@ -196,11 +280,65 @@ def _split_param(value):
 
 
 class AnimeViewSet(viewsets.ModelViewSet):
-    """ViewSet для работы с аниме"""
-
+    """
+    ViewSet для работы с аниме.
+    Поддерживает получение по ID или slug.
+    """
     queryset = Anime.objects.all()
     serializer_class = AnimeSerializer
     permission_classes = [permissions.AllowAny]
+
+    # Поддерживаем поиск по pk (id) и slug
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
+    
+    def get_object(self):
+        """
+        Переопределенный метод для поддержки поиска по slug.
+        Ищет по точному slug, частичному совпадению, или mal_id.
+        """
+        lookup = self.kwargs.get('pk')
+        obj = None
+        
+        # Пробуем найти по slug если lookup не число
+        try:
+            int(lookup)
+            # Это число - ищем по id
+            obj = self.queryset.select_related("franchise").get(pk=lookup)
+        except (ValueError, TypeError):
+            # Это slug - ищем по точному совпадению
+            obj = self.queryset.select_related("franchise").filter(slug=lookup).first()
+        
+            # Если не нашли по точному slug, пробуем частичное совпадение
+            if obj is None:
+                obj = self.queryset.select_related("franchise").filter(slug__icontains=lookup).first()
+            
+            # Если все еще не нашли, пробуем mal_id
+            if obj is None:
+                try:
+                    obj = self.queryset.select_related("franchise").filter(mal_id=lookup).first()
+                except Exception:
+                    pass
+        
+            # Если все еще не нашли, пробуем title_en (для английских названий в URL)
+            if obj is None:
+                try:
+                    from django.db.models import Q
+                    obj = self.queryset.select_related("franchise").filter(
+                        Q(title_en__icontains=lookup) | Q(title_jp__icontains=lookup)
+                    ).first()
+                except Exception:
+                    pass
+
+        if obj is None:
+            raise Http404()
+            
+        # Проверка: title_ru должен содержать русские буквы
+        import re
+        if not re.search(r"[а-яёА-ЯЁ]", obj.title_ru or ""):
+            raise Http404()
+            
+        return obj
 
     def get_queryset(self):
         return Anime.objects.all()
@@ -228,28 +366,66 @@ class AnimeViewSet(viewsets.ModelViewSet):
         if status_param != "announced":
             queryset = queryset.filter(is_available=True)
 
-        # Исключаем аниме без русских букв в названии для всех разделов кроме announced
-        if status_param != "announced":
-            queryset = queryset.filter(title_ru__regex=r"[а-яёА-ЯЁ]")
-        # Если status передан явно (например, status=announced) - используем как есть
+        # Исключаем аниме без русских букв в названии ВСЕГДА
+        queryset = queryset.filter(title_ru__regex=r"[а-яёА-ЯЁ]")
 
         # ── Поиск по slug (транслитерированное название) ───────────
         slug = request.query_params.get("slug")
         if slug:
-            # Ищем по названию, заменяя дефисы на пробелы
-            queryset = queryset.filter(
-                Q(title_ru__icontains=slug.replace("-", " "))
-                | Q(title_en__icontains=slug.replace("-", " "))
-            )
-
+            # Нормализуем slug и разбиваем на слова
+            slug_normalized = normalize_search_string(slug)
+            slug_words = slug_normalized.split()
+            logging.getLogger(__name__).debug(f"Slug param: {slug!r} -> normalized: {slug_normalized!r} -> words: {slug_words}")
+            
+            if slug_words:
+                # Ищем каждое слово в title_ru, title_en, slug - ВСЕ слова должны присутствовать (AND)
+                slug_q = Q()
+                for word in slug_words:
+                    if len(word) < 2:
+                        continue
+                    word_q = (
+                        Q(title_ru__icontains=word) |
+                        Q(title_en__icontains=word) |
+                        Q(slug__icontains=word)
+                    )
+                    # Если это первое слово - присваиваем, иначе добавляем через AND
+                    if not slug_q:
+                        slug_q = word_q
+                    else:
+                        slug_q &= word_q  # Все слова должны присутствовать
+                
+                if slug_q:
+                    queryset = queryset.filter(slug_q)
+            
         # ── Поиск по названию ────────────────────────────────────
         search = request.query_params.get("search")
         if search:
-            queryset = queryset.filter(
-                Q(title_ru__icontains=search)
-                | Q(title_en__icontains=search)
-                | Q(title_jp__icontains=search)
-            )
+            # Нормализуем поисковый запрос и разбиваем на слова
+            search_normalized = normalize_search_string(search)
+            search_words = search_normalized.split()
+            logging.getLogger(__name__).debug(f"Search param: {search!r} -> normalized: {search_normalized!r} -> words: {search_words}")
+            
+            if search_words:
+                # Строим Q-объект: ВСЕ слова должны присутствовать (AND для слов)
+                search_q = Q()
+                for word in search_words:
+                    if len(word) < 2:  # Игнорируем очень короткие слова
+                        continue
+                    # Ищем слово в title_ru, title_en, title_jp, slug
+                    word_q = (
+                        Q(title_ru__icontains=word) |
+                        Q(title_en__icontains=word) |
+                        Q(title_jp__icontains=word) |
+                        Q(slug__icontains=word)
+                    )
+                    # Если это первое слово - присваиваем, иначе добавляем через AND
+                    if not search_q:
+                        search_q = word_q
+                    else:
+                        search_q &= word_q  # ВСЕ слова должны присутствовать (AND)
+                
+                if search_q:
+                    queryset = queryset.filter(search_q)
 
         # ── Статус (multi-value: ongoing,finished,...) ───────────
         status_param = request.query_params.get("status")
@@ -259,13 +435,20 @@ class AnimeViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(status__in=statuses)
 
         # ── Тип/kind (multi-value: tv,movie,ova,...) ─────────────
-        type_param = request.query_params.get("type")
-        if type_param:
-            kinds = _split_param(type_param)
+        # Поддерживаем оба формата: ?type=tv,movie (через запятую) и ?type=tv&type=movie (multiple)
+        type_params = request.query_params.getlist("type")
+        if not type_params:
+            # Fallback: если getlist не вернул (может быть в виде comma-separated строки)
+            type_param = request.query_params.get("type")
+            if type_param:
+                type_params = _split_param(type_param)
+
+        if type_params:
+            kinds = [k.strip() for k in type_params if k.strip()]
             if kinds:
                 queryset = queryset.filter(kind__in=kinds)
 
-        # ── Жанры (genres — JSON array field, icontains по строкам) ─
+        # ── Жанры (genres - JSON array field, icontains по строкам) ─
         genres_param = request.query_params.get("genres")
         genre_logic = request.query_params.get("genre_logic", "OR").upper()  # OR | AND
         if genres_param:
@@ -291,13 +474,13 @@ class AnimeViewSet(viewsets.ModelViewSet):
                         queryset = queryset.filter(genres__icontains=gn)
                     queryset = queryset.distinct()
                 else:
-                    # OR — хотя бы один жанр
+                    # OR - хотя бы один жанр
                     genre_q = Q()
                     for gn in genre_names:
                         genre_q |= Q(genres__icontains=gn)
                     queryset = queryset.filter(genre_q).distinct()
 
-        # ── Студия (studios — JSON array field) ─────────────────
+        # ── Студия (studios - JSON array field) ─────────────────
         # Поддерживаем оба формата: ?studio=Madhouse,Sunrise (через запятую) и ?studio=Madhouse&studio=Sunrise (multiple)
         studio_params = request.query_params.getlist("studio")
         if not studio_params:
@@ -307,22 +490,25 @@ class AnimeViewSet(viewsets.ModelViewSet):
                 studio_params = _split_param(studio_param)
 
         if studio_params:
-            studios = studio_params
+            studios = [s.strip() for s in studio_params if s.strip()]
             if studios:
+                # Для PostgreSQL JSONField используем contains для проверки вхождения в массив
+                # Пробуем несколько вариантов для надежности
                 studio_q = Q()
                 for s in studios:
+                    # icontains работает для JSONField как проверка подстроки в JSON представлении
                     studio_q |= Q(studios__icontains=s)
                 queryset = queryset.filter(studio_q).distinct()
 
         # ── Год ─────────────────────────────────────────────────
         year_from = request.query_params.get("year_from")
         year_to = request.query_params.get("year_to")
-        if year_from:
+        if year_from is not None and year_from != '':
             try:
                 queryset = queryset.filter(year__gte=int(year_from))
             except ValueError:
                 pass
-        if year_to:
+        if year_to is not None and year_to != '':
             try:
                 queryset = queryset.filter(year__lte=int(year_to))
             except ValueError:
@@ -331,12 +517,12 @@ class AnimeViewSet(viewsets.ModelViewSet):
         # ── Рейтинг ──────────────────────────────────────────────
         score_from = request.query_params.get("score_from")
         score_to = request.query_params.get("score_to")
-        if score_from:
+        if score_from is not None and score_from != '':
             try:
                 queryset = queryset.filter(score__gte=float(score_from))
             except ValueError:
                 pass
-        if score_to:
+        if score_to is not None and score_to != '':
             try:
                 queryset = queryset.filter(score__lte=float(score_to))
             except ValueError:
@@ -345,16 +531,19 @@ class AnimeViewSet(viewsets.ModelViewSet):
         # ── Эпизоды ──────────────────────────────────────────────
         episodes_from = request.query_params.get("episodes_from")
         episodes_to = request.query_params.get("episodes_to")
-        if episodes_from:
+        if episodes_from is not None and episodes_from != '':
             try:
                 queryset = queryset.filter(episodes__gte=int(episodes_from))
             except ValueError:
                 pass
-        if episodes_to:
+        if episodes_to is not None and episodes_to != '':
             try:
-                queryset = queryset.filter(
-                    episodes__lte=int(episodes_to), episodes__isnull=False
-                )
+                # Если episodes_to = 0, пропускаем этот фильтр (бессмысленно)
+                ep_to_val = int(episodes_to)
+                if ep_to_val > 0:
+                    queryset = queryset.filter(
+                        episodes__lte=ep_to_val, episodes__isnull=False
+                    )
             except ValueError:
                 pass
 
@@ -365,13 +554,19 @@ class AnimeViewSet(viewsets.ModelViewSet):
         if excluded_library_statuses and request.user.is_authenticated:
             excluded_statuses = _split_param(excluded_library_statuses)
             if excluded_statuses:
-                # Исключаем аниме, которые пользователь добавил в свою коллекцию с этими статусами
-                from social.models import LibraryItem
+                # Базовый фильтр: исключаем по статусам
+                q = Q(user=request.user, status__in=excluded_statuses)
 
-                user_library_anime_ids = LibraryItem.objects.filter(
-                    user=request.user, status__in=excluded_statuses
-                ).values_list("anime_id", flat=True)
+                # Если среди исключаемых есть 'favorite' - также исключаем по is_favorite=True
+                # (т.к. избранное хранится как is_favorite=True, а не status='favorite')
+                if 'favorite' in excluded_statuses:
+                    q |= Q(user=request.user, is_favorite=True)
+
+                user_library_anime_ids = UserLibrary.objects.filter(q).values_list("anime_id", flat=True)
                 queryset = queryset.exclude(id__in=user_library_anime_ids)
+                print(f"[FILTER] excluded_library_statuses={excluded_statuses}, excluded {len(set(user_library_anime_ids))} anime IDs")
+        elif excluded_library_statuses and not request.user.is_authenticated:
+            print(f"[FILTER] excluded_library_statuses={excluded_library_statuses} but user not authenticated")
 
         # ── Сезон (season + season_year) ─────────────────────────
         season_year = request.query_params.get("season_year")
@@ -408,7 +603,16 @@ class AnimeViewSet(viewsets.ModelViewSet):
             # Перемешивание - используем random() для PostgreSQL
             queryset = queryset.order_by("?")
         else:
-            queryset = queryset.order_by(ordering)
+            # Для сортировки по эпизодам используем Coalesce чтобы NULL были в конце
+            from django.db.models import Value
+            from django.db.models.functions import Coalesce
+            
+            if ordering == "episodes":
+                queryset = queryset.order_by(Coalesce("episodes", Value(0)))
+            elif ordering == "-episodes":
+                queryset = queryset.order_by(Coalesce("episodes", Value(0)).desc())
+            else:
+                queryset = queryset.order_by(ordering)
 
         # ── Пагинация ────────────────────────────────────────────
         try:
@@ -442,7 +646,8 @@ class AnimeViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         try:
-            anime = Anime.objects.select_related("franchise").get(pk=kwargs["pk"])
+            anime = self.get_object()
+            
             if not anime.screenshots and anime.shikimori_id:
                 try:
                     search_params = {
@@ -465,15 +670,19 @@ class AnimeViewSet(viewsets.ModelViewSet):
                                 anime.save(update_fields=["screenshots", "updated_at"])
                 except Exception as e:
                     print(f"Не удалось загрузить скриншоты из Kodik: {e}")
+                    
             serializer = AnimeDetailSerializer(anime)
             return Response(serializer.data)
-        except Anime.DoesNotExist:
+            
+        except Http404:
             return Response(
-                {"error": "Аниме не найдено"}, status=status.HTTP_404_NOT_FOUND
+                {"error": "Аниме не найдено"}, 
+                status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
             import traceback
-
+            print(f"Error in AnimeViewSet.retrieve: {e}")
+            print(traceback.format_exc())
             return Response(
                 {
                     "error": f"Ошибка получения аниме: {str(e)}",
@@ -811,6 +1020,139 @@ class AnimeViewSet(viewsets.ModelViewSet):
             )
 
 
+class AnnouncementViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet для анонсов аниме из таблицы anime_announcements"""
+    queryset = AnimeAnnouncement.objects.all()
+    serializer_class = AnnouncementSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        queryset = AnimeAnnouncement.objects.all()
+        
+        # Фильтрация по статусу
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        
+        # Фильтрация по типу
+        type_param = self.request.query_params.get('type')
+        if type_param:
+            queryset = queryset.filter(type=type_param)
+        
+        # Поиск по названию
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(title_ru__icontains=search) | Q(title_en__icontains=search)
+            )
+
+        # Сортировка - только допустимые поля (release_date это строка, поэтому используем created_at)
+        ordering = self.request.query_params.get('ordering', '-created_at')
+        valid_orderings = {
+            '-created_at', 'created_at',
+            '-score', 'score',
+            'title_ru', '-title_ru'
+        }
+        if ordering not in valid_orderings:
+            ordering = '-created_at'
+        queryset = queryset.order_by(ordering)
+
+        return queryset
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Поддержка получения по id, английскому slug или русскому slug"""
+        lookup = kwargs.get('pk')
+        instance = None
+        
+        # Пробуем найти по id если lookup число
+        try:
+            int(lookup)
+            # Это число - ищем по id
+            instance = self.queryset.filter(id=lookup).first()
+        except (ValueError, TypeError):
+            # Это slug - пробуем найти в приоритете:
+            # 1. По точному slug (русский слаг из БД)
+            # 2. По title_en (английское название)
+            # 3. По title_ru (русское название)
+            
+            # 1. Пробуем по точному slug
+            instance = self.queryset.filter(slug=lookup).first()
+            
+            # 2. Если не нашли, пробуем по title_en
+            if not instance:
+                instance = self.queryset.filter(
+                    title_en__isnull=False,
+                    title_en__icontains=lookup.replace('-', ' ')
+                ).first()
+                
+                # Пробуем по отдельным словам из slug
+                if not instance:
+                    words = lookup.split('-')
+                    if len(words) > 1:
+                        query = Q()
+                        for word in words:
+                            if len(word) > 2:  # Игнорируем короткие слова
+                                query |= Q(title_en__icontains=word)
+                        instance = self.queryset.filter(query).first()
+            
+            # 3. Если не нашли, пробуем по title_ru
+            if not instance:
+                instance = self.queryset.filter(
+                    title_ru__icontains=lookup.replace('-', ' ')
+                ).first()
+                
+                # Пробуем по отдельным словам из slug
+                if not instance:
+                    words = lookup.split('-')
+                    if len(words) > 1:
+                        query = Q()
+                        for word in words:
+                            if len(word) > 2:  # Игнорируем короткие слова
+                                query |= Q(title_ru__icontains=word)
+                        instance = self.queryset.filter(query).first()
+            
+        # Если всё ещё не нашли - 404
+        if not instance:
+            return Response(
+                {"detail": "Анонс не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        
+        # Пагинация
+        try:
+            page_size = min(int(request.query_params.get("page_size", 20)), 100)
+        except ValueError:
+            page_size = 20
+        try:
+            page = max(int(request.query_params.get("page", 1)), 1)
+        except ValueError:
+            page = 1
+
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        total_count = queryset.count()
+        total_pages = max((total_count + page_size - 1) // page_size, 1)
+
+        serializer = self.get_serializer(queryset[start:end], many=True)
+
+        return Response(
+            {
+                "results": serializer.data,
+                "count": total_count,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+            }
+        )
+
+
 class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Franchise.objects.prefetch_related("entries").all()
     permission_classes = [permissions.AllowAny]
@@ -850,14 +1192,15 @@ class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         franchise = self.get_object()
-        # Не сбрасываем кэш - он нужен для вычисления агрегированных данных
         serializer = FranchiseSerializer(franchise)
         data = serializer.data
         from .serializers import FranchiseEntrySerializer
 
-        data["entries"] = FranchiseEntrySerializer(
-            franchise.entries.all().order_by("franchise_order", "year"), many=True
-        ).data
+        # Фильтруем entries: только с русским названием
+        entries = franchise.entries.filter(
+            title_ru__regex=r"[а-яёА-ЯЁ]"
+        ).order_by("franchise_order", "year")
+        data["entries"] = FranchiseEntrySerializer(entries, many=True).data
         return Response(data)
 
     @action(detail=True, methods=["get"])
@@ -865,12 +1208,12 @@ class FranchiseViewSet(viewsets.ReadOnlyModelViewSet):
         """Получить список аниме во франшизе"""
         try:
             franchise = self.get_object()
-            from .serializers import FranchiseEntrySerializer
 
-            # franchise.entries - это обратная связь от Anime.franchise
-            animes = Anime.objects.filter(franchise=franchise).order_by(
-                "franchise_order", "year", "id"
-            )
+            # Только аниме с русским названием
+            animes = Anime.objects.filter(
+                franchise=franchise,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).order_by("franchise_order", "year", "id")
 
             parts_data = []
 
@@ -914,11 +1257,14 @@ class SearchAPIView(APIView):
         raw_query = request.query_params.get("q", "")
         query = raw_query.strip()
         try:
-            limit = int(request.query_params.get("limit", 20))
+            # Увеличиваем лимит до 500 для полноценного поиска
+            limit = int(request.query_params.get("limit", 500))
             if limit <= 0:
-                limit = 20
+                limit = 500
+            # Ограничиваем максимум 500
+            limit = min(limit, 500)
         except Exception:
-            limit = 20
+            limit = 500
         import logging
 
         logger = logging.getLogger(__name__)
@@ -1308,6 +1654,62 @@ class KodikTranslationsView(APIView):
             )
 
 
+class AnimeAnnouncementsView(APIView):
+    """Получение анонсов из таблицы anime_schedule (Jikan API)"""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from .models import AnimeSchedule
+        from .serializers import AnimeScheduleSerializer
+
+        # Фильтр: анонсы (Not yet aired) или не идущие в эфире
+        queryset = AnimeSchedule.objects.filter(
+            Q(status="Not yet aired") | Q(airing=False)
+        )
+
+        # Поиск по названию
+        search = request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(title_ru__icontains=search) | Q(title__icontains=search)
+            )
+
+        # Сортировка
+        ordering = request.query_params.get("ordering", "-year")
+        valid_orderings = {"year", "-year", "score", "-score", "title_ru", "-title_ru", "mal_id", "-mal_id"}
+        if ordering not in valid_orderings:
+            ordering = "-year"
+        queryset = queryset.order_by(ordering)
+
+        # Пагинация
+        try:
+            page_size = min(int(request.query_params.get("page_size", 200)), 500)
+        except ValueError:
+            page_size = 200
+        try:
+            page = max(int(request.query_params.get("page", 1)), 1)
+        except ValueError:
+            page = 1
+
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        total_count = queryset.count()
+        total_pages = max((total_count + page_size - 1) // page_size, 1)
+
+        serializer = AnimeScheduleSerializer(queryset[start:end], many=True)
+
+        return Response(
+            {
+                "results": serializer.data,
+                "count": total_count,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+            }
+        )
+
+
 class CustomDubListView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -1594,7 +1996,7 @@ class RandomAnimeView(APIView):
         import random
 
         try:
-            ids = list(Anime.objects.values_list("id", flat=True))
+            ids = list(Anime.objects.filter(title_ru__regex=r"[а-яёА-ЯЁ]").values_list("id", flat=True))
             if not ids:
                 return Response(
                     {"error": "Нет аниме"}, status=status.HTTP_404_NOT_FOUND
@@ -1628,9 +2030,9 @@ class CurrentlyWatchingView(APIView):
     permission_classes = [permissions.AllowAny]
 
     # Временные окна (секунды)
-    PLAYER_WINDOW = 2 * 60  # плеер активен — 2 мин
-    TAB_WINDOW = 10 * 60  # вкладка открыта — 10 мин
-    PROGRESS_WINDOW = 2 * 60  # прогресс зафиксирован — 2 мин
+    PLAYER_WINDOW = 2 * 60  # плеер активен - 2 мин
+    TAB_WINDOW = 10 * 60  # вкладка открыта - 10 мин
+    PROGRESS_WINDOW = 2 * 60  # прогресс зафиксирован - 2 мин
 
     def get(self, request):
         from django.utils import timezone
@@ -1654,7 +2056,7 @@ class CurrentlyWatchingView(APIView):
             )
             player_tab_map = {r["anime_id"]: r["n"] for r in player_tab}
 
-            # Из UserEpisodeProgress (last_watched) — подтверждает факт воспроизведения
+            # Из UserEpisodeProgress (last_watched) - подтверждает факт воспроизведения
             progress_cutoff = now - timedelta(seconds=self.PROGRESS_WINDOW)
             progress_rows = (
                 UserEpisodeProgress.objects.filter(last_watched__gte=progress_cutoff)
@@ -1680,7 +2082,7 @@ class CurrentlyWatchingView(APIView):
             if not all_ids:
                 return Response({"results": [], "count": 0})
 
-            animes = {a.id: a for a in Anime.objects.filter(id__in=all_ids)}
+            animes = {a.id: a for a in Anime.objects.filter(id__in=all_ids, title_ru__regex=r"[а-яёА-ЯЁ]")}
             results = []
 
             for aid in all_ids:
@@ -1727,7 +2129,7 @@ class UserActiveTabView(APIView):
         "current_episode": 5  // optional
     }
 
-    DELETE /anime/active-tab/?anime_id=123 — удалить вкладку
+    DELETE /anime/active-tab/?anime_id=123 - удалить вкладку
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -1800,6 +2202,7 @@ class UserActiveTabView(APIView):
 
 
 class HomeAPIView(APIView):
+    """Общий endpoint для home страницы с базовыми рекомендациями"""
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
@@ -1808,17 +2211,573 @@ class HomeAPIView(APIView):
         rewatch = self._get_rewatch(user) if user else []
         recommendations = self._get_recommendations(user)
         trending = self._get_trending(user)
+        
+        # Финальная фильтрация: убираем аниме без русских букв в названии
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
+        
+        def has_cyrillic(text):
+            return bool(CYRILLIC_RE.search(text or ''))
+        
+        def filter_items(items):
+            return [item for item in items if has_cyrillic(item.get("title", ""))]
+        
         return Response(
             {
-                "continue_watching": continue_watching,
-                "rewatch": rewatch,
-                "recommendations": recommendations,
-                "trending": trending,
+                "continue_watching": filter_items(continue_watching),
+                "rewatch": filter_items(rewatch),
+                "recommendations": filter_items(recommendations),
+                "trending": filter_items(trending),
             }
         )
 
+    # Методы для personalized_recommendations
+    def personalized_recommendations(self, request):
+        """
+        Расширенные персонализированные рекомендации для страницы 'Для вас'
+        
+        Возвращает 9 категорий рекомендаций согласно требованиям:
+        1. based_on_watched - на основе ПРОСМОТРЕННОГО (started/completed) пользователем, если ничего не смотрел - 20 популярных рандомно
+        2. similar_style - аниме НЕ из коллекции пользователя, похожие между собой по жанрам, рандомно, жанр меняется при перезаходе
+        3. top_rated_in_genres - ТОП в жанрах пользователя (с наивысшим рейтингом), рандомно
+        4. new_in_genres - ОНГОИНГИ в жанрах пользователя, рандомно
+        5. classics - рейтинг > 8, год <= 2010, рандомно
+        6. top_anime - ЗА ПОСЛЕДНИЙ ГОД, с наивысшим рейтингом, рандомно
+        7. new_releases - в жанрах которые пользователь смотрел РЕЖЕ ВСЕГО, рейтинг > 8, за последние 2 года, рандомно
+        8. short - до 13 серий, рейтинг > 8, НЕ онгоинги
+        9. movies - type=movie или ova, рейтинг > 8.5
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        import random
+        
+        user = request.user if request.user.is_authenticated else None
+        
+        # Получаем данные пользователя
+        user_genres, user_genre_counts, watched_ids = self._get_user_genre_preferences_detailed(user)
+        
+        # Определяем редкие жанры (для раздела 7)
+        rare_genres = self._get_rare_genres(user_genre_counts)
+        
+        # Для "похожий стиль" выбираем случайный жанр при каждом запросе
+        random_genre = random.choice(user_genres) if user_genres else None
+        
+        return Response({
+            "based_on_watched": self._get_based_on_watched(user, watched_ids, 20),
+            "similar_style": self._get_similar_style(user, watched_ids, 20, random_genre),
+            "top_rated_in_genres": self._get_top_rated_in_genres_new(user_genres, watched_ids, 20),
+            "new_in_genres": self._get_new_in_genres_ongoing(user_genres, watched_ids, 20),
+            "classics": self._get_classics_high_rated(20),
+            "top_anime": self._get_top_anime_last_year(20),
+            "new_releases": self._get_new_in_rare_genres(rare_genres, watched_ids, 20),
+            "short": self._get_short_anime(20),
+            "movies": self._get_movies_high_rated(20),
+            "user_genres": user_genres,
+            "has_personalization": user is not None and len(watched_ids) > 0,
+        })
+
+    # Прокси-методы к PersonalizedRecommendationsView (избегаем дублирования кода)
+    def _get_continue_watching(self, user):
+        return PersonalizedRecommendationsView()._get_continue_watching(user)
+
+    def _get_rewatch(self, user):
+        return PersonalizedRecommendationsView()._get_rewatch(user)
+
+    def _get_recommendations(self, user):
+        return PersonalizedRecommendationsView()._get_recommendations(user)
+
+    def _get_trending(self, user=None):
+        return PersonalizedRecommendationsView()._get_trending(user)
+
+
+class PersonalizedRecommendationsView(APIView):
+    """
+    GET /anime/home/personalized/
+    
+    Возвращает 9 категорий рекомендаций для страницы 'Для вас'
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """
+        Расширенные персонализированные рекомендации для страницы 'Для вас'
+        
+        Возвращает 9 категорий рекомендаций согласно требованиям:
+        1. based_on_watched - на основе ПРОСМОТРЕННОГО (started/completed) пользователем
+        2. similar_style - похожий стиль, жанр меняется при перезаходе
+        3. top_rated_in_genres - ТОП в жанрах пользователя
+        4. new_in_genres - ОНГОИНГИ в жанрах пользователя
+        5. classics - рейтинг > 8, год <= 2010
+        6. top_anime - ЗА ПОСЛЕДНИЙ ГОД
+        7. new_releases - в редких жанрах пользователя
+        8. short - до 13 серий, рейтинг > 8
+        9. movies - type=movie или ova, рейтинг > 8.5
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        import random
+        user = request.user if request.user.is_authenticated else None
+
+        # Финальная фильтрация: убираем аниме без русских букв в названии
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
+        
+        def has_cyrillic(text):
+            return bool(CYRILLIC_RE.search(text or ''))
+        
+        for key in ["based_on_watched", "similar_style", "top_rated_in_genres", 
+                    "new_in_genres", "classics", "top_anime", "new_releases", 
+                    "short", "movies"]:
+            if key in result:
+                result[key] = [
+                    item for item in result[key]
+                    if has_cyrillic(item.get("title", ""))
+                ]
+        
+        user = request.user if request.user.is_authenticated else None
+        
+        # Получаем данные пользователя
+        user_genres, user_genre_counts, watched_ids = self._get_user_genre_preferences_detailed(user)
+        
+        # Определяем редкие жанры (для раздела 7)
+        rare_genres = self._get_rare_genres(user_genre_counts)
+        
+        # Для "похожий стиль" выбираем случайный жанр при каждом запросе
+        random_genre = random.choice(user_genres) if user_genres else None
+        
+        # Получаем сырые данные
+        result = {
+            "based_on_watched": self._get_based_on_watched(user, watched_ids, 20),
+            "similar_style": self._get_similar_style(user, watched_ids, 20, random_genre),
+            "top_rated_in_genres": self._get_top_rated_in_genres_new(user_genres, watched_ids, 20),
+            "new_in_genres": self._get_new_in_genres_ongoing(user_genres, watched_ids, 20),
+            "classics": self._get_classics_high_rated(20),
+            "top_anime": self._get_top_anime_last_year(20),
+            "new_releases": self._get_new_in_rare_genres(rare_genres, watched_ids, 20),
+            "short": self._get_short_anime(20),
+            "movies": self._get_movies_high_rated(20),
+            "user_genres": user_genres,
+            "has_personalization": user is not None and len(watched_ids) > 0,
+        }
+        
+        # Финальная фильтрация: убираем аниме без русских букв в названии
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
+        
+        def has_cyrillic(text):
+            return bool(CYRILLIC_RE.search(text or ''))
+        
+        for key in ["based_on_watched", "similar_style", "top_rated_in_genres", 
+                    "new_in_genres", "classics", "top_anime", "new_releases", 
+                    "short", "movies"]:
+            if key in result:
+                result[key] = [
+                    item for item in result[key]
+                    if has_cyrillic(item.get("title", ""))
+                ]
+        
+        return Response(result)
+
+    def _get_user_genre_preferences_detailed(self, user):
+        """Получает детальные жанровые предпочтения пользователя"""
+        from users.models import UserLibrary
+        from collections import Counter
+        
+        if not user:
+            return [], {}, set()
+        
+        library_items = UserLibrary.objects.filter(
+            user=user,
+            status__in=("started", "completed")
+        ).select_related("anime").only("anime_id", "anime__genres")
+        
+        watched_ids = set()
+        genre_counter = Counter()
+        
+        for item in library_items:
+            watched_ids.add(item.anime_id)
+            anime_genres = item.anime.genres or []
+            for genre in anime_genres:
+                genre_counter[genre] += 1
+        
+        top_genres = [g for g, _ in genre_counter.most_common(15)]
+        return top_genres, dict(genre_counter), watched_ids
+    
+    def _get_rare_genres(self, genre_counts: dict):
+        """Получает редкие жанры"""
+        if not genre_counts:
+            return []
+        sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1])
+        rare_genres = [g for g, _ in sorted_genres[:5]]
+        return rare_genres
+
+    def _dedupe_franchises(self, animes):
+        """Дедуплицирует список аниме по франшизам, пропуская аниме без русских букв в названии"""
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
+        seen_franchises = set()
+        result = []
+
+        for anime in animes:
+            # Проверка: у аниме должно быть русское название
+            title = anime.title_ru or ""
+            if not CYRILLIC_RE.search(title):
+                continue
+            
+            data = self._anime_to_dict(anime)
+            if data is None:
+                continue
+                
+            if anime.franchise:
+                fid = anime.franchise_id
+                if fid not in seen_franchises:
+                    seen_franchises.add(fid)
+                    result.append(data)
+            else:
+                result.append(data)
+
+        return result
+
+    @staticmethod
+    def _anime_to_dict(anime):
+        """Преобразует аниме в словарь. Возвращает None если нет русских букв в названии."""
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
+        
+        # Проверка: у аниме должно быть русское название
+        title = anime.title_ru or ""
+        if not CYRILLIC_RE.search(title):
+            return None
+        
+        poster_url = anime.poster.url if anime.poster else anime.poster_url
+
+        if anime.franchise:
+            franchise = anime.franchise
+            return {
+                "anime_id": anime.id,
+                "title": anime.title_ru or anime.title_en or "",
+                "title_en": anime.title_en or "",
+                "poster": poster_url,
+                "genres": anime.genres or [],
+                "rating": anime.score,
+                "rating_count": 0,
+                "year": anime.year,
+                "status": anime.status,
+                "is_franchise": True,
+                "franchise_id": franchise.id,
+                "franchise_name": franchise.name,
+                "franchise_parts_count": franchise.entries.count(),
+                "franchise_year_start": franchise.year_start,
+                "franchise_year_end": franchise.year_end,
+                "franchise_score": franchise.score,
+            }
+
+        return {
+            "anime_id": anime.id,
+            "title": anime.title_ru or anime.title_en or "",
+            "title_en": anime.title_en or "",
+            "poster": poster_url,
+            "genres": anime.genres or [],
+            "rating": anime.score,
+            "rating_count": 0,
+            "year": anime.year,
+            "status": anime.status,
+            "is_franchise": False,
+        }
+
+    def _get_based_on_watched(self, user, exclude_ids, limit=20):
+        """Раздел 1: На основе ПРОСМОТРЕННОГО пользователем"""
+        from anime.models import Anime
+        import random
+        
+        if not exclude_ids or len(exclude_ids) == 0:
+            candidates = list(
+                Anime.objects.filter(
+                    score__gte=7.0,
+                    title_ru__regex=r"[а-яёА-ЯЁ]"
+                )
+                .select_related("franchise")
+                .order_by("-score")[:100]
+            )
+            random.shuffle(candidates)
+            result = self._dedupe_franchises(candidates)
+            return result[:limit]
+
+        user_genres, _, _ = self._get_user_genre_preferences_detailed(user)
+        
+        if not user_genres:
+            candidates = list(
+                Anime.objects.filter(
+                    score__gte=7.0,
+                    title_ru__regex=r"[а-яёА-ЯЁ]"
+                )
+                .exclude(id__in=exclude_ids)
+                .select_related("franchise")
+                .order_by("-score")[:100]
+            )
+            random.shuffle(candidates)
+            result = self._dedupe_franchises(candidates)
+            return result[:limit]
+
+        genre_q = Q()
+        for genre in user_genres[:10]:
+            genre_q |= Q(genres__icontains=genre)
+        
+        candidates = list(
+            Anime.objects.filter(
+                genre_q,
+                score__gte=6.5,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .exclude(id__in=exclude_ids)
+            .select_related("franchise")
+            .order_by("-score")[:150]
+        )
+
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_similar_style(self, user, exclude_ids, limit=20, random_genre=None):
+        """Раздел 2: Похожий стиль"""
+        from anime.models import Anime
+        import random
+        
+        if not random_genre:
+            user_genres, _, _ = self._get_user_genre_preferences_detailed(user)
+            if user_genres:
+                random_genre = random.choice(user_genres)
+        
+        if random_genre:
+            candidates = list(
+                Anime.objects.filter(
+                    genres__icontains=random_genre,
+                    score__gte=6.5,
+                    title_ru__regex=r"[а-яёА-ЯЁ]"
+                )
+                .exclude(id__in=exclude_ids)
+                .select_related("franchise")
+                .order_by("-score")[:100]
+            )
+        else:
+            candidates = list(
+                Anime.objects.filter(
+                    score__gte=7.0,
+                    title_ru__regex=r"[а-яёА-ЯЁ]"
+                )
+                .exclude(id__in=exclude_ids)
+                .select_related("franchise")
+                .order_by("-score")[:100]
+            )
+
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_top_rated_in_genres_new(self, genres, exclude_ids, limit=20):
+        """Раздел 3: Лучшее в жанрах"""
+        from anime.models import Anime
+        import random
+        
+        if not genres:
+            candidates = list(
+                Anime.objects.filter(
+                    score__gte=8.0,
+                    title_ru__regex=r"[а-яёА-ЯЁ]"
+                )
+                .select_related("franchise")
+                .order_by("-score")[:100]
+            )
+            random.shuffle(candidates)
+            result = self._dedupe_franchises(candidates)
+            return result[:limit]
+
+        genre_q = Q()
+        for genre in genres[:10]:
+            genre_q |= Q(genres__icontains=genre)
+        
+        candidates = list(
+            Anime.objects.filter(
+                genre_q,
+                score__gte=7.5,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .exclude(id__in=exclude_ids)
+            .select_related("franchise")
+            .order_by("-score")[:100]
+        )
+
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_new_in_genres_ongoing(self, genres, exclude_ids, limit=20):
+        """Раздел 4: Новинки в жанрах"""
+        from anime.models import Anime
+        import random
+        
+        if not genres:
+            candidates = list(
+                Anime.objects.filter(
+                    status="ongoing",
+                    score__gte=6.5,
+                    title_ru__regex=r"[а-яёА-ЯЁ]"
+                )
+                .select_related("franchise")
+                .order_by("-score")[:100]
+            )
+            random.shuffle(candidates)
+            result = self._dedupe_franchises(candidates)
+            return result[:limit]
+
+        genre_q = Q()
+        for genre in genres[:10]:
+            genre_q |= Q(genres__icontains=genre)
+        
+        candidates = list(
+            Anime.objects.filter(
+                genre_q,
+                status="ongoing",
+                score__gte=6.5,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .exclude(id__in=exclude_ids)
+            .select_related("franchise")
+            .order_by("-score")[:100]
+        )
+
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_classics_high_rated(self, limit=20):
+        """Раздел 5: Классик"""
+        from anime.models import Anime
+        import random
+        
+        candidates = list(
+            Anime.objects.filter(
+                score__gt=8.0,
+                year__lte=2010,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .select_related("franchise")
+            .order_by("-score")[:100]
+        )
+
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_top_anime_last_year(self, limit=20):
+        """Раздел 6: Топ аниме за последний год"""
+        from anime.models import Anime
+        from django.utils import timezone
+        import random
+        
+        current_year = timezone.now().year
+        min_year = current_year - 1
+        
+        candidates = list(
+            Anime.objects.filter(
+                year__gte=min_year,
+                score__gte=7.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .select_related("franchise")
+            .order_by("-score")[:100]
+        )
+        
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_new_in_rare_genres(self, rare_genres, exclude_ids, limit=20):
+        """Раздел 7: Новинки в редких жанрах"""
+        from anime.models import Anime
+        from django.utils import timezone
+        import random
+        
+        current_year = timezone.now().year
+        min_year = current_year - 2
+        
+        if not rare_genres:
+            candidates = list(
+                Anime.objects.filter(
+                    year__gte=min_year,
+                    score__gt=8.0,
+                    title_ru__regex=r"[а-яёА-ЯЁ]"
+                )
+                .select_related("franchise")
+                .order_by("-score")[:100]
+            )
+            random.shuffle(candidates)
+            result = self._dedupe_franchises(candidates)
+            return result[:limit]
+        
+        genre_q = Q()
+        for genre in rare_genres:
+            genre_q |= Q(genres__icontains=genre)
+        
+        candidates = list(
+            Anime.objects.filter(
+                genre_q,
+                year__gte=min_year,
+                score__gt=8.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .exclude(id__in=exclude_ids)
+            .select_related("franchise")
+            .order_by("-score")[:100]
+        )
+        
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_short_anime(self, limit=20):
+        """Раздел 8: Короткие"""
+        from anime.models import Anime
+        import random
+        
+        candidates = list(
+            Anime.objects.filter(
+                episodes__lte=13,
+                score__gt=8.0,
+                status__in=["finished", "canceled"],
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .select_related("franchise")
+            .order_by("-score")[:100]
+        )
+        
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
+    def _get_movies_high_rated(self, limit=20):
+        """Раздел 9: Полнометражные"""
+        from anime.models import Anime
+        import random
+        
+        candidates = list(
+            Anime.objects.filter(
+                kind__in=["movie", "ova"],
+                score__gt=8.5,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .select_related("franchise")
+            .order_by("-score")[:100]
+        )
+        
+        random.shuffle(candidates)
+        result = self._dedupe_franchises(candidates)
+        return result[:limit]
+
     def _get_continue_watching(self, user):
         from users.models import UserLibrary
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
 
         library_items = (
             UserLibrary.objects.filter(
@@ -1830,6 +2789,9 @@ class HomeAPIView(APIView):
         result = []
         for item in library_items:
             anime = item.anime
+            # Двойная проверка: название должно содержать русские буквы
+            if not CYRILLIC_RE.search(anime.title_ru or ""):
+                continue
             total_episodes = anime.episodes or 1
             progress_percent = (
                 min(100, int((item.current_episode / total_episodes) * 100))
@@ -1846,6 +2808,7 @@ class HomeAPIView(APIView):
                     "current_episode": item.current_episode,
                     "total_episodes": anime.episodes,
                     "progress_percent": progress_percent,
+                    "status": anime.status,
                     "last_watched": item.updated_at.isoformat()
                     if item.updated_at
                     else None,
@@ -1855,6 +2818,8 @@ class HomeAPIView(APIView):
 
     def _get_rewatch(self, user):
         from users.models import UserLibrary
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
 
         library_items = (
             UserLibrary.objects.filter(
@@ -1866,6 +2831,9 @@ class HomeAPIView(APIView):
         result = []
         for item in library_items:
             anime = item.anime
+            # Двойная проверка: название должно содержать русские буквы
+            if not CYRILLIC_RE.search(anime.title_ru or ""):
+                continue
             poster_url = anime.poster.url if anime.poster else anime.poster_url
             result.append(
                 {
@@ -1883,36 +2851,23 @@ class HomeAPIView(APIView):
 
     def _get_recommendations(self, user):
         """
-        Персонализированные рекомендации:
-          - Основа: жанры аниме которое пользователь уже смотрил (статус started/completed)
-          - Бонус: жанры студий, на которые подписан (если есть подписки)
-          - Исключаем аниме которое пользователь уже смотрит или планирует
-          - Группируем по франшизам
-          - Для неавторизованных: лучшее по рейтингу
+        Персонализированные рекомендации - строго из БД, без фоллбэков
         """
-        from anime.models import Anime, Franchise
+        from anime.models import Anime
         from collections import Counter
 
         if not user or not user.is_authenticated:
-            # Без авторизации — просто топ 20 по рейтингу (с группировкой по франшизам)
-            animes = list(
-                Anime.objects.filter(score__gte=7.0, title_ru__regex=r"[а-яёА-ЯЁ]")
-                .select_related("franchise")
-                .order_by("-score")[:60]
-            )
-            return self._dedupe_franchises(animes)[:20]
+            return []
 
         from users.models import UserLibrary
         from studios.models import StudioSubscription
 
-        # 1. Аниме которое пользователь уже смотрел или смотрит (или планирует)
         watched_ids = set(
             UserLibrary.objects.filter(
                 user=user, status__in=("started", "completed", "on_hold", "planned")
             ).values_list("anime_id", flat=True)
         )
 
-        # 2. Жанры из просмотренного (started + completed)
         watched_anime = Anime.objects.filter(
             id__in=UserLibrary.objects.filter(
                 user=user, status__in=("started", "completed")
@@ -1924,7 +2879,9 @@ class HomeAPIView(APIView):
             for g in anime.genres or []:
                 genre_counter[g] += 1
 
-        # 3. Жанры подписанных студий (если есть подписки)
+        if not genre_counter:
+            return []
+
         subscribed_studios = list(
             StudioSubscription.objects.filter(user=user)
             .select_related("studio")
@@ -1935,9 +2892,8 @@ class HomeAPIView(APIView):
                 user=user
             ).select_related("studio"):
                 for g, cnt in (studio_obj.studio.genre_stats or {}).items():
-                    genre_counter[g] += max(1, cnt // 10)  # лёгкий вес
+                    genre_counter[g] += max(1, cnt // 10)
 
-        # 4. Строим фильтр по жанрам
         top_genres = [g for g, _ in genre_counter.most_common(10)]
 
         if top_genres:
@@ -1948,34 +2904,26 @@ class HomeAPIView(APIView):
                 genre_q, score__gte=6.5, title_ru__regex=r"[а-яёА-ЯЁ]"
             ).select_related("franchise")
         else:
-            qs = Anime.objects.filter(
-                score__gte=7.5, title_ru__regex=r"[а-яёА-ЯЁ]"
-            ).select_related("franchise")
+            return []
 
-        # 5. Бонус: аниме подписанных студий (JSON поле studios)
         studio_bonus_ids = set()
         if subscribed_studios:
             sq = Q()
             for s in subscribed_studios:
                 sq |= Q(studios__icontains=s)
             studio_bonus_ids = set(
-                Anime.objects.filter(sq).values_list("id", flat=True)
+                Anime.objects.filter(sq, title_ru__regex=r"[а-яёА-ЯЁ]").values_list("id", flat=True)
             )
 
-        # 6. Исключаем уже в библиотеке
         candidates = list(qs.exclude(id__in=watched_ids).order_by("-score")[:60])
 
-        # 7. Сортируем: студийные вверх
         def sort_key(anime):
             base = anime.score or 0
             bonus = 2.0 if anime.id in studio_bonus_ids else 0
-            # Жанровый матч
             overlap = sum(1 for g in (anime.genres or []) if g in genre_counter)
             return base + bonus + overlap * 0.3
 
         candidates.sort(key=sort_key, reverse=True)
-
-        # 8. Дедуплицируем по франшизам
         return self._dedupe_franchises(candidates)[:20]
 
     def _dedupe_franchises(self, animes):
@@ -2063,29 +3011,6 @@ class HomeAPIView(APIView):
             if len(result) >= 20:
                 break
 
-        # Фоллбэк: если активность недельная недостаточна — дополняем топом по рейтингу
-        if len(result) < 10:
-            existing_ids = {r["anime_id"] for r in result}
-            existing_franchises = {
-                r.get("franchise_id") for r in result if r.get("franchise_id")
-            }
-            fallback = list(
-                Anime.objects.filter(score__isnull=False)
-                .exclude(id__in=excluded_ids | existing_ids)
-                .select_related("franchise")
-                .order_by("-score")[:60]
-            )
-
-            for anime in fallback:
-                if anime.franchise:
-                    fid = anime.franchise_id
-                    if fid in existing_franchises:
-                        continue
-                    existing_franchises.add(fid)
-                result.append(self._anime_to_dict(anime))
-                if len(result) >= 20:
-                    break
-
         return result
 
     @staticmethod
@@ -2128,6 +3053,686 @@ class HomeAPIView(APIView):
             "status": anime.status,
             "is_franchise": False,
         }
+
+    def _get_user_genre_preferences_detailed(self, user):
+        """
+        Получает детальные жанровые предпочтения пользователя на основе библиотеки
+        
+        Returns:
+            tuple: (top_genres: List[str], genre_counts: dict, watched_ids: Set[int])
+        """
+        from users.models import UserLibrary
+        from collections import Counter
+        
+        if not user:
+            return [], {}, set()
+        
+        # Получаем все аниме которые пользователь смотрел (started + completed)
+        library_items = UserLibrary.objects.filter(
+            user=user,
+            status__in=("started", "completed")
+        ).select_related("anime").only("anime_id", "anime__genres")
+        
+        watched_ids = set()
+        genre_counter = Counter()
+        
+        for item in library_items:
+            watched_ids.add(item.anime_id)
+            anime_genres = item.anime.genres or []
+            for genre in anime_genres:
+                genre_counter[genre] += 1
+        
+        # Топ 15 жанров
+        top_genres = [g for g, _ in genre_counter.most_common(15)]
+        
+        return top_genres, dict(genre_counter), watched_ids
+    
+    def _get_rare_genres(self, genre_counts: dict):
+        """Получает редкие жанры (которые пользователь смотрел меньше всего)"""
+        if not genre_counts:
+            return []
+        
+        # Сортируем по количеству и берем последние 5 (самые редкие)
+        sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1])
+        rare_genres = [g for g, _ in sorted_genres[:5]]
+        return rare_genres
+
+    # ── Вспомогательные методы для персонализации ─────────────────
+
+    def _get_user_watched_profiles(self, user):
+        """Возвращает жанровые профили просмотренных аниме: список (anime_id, set(genres), kind, studios)"""
+        from users.models import UserLibrary
+        from anime.models import Anime
+
+        if not user:
+            return []
+
+        watched = UserLibrary.objects.filter(
+            user=user, status__in=("started", "completed")
+        ).select_related("anime").only("anime__id", "anime__genres", "anime__kind", "anime__studios")
+
+        profiles = []
+        for item in watched:
+            a = item.anime
+            profiles.append({
+                "id": a.id,
+                "genres": set(a.genres or []),
+                "kind": a.kind,
+                "studios": set(a.studios or []),
+            })
+        return profiles
+
+    @staticmethod
+    def _genre_similarity_score(genres_a, genres_b):
+        """Jaccard similarity между двумя наборами жанров"""
+        if not genres_a or not genres_b:
+            return 0.0
+        intersection = len(genres_a & genres_b)
+        union = len(genres_a | genres_b)
+        return intersection / union if union else 0.0
+
+    def _pick_diverse_by_genre(self, candidates, genres_pool, limit, exclude_ids):
+        """Равномерно распределяет аниме по жанрам из genres_pool"""
+        import random
+        from collections import defaultdict
+        
+        if not genres_pool:
+            random.shuffle(candidates)
+            return self._dedupe_franchises(candidates)[:limit]
+
+        # Группируем кандидатов по жанрам
+        genre_buckets = defaultdict(list)
+        for anime in candidates:
+            if anime.id in exclude_ids:
+                continue
+            ag = set(anime.genres or [])
+            for g in genres_pool:
+                if g in ag:
+                    genre_buckets[g].append(anime)
+
+        # Берём по round-robin из каждого жанра
+        result = []
+        seen_ids = set()
+        pointers = {g: 0 for g in genres_pool}
+        sorted_genres = sorted(genres_pool, key=lambda g: len(genre_buckets.get(g, [])), reverse=True)
+
+        while len(result) < limit:
+            added_any = False
+            for g in sorted_genres:
+                bucket = genre_buckets.get(g, [])
+                while pointers[g] < len(bucket):
+                    anime = bucket[pointers[g]]
+                    pointers[g] += 1
+                    if anime.id not in seen_ids:
+                        seen_ids.add(anime.id)
+                        result.append(anime)
+                        added_any = True
+                        break
+                if len(result) >= limit:
+                    break
+            if not added_any:
+                break
+
+        # Добиваем случайными оставшимися
+        if len(result) < limit:
+            remaining = [a for a in candidates if a.id not in seen_ids and a.id not in exclude_ids]
+            random.shuffle(remaining)
+            result.extend(remaining[:limit - len(result)])
+
+        return self._dedupe_franchises(result)[:limit]
+
+    def _get_rare_genres_from_db(self, exclude_ids, min_year):
+        """Находит реально редкие жанры из БД (с наименьшим количеством аниме за последние 2 года)"""
+        from anime.models import Anime
+        from collections import Counter
+
+        # Берём аниме за последние 2 года
+        recent = Anime.objects.filter(
+            year__gte=min_year,
+            score__gte=6.0,
+            title_ru__regex=r"[а-яёА-ЯЁ]"
+        ).exclude(id__in=exclude_ids).only("genres")
+
+        genre_counter = Counter()
+        for anime in recent:
+            for g in anime.genres or []:
+                genre_counter[g] += 1
+
+        if not genre_counter:
+            return []
+        # Самые редкие жанры (но не совсем уникальные - минимум 3 аниме)
+        rare = [g for g, c in genre_counter.most_common() if 3 <= c <= 15]
+        if not rare:
+            rare = [g for g, c in genre_counter.most_common()[-20:]]
+        return rare[:8]
+
+    # ── Основные методы разделов ──────────────────────────────────
+
+    def _get_based_on_watched(self, user, exclude_ids, limit=20):
+        """
+        Раздел 1: На основе ПРОСМОТРЕННОГО
+        - Ищем аниме с максимальным жанровым пересечением с просмотренными
+        - Исключаем всё просмотренное
+        - Перемешиваем результат
+        """
+        from anime.models import Anime
+        import random
+
+        if not exclude_ids:
+            return []
+
+        profiles = self._get_user_watched_profiles(user)
+        if not profiles:
+            return []
+
+        # Собираем "средний" жанровый профиль пользователя
+        all_watched_genres = set()
+        for p in profiles:
+            all_watched_genres |= p["genres"]
+
+        # Берём кандидатов из похожих жанров
+        genre_q = Q()
+        for g in list(all_watched_genres)[:15]:
+            genre_q |= Q(genres__icontains=g)
+
+        candidates = list(
+            Anime.objects.filter(
+                genre_q,
+                score__gte=6.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).exclude(id__in=exclude_ids).select_related("franchise").order_by("-score")[:250]
+        )
+
+        # Сортируем по схожести жанров (Jaccard)
+        scored = []
+        for anime in candidates:
+            ag = set(anime.genres or [])
+            # Максимальная схожесть с любым просмотренным
+            max_sim = max(
+                (self._genre_similarity_score(ag, p["genres"]) for p in profiles),
+                default=0
+            )
+            # Бонус за совпадение типа (TV/TV)
+            type_bonus = 0.05 if any(p["kind"] == anime.kind for p in profiles) else 0
+            scored.append((anime, max_sim + type_bonus + (anime.score or 0) * 0.01))
+            
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top = [s[0] for s in scored[:limit * 3]]
+        random.shuffle(top)
+        return self._dedupe_franchises(top)[:limit]
+
+    def _get_similar_style(self, user, exclude_ids, limit=20, random_genre=None):
+        """
+        Раздел 2: Похожий стиль
+        - Берём жанровый профиль случайного просмотренного аниме
+        - Ищем аниме с похожим КОМБИНИРОВАННЫМ набором жанров
+        - Перемешиваем
+        """
+        from anime.models import Anime
+        import random
+
+        profiles = self._get_user_watched_profiles(user)
+        if not profiles:
+            return []
+
+        # Выбираем случайное просмотренное аниме как "эталон стиля"
+        base_profile = random.choice(profiles)
+        base_genres = base_profile["genres"]
+        base_kind = base_profile["kind"]
+
+        if not base_genres:
+            return []
+
+        # Ищем аниме, у которых есть ХОТЯ БЫ 2 жанра из базового набора
+        genre_q = Q()
+        for g in base_genres:
+            genre_q |= Q(genres__icontains=g)
+
+        candidates = list(
+            Anime.objects.filter(
+                genre_q,
+                score__gte=6.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).exclude(id__in=exclude_ids).select_related("franchise").order_by("-score")[:200]
+        )
+
+        # Сортируем по схожести с базовым профилем
+        scored = []
+        for anime in candidates:
+            ag = set(anime.genres or [])
+            sim = self._genre_similarity_score(ag, base_genres)
+            # Бонус за тот же тип
+            if base_kind and anime.kind == base_kind:
+                sim += 0.1
+            scored.append((anime, sim))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top = [s[0] for s in scored[:limit * 3]]
+        random.shuffle(top)
+        return self._dedupe_franchises(top)[:limit]
+
+    def _get_top_rated_in_genres_new(self, genres, exclude_ids, limit=20):
+        """
+        Раздел 3: Лучшее в жанрах
+        - Равномерно распределяем по жанрам пользователя
+        - Берём лучшее в каждом жанре
+        - Перемешиваем итог
+        """
+        from anime.models import Anime
+        import random
+
+        if not genres:
+            return []
+
+        # Для каждого жанра берём топ-10, затем объединяем
+        all_picks = []
+        seen = set()
+        for genre in genres[:6]:
+            qs = Anime.objects.filter(
+                genres__icontains=genre,
+                score__gte=7.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).exclude(id__in=exclude_ids).select_related("franchise").order_by("-score")[:10]
+            for anime in qs:
+                if anime.id not in seen:
+                    seen.add(anime.id)
+                    all_picks.append(anime)
+
+        random.shuffle(all_picks)
+        return self._dedupe_franchises(all_picks)[:limit]
+
+    def _get_new_in_genres_ongoing(self, genres, exclude_ids, limit=20):
+        """
+        Раздел 4: Новинки в жанрах
+        - Онгоинги в жанрах пользователя
+        - Равномерное распределение по жанрам
+        - Перемешиваем
+        """
+        from anime.models import Anime
+        import random
+
+        if not genres:
+            return []
+
+        # Round-robin по жанрам
+        all_picks = []
+        seen = set()
+        for genre in genres[:6]:
+            qs = Anime.objects.filter(
+                genres__icontains=genre,
+                status="ongoing",
+                score__gte=6.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).exclude(id__in=exclude_ids).select_related("franchise").order_by("-score")[:8]
+            for anime in qs:
+                if anime.id not in seen:
+                    seen.add(anime.id)
+                    all_picks.append(anime)
+
+        random.shuffle(all_picks)
+        return self._dedupe_franchises(all_picks)[:limit]
+
+    def _get_classics_high_rated(self, limit=20):
+        """
+        Раздел 5: Классика
+        - Рейтинг > 7.0, год <= 2010, только завершённые
+        - Перемешиваем для разнообразия
+        """
+        from anime.models import Anime
+        import random
+
+        candidates = list(
+            Anime.objects.filter(
+                score__gt=7.0,
+                year__lte=2010,
+                status="finished",
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).select_related("franchise").order_by("-score")[:150]
+        )
+
+        random.shuffle(candidates)
+        return self._dedupe_franchises(candidates)[:limit]
+
+    def _get_top_anime_last_year(self, limit=20):
+        """
+        Раздел 6: Топ аниме
+        - За последний год, с наивысшим рейтингом
+        - БЕЗ перемешивания - чёткий топ
+        """
+        from anime.models import Anime
+        from django.utils import timezone
+
+        current_year = timezone.now().year
+        min_year = current_year - 1
+
+        candidates = list(
+            Anime.objects.filter(
+                year__gte=min_year,
+                score__gte=7.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).select_related("franchise").order_by("-score")[:40]
+        )
+
+        return self._dedupe_franchises(candidates)[:limit]
+
+    def _get_new_in_rare_genres(self, rare_genres, exclude_ids, limit=20):
+        """
+        Раздел 7: Новинки (редкие жанры)
+        - Реально редкие жанры из БД
+        - За последние 2 года, рейтинг > 7.0
+        - Перемешиваем
+        """
+        from anime.models import Anime
+        from django.utils import timezone
+        import random
+
+        current_year = timezone.now().year
+        min_year = current_year - 2
+
+        # Если редкие жанры не переданы - берём из БД
+        if not rare_genres:
+            rare_genres = self._get_rare_genres_from_db(exclude_ids, min_year)
+
+        if not rare_genres:
+            return []
+
+        # Round-robin по редким жанрам
+        all_picks = []
+        seen = set()
+        for genre in rare_genres[:8]:
+            qs = Anime.objects.filter(
+                genres__icontains=genre,
+                year__gte=min_year,
+                score__gt=7.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).exclude(id__in=exclude_ids).select_related("franchise").order_by("-score")[:6]
+            for anime in qs:
+                if anime.id not in seen:
+                    seen.add(anime.id)
+                    all_picks.append(anime)
+
+        random.shuffle(all_picks)
+        return self._dedupe_franchises(all_picks)[:limit]
+
+    def _get_short_anime(self, limit=20):
+        """
+        Раздел 8: Короткие
+        - До 13 серий, рейтинг > 7.0, ТОЛЬКО завершённые
+        - Перемешиваем
+        """
+        from anime.models import Anime
+        import random
+
+        candidates = list(
+            Anime.objects.filter(
+                episodes__lte=13,
+                episodes__isnull=False,
+                score__gt=7.0,
+                status="finished",
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).select_related("franchise").order_by("-score")[:150]
+        )
+
+        random.shuffle(candidates)
+        return self._dedupe_franchises(candidates)[:limit]
+
+    def _get_movies_high_rated(self, limit=20):
+        """
+        Раздел 9: Полнометражные
+        - Фильмы и OVA, рейтинг > 7.0
+        - Перемешиваем
+        """
+        from anime.models import Anime
+        import random
+
+        candidates = list(
+            Anime.objects.filter(
+                kind__in=["movie", "ova"],
+                score__gt=7.0,
+                title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).select_related("franchise").order_by("-score")[:150]
+        )
+
+        random.shuffle(candidates)
+        return self._dedupe_franchises(candidates)[:limit]
+
+    def _get_continue_watching(self, user):
+        from users.models import UserLibrary
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
+
+        library_items = (
+            UserLibrary.objects.filter(
+                user=user, status="started", anime__title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .select_related("anime")
+            .order_by("-updated_at")[:15]
+        )
+        result = []
+        for item in library_items:
+            anime = item.anime
+            if not CYRILLIC_RE.search(anime.title_ru or ""):
+                continue
+            total_episodes = anime.episodes or 1
+            progress_percent = (
+                min(100, int((item.current_episode / total_episodes) * 100))
+                if total_episodes
+                else 0
+            )
+            poster_url = anime.poster.url if anime.poster else anime.poster_url
+            result.append(
+                {
+                    "anime_id": anime.id,
+                    "title": anime.title_ru or anime.title_en or "",
+                    "title_en": anime.title_en or "",
+                    "poster": poster_url,
+                    "current_episode": item.current_episode,
+                    "total_episodes": anime.episodes,
+                    "progress_percent": progress_percent,
+                    "status": anime.status,
+                    "last_watched": item.updated_at.isoformat()
+                    if item.updated_at
+                    else None,
+                }
+            )
+        return result
+
+    def _get_rewatch(self, user):
+        from users.models import UserLibrary
+        import re
+        CYRILLIC_RE = re.compile(r'[а-яёА-ЯЁ]')
+
+        library_items = (
+            UserLibrary.objects.filter(
+                user=user, status="completed", anime__title_ru__regex=r"[а-яёА-ЯЁ]"
+            )
+            .select_related("anime")
+            .order_by("-updated_at")[:10]
+        )
+        result = []
+        for item in library_items:
+            anime = item.anime
+            if not CYRILLIC_RE.search(anime.title_ru or ""):
+                continue
+            poster_url = anime.poster.url if anime.poster else anime.poster_url
+            result.append(
+                {
+                    "anime_id": anime.id,
+                    "title": anime.title_ru or anime.title_en or "",
+                    "title_en": anime.title_en or "",
+                    "poster": poster_url,
+                    "completed_date": item.updated_at.isoformat()
+                    if item.updated_at
+                    else None,
+                    "user_rating": item.rating,
+                }
+            )
+        return result
+
+    def _get_recommendations(self, user):
+        from anime.models import Anime
+        from collections import Counter
+
+        if not user or not user.is_authenticated:
+            animes = list(
+                Anime.objects.filter(score__gte=7.0, title_ru__regex=r"[а-яёА-ЯЁ]")
+                .select_related("franchise")
+                .order_by("-score")[:60]
+            )
+            return self._dedupe_franchises(animes)[:20]
+
+        from users.models import UserLibrary
+        from studios.models import StudioSubscription
+
+        watched_ids = set(
+            UserLibrary.objects.filter(
+                user=user, status__in=("started", "completed", "on_hold", "planned")
+            ).values_list("anime_id", flat=True)
+        )
+
+        watched_anime = Anime.objects.filter(
+            id__in=UserLibrary.objects.filter(
+                user=user, status__in=("started", "completed")
+            ).values_list("anime_id", flat=True),
+            title_ru__regex=r"[а-яёА-ЯЁ]",
+        )
+        genre_counter = Counter()
+        for anime in watched_anime:
+            for g in anime.genres or []:
+                genre_counter[g] += 1
+
+        subscribed_studios = list(
+            StudioSubscription.objects.filter(user=user)
+            .select_related("studio")
+            .values_list("studio__name", flat=True)
+        )
+        if subscribed_studios:
+            for studio_obj in StudioSubscription.objects.filter(
+                user=user
+            ).select_related("studio"):
+                for g, cnt in (studio_obj.studio.genre_stats or {}).items():
+                    genre_counter[g] += max(1, cnt // 10)
+
+        top_genres = [g for g, _ in genre_counter.most_common(10)]
+
+        if top_genres:
+            genre_q = Q()
+            for g in top_genres:
+                genre_q |= Q(genres__icontains=g)
+            qs = Anime.objects.filter(
+                genre_q, score__gte=6.5, title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).select_related("franchise")
+        else:
+            qs = Anime.objects.filter(
+                score__gte=7.5, title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).select_related("franchise")
+
+        studio_bonus_ids = set()
+        if subscribed_studios:
+            sq = Q()
+            for s in subscribed_studios:
+                sq |= Q(studios__icontains=s)
+            studio_bonus_ids = set(
+                Anime.objects.filter(sq, title_ru__regex=r"[а-яёА-ЯЁ]").values_list("id", flat=True)
+            )
+
+        candidates = list(qs.exclude(id__in=watched_ids).order_by("-score")[:60])
+
+        def sort_key(anime):
+            base = anime.score or 0
+            bonus = 2.0 if anime.id in studio_bonus_ids else 0
+            overlap = sum(1 for g in (anime.genres or []) if g in genre_counter)
+            return base + bonus + overlap * 0.3
+
+        candidates.sort(key=sort_key, reverse=True)
+        return self._dedupe_franchises(candidates)[:20]
+
+    def _get_trending(self, user=None):
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.db.models import Count
+        from users.models import UserLibrary
+        from anime.models import Anime
+
+        week_ago = timezone.now() - timedelta(days=7)
+
+        excluded_ids: set = set()
+        if user and user.is_authenticated:
+            excluded_ids = set(
+                UserLibrary.objects.filter(
+                    user=user, status__in=("started", "completed", "on_hold", "dropped")
+                ).values_list("anime_id", flat=True)
+            )
+
+        trending_qs = (
+            UserEpisodeProgress.objects.filter(last_watched__gte=week_ago)
+            .values("anime_id")
+            .annotate(views=Count("user", distinct=True))
+            .order_by("-views")[:60]
+        )
+        trending_ids = [row["anime_id"] for row in trending_qs]
+
+        anime_map = {
+            a.id: a
+            for a in Anime.objects.filter(
+                id__in=trending_ids, title_ru__regex=r"[а-яёА-ЯЁ]"
+            ).select_related("franchise")
+        }
+
+        candidates = []
+        for row in trending_qs:
+            aid = row["anime_id"]
+            if aid in excluded_ids:
+                continue
+            anime = anime_map.get(aid)
+            if not anime:
+                continue
+            candidates.append((anime, row["views"]))
+
+        seen_franchises = set()
+        result = []
+        for anime, views in candidates:
+            if anime.franchise:
+                fid = anime.franchise_id
+                if fid not in seen_franchises:
+                    seen_franchises.add(fid)
+                    d = self._anime_to_dict(anime)
+                    d["views_this_week"] = views
+                    result.append(d)
+            else:
+                d = self._anime_to_dict(anime)
+                d["views_this_week"] = views
+                result.append(d)
+
+            if len(result) >= 20:
+                break
+
+        if len(result) < 10:
+            existing_ids = {r["anime_id"] for r in result}
+            existing_franchises = {
+                r.get("franchise_id") for r in result if r.get("franchise_id")
+            }
+            fallback = list(
+                Anime.objects.filter(score__isnull=False, title_ru__regex=r"[а-яёА-ЯЁ]")
+                .exclude(id__in=excluded_ids | existing_ids)
+                .select_related("franchise")
+                .order_by("-score")[:60]
+            )
+
+            for anime in fallback:
+                if anime.franchise:
+                    fid = anime.franchise_id
+                    if fid in existing_franchises:
+                        continue
+                    existing_franchises.add(fid)
+                if anime.id in existing_ids:
+                    continue
+                existing_ids.add(anime.id)
+                result.append(self._anime_to_dict(anime))
+                if len(result) >= 20:
+                    break
+
+        return result
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2479,12 +4084,19 @@ class AnimeThemesView(APIView):
 
     Возвращает:
       { opening: {start, stop, kind} | null, ending: {start, stop, kind} | null }
+    
+    Кэширование: тайминги кэшируются на 24 часа в Redis
     """
 
     permission_classes = [permissions.AllowAny]
     KODIK_API_TOKEN = KODIK_API_TOKEN
-    KODIK_PRIVATE_KEY = "692e74fa70fed3493e922cfcb6b0eab7"
+    KODIK_PRIVATE_KEY = ""
     KODIK_PUBLIC_KEY = KODIK_API_TOKEN
+
+    def _get_cache_key(self, anime_id, episode, season, translation_id):
+        """Генерирует ключ кэша для таймингов"""
+        tid = translation_id or 'all'
+        return f'anime_themes:{anime_id}:{season}:{episode}:{tid}'
 
     def _get_episode_url(self, anime, episode, season, translation_id):
         """Возвращает URL вида //kodik.info/seria/... для конкретной серии."""
@@ -2526,7 +4138,7 @@ class AnimeThemesView(APIView):
         Запрашивает kodik.biz/api/video-links?skip_segments=true.
         Возвращает (opening|None, ending|None).
 
-        skip[] — список сегментов для пропуска (опенинг, эндинг, заставка).
+        skip[] - список сегментов для пропуска (опенинг, эндинг, заставка).
         Определяем роль по позиции в серии:
           • сегмент заканчивается до середины серии → опенинг
           • сегмент начинается после середины серии → эндинг
@@ -2574,7 +4186,7 @@ class AnimeThemesView(APIView):
         # (или берём максимальный end из skip+ad)
         all_segs = (segments.get("ad") or []) + skip_list
         max_end = max((s.get("end", 0) for s in all_segs), default=0)
-        # Если данных мало — ориентируемся на 1200 с (20 мин) как типичная серия
+        # Если данных мало - ориентируемся на 1200 с (20 мин) как типичная серия
         total_est = max(max_end * 1.1, 1200)
         midpoint = total_est / 2
 
@@ -2837,7 +4449,7 @@ class KodikClipDownloadView(APIView):
             resp.raise_for_status()
 
             for res in resp.json().get("results", []):
-                # Если translation_id указан — берём только нужный
+                # Если translation_id указан - берём только нужный
                 if translation_id:
                     tid = (res.get("translation") or {}).get("id")
                     if str(tid) != str(translation_id):
@@ -2850,7 +4462,7 @@ class KodikClipDownloadView(APIView):
                 )
 
                 if ep_url:
-                    # Kodik возвращает //kodik.info/seria/... — оставляем как есть,
+                    # Kodik возвращает //kodik.info/seria/... - оставляем как есть,
                     # потому что video-links API принимает именно //... формат
                     return ep_url.strip()
 
@@ -2910,7 +4522,7 @@ class KodikClipDownloadView(APIView):
             data = resp.json()
 
             # Формат ответа Kodik: {"links": {"720": {"Src": "https://...", "Type": "..."}, ...}}
-            # Внимание: ключи с заглавной буквы (Src, Type), значение — dict, не list
+            # Внимание: ключи с заглавной буквы (Src, Type), значение - dict, не list
             links = data.get("links") or {}
             for quality in ["720", "1080", "480", "360", "240"]:
                 ql = links.get(quality)
@@ -2972,7 +4584,7 @@ class KodikClipDownloadView(APIView):
         start_sec = int(request.query_params.get("start", 0))
         end_sec = int(request.query_params.get("end", 120))
         label = request.query_params.get("label", "clip")
-
+        format_type = request.query_params.get("format", "video")  # video или audio
         user_ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[
             0
         ].strip() or request.META.get("REMOTE_ADDR", "1.1.1.1")
@@ -2991,6 +4603,8 @@ class KodikClipDownloadView(APIView):
 
         # 3. Нарезаем клип через ffmpeg
         import subprocess
+        import tempfile
+        import os
         from django.http import HttpResponse
         import logging
 
@@ -3002,64 +4616,88 @@ class KodikClipDownloadView(APIView):
         logger.info(f"Нарезка клипа: anime={pk}, episode={episode}, start={start_sec}s, end={end_sec}s, duration={duration}s")
         logger.info(f"M3U8 URL: {m3u8_url[:100]}...")
 
+        # Создаём временный файл
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+            tmp_path = tmp.name
+
         try:
             # Проверяем что ffmpeg существует
-            import os
             if not os.path.exists("/usr/bin/ffmpeg"):
                 logger.error("ffmpeg не найден по пути /usr/bin/ffmpeg")
                 return Response({"error": "Сервис ffmpeg недоступен"}, status=503)
 
-            # Тестовый запрос - проверяем что URL доступен
-            test_resp = requests.head(m3u8_url, timeout=10)
-            logger.info(f"Проверка m3u8 URL: status={test_resp.status_code}, content-type={test_resp.headers.get('Content-Type')}")
-            if test_resp.status_code not in [200, 206]:
-                logger.error(f"M3U8 URL недоступен: {test_resp.status_code}")
-                return Response({"error": f"M3U8 источник недоступен: HTTP {test_resp.status_code}"}, status=502)
-
-            cmd = [
-                "/usr/bin/ffmpeg",
-                "-y",
-                "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "-referer", m3u8_url,
-                "-i", m3u8_url,
-                "-ss", str(start_sec),
-                "-t", str(duration),
-                "-c:v", "libx264",
-                "-c:a", "aac",
-                "-movflags", "frag_keyframe+empty_moov",
-                "-f", "mp4",
-                "pipe:1",
-            ]
+            if format_type == "audio":
+                # Только аудио (MP3)
+                cmd = [
+                    "/usr/bin/ffmpeg",
+                    "-y",
+                    "-ss", str(start_sec),
+                    "-i", m3u8_url,
+                    "-t", str(duration),
+                    "-vn",  # Без видео
+                    "-acodec", "libmp3lame",
+                    "-b:a", "192k",
+                    "-f", "mp3",
+                    "pipe:1",
+                ]
+                content_type = "audio/mpeg"
+                extension = "mp3"
+            else:
+                # Видео (MP4) - твой существующий код
+                with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                cmd = [
+                    "/usr/bin/ffmpeg",
+                    "-y",
+                    "-ss", str(start_sec),
+                    "-i", m3u8_url,
+                    "-t", str(duration),
+                    "-c", "copy",
+                    "-movflags", "+faststart",
+                    tmp_path
+                ]
+                content_type = "video/mp4"
+                extension = "mp4"
             
-            logger.info(f"Запуск ffmpeg: {' '.join(cmd[:5])}...")
-            process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            logger.info(f"FFmpeg команда: {' '.join(cmd)}")
+            
+            # Запускаем с таймаутом
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120
             )
-            output, error = process.communicate()
-
-            if process.returncode != 0:
-                error_msg = error.decode('utf-8', errors='ignore')
-                logger.error(f"ffmpeg ошибка (returncode={process.returncode}): {error_msg[:500]}")
-                return Response(
-                    {"error": f"Ошибка нарезки видео: {error_msg[:200]}"}, status=500
-                )
-
-            logger.info(f"ffmpeg успешно завершён, размер клипа: {len(output)} байт")
             
-            response = HttpResponse(output, content_type="video/mp4")
-            response["Content-Disposition"] = f'attachment; filename="clip_{pk}_{episode}.mp4"'
+            if process.returncode != 0:
+                logger.error(f"FFmpeg stderr: {process.stderr}")
+                return Response(
+                    {"error": f"Ошибка ffmpeg: {process.stderr[:200]}"},
+                    status=500
+                )
+            
+            # Читаем файл и отдаём
+            with open(tmp_path, 'rb') as f:
+                output = f.read()
+            
+            response = HttpResponse(output, content_type=content_type)
+            from django.utils.encoding import escape_uri_path
+            filename = f"{label.replace(' ', '_')}_{pk}_{episode}.{extension}"
+            response["Content-Disposition"] = f"attachment; filename*=UTF-8''{escape_uri_path(filename)}"
             response["Content-Length"] = len(output)
             return response
 
-        except requests.RequestException as e:
-            logger.error(f"Ошибка проверки m3u8 URL: {e}")
-            return Response({"error": f"Ошибка доступа к видео: {str(e)}"}, status=502)
-        except subprocess.SubprocessError as e:
-            logger.error(f"Ошибка subprocess: {e}")
-            return Response({"error": f"Ошибка ffmpeg: {str(e)}"}, status=500)
+        except subprocess.TimeoutExpired:
+            logger.error("FFmpeg timeout после 120 секунд")
+            return Response({"error": "Нарезка видео заняла слишком много времени"}, status=504)
         except Exception as e:
             logger.exception(f"Clip download error: {e}")
             return Response({"error": f"Внутренняя ошибка сервера: {str(e)}"}, status=500)
+        finally:
+            # Удаляем временный файл в любом случае
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
 
 class AdminTodayAddedAnimeView(APIView):
@@ -3079,7 +4717,7 @@ class AdminTodayAddedAnimeView(APIView):
 
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        animes = Anime.objects.filter(created_at__gte=today_start).order_by(
+        animes = Anime.objects.filter(created_at__gte=today_start, title_ru__regex=r"[а-яёА-ЯЁ]").order_by(
             "-created_at"
         )
 

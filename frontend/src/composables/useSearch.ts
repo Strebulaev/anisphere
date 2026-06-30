@@ -3,6 +3,21 @@ import { useRouter } from 'vue-router'
 import { getMediaUrl } from '@/api/client'
 import api from '@/api'
 
+/**
+ * Нормализация поискового запроса
+ * Заменяет все разделители (-, :, пробелы, табы и т.д.) на одиночные пробелы
+ * "Ван-пис" → "ван пис"
+ * "Ван:пис" → "ван пис"  
+ * "Ван  пис" → "ван пис"
+ */
+function normalizeQuery(query: string): string {
+  return query
+    .toLowerCase()
+    .replace(/[-_:/\\|,.!?@#$%^&*(){}\[\]<>~`'"\\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export interface AnimeResult {
   id: number
   title_ru?: string
@@ -83,34 +98,34 @@ export interface UseSearchReturn {
   getMediaUrl: (url: string | undefined) => string | undefined
 }
 
-const defaultCategories: SearchCategory[] = [
+  const defaultCategories: SearchCategory[] = [
   {
     id: 'anime',
     name: 'Аниме',
     icon: 'anime',
     enabled: true,
-    limit: 5
+    limit: 50  
   },
   {
     id: 'users',
     name: 'Пользователи',
     icon: 'users',
     enabled: true,
-    limit: 3
+    limit: 10  
   },
   {
     id: 'playlists',
     name: 'Плейлисты',
     icon: 'playlists',
     enabled: true,
-    limit: 3
+    limit: 10  
   },
   {
     id: 'groups',
     name: 'Группы',
     icon: 'groups',
     enabled: false,
-    limit: 3
+    limit: 10
   }
 ]
 
@@ -154,6 +169,9 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
     isLoading.value = true
     const newResults: SearchResults = {}
 
+    
+    const normalizedQuery = normalizeQuery(query)
+
     try {
       const enabledCategories = categories.filter(cat => cat.enabled)
 
@@ -164,29 +182,30 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 
             switch (category.id) {
               case 'anime':
-                const animeResponse = await api.get('/anime/search/', {
-                  params: { q: query, limit: category.limit || 5 }
+                
+                const animeResponse = await api.get('/anime/', {
+                  params: { search: normalizedQuery, page_size: category.limit || 50 }
                 })
                 data = animeResponse.data.results || []
                 break
 
               case 'users':
                 const usersResponse = await api.get('/users/search/', {
-                  params: { search: query, limit: category.limit || 3 }
+                  params: { search: normalizedQuery, limit: category.limit || 3 }
                 })
                 data = usersResponse.data.results || []
                 break
 
               case 'playlists':
                 const playlistsResponse = await api.get('/social/playlists/search/', {
-                  params: { q: query, limit: category.limit || 3 }
+                  params: { q: normalizedQuery, limit: category.limit || 3 }
                 })
                 data = playlistsResponse.data.results || []
                 break
 
               case 'groups':
                 const groupsResponse = await api.get('/social/groups/search/', {
-                  params: { q: query, limit: category.limit || 3 }
+                  params: { q: normalizedQuery, limit: category.limit || 3 }
                 })
                 data = groupsResponse.data.results || []
                 break

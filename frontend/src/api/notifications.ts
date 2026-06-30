@@ -11,7 +11,7 @@ export interface NotificationItem {
   is_read: boolean
   is_important: boolean
   is_deleted: boolean
-  is_flashing?: boolean  // Сверкает ли уведомление (создано менее 1 мин назад)
+  is_flashing?: boolean  
   created_at: string
   read_at: string | null
   expires_at: string | null
@@ -27,7 +27,7 @@ export interface NotificationListResponse {
 export interface RecentResponse {
   results: NotificationItem[]
   unread_count: number
-  flashing_count?: number  // Количество сверкающих уведомлений
+  flashing_count?: number  
 }
 
 export interface NotificationSettings {
@@ -44,7 +44,7 @@ export interface NotificationSettings {
 }
 
 const notificationsApi = {
-  // Список (с пагинацией и фильтрами)
+  
   list(params?: {
     page?: number
     page_size?: number
@@ -55,47 +55,47 @@ const notificationsApi = {
     return apiClient.get('/notifications/notifications/', { params })
   },
 
-  // Последние 8 для дропдауна
+  
   recent(): Promise<AxiosResponse<RecentResponse>> {
     return apiClient.get('/notifications/notifications/recent/')
   },
 
-  // Счётчик непрочитанных
+  
   count(): Promise<AxiosResponse<{ count: number; flashing_count?: number }>> {
     return apiClient.get('/notifications/notifications/count/')
   },
 
-  // Отметить одно как прочитанное
+  
   markRead(id: number): Promise<AxiosResponse<{ status: string; id: number; is_read: boolean }>> {
     return apiClient.post(`/notifications/notifications/${id}/mark_read/`)
   },
 
-  // Отметить все как прочитанные
+  
   markAllRead(): Promise<AxiosResponse<{ status: string; count: number }>> {
     return apiClient.post('/notifications/notifications/mark_all_read/')
   },
 
-  // Переключить важное
+  
   toggleImportant(id: number): Promise<AxiosResponse<{ status: string; id: number; is_important: boolean }>> {
     return apiClient.post(`/notifications/notifications/${id}/toggle_important/`)
   },
 
-  // Удалить одно (мягко)
+  
   delete(id: number): Promise<AxiosResponse<void>> {
     return apiClient.delete(`/notifications/notifications/${id}/`)
   },
 
-  // Очистить прочитанные
+  
   cleanRead(): Promise<AxiosResponse<{ status: string }>> {
     return apiClient.delete('/notifications/notifications/clean/')
   },
 
-  // Удалить всё (кроме важных)
+  
   deleteAll(): Promise<AxiosResponse<{ status: string }>> {
     return apiClient.delete('/notifications/notifications/delete_all/')
   },
 
-  // Настройки
+  
   getSettings(): Promise<AxiosResponse<NotificationSettings>> {
     return apiClient.get('/notifications/settings/')
   },

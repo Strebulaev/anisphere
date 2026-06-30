@@ -69,7 +69,7 @@ class Command(BaseCommand):
             scores = [a.anime_score for a in unique if a.anime_score is not None]
             avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
 
-            # Жанровая статистика — доля аниме с каждым жанром (0–100%)
+            # Жанровая статистика - доля аниме с каждым жанром (0–100%)
             genre_raw: dict[str, int] = {}
             for a in unique:
                 for g in (a.genres or []):

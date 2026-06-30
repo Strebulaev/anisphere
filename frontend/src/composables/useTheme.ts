@@ -2,7 +2,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import * as settingsApi from '@/api/settings'
 
-// Определение цветов для тем
+
 const THEME_COLORS = {
   dark: {
     '--primary-color': '#0084FF',
@@ -52,37 +52,37 @@ export function useTheme() {
   const accentColor = ref('#0084FF')
   const customTheme = ref<Record<string, string>>({})
 
-  // Вычисляемое свойство для определения светлой темы
+  
   const isLightTheme = computed(() => currentTheme.value === 'light')
 
-  // Применить тему к документу
+  
   const applyTheme = (theme: string, accent?: string) => {
     const colors = THEME_COLORS[theme as keyof typeof THEME_COLORS] || THEME_COLORS.dark
 
-    // Применяем базовые цвета темы
+    
     Object.entries(colors).forEach(([key, value]) => {
       document.documentElement.style.setProperty(key, value)
     })
 
-    // Применяем акцентный цвет
+    
     const finalAccent = accent || accentColor.value
     document.documentElement.style.setProperty('--primary-color', finalAccent)
 
-    // Устанавливаем data-атрибут для CSS
+    
     document.documentElement.setAttribute('data-theme', theme)
 
-    // Сохраняем в localStorage
+    
     localStorage.setItem('theme', theme)
     localStorage.setItem('accent-color', finalAccent)
   }
 
-  // Переключить тему
+  
   const toggleTheme = () => {
     const newTheme = isLightTheme.value ? 'dark' : 'light'
     setTheme(newTheme)
   }
 
-  // Установить конкретную тему
+  
   const setTheme = async (theme: 'light' | 'dark' | 'system' | 'blue' | 'green') => {
     currentTheme.value = theme
     applyTheme(theme)
@@ -96,7 +96,7 @@ export function useTheme() {
     }
   }
 
-  // Установить акцентный цвет
+  
   const setAccentColor = async (color: string) => {
     accentColor.value = color
     applyTheme(currentTheme.value, color)
@@ -110,7 +110,7 @@ export function useTheme() {
     }
   }
 
-  // Загрузить настройки темы из API
+  
   const fetchThemeSettings = async () => {
     try {
       const data = await settingsApi.getProfileSettings()
@@ -176,7 +176,7 @@ export function useTheme() {
     }
   }
 
-  // Получить семейство шрифтов
+  
   const getFontFamily = (font: string): string => {
     switch (font) {
       case 'Inter': return "'Inter', sans-serif"
@@ -188,7 +188,7 @@ export function useTheme() {
     }
   }
 
-  // Загрузить настройки шрифтов
+  
   const fetchFontSettings = async () => {
     try {
       const data = await fetch('/api/users/font-settings/').then(r => r.json())
@@ -248,9 +248,9 @@ export function useTheme() {
     }
   }
 
-  // Инициализация при монтировании
+  
   onMounted(() => {
-    // Сначала пробуем загрузить из localStorage для быстрого отображения
+    
     const savedTheme = localStorage.getItem('theme') || 'dark'
     const savedAccent = localStorage.getItem('accent-color') || '#0084FF'
 
@@ -259,7 +259,7 @@ export function useTheme() {
 
     applyTheme(savedTheme, savedAccent)
 
-    // Затем загружаем актуальные настройки с сервера
+    
     fetchThemeSettings()
     fetchFontSettings()
     fetchChatBackgroundSettings()

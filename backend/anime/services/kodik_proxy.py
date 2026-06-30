@@ -3,6 +3,7 @@ import requests
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.core.cache import cache
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,18 +16,26 @@ KODIK_API_URL = "https://kodik-api.com"
 def kodik_studios(request):
     """
     Прокси для получения списка аниме студий из Kodik API
+    Используем endpoint /search с параметром anime_studios для получения всех студий
     """
+    cache_key = 'kodik_anime_studios'
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        return JsonResponse(cached_data)
+    
     try:
-        # 1. Получаем список аниме с material_data
+        # Используем endpoint search для получения данных о студиях
+        # Получаем аниме с material_data, чтобы извлечь студии
         response = requests.get(
-            f"{KODIK_API_URL}/list",
+            f"{KODIK_API_URL}/search",
             params={
                 'token': KODIK_TOKEN,
                 'types': 'anime-serial,anime',
                 'with_material_data': 'true',
-                'limit': 100,  # Можно увеличить до 1000, но будет дольше
-                'sort': 'title',
-                'order': 'asc'
+                'limit': 500,  # Берем больше для лучшего покрытия студий
+                'sort': 'year',
+                'order': 'desc'
             },
             timeout=30
         )
@@ -48,8 +57,9 @@ def kodik_studios(request):
             anime_studios = material_data.get('anime_studios', [])
             
             for studio in anime_studios:
-                studios.add(studio)
-                studio_counter[studio] = studio_counter.get(studio, 0) + 1
+                if studio and isinstance(studio, str):
+                    studios.add(studio)
+                    studio_counter[studio] = studio_counter.get(studio, 0) + 1
         
         # 3. Сортируем студии (сначала самые популярные)
         sorted_studios = sorted(
@@ -57,11 +67,16 @@ def kodik_studios(request):
             key=lambda x: (-x['count'], x['name'])
         )
         
-        return JsonResponse({
+        result = {
             'studios': sorted_studios,
             'total': len(sorted_studios),
             'source': 'kodik'
-        })
+        }
+        
+        # Кэшируем на 24 часа
+        cache.set(cache_key, result, 60 * 60 * 24)
+        
+        return JsonResponse(result)
         
     except requests.Timeout:
         return JsonResponse({'error': 'Kodik API timeout'}, status=504)

@@ -2,6 +2,8 @@ import './assets/main.scss'
 import './assets/css/main.css'
 import './assets/styles/themes.css'
 import './assets/styles/fonts.css'
+import './assets/styles/modals-mobile.css'
+import './assets/styles/mobile.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
@@ -9,17 +11,14 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 
-// Import debug utils
 import '@/utils/debugAuth'
 
-// Глобальные компоненты
 import OptimizedImage from '@/components/common/OptimizedImage.vue'
 import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 import EmojiReplacer from '@/components/ui/EmojiReplacer.vue'
 import StarRating from '@/components/ui/StarRating.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 
-// Глобальные директивы
 import { sakuraEmoji } from '@/directives/sakuraEmoji'
 
 const app = createApp(App)
@@ -27,41 +26,24 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 
-// Глобальная регистрация компонентов
 app.component('OptimizedImage', OptimizedImage)
 app.component('SakuraIcon', SakuraIcon)
 app.component('EmojiReplacer', EmojiReplacer)
 app.component('StarRating', StarRating)
 app.component('StatusBadge', StatusBadge)
 
-// Глобальная регистрация директив
 app.directive('sakura-emoji', sakuraEmoji)
 
-// Initialize auth check
 import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 
-// Skip auth check in local development mode
-const isLocalDevelopment = () => {
-  const hostname = window.location.hostname
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
-}
+authStore.checkAuth()
 
-if (!isLocalDevelopment()) {
-  authStore.checkAuth()
-} else {
-  console.log('🔓 Local development mode: Skipping initial auth check')
-}
-
-// Initialize settings
 import { useSettingsStore } from '@/stores/settings'
 const settingsStore = useSettingsStore()
 settingsStore.init()
 
-// ============================================
-// Очистка Cache Storage при превышении лимита
-// ============================================
-const CACHE_STORAGE_LIMIT_MB = 200 // Лимит в MB
+const CACHE_STORAGE_LIMIT_MB = 200 
 
 async function cleanupCacheStorage() {
   if (!navigator.storage || !navigator.storage.estimate) {
@@ -79,7 +61,6 @@ async function cleanupCacheStorage() {
     if (usedMB > CACHE_STORAGE_LIMIT_MB) {
       console.warn(`🧹 Cache cleanup: Превышен лимит ${CACHE_STORAGE_LIMIT_MB} MB (текущее ${usedMB.toFixed(2)} MB). Очищаем кэши...`)
 
-      // Получаем все кэши
       const cacheNames = await caches.keys()
       
       for (const cacheName of cacheNames) {
@@ -87,7 +68,6 @@ async function cleanupCacheStorage() {
           const cache = await caches.open(cacheName)
           const requests = await cache.keys()
           
-          // Удаляем старые записи (старше 1 дня)
           const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000)
           let deletedCount = 0
 
@@ -113,7 +93,6 @@ async function cleanupCacheStorage() {
         }
       }
 
-      // Повторная проверка после очистки
       const newEstimate = await navigator.storage.estimate()
       const newUsedMB = (newEstimate.usage || 0) / (1024 * 1024)
       console.log(`✅ После очистки: ${newUsedMB.toFixed(2)} MB (освобождено ${(usedMB - newUsedMB).toFixed(2)} MB)`)
@@ -123,7 +102,6 @@ async function cleanupCacheStorage() {
   }
 }
 
-// Запускаем очистку при инициализации
 cleanupCacheStorage()
 
 app.mount('#app')

@@ -1,7 +1,7 @@
 import apiClient from './client'
 import type { ChatFolder, CreateFolderData, UpdateFolderData, FolderPreview, Chat } from '@/types/chat'
 
-// Хелпер для получения полного URL медиа
+
 const getMediaUrl = (path: string | null | undefined): string => {
   if (!path) return ''
   if (path.startsWith('http')) return path
@@ -15,8 +15,8 @@ export const chatFoldersApi = {
       const response = await apiClient.get('/social/chat-folders/')
       return response.data
     } catch (error) {
-      // Если API не работает, возвращаем пустой массив
-      // Системные папки будут показаны из types/chat.ts
+      
+      
       return []
     }
   },
@@ -44,13 +44,13 @@ export const chatFoldersApi = {
   },
 
   async getPreview(id: number): Promise<FolderPreview> {
-    // Для папки обсуждений загружаем из group-chats с фильтром по anime
+    
     if (id === -4) {
       try {
         const response = await apiClient.get('/social/group-chats/')
         const allChats = response.data.results || response.data
         
-        // Фильтруем только чаты с аниме (обсуждения)
+        
         const discussionChats = allChats.filter((chat: any) => chat.anime_id || chat.anime_title)
         
         return {
@@ -58,7 +58,7 @@ export const chatFoldersApi = {
           chat_count: discussionChats.length,
           unread_count: discussionChats.reduce((sum: number, d: any) => sum + (d.unread_count || 0), 0),
           chats: discussionChats.map((d: any) => {
-            // Проверяем anime_poster на пустую строку, null и undefined
+            
             const animePoster = d.anime_poster
             const hasAnimePoster = animePoster && typeof animePoster === 'string' && animePoster.trim() !== ''
             
@@ -68,7 +68,7 @@ export const chatFoldersApi = {
               name: d.anime_title || d.name,
               description: d.description,
               avatar_url: hasAnimePoster ? getMediaUrl(animePoster) : d.avatar_url,
-              // Поля для групп обсуждений аниме
+              
               anime_id: d.anime_id,
               anime_title: d.anime_title,
               anime_poster: hasAnimePoster ? getMediaUrl(animePoster) : null,
@@ -101,17 +101,17 @@ export const chatFoldersApi = {
   },
 
   async getFolderChats(id: number): Promise<Chat[]> {
-    // Для папки обсуждений загружаем из group-chats с фильтром по anime
+    
     if (id === -4) {
       try {
         const response = await apiClient.get('/social/group-chats/')
         const allChats = response.data.results || response.data
         
-        // Фильтруем только чаты с аниме (обсуждения)
+        
         const discussionChats = allChats.filter((chat: any) => chat.anime_id || chat.anime_title)
         
         return discussionChats.map((d: any) => {
-          // Проверяем anime_poster на пустую строку, null и undefined
+          
           const animePoster = d.anime_poster
           const hasAnimePoster = animePoster && typeof animePoster === 'string' && animePoster.trim() !== ''
           
@@ -121,7 +121,7 @@ export const chatFoldersApi = {
             name: d.anime_title || d.name,
             description: d.description,
             avatar_url: hasAnimePoster ? getMediaUrl(animePoster) : d.avatar_url,
-            // Поля для групп обсуждений аниме
+            
             anime_id: d.anime_id,
             anime_title: d.anime_title,
             anime_poster: hasAnimePoster ? getMediaUrl(animePoster) : null,

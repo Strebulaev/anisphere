@@ -228,13 +228,13 @@ class EmailNotificationService:
 
     def send_test_email(self) -> bool:
         """Отправка тестового email"""
-        subject = "Тестовое уведомление - AnimeCore"
+        subject = "Тестовое уведомление - AniSphere"
         html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif; padding: 20px;">
             <h2>Тестовое уведомление</h2>
             <p>Привет, {self.user.username}!</p>
-            <p>Это тестовое email уведомление от AnimeCore.</p>
+            <p>Это тестовое email уведомление от AniSphere.</p>
             <p>Если вы получили это письмо, значит настройки email работают корректно.</p>
             <p>Время отправки: {timezone.now().strftime('%d.%m.%Y %H:%M')}</p>
         </body>

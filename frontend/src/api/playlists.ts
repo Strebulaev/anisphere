@@ -18,12 +18,12 @@ export interface Playlist {
   description: string
   cover_image?: string | null
   cover_urls?: string[]
-  // Видимость
+  
   visibility: PlaylistVisibility
   is_public: boolean
   is_private: boolean
   is_link_only: boolean
-  // Share-токен (для link_only или владельца)
+  
   share_token?: string | null
   is_favorite?: boolean
   favorites_count: number
@@ -44,7 +44,7 @@ export interface Genre {
 
 export interface PlaylistItem {
   id: number
-  anime: number
+  anime: number | any
   anime_id: number
   anime_title: string
   anime_title_en?: string
@@ -55,6 +55,7 @@ export interface PlaylistItem {
   anime_status?: string
   anime_kind?: string
   anime_genres?: string[]
+  anime_slug?: string
   episode_number: number | null
   source_url: string
   notes: string
@@ -122,7 +123,7 @@ export interface PlaylistsParams {
 }
 
 const playlistsApi = {
-  // Плейлисты пользователя
+  
   getMyPlaylists: (): Promise<AxiosResponse<Playlist[]>> => {
     return apiClient.get<Playlist[]>('/playlists/playlists/my/')
   },
@@ -199,7 +200,7 @@ const playlistsApi = {
     return apiClient.post<Playlist>(`/playlists/playlists/${id}/update_cover/`)
   },
 
-  // Элементы плейлиста
+  
   addToPlaylist: (data: AddToPlaylistRequest): Promise<AxiosResponse<{
     message: string
     playlist_id: number
@@ -214,7 +215,7 @@ const playlistsApi = {
     source_url?: string
     notes?: string
   }): Promise<AxiosResponse<PlaylistItem>> => {
-    // Преобразуем anime в anime_id для бэкенда
+    
     const payload = {
       anime_id: data.anime,
       episode_number: data.episode_number,
@@ -258,7 +259,7 @@ const playlistsApi = {
     return apiClient.post<{ message: string }>(`/playlists/playlists/${playlistId}/reorder_items/`, { items })
   },
 
-  // Избранное аниме
+  
   getFavoriteAnime: (): Promise<AxiosResponse<FavoriteAnime[]>> => {
     return apiClient.get<FavoriteAnime[]>('/playlists/favorites/anime/')
   },
@@ -279,7 +280,7 @@ const playlistsApi = {
     })
   },
 
-  // Избранные плейлисты
+  
   getFavoritePlaylists: (): Promise<AxiosResponse<FavoritePlaylist[]>> => {
     return apiClient.get<FavoritePlaylist[]>('/playlists/favorites/')
   },

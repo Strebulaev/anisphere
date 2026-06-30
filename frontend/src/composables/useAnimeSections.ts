@@ -5,7 +5,6 @@ import type { Anime } from '@/types'
 
 export type AnimeSection = 'catalog' | 'ongoings' | 'recommendations' | 'announcements' | 'random' | 'currently_watching'
 
-// Флаг для отслеживания первого открытия каталога в сессии
 let catalogInitialShuffleApplied = false
 
 export function useAnimeSections() {
@@ -130,7 +129,6 @@ export function useAnimeSections() {
     recommendationsLoading.value = true
     recommendationsError.value = null
     try {
-      // Используем только реальные поля модели для сортировки
       const response = await animeApi.list({ ordering: '-score', page_size: 12 })
       recommendations.value = (response.results || []) as any
       originalRecommendations.value = [...(response.results || [])]
@@ -183,10 +181,10 @@ export function useAnimeSections() {
         year_to:       f.year_to,
         status:        f.status,
         type:          f.type,
-        episodes_from: f.episodes_from,
-        episodes_to:   f.episodes_to,
-        score_from:    f.score_from,
-        score_to:      f.score_to,
+        episodes_from: f.episodes_from != null ? f.episodes_from : undefined,
+        episodes_to:   f.episodes_to   != null ? f.episodes_to   : undefined,
+        score_from:    f.score_from    != null ? f.score_from    : undefined,
+        score_to:      f.score_to      != null ? f.score_to      : undefined,
         studio:        f.studio,
         shuffle:       catalogShuffle.value,
       })
@@ -205,7 +203,7 @@ export function useAnimeSections() {
 
   const switchSection = (section: AnimeSection) => {
     currentSection.value = section
-    // Сохраняем выбранную вкладку
+    
     try { localStorage.setItem(SECTION_STORAGE_KEY, section) } catch {}
     router.replace({ path: route.path, query: { section } })
     switch (section) {
@@ -215,7 +213,6 @@ export function useAnimeSections() {
       case 'random':          if (!randomAnimeList.value.length) fetchRandomAnimeList(6);break
       case 'catalog':
         if (!catalogAnime.value.length) {
-          // Автоматически применяем shuffle при первом открытии каталога в сессии
           if (!catalogInitialShuffleApplied) {
             catalogShuffle.value = true
             isShuffled.value.catalog = true
@@ -283,11 +280,9 @@ export function useAnimeSections() {
   const ALL_SECTIONS: string[] = ['catalog','ongoings','recommendations','announcements','random','currently_watching']
 
   onMounted(() => {
-    // Приоритет: URL-параметр > localStorage > по умолчанию (catalog)
     const sectionParam = route.query.section as string
     if (sectionParam && ALL_SECTIONS.includes(sectionParam)) {
       currentSection.value = sectionParam as AnimeSection
-      // Сохраняем в localStorage для консистентности
       try { localStorage.setItem(SECTION_STORAGE_KEY, sectionParam) } catch {}
     } else {
       try {
@@ -297,8 +292,6 @@ export function useAnimeSections() {
         }
       } catch {}
     }
-    // Вкладку 'currently_watching' загружает AnimeView.vue,
-    // здесь пропускаем вызов switchSection для неё
     if (currentSection.value !== 'currently_watching') {
       switchSection(currentSection.value)
     }

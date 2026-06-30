@@ -19,7 +19,7 @@ export const usePostStore = defineStore('post', () => {
     try {
       const { data } = await postsApi.getPost(id)
       currentPost.value = data
-      // Record view
+      
       postsApi.viewPost(id).catch(() => {})
     } catch {
       error.value = 'Пост не найден'
@@ -42,7 +42,7 @@ export const usePostStore = defineStore('post', () => {
       comments.value = data.results
       if (data.next === null) commentsHasMore.value = false
     } catch {
-      // ignore
+      
     } finally {
       loadingComments.value = false
     }
@@ -60,7 +60,7 @@ export const usePostStore = defineStore('post', () => {
       commentsPage.value = nextPage
       if (data.next === null) commentsHasMore.value = false
     } catch {
-      // ignore
+      
     } finally {
       loadingMoreComments.value = false
     }
@@ -69,11 +69,11 @@ export const usePostStore = defineStore('post', () => {
   async function addComment(postId: number, content: string, parentId?: number) {
     try {
       const { data } = await commentsApi.createComment(postId, content, parentId)
-      // ensure necessary fields are present (author info/timestamp)
+      
       const normalized = normalizeComment(data)
 
       if (parentId) {
-        // Add as reply to parent
+        
         const parent = findComment(comments.value, parentId)
         if (parent) {
           if (!parent.replies) parent.replies = []
@@ -102,7 +102,7 @@ export const usePostStore = defineStore('post', () => {
         currentPost.value.comments_count = Math.max(0, currentPost.value.comments_count - 1)
       }
     } catch {
-      // ignore
+      
     }
   }
 
@@ -113,7 +113,7 @@ export const usePostStore = defineStore('post', () => {
     const wasLiked = comment.is_liked
     const wasDisliked = comment.is_disliked
 
-    // Optimistic
+    
     if (wasLiked) {
       comment.is_liked = false
       comment.likes_count--
@@ -192,7 +192,7 @@ export const usePostStore = defineStore('post', () => {
   }
 })
 
-// Helpers
+
 function findComment(comments: PostComment[], id: number): PostComment | null {
   for (const c of comments) {
     if (c.id === id) return c

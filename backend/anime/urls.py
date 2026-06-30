@@ -8,6 +8,7 @@ from .views import (
     AnimeViewSet,
     GenresViewSet,
     FranchiseViewSet,
+    AnnouncementViewSet,
     proxy_video,
     SearchAPIView,
     ParserStatusAPIView,
@@ -18,6 +19,7 @@ from .views import (
     CustomDubListView,
     CustomDubDetailView,
     HomeAPIView,
+    PersonalizedRecommendationsView,
     AnimeEpisodeNotificationView,
     RandomAnimeView,
     CurrentlyWatchingView,
@@ -30,10 +32,18 @@ from .views import (
     AdminTodayAddedAnimeView,
 )
 
+from .views_clip import ClipTaskViewSet, ScreenshotView, ClipCreateView
+from .views_screenshot import KodikInstantScreenshotView, KodikClipCreateView, KodikStreamView, DirectVideoUrlView
+
+router = DefaultRouter()
 router = DefaultRouter()
 router.register(r"franchises", FranchiseViewSet, basename="franchise")
 router.register(r"genres", GenresViewSet, basename="genres")
+router.register(r"announcements", AnnouncementViewSet, basename="announcement")
 router.register(r"", AnimeViewSet, basename="anime")
+
+# Get URLs without format suffix patterns (we'll add them once globally if needed)
+router_urls = router.urls
 
 urlpatterns = [
     # Новые API endpoints для anime-parsers-ru (должны идти до router.urls)
@@ -41,6 +51,11 @@ urlpatterns = [
     path("parser/status/", ParserStatusAPIView.as_view(), name="parser-status"),
     path("updates/", UpdatesAPIView.as_view(), name="anime-updates"),
     path("home/", HomeAPIView.as_view(), name="anime-home"),
+    path(
+        "home/personalized/",
+        PersonalizedRecommendationsView.as_view(),
+        name="anime-home-personalized",
+    ),
     path("random/", RandomAnimeView.as_view(), name="anime-random"),
     path(
         "currently-watching/",
@@ -99,10 +114,31 @@ urlpatterns = [
         AdminTodayAddedAnimeView.as_view(),
         name="admin-today-added",
     ),
-    path("", include(router.urls)),
+    
+    # Clip & Screenshot tasks (ДО router.urls!)
+    path("clips/", ClipTaskViewSet.as_view({'get': 'list', 'post': 'create'}), name='clip-tasks-list'),
+    path("clips/<uuid:pk>/", ClipTaskViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'}), name='clip-task-detail'),
+    path("clips/<uuid:pk>/status/", ClipTaskViewSet.as_view({'get': 'status'}), name='clip-task-status'),
+    path("clips/<uuid:pk>/retry/", ClipTaskViewSet.as_view({'post': 'retry'}), name='clip-task-retry'),
+    
+    # Legacy endpoints for compatibility
+    path("screenshot/", ScreenshotView.as_view(), name='screenshot-create'),
+    path("clip/create/", ClipCreateView.as_view(), name='clip-create'),
+    
+    # Instant screenshot (synchronous)
+    path("<int:pk>/screenshot/", KodikInstantScreenshotView.as_view(), name="anime-instant-screenshot"),
+    # Async clip creation
+    path("<int:pk>/clip/create/", KodikClipCreateView.as_view(), name="anime-clip-create"),
+    # Stream download (direct to user)
+    path("<int:pk>/stream/", KodikStreamView.as_view(), name="anime-stream"),
+    # Direct MP4 URL (no ffmpeg)
+    path("<int:pk>/direct_url/", DirectVideoUrlView.as_view(), name="anime-direct-url"),
+
+    # Router URLs (должны идти последними)
+    path("", include((router_urls, 'anime'), namespace='anime')),
 ]
 
-# kodik_proxy маршруты (без 'api/' префикса — он добавляется в корневом urls.py)
+# kodik_proxy маршруты (без 'api/' префикса - он добавляется в корневом urls.py)
 urlpatterns += [
     path("kodik/studios/", kodik_proxy.kodik_studios, name="kodik-studios"),
     path("kodik/proxy/", kodik_proxy.kodik_proxy, name="kodik-proxy"),

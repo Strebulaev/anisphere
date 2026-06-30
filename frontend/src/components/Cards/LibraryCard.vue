@@ -361,7 +361,7 @@ const isIconName = (name: string | undefined): name is string => {
 }
 
 // ── Вычисляемые ───────────────────────────────────────────────
-const title = computed(() => props.item.anime_title_ru || props.item.anime_title_en || '—')
+const title = computed(() => props.item.anime_title_ru || props.item.anime_title_en || '-')
 
 const posterUrl = computed(() => {
   if (!props.item.anime_poster) return null
@@ -391,7 +391,7 @@ const dateLabel = computed(() => {
   const s = props.item.status
   if (s === 'completed' && props.item.completed_at) return 'Завершено ' + fmt(props.item.completed_at)
   if (s === 'started'   && props.item.updated_at)   return 'Смотрел '  + fmt(props.item.updated_at)
-  return 'Добавлено ' + (fmt(props.item.added_at) ?? '—')
+  return 'Добавлено ' + (fmt(props.item.added_at) ?? '-')
 })
 
 // ── Состояние ─────────────────────────────────────────────────
@@ -519,7 +519,9 @@ const editForm = reactive({
 })
 
 // ── Действия ─────────────────────────────────────────────────
-const goAnime  = () => router.push(`/anime/${props.item.anime}`)
+const goAnime  = () => {
+  router.push(`/anime/${props.item.anime}`)
+}
 
 const watchNow = () => {
   menuOpen.value = false
@@ -672,7 +674,7 @@ const saveEdit = async () => {
 .card-action-btn.playlist-btn:hover { background-color: var(--accent-2, var(--accent)); }
 .card-action-btn.reminder-btn:hover { background-color: var(--warning); }
 
-/* Мобильные — всегда видимые */
+/* Мобильные - всегда видимые */
 @media (max-width: 767px) {
   .card-action-btns { opacity: 1; transform: translateY(0); }
   .card-action-btn { width: 24px; height: 24px; }

@@ -11,21 +11,24 @@ services:
       MYSQL_PASSWORD: dv7uuc8BY8w5Hqx
       MYSQL_ROOT_PASSWORD: rootpassword123
     ports:
-      - "3307:3306"  # Пробуем другой порт, чтобы избежать конфликтов
+      - "3307:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./data/mysql:/var/lib/mysql
     networks:
       - anisphere_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword123"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
 
   backend:
     build: .
     container_name: anisphere_backend
     restart: always
+    ports:
+      - "8000:8000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -35,23 +38,13 @@ services:
       - DB_PASSWORD=dv7uuc8BY8w5Hqx
       - DB_HOST=mysql
       - DB_PORT=3306
-      - DJANGO_DEBUG=False
-      - DJANGO_SECRET_KEY=django-insecure-v9de-w3%n@%4qm%w=$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e
+      - DJANGO_DEBUG=True
+      - DJANGO_SECRET_KEY=django-insecure-v9de-w3%n@%4qm%w=$$dn^pg18_k9gi_f-^o_(q^!edyixqpe9e
       - REDIS_HOST=redis
     volumes:
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
-    networks:
-      - anisphere_network
-
-  frontend:
-    build: ../frontend  # Путь к фронтенду (на уровень выше)
-    container_name: anisphere_frontend
-    restart: always
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+      - ./data/staticfiles:/app/staticfiles
+      - ./data/media:/app/media
+      - .:/app  # Монтируем весь проект для разработки
     networks:
       - anisphere_network
 
@@ -67,8 +60,3 @@ services:
 networks:
   anisphere_network:
     driver: bridge
-
-volumes:
-  mysql_data:
-  static_volume:
-  media_volume:

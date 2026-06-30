@@ -250,10 +250,22 @@ const handleSearch = () => {
 
   searchTimeout.value = window.setTimeout(async () => {
     try {
-      const response = await api.get('/anime/anime/', { params: { search: searchQuery.value, page_size: 10 } })
+      // Нормализуем запрос для бэкенда
+      const normalizedQuery = searchQuery.value
+        .toLowerCase()
+        .replace(/[-_:/\\|,.!?@#$%^&*(){}\[\]<>~`'"\\s]+/g, ' ')
+        .trim()
+      
+      // Используем тот же endpoint что и каталог - для консистентности результатов
+      const response = await api.get('/anime/', { 
+        params: { 
+          search: normalizedQuery, 
+          page_size: 100 
+        } 
+      })
       searchResults.value = response.data.results || response.data
     } catch (err) {
-      console.error('РћС€РёР±РєР° РїРѕРёСЃРєР° Р°РЅРёРјРµ:', err)
+      console.error('Ошибка поиска аниме:', err)
       searchResults.value = []
     } finally {
       isSearching.value = false

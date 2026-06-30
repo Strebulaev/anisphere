@@ -34,10 +34,10 @@
       <!-- Правая часть -->
       <div class="navbar-actions">
         <!-- Поддержать -->
-        <router-link to="/donate" class="donate-btn" title="Поддержать проект">
+        <!-- <router-link to="/donate" class="donate-btn" title="Поддержать проект">
           <span class="donate-icon">💝</span>
           <span class="donate-label">Поддержать</span>
-        </router-link>
+        </router-link> -->
 
         <!-- Уведомления -->
         <div class="navbar-notifications" v-if="isAuthenticated">

@@ -3,6 +3,8 @@ import type { HomeData } from '@/types'
 
 export interface Anime {
   id: number
+  slug?: string
+  mal_id?: number
   shikimori_id?: string
   title_ru: string
   title_en?: string
@@ -56,7 +58,7 @@ export interface AnimeFilters {
   genres?: string[] | string
   genre_logic?: 'AND' | 'OR'
 
-  // Тип и статус — multi-select, передаются через запятую
+  // Тип и статус - multi-select, передаются через запятую
   // Допустимые status: ongoing | finished | announced | canceled
   // Допустимые type:   tv | movie | ova | ona | special | music
   status?: string[] | string
@@ -75,7 +77,10 @@ export interface AnimeFilters {
   // Студия (multi-select, icontains по JSON-полю studios)
   studio?: string[] | string
 
-  // Дополнительные — бэкенд принимает, но поля в модели нет (игнорируются)
+  // Исключить из коллекции пользователя (статусы библиотек)
+  excluded_library_statuses?: string[]
+
+  // Дополнительные - бэкенд принимает, но поля в модели нет (игнорируются)
   country?: string[] | string
   age_rating?: string[] | string
   rus_translation?: 'full' | 'partial' | 'none' | null
@@ -103,7 +108,32 @@ const toComma = (v: string[] | string | undefined): string | undefined => {
 }
 
 export const animeApi = {
+  /**
+   * Поиск через каталог (как в /anime каталоге)
+   * Использует endpoint /anime/ с параметром search для консистентности
+   */
   search: async (query: string, options?: SearchOptions): Promise<SearchResults> => {
+    // Используем тот же endpoint что и каталог - /anime/ с search параметром
+    const params: any = { 
+      search: query,
+      page_size: options?.limit || 500
+    }
+    const response = await apiClient.get<AnimeListResponse>('/anime/', { params })
+    
+    // Форматируем ответ как SearchResults для совместимости
+    return {
+      query: query,
+      results: response.data.results || [],
+      total: response.data.count || 0,
+      source: 'database'
+    }
+  },
+
+  /**
+   * Старый search endpoint (для совместимости)
+   * @deprecated Используйте основной search() вместо этого
+   */
+  searchLegacy: async (query: string, options?: SearchOptions): Promise<SearchResults> => {
     const params: any = { q: query }
     if (options?.limit) params.limit = options.limit
     const response = await apiClient.get<SearchResults>('/anime/search/', { params })
@@ -179,6 +209,10 @@ export const animeApi = {
     if (filters.rus_translation) params.rus_translation = filters.rus_translation
     if (filters.has_awards)      params.has_awards      = 'true'
 
+    // Исключить из коллекции пользователя
+    const excludedLibraryStatuses = toComma(filters.excluded_library_statuses)
+    if (excludedLibraryStatuses) params.excluded_library_statuses = excludedLibraryStatuses
+
     const response = await apiClient.get<AnimeListResponse>('/anime/', { params })
     return response.data
   },
@@ -234,22 +268,21 @@ export const animeApi = {
   },
 
   getAnnouncements: async (): Promise<Anime[]> => {
-    // Собираем анонсы из всех возможных источников
+    // Получаем анонсы из новой таблицы anime_announcements
     const all: Anime[] = []
-    const existingIds = new Set<number | string>()
+    const existingIds = new Set<number>()
     
-    // 1. Пробуем получить из бэкенда (status=announced)
     try {
       const PAGE_SIZE = 200
       let page = 1
       while (true) {
-        const response = await apiClient.get<AnimeListResponse>('/anime/', {
-          params: { status: 'announced', ordering: '-year', page_size: PAGE_SIZE, page }
+        const response = await apiClient.get<AnimeListResponse>('/anime/announcements/', {
+          params: { ordering: '-created_at', page_size: PAGE_SIZE, page }
         })
         const results = response.data.results || []
         for (const a of results) {
-          const id = a.shikimori_id || a.id
-          if (!existingIds.has(id)) {
+          const id = a.id
+          if (id && !existingIds.has(id)) {
             existingIds.add(id)
             all.push(a)
           }
@@ -258,134 +291,102 @@ export const animeApi = {
         page++
       }
     } catch (e) {
-      console.warn('Failed to fetch announcements from backend:', e)
-    }
-    
-    // 2. Если в бэкенде мало данных - дополняем из Kodik
-    if (all.length < 20) {
-      try {
-        const kodikAnnouncements = await animeApi.getAnnouncementsFromKodik()
-        for (const k of kodikAnnouncements) {
-          const kid = k.shikimori_id || k.id
-          if (!existingIds.has(kid)) {
-            existingIds.add(kid)
-            all.push(k)
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to fetch announcements from Kodik:', e)
-      }
-    }
-    
-    // 3. Если всё ещё мало - пробуем Shikimori
-    if (all.length < 10) {
-      try {
-        const shikiAnnouncements = await animeApi.getAnnouncementsFromShikimori()
-        for (const s of shikiAnnouncements) {
-          const sid = s.shikimori_id || s.id
-          if (!existingIds.has(sid)) {
-            existingIds.add(sid)
-            all.push(s)
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to fetch announcements from Shikimori:', e)
-      }
+      console.warn('Failed to fetch announcements from anime_announcements:', e)
     }
     
     return all
   },
 
-  getAnnouncementsFromKodik: async (): Promise<Anime[]> => {
-    // Используем актуальный Kodik API v2
-    const KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
-    const all: any[] = []
-    let nextPage: string | null = `https://kodik-api.com/list?token=${KODIK_TOKEN}&types=anime-serial,anime&anime_status=anons&with_material_data=true&limit=100`
-    let iterations = 0
-    while (nextPage && iterations < 10) {
-      iterations++
-      try {
-        const res = await fetch(nextPage)
-        if (!res.ok) break
-        const data = await res.json()
-        const results = data.results || []
-        if (!results.length) break
-        all.push(...results)
-        nextPage = data.next_page || null
-      } catch { break }
-    }
+  // // getAnnouncementsFromKodik: async (): Promise<Anime[]> => {
+  // //   // Используем актуальный Kodik API v2
+  // //   const KODIK_TOKEN = '74ecb013335271e4344ebc994956dd75'
+  // //   const all: any[] = []
+  // //   let nextPage: string | null = `https://kodik-api.com/list?token=${KODIK_TOKEN}&types=anime-serial,anime&anime_status=anons&with_material_data=true&limit=100`
+  // //   let iterations = 0
+  // //   while (nextPage && iterations < 10) {
+  // //     iterations++
+  // //     try {
+  // //       const res = await fetch(nextPage)
+  // //       if (!res.ok) break
+  // //       const data = await res.json()
+  // //       const results = data.results || []
+  // //       if (!results.length) break
+  // //       all.push(...results)
+  // //       nextPage = data.next_page || null
+  // //     } catch { break }
+  // //   }
     
-    // Если Kodik вернул данные - маппим и возвращаем
-    if (all.length > 0) {
-      const seen = new Set<string>()
-      const mapped: Anime[] = []
-      for (const item of all) {
-        const shikiId = item.shikimori_id
-        const key = shikiId ? String(shikiId) : item.id
-        if (seen.has(key)) continue
-        seen.add(key)
-        const md = item.material_data || {}
-        mapped.push({
-          id: shikiId || item.id,
-          shikimori_id: shikiId ? String(shikiId) : undefined,
-          title_ru: md.title || item.title || '',
-          title_en: item.title_orig || '',
-          year: item.year || md.year,
-          status: 'announced',
-          episodes: md.episodes_total || item.episodes_count || null,
-          score: md.shikimori_rating || md.kinopoisk_rating || null,
-          poster_url: md.anime_poster_url || md.poster_url || null,
-          description: md.anime_description || md.description || '',
-          genres: md.anime_genres || md.genres || [],
-          source: 'kodik',
-        } as any)
-      }
-      return mapped
-    }
+  // //   // Если Kodik вернул данные - маппим и возвращаем
+  // //   if (all.length > 0) {
+  // //     const seen = new Set<string>()
+  // //     const mapped: Anime[] = []
+  // //     for (const item of all) {
+  // //       const shikiId = item.shikimori_id
+  // //       const key = shikiId ? String(shikiId) : item.id
+  // //       if (seen.has(key)) continue
+  // //       seen.add(key)
+  // //       const md = item.material_data || {}
+  // //       mapped.push({
+  // //         id: shikiId || item.id,
+  // //         shikimori_id: shikiId ? String(shikiId) : undefined,
+  // //         title_ru: md.title || item.title || '',
+  // //         title_en: item.title_orig || '',
+  // //         year: item.year || md.year,
+  // //         status: 'announced',
+  // //         episodes: md.episodes_total || item.episodes_count || null,
+  // //         score: md.shikimori_rating || md.kinopoisk_rating || null,
+  // //         poster_url: md.anime_poster_url || md.poster_url || null,
+  // //         description: md.anime_description || md.description || '',
+  // //         genres: md.anime_genres || md.genres || [],
+  // //         source: 'kodik',
+  // //       } as any)
+  // //     }
+  // //     return mapped
+  // //   }
     
-    // Если Kodik не вернул данные - пробуем Shikimori API
-    return animeApi.getAnnouncementsFromShikimori()
-  },
+  // //   // Если Kodik не вернул данные - пробуем Shikimori API
+  // //   return animeApi.getAnnouncementsFromShikimori()
+  // // },
 
-  getAnnouncementsFromShikimori: async (): Promise<Anime[]> => {
-    // Используем Shikimori API для получения анонсов
-    try {
-      const all: any[] = []
-      // Запрашиваем аниме со статусом "anons" (анонсированные)
-      for (let page = 1; page <= 3; page++) {
-        const res = await fetch(
-          `https://shikimori.one/api/animes?kind=tv,movie,ona,ova,special&status=anons&order=rank&limit=50&page=${page}`,
-          { headers: { 'Content-Type': 'application/json' } }
-        )
-        if (!res.ok) break
-        const data = await res.json()
-        if (!Array.isArray(data) || data.length === 0) break
-        all.push(...data)
-      }
+  // getAnnouncementsFromShikimori: async (): Promise<Anime[]> => {
+  //   // Используем Shikimori API для получения анонсов
+  //   try {
+  //     const all: any[] = []
+  //     // Запрашиваем аниме со статусом "anons" (анонсированные)
+  //     for (let page = 1; page <= 3; page++) {
+  //       const res = await fetch(
+  //         `https://shikimori.one/api/animes?kind=tv,movie,ona,ova,special&status=anons&order=rank&limit=50&page=${page}`,
+  //         { headers: { 'Content-Type': 'application/json' } }
+  //       )
+  //       if (!res.ok) break
+  //       const data = await res.json()
+  //       if (!Array.isArray(data) || data.length === 0) break
+  //       all.push(...data)
+  //     }
       
-      if (all.length === 0) return []
+  //     if (all.length === 0) return []
       
-      // Маппинг Shikimori → формат AnimeCard
-      const mapped: Anime[] = all.map(item => ({
-        id: item.id,
-        shikimori_id: String(item.id),
-        title_ru: item.name || '',
-        title_en: item.english || '',
-        year: item.released_on ? new Date(item.released_on).getFullYear() : null,
-        status: 'announced',
-        episodes: item.episodes || null,
-        score: item.score ? parseFloat(item.score) : null,
-        poster_url: item.image ? `https://shikimori.one${item.image.original}` : null,
-        description: item.description || '',
-        genres: [],
-        source: 'shikimori',
-      } as any))
+  //     // Маппинг Shikimori → формат AnimeCard
+  //     const mapped: Anime[] = all.map(item => ({
+  //       id: item.id,
+  //       shikimori_id: String(item.id),
+  //       title_ru: item.name || '',
+  //       title_en: item.english || '',
+  //       year: item.released_on ? new Date(item.released_on).getFullYear() : null,
+  //       status: 'announced',
+  //       episodes: item.episodes || null,
+  //       score: item.score ? parseFloat(item.score) : null,
+  //       poster_url: item.image ? `https://shikimori.one${item.image.original}` : null,
+  //       description: item.description || '',
+  //       genres: [],
+  //       source: 'shikimori',
+  //     } as any))
       
-      return mapped
-    } catch {
-      return []
-    }
-  },
+  //     return mapped
+  //   } catch {
+  //     return []
+  //   }
+  // },
 
   getRecommendations: async (limit: number = 12): Promise<Anime[]> => {
     const response = await apiClient.get<AnimeListResponse>('/anime/', {
@@ -409,6 +410,11 @@ export const animeApi = {
     return response.data
   },
 
+  getPersonalizedRecommendations: async () => {
+    const response = await apiClient.get('/anime/home/personalized/')
+    return response.data
+  },
+
   addToLibrary: async (data: {
     anime: number
     status: 'planned' | 'started' | 'completed' | 'dropped'
@@ -418,7 +424,86 @@ export const animeApi = {
   }) => {
     const response = await apiClient.post('/users/library/', data)
     return response.data
-  }
+  },
+
+  // ════════════════════════════════════════════════════════
+  // CLIPS & SCREENSHOTS
+  // ════════════════════════════════════════════════════════
+  
+  createClipTask: async (data: {
+    anime: number
+    episode: number
+    season?: number
+    start_time: number
+    end_time: number
+    label?: string
+    quality?: string
+  }) => {
+    const response = await apiClient.post('/anime/clips/', {
+      ...data,
+      task_type: 'clip',
+    })
+    return response.data
+  },
+
+  createScreenshotTask: async (data: {
+    anime: number
+    episode?: number
+    timestamp: number
+    quality?: string
+  }) => {
+    const response = await apiClient.post('/anime/clips/', {
+      ...data,
+      task_type: 'screenshot',
+    })
+    return response.data
+  },
+
+  getClipTask: async (taskId: string) => {
+    const response = await apiClient.get(`/anime/clips/${taskId}/`)
+    return response.data
+  },
+
+  getClipTaskStatus: async (taskId: string) => {
+    const response = await apiClient.get(`/anime/clips/${taskId}/status/`)
+    return response.data
+  },
+
+  retryClipTask: async (taskId: string) => {
+    const response = await apiClient.post(`/anime/clips/${taskId}/retry/`)
+    return response.data
+  },
+
+  deleteClipTask: async (taskId: string) => {
+    const response = await apiClient.delete(`/anime/clips/${taskId}/`)
+    return response.data
+  },
+
+  listClipTasks: async () => {
+    const response = await apiClient.get('/anime/clips/')
+    return response.data
+  },
+
+  // Legacy endpoints for backward compatibility
+  createScreenshotLegacy: async (data: {
+    anime_id: number
+    episode?: number
+    timestamp: number
+  }) => {
+    const response = await apiClient.post('/anime/screenshot/', data)
+    return response.data
+  },
+
+  createClipLegacy: async (data: {
+    anime_id: number
+    episode?: number
+    start: number
+    end: number
+    label?: string
+  }) => {
+    const response = await apiClient.post('/anime/clip/create/', data)
+    return response.data
+  },
 }
 
 export default animeApi

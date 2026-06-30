@@ -4,12 +4,10 @@ import { getMediaBaseUrl } from '@/api/client'
 function toAbsoluteUrl(url: string | null | undefined): string | null {
   if (!url) return null
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  // Относительный путь — добавляем бэкенд-домен
   const base = getMediaBaseUrl()
   return `${base}${url.startsWith('/') ? '' : '/'}${url}`
 }
 
-// Helpers to patch newly created objects with missing author/date info
 
 function ensureUserFields(obj: any, user: any) {
   if (!user) return obj
@@ -26,7 +24,6 @@ export function normalizePost(post: any) {
 
   ensureUserFields(post, user)
 
-  // fallback for timestamps
   if (!post.created_at) {
     post.created_at = new Date().toISOString()
   }
@@ -34,21 +31,16 @@ export function normalizePost(post: any) {
     post.published_at = post.created_at
   }
 
-  // FeedPostSerializer returns `anime_data` as the object, `anime` as FK id.
-  // PostSerializer returns `anime` as the full object directly.
-  // Normalise so that `post.anime` is always the full object (or null).
   if (post.anime_data && typeof post.anime !== 'object') {
     post.anime = post.anime_data
   } else if (post.anime && typeof post.anime === 'object' && !post.anime.poster_url && post.anime_data) {
     post.anime = post.anime_data
   }
 
-  // Нормализуем poster_url аниме — делаем абсолютным если относительный
   if (post.anime && typeof post.anime === 'object') {
     post.anime.poster_url = toAbsoluteUrl(post.anime.poster_url) ?? post.anime.poster_url
   }
 
-  // Similarly, normalise playlist / group from _data variants
   if (post.playlist_data && typeof post.playlist !== 'object') {
     post.playlist = post.playlist_data
   }

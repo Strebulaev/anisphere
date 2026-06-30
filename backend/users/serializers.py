@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.utils import timezone
+from django.conf import settings
+from pathlib import Path
+import random
 from .models import (
     FavoriteEpisode,
     FavoriteTheme,
@@ -15,9 +18,9 @@ from .models import (
     PrivacySettings,
     UserTheme,
     ChatBackground,
+    UserAnalytics,
     EmailLog,
     MessageNotification,
-    UserAnalytics,
     UserLibrary,
     SupportTicket,
     SupportMessage,
@@ -47,6 +50,15 @@ class UserSimpleSerializer(serializers.ModelSerializer):
     def get_avatar_url(self, obj):
         if obj.avatar:
             return obj.avatar.url
+        # Возвращаем случайную дефолтную аватарку
+        def_ava_dir = settings.MEDIA_ROOT / "def_avatars"
+        if def_ava_dir.exists():
+            jpg_files = list(def_ava_dir.glob("*.jpg")) + list(def_ava_dir.glob("*.jpeg"))
+            if jpg_files:
+                # Используем hash от id пользователя для детерминированного выбора
+                selected_index = obj.id % len(jpg_files)
+                selected_file = jpg_files[selected_index]
+                return f"/media/def_avatars/{selected_file.name}"
         return None
 
     def get_display_name(self, obj):
@@ -62,6 +74,13 @@ class UserSerializer(serializers.ModelSerializer):
     is_admin = serializers.SerializerMethodField()
     is_premium = serializers.SerializerMethodField()
     social_links = serializers.SerializerMethodField()
+    # Поля цвета никнейма (премиум)
+    nickname_color = serializers.SerializerMethodField()
+    nickname_gradient_start = serializers.SerializerMethodField()
+    nickname_gradient_end = serializers.SerializerMethodField()
+    nickname_glow_enabled = serializers.SerializerMethodField()
+    nickname_glow_color = serializers.SerializerMethodField()
+    nickname_glow_intensity = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -109,6 +128,13 @@ class UserSerializer(serializers.ModelSerializer):
             "is_staff",
             "is_admin",
             "is_premium",
+            # Цвет никнейма (премиум)
+            "nickname_color",
+            "nickname_gradient_start",
+            "nickname_gradient_end",
+            "nickname_glow_enabled",
+            "nickname_glow_color",
+            "nickname_glow_intensity",
         ]
         read_only_fields = [
             "id",
@@ -129,6 +155,15 @@ class UserSerializer(serializers.ModelSerializer):
     def get_avatar_url(self, obj):
         if obj.avatar:
             return obj.avatar.url
+        # Возвращаем дефолтную аватарку на основе id пользователя
+        def_ava_dir = settings.MEDIA_ROOT / "def_avatars"
+        if def_ava_dir.exists():
+            jpg_files = list(def_ava_dir.glob("*.jpg")) + list(def_ava_dir.glob("*.jpeg"))
+            if jpg_files:
+                # Используем hash от id пользователя для детерминированного выбора
+                selected_index = obj.id % len(jpg_files)
+                selected_file = jpg_files[selected_index]
+                return f"/media/def_avatars/{selected_file.name}"
         return None
 
     def get_cover_image_url(self, obj):
@@ -156,6 +191,43 @@ class UserSerializer(serializers.ModelSerializer):
             return getattr(profile, "social_links", []) or []
         except Exception:
             return []
+
+    # Методы для полей цвета никнейма
+    def get_nickname_color(self, obj):
+        try:
+            return obj.profile_settings.nickname_color or None
+        except Exception:
+            return None
+
+    def get_nickname_gradient_start(self, obj):
+        try:
+            return obj.profile_settings.nickname_gradient_start or None
+        except Exception:
+            return None
+
+    def get_nickname_gradient_end(self, obj):
+        try:
+            return obj.profile_settings.nickname_gradient_end or None
+        except Exception:
+            return None
+
+    def get_nickname_glow_enabled(self, obj):
+        try:
+            return obj.profile_settings.nickname_glow_enabled or False
+        except Exception:
+            return False
+
+    def get_nickname_glow_color(self, obj):
+        try:
+            return obj.profile_settings.nickname_glow_color or None
+        except Exception:
+            return None
+
+    def get_nickname_glow_intensity(self, obj):
+        try:
+            return obj.profile_settings.nickname_glow_intensity or 1
+        except Exception:
+            return 1
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -190,12 +262,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop("password_confirm")
         user = User.objects.create_user(**validated_data)
         # При регистрации сразу устанавливаем nickname = username,
-        # чтобы не было двойного никнейма при первом входе через Google/емайл
+        # чтобы не было двойного никнейма при первом входе через Google/email
         if not user.nickname:
             user.nickname = user.username
         if not user.display_name:
             user.display_name = user.username
-        user.save(update_fields=["nickname", "display_name"])
+        
+        # Назначаем случайную дефолтную аватарку
+        def_ava_dir = settings.MEDIA_ROOT / "def_avatars"
+        if def_ava_dir.exists():
+            jpg_files = list(def_ava_dir.glob("*.jpg")) + list(def_ava_dir.glob("*.jpeg"))
+            if jpg_files:
+                selected_avatar = random.choice(jpg_files)
+                # Копируем файл в аватары пользователя
+                from django.core.files import File
+                with open(selected_avatar, 'rb') as f:
+                    user.avatar.save(f"def_{selected_avatar.name}", File(f), save=False)
+        
+        user.save(update_fields=["nickname", "display_name", "avatar"])
         return user
 
 
@@ -934,7 +1018,7 @@ class UserLibraryCreateSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         anime = validated_data["anime"]
 
-        # get_or_create — не дублируем
+        # get_or_create - не дублируем
         library_item, created = UserLibrary.objects.get_or_create(
             user=user, anime=anime, defaults=validated_data
         )

@@ -40,7 +40,7 @@ export function useRandomAnime() {
     }
   }
 
-  // Перейти к случайному аниме
+  
   const goToRandomAnime = async (): Promise<void> => {
     loading.value = true
     error.value = null
@@ -56,17 +56,17 @@ export function useRandomAnime() {
     }
   }
 
-  // Перейти к конкретному случайному аниме из списка
+  
   const goToAnime = (anime: Anime) => {
     router.push(`/anime/${anime.id}`)
   }
 
-  // Обновить случайное аниме
+  
   const refresh = () => {
     fetchRandomAnime()
   }
 
-  // Обновить список случайных аниме
+  
   const refreshList = () => {
     fetchRandomAnimeList()
   }

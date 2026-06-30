@@ -1,6 +1,5 @@
 <template>
   <div class="random-section">
-    <!-- Hero блок с кнопкой "Мне повезёт!" -->
     <div class="random-hero">
       <div class="hero-content">
         <div class="hero-icon">
@@ -51,7 +50,7 @@
           min="1900"
           :max="new Date().getFullYear()"
         />
-        <span class="filter-year-sep">—</span>
+        <span class="filter-year-sep">-</span>
         <input
           v-model="filters.yearTo"
           type="number"
@@ -79,7 +78,6 @@
       </button>
     </div>
 
-    <!-- Список случайных аниме -->
     <div v-if="loading" class="random-list random-loading">
       <LoadingState type="skeleton" :count="6" />
     </div>
@@ -211,7 +209,6 @@ const emit = defineEmits<{
 const router = useRouter()
 const isNavigating = ref(false)
 
-// Состояние фильтров
 const filters = ref({
   search: '',
   yearFrom: '',
@@ -219,7 +216,6 @@ const filters = ref({
   sortBy: '-score'
 })
 
-// Проверка наличия активных фильтров
 const hasActiveFilters = computed(() => {
   return filters.value.search !== '' || 
          filters.value.yearFrom !== '' || 
@@ -227,7 +223,6 @@ const hasActiveFilters = computed(() => {
          filters.value.sortBy !== '-score'
 })
 
-// Отфильтрованный и отсортированный список
 const filteredAnimeList = computed(() => {
   let list = [...props.animeList]
   
@@ -270,7 +265,6 @@ const filteredAnimeList = computed(() => {
   return list
 })
 
-// Сбросить фильтры
 const resetFilters = () => {
   filters.value = {
     search: '',

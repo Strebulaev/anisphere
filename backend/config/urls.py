@@ -21,6 +21,7 @@ from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
+from anime.clip_views import ClipCreateView, ClipStatusView
 
 try:
     from . import views_admin
@@ -31,6 +32,11 @@ import requests
 from urllib.parse import urlparse, quote
 
 from config import views_admin
+
+# Отключаем автоматическое добавление format_suffix_patterns
+# чтобы избежать дублирования конвертера 'drf_format_suffix'
+import rest_framework.urlpatterns
+rest_framework.urlpatterns.format_suffix_patterns = lambda patterns, **kwargs: patterns
 
 # Импорты для payment views
 # КОММЕНТАРИЙ: Платежи отключены - весь функционал бесплатный
@@ -50,7 +56,7 @@ def api_status(request):
     return JsonResponse(
         {
             "status": "ok",
-            "message": "AnimeCore API работает!",
+            "message": "anisphere API работает!",
             "timestamp": time.time(),
             "models": {
                 # 'users': User.objects.count(),
@@ -172,6 +178,8 @@ urlpatterns = [
     # Admin API
     path("api/admin/run-kodik-import/", views_admin.RunKodikImportView.as_view()),
     path("api/admin/run-jikan-import/", views_admin.RunJikanImportView.as_view()),
+    path('api/anime/clip/create/', ClipCreateView.as_view(), name='clip_create'),
+    path('api/anime/clip/status/', ClipStatusView.as_view(), name='clip_status'),
     # CryptoCloud Payment URLs (без /api/ для редиректов)
     # КОММЕНТАРИЙ: Платежи отключены - весь функционал бесплатный
     # path('payment/success/', PaymentSuccessView.as_view(), name='payment_success'),

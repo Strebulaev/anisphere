@@ -189,7 +189,7 @@
         <span>Поиск</span>
       </router-link> -->
 
-      <router-link
+      <!-- <router-link
         to="/donate"
         class="nav-item-secondary"
       >
@@ -197,9 +197,9 @@
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         </svg>
         <span>Донаты</span>
-      </router-link>
+      </router-link> -->
 
-      <!-- <router-link 
+      <router-link 
         to="/competitions" 
         class="nav-item-secondary"
         :class="{ active: isActiveRoute('/competitions') }"
@@ -212,8 +212,8 @@
           <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
           <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
         </svg>
-        <span>Квесты</span>
-      </router-link> -->
+        <span>Достижения</span>
+      </router-link>
 
       <router-link
         to="/settings" 
@@ -228,7 +228,7 @@
       </router-link>
 
       <!-- Подписка -->
-      <router-link
+      <!-- <router-link
         to="/subscription"
         class="nav-item-secondary nav-item-premium"
         :class="{ active: isActiveRoute('/subscription') }"
@@ -238,7 +238,7 @@
           <path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/>
         </svg>
         <span>Подписка</span>
-      </router-link>
+      </router-link> -->
 
       <!-- Админская панель — только для админа -->
       <router-link

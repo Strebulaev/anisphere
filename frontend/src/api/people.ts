@@ -29,7 +29,7 @@ export interface PeopleParams {
 }
 
 const peopleApi = {
-  // Получить список персон
+  
   getPeople: (params?: PeopleParams): Promise<AxiosResponse<{
     results: Person[]
     count: number
@@ -39,17 +39,17 @@ const peopleApi = {
     return apiClient.get('/dubs/people/', { params })
   },
 
-  // Получить конкретную персону
+  
   getPerson: (id: number): Promise<AxiosResponse<PersonDetail>> => {
     return apiClient.get<PersonDetail>(`/dubs/people/${id}/`)
   },
 
-  // Получить аниме с участием персоны
+  
   getPersonAnime: (id: number): Promise<AxiosResponse<any>> => {
     return apiClient.get(`/dubs/people/${id}/anime/`)
   },
 
-  // Поиск персон
+  
   searchPeople: (query: string, limit: number = 10): Promise<AxiosResponse<{
     results: Person[]
     count: number

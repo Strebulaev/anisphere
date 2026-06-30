@@ -105,7 +105,7 @@ class ChatInviteLink(models.Model):
 # ==================== ОБОИ ЧАТОВ ====================
 
 class ChatWallpaper(models.Model):
-    """Обои для чатов — привязываются к пользователю + чату"""
+    """Обои для чатов - привязываются к пользователю + чату"""
 
     WALLPAPER_TYPES = [
         ('solid', 'Сплошной цвет'),
@@ -246,7 +246,7 @@ class ChatTheme(models.Model):
 
     theme = models.CharField(max_length=50, default='default')
 
-    # Цвета сообщений — только HEX, MySQL-безопасно
+    # Цвета сообщений - только HEX, MySQL-безопасно
     message_color_mine = models.CharField(max_length=7, default='#3b82f6')
     message_color_other = models.CharField(max_length=7, default='#2a2a3e')
     message_text_color_mine = models.CharField(max_length=7, default='#ffffff')
@@ -259,7 +259,7 @@ class ChatTheme(models.Model):
     bubble_padding_y = models.IntegerField(default=8)
     bubble_shadow = models.BooleanField(default=False)
 
-    # bubble_shadow_color содержит rgba() — НЕ задаём default на уровне БД
+    # bubble_shadow_color содержит rgba() - НЕ задаём default на уровне БД
     # Используем blank=True + null=True, значение устанавливаем в save()
     bubble_shadow_color = models.CharField(max_length=30, blank=True, null=True)
 
@@ -274,10 +274,10 @@ class ChatTheme(models.Model):
     time_format = models.CharField(max_length=5, choices=TIME_FORMATS, default='24h')
     show_seconds = models.BooleanField(default=False)
 
-    # time_color содержит rgba() — НЕ задаём default на уровне БД
+    # time_color содержит rgba() - НЕ задаём default на уровне БД
     time_color = models.CharField(max_length=30, blank=True, null=True)
 
-    # Цвета интерфейса — только HEX, MySQL-безопасно
+    # Цвета интерфейса - только HEX, MySQL-безопасно
     background_color = models.CharField(max_length=7, default='#0f0f1a')
     header_color = models.CharField(max_length=7, default='#1a1a2e')
     input_color = models.CharField(max_length=7, default='#1e1e32')
@@ -770,7 +770,7 @@ class GroupChatSettings(models.Model):
 
 class ChatTopic(models.Model):
     """Топик (forum thread) внутри franchise discussion чата.
-    anime=None — общая тема «О франшизе».
+    anime=None - общая тема «О франшизе».
     """
     chat = models.ForeignKey(
         'social.GroupChat',
@@ -796,7 +796,7 @@ class ChatTopic(models.Model):
         unique_together = [('chat', 'anime')]
 
     def __str__(self):
-        return f'{self.chat.name} — {self.title}'
+        return f'{self.chat.name} - {self.title}'
 
 
 # ==================== GLOBAL CHAT STYLE ====================

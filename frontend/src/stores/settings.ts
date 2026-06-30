@@ -34,58 +34,58 @@ const defaultSettings: UserSettings = {
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<UserSettings>({ ...defaultSettings })
 
-  // Применение темы к документу
+  
   const applyTheme = (theme: string) => {
     const body = document.body
 
-    // Удаляем предыдущие классы тем
+    
     body.classList.remove('theme-light', 'theme-dark', 'theme-auto')
 
-    // Добавляем новый класс темы
+    
     body.classList.add(`theme-${theme}`)
 
-    // Для автоматической темы проверяем системные настройки
+    
     if (theme === 'auto') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       body.classList.add(prefersDark ? 'theme-dark' : 'theme-light')
     }
 
-    // Сохраняем текущую тему в localStorage для persistence
+    
     localStorage.setItem('currentTheme', theme)
   }
 
-  // Применение размера текста
+  
   const applyTextSize = (size: string) => {
     const body = document.body
 
-    // Удаляем предыдущие классы размеров
+    
     body.classList.remove('text-small', 'text-medium', 'text-large')
 
-    // Добавляем новый класс размера
+    
     body.classList.add(`text-${size}`)
   }
 
-  // Применение стиля интерфейса
+  
   const applyUIStyle = (style: string) => {
     const body = document.body
 
-    // Удаляем предыдущие классы стилей
+    
     body.classList.remove('ui-modern', 'ui-classic', 'ui-minimal', 'ui-dark')
 
-    // Добавляем новый класс стиля
+    
     body.classList.add(`ui-${style}`)
 
-    // Сохраняем стиль в localStorage
+    
     localStorage.setItem('currentUIStyle', style)
   }
 
-  // Применение всех настроек
+  
   const applySettings = () => {
     applyTheme(settings.value.theme)
     applyTextSize(settings.value.text_size)
     applyUIStyle(settings.value.ui_style)
 
-    // Сохраняем все текущие настройки в localStorage
+    
     localStorage.setItem('currentSettings', JSON.stringify({
       theme: settings.value.theme,
       textSize: settings.value.text_size,
@@ -93,7 +93,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }))
   }
 
-  // Загрузка настроек из localStorage
+  
   const loadSettings = () => {
     const saved = localStorage.getItem('userSettings')
     if (saved) {
@@ -105,10 +105,10 @@ export const useSettingsStore = defineStore('settings', () => {
       }
     }
 
-    // Применяем текущие настройки к UI
+    
     applySettings()
 
-    // Также восстанавливаем сохраненные UI настройки
+    
     const savedUISettings = localStorage.getItem('currentSettings')
     if (savedUISettings) {
       try {
@@ -122,30 +122,30 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  // Сохранение настроек в localStorage
+  
   const saveSettings = () => {
     localStorage.setItem('userSettings', JSON.stringify(settings.value))
   }
 
-  // Обновление конкретной настройки
+  
   const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     settings.value[key] = value
     saveSettings()
 
-    // Применяем изменения сразу
+    
     if (key === 'theme') applyTheme(value as string)
     else if (key === 'text_size') applyTextSize(value as string)
     else if (key === 'ui_style') applyUIStyle(value as string)
   }
 
-  // Обновление всех настроек
+  
   const updateSettings = (newSettings: Partial<UserSettings>) => {
     settings.value = { ...settings.value, ...newSettings }
     saveSettings()
     applySettings()
   }
 
-  // Слушатель для автоматической темы
+  
   const setupAutoThemeListener = () => {
     if (settings.value.theme === 'auto') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -160,7 +160,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  // Инициализация
+  
   const init = () => {
     loadSettings()
     setupAutoThemeListener()

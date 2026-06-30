@@ -1,8 +1,8 @@
 <template>
   <div class="user-avatar" :class="avatarClasses" :style="avatarStyles">
-    <OptimizedImage 
-      v-if="src && !imageError" 
-      :src="src" 
+    <img 
+      v-if="effectiveSrc && !imageError" 
+      :src="effectiveSrc" 
       :alt="alt"
       class="avatar-image"
       @error="handleImageError"
@@ -13,65 +13,72 @@
         <circle cx="12" cy="7" r="4"/>
       </svg>
     </div>
-    
-    <!-- Индикатор онлайн-статуса -->
-    <div v-if="showOnlineStatus" class="online-indicator" :class="onlineClass"></div>
-    
-    <!-- Динамическая рамка уровня -->
-    <div v-if="showLevelBorder && level !== undefined" class="level-border">
-      <svg class="level-ring" viewBox="0 0 136 136">
-        <circle
-          cx="68"
-          cy="68"
-          r="62"
-          fill="none"
-          :stroke="levelBorderColor"
-          stroke-width="4"
-        />
-        <circle
-          v-if="levelProgress !== undefined"
-          cx="68"
-          cy="68"
-          r="62"
-          fill="none"
-          :stroke="levelBorderColor"
-          stroke-width="4"
-          :stroke-dasharray="levelCircumference"
-          :stroke-dashoffset="levelOffset"
-          stroke-linecap="round"
-          transform="rotate(-90 68 68)"
-          class="level-progress-ring"
-        />
-      </svg>
-    </div>
+    <span
+      v-if="showOnlineIndicator && isOnline"
+      class="online-indicator"
+    ></span>
+    <PremiumCrown
+      v-if="isPremium && showPremiumCrown"
+      :size="crownSize"
+      class="premium-crown-badge"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import PremiumCrown from '@/components/icons/PremiumCrown.vue'
+// import OptimizedImage from './OptimizedImage.vue'
+import { getDefaultAvatarForUser } from '@/utils/defaultAvatars'
+import { getMediaUrl } from '@/api/client'
 
 interface Props {
-  src?: string
+  src?: string | null
+  user?: {
+    id?: number | string
+    username?: string
+    avatar_url?: string | null
+    avatar?: string | null
+    display_name?: string
+    is_premium?: boolean
+  }
   alt?: string
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   shape?: 'circle' | 'square' | 'rounded'
-  isOnline?: boolean | null
-  showOnlineStatus?: boolean
-  level?: number
-  levelProgress?: number
-  showLevelBorder?: boolean
+  showOnlineIndicator?: boolean
+  isOnline?: boolean
+  showPremiumCrown?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   alt: 'Avatar',
   size: 'md',
   shape: 'circle',
-  isOnline: null,
-  showOnlineStatus: true,
-  showLevelBorder: false,
+  showOnlineIndicator: false,
+  isOnline: false,
+  showPremiumCrown: true
 })
 
+const emit = defineEmits<{ error: [] }>()
+
 const imageError = ref(false)
+
+// Используем дефолтную аватарку если у пользователя нет фото
+const effectiveSrc = computed(() => {
+  let url = props.src || props.user?.avatar_url || props.user?.avatar || null
+  
+  // Если URL есть и не пустой - используем getMediaUrl для полного URL
+  if (url && url !== '' && url !== 'null' && url !== 'undefined') {
+    return getMediaUrl(url) || url
+  }
+  
+  // Если нет аватарки - возвращаем дефолтную на основе user.id
+  if (props.user?.id) {
+    return getDefaultAvatarForUser(Number(props.user.id))
+  }
+  
+  return null
+})
 
 const avatarClasses = computed(() => {
   return [
@@ -81,36 +88,26 @@ const avatarClasses = computed(() => {
 })
 
 const avatarStyles = computed(() => {
-  const styles: Record<string, string> = {}
-  return styles
+  return {}
 })
 
-const onlineClass = computed(() => {
-  if (props.isOnline === null) return 'online-indicator--unknown'
-  return props.isOnline ? 'online-indicator--online' : 'online-indicator--offline'
-})
+const isPremium = computed(() => props.user?.is_premium ?? false)
 
-const levelBorderColor = computed(() => {
-  const level = props.level || 0
-  if (level >= 41) return 'var(--color-level-41-plus)'
-  if (level >= 31) return 'var(--color-level-31-40)'
-  if (level >= 21) return 'var(--color-level-21-30)'
-  if (level >= 11) return 'var(--color-level-11-20)'
-  return 'var(--color-level-1-10)'
-})
-
-const levelCircumference = computed(() => {
-  return 2 * Math.PI * 62
-})
-
-const levelOffset = computed(() => {
-  if (props.levelProgress === undefined) return 0
-  const progress = Math.min(Math.max(props.levelProgress, 0), 100)
-  return levelCircumference.value - (progress / 100) * levelCircumference.value
+const crownSize = computed(() => {
+  switch (props.size) {
+    case 'xs': return 8
+    case 'sm': return 10
+    case 'md': return 12
+    case 'lg': return 14
+    case 'xl': return 16
+    case '2xl': return 20
+    default: return 12
+  }
 })
 
 const handleImageError = () => {
   imageError.value = true
+  emit('error')
 }
 </script>
 
@@ -130,37 +127,31 @@ const handleImageError = () => {
 .user-avatar--xs {
   width: 24px;
   height: 24px;
-  font-size: 10px;
 }
 
 .user-avatar--sm {
   width: 32px;
   height: 32px;
-  font-size: 12px;
 }
 
 .user-avatar--md {
   width: 40px;
   height: 40px;
-  font-size: 14px;
 }
 
 .user-avatar--lg {
   width: 48px;
   height: 48px;
-  font-size: 16px;
 }
 
 .user-avatar--xl {
   width: 64px;
   height: 64px;
-  font-size: 20px;
 }
 
 .user-avatar--2xl {
   width: 120px;
   height: 120px;
-  font-size: 32px;
 }
 
 /* Формы */
@@ -182,13 +173,6 @@ const handleImageError = () => {
   height: 100%;
   object-fit: cover;
   display: block;
-  border-radius: inherit;
-}
-
-:deep(.avatar-image img),
-:deep(.avatar-image picture),
-:deep(.avatar-image source) {
-  border-radius: inherit;
 }
 
 .avatar-placeholder {
@@ -208,6 +192,9 @@ const handleImageError = () => {
   border-radius: 50%;
   border: 2px solid var(--color-background);
   z-index: 2;
+  bottom: 0;
+  right: 0;
+  background-color: var(--color-accent-teal);
 }
 
 .user-avatar--xs .online-indicator,
@@ -224,65 +211,15 @@ const handleImageError = () => {
   border-width: 3px;
 }
 
-.online-indicator--online {
-  background-color: var(--color-accent-teal);
-}
-
-.online-indicator--offline {
-  background-color: var(--color-text-disabled);
-}
-
-.online-indicator--unknown {
-  background-color: var(--color-text-tertiary);
-}
-
-/* Позиционирование индикатора */
-.user-avatar--circle .online-indicator,
-.user-avatar--rounded .online-indicator {
+/* Корона премиум */
+.premium-crown-badge {
+  position: absolute;
   bottom: 0;
   right: 0;
-}
-
-.user-avatar--square .online-indicator {
-  bottom: -2px;
-  right: -2px;
-}
-
-/* Рамка уровня */
-.level-border {
-  position: absolute;
-  top: -8px;
-  left: -8px;
-  width: calc(100% + 16px);
-  height: calc(100% + 16px);
-  pointer-events: none;
-}
-
-.level-ring {
-  width: 100%;
-  height: 100%;
-  animation: spin-slow 120s linear infinite;
-}
-
-.level-progress-ring {
-  transition: stroke-dashoffset 0.5s var(--transition-smooth);
-}
-
-/* Ховер эффекты */
-.user-avatar {
-  transition: border-color 0.15s var(--transition-smooth);
-}
-
-.user-avatar:hover {
-  border-color: var(--color-accent);
-}
-
-.user-avatar--2xl:hover .level-border {
-  transform: scale(1.02);
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  padding: 1px;
 }
 </style>
+

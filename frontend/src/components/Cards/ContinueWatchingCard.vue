@@ -9,7 +9,6 @@
       :total-episodes="totalEpisodes"
       @click="handleClick"
     />
-    <!-- Прогресс-бар поверх — встроен в AnimeCard через watch-progress -->
   </div>
 </template>
 
@@ -25,6 +24,7 @@ interface Props {
   currentEpisode: number
   totalEpisodes: number
   progressPercent: number
+  status?: string
 }
 
 const props = defineProps<Props>()
@@ -36,7 +36,7 @@ const cardAnime = computed(() => ({
   title_ru: props.title,
   title_en: '',
   year: null,
-  status: 'ongoing',
+  status: props.status || '',
   episodes: props.totalEpisodes || null,
   score: null,
   poster_url: props.poster || null,
@@ -53,12 +53,20 @@ const handleClick = () => {
 
 <style scoped>
 .cwc-wrap {
-  flex: 0 0 220px;
-  width: 220px;
+  flex: 0 0 auto;
+  width: 200px;
   scroll-snap-align: start;
 }
 
 @media (max-width: 767px) {
-  .cwc-wrap { flex: 0 0 155px; width: 155px; }
+  .cwc-wrap { 
+    width: 175px; 
+  }
+}
+
+@media (max-width: 480px) {
+  .cwc-wrap { 
+    width: 160px; 
+  }
 }
 </style>

@@ -16,7 +16,7 @@ export interface FeedFiltersState {
 }
 
 export const useFeedStore = defineStore('feed', () => {
-  // State
+  
   const posts = ref<FeedPost[]>([])
   const loading = ref(false)
   const loadingMore = ref(false)
@@ -30,10 +30,10 @@ export const useFeedStore = defineStore('feed', () => {
     withAnime: false, period: 'all', sort: 'new',
   })
 
-  // Computed
+  
   const isEmpty = computed(() => !loading.value && posts.value.length === 0)
 
-  // Actions
+  
   async function loadFeed(type: FeedType = 'weighted', reset = true, filters?: Partial<FeedFiltersState>) {
     if (reset) {
       posts.value = []
@@ -52,7 +52,7 @@ export const useFeedStore = defineStore('feed', () => {
         || activeFilters.value.fromGroups || activeFilters.value.withAnime
         || activeFilters.value.period !== 'all' || activeFilters.value.sort !== 'new'
 
-      // Если есть фильтры — используем расширенный endpoint
+      
       if (hasActiveFilters) {
         const params: Record<string, any> = {
           page: 1, page_size: 20,
@@ -70,7 +70,7 @@ export const useFeedStore = defineStore('feed', () => {
           posts.value = results.map(normalizePost)
           hasMore.value = !!data.next
         } catch {
-          // fallback to regular
+          
           await _loadRegularFeed(type)
         }
       } else {
@@ -96,7 +96,7 @@ export const useFeedStore = defineStore('feed', () => {
         data = (await feedApi.getFollowersFeed(1)).data
         break
       case 'popular':
-        // Популярные посты по лайкам
+        
         try {
           const { data: popularData } = await feedApi.getPopularFeed(1, 20, 'week')
           const results = (popularData as FeedPage).results || []
@@ -104,7 +104,7 @@ export const useFeedStore = defineStore('feed', () => {
           hasMore.value = !!(popularData as FeedPage).next
           return
         } catch {
-          // Fallback к топ
+          
           const { data: topData } = await apiClient.get('/social/feed/top/', { params: { days: 7, limit: 50 } })
           const results = Array.isArray(topData) ? topData : topData.results || []
           posts.value = results.map(normalizePost)
@@ -116,7 +116,7 @@ export const useFeedStore = defineStore('feed', () => {
         hasMore.value = false
         break
       case 'top':
-        // Топ по лайкам
+        
         try {
           const { data: topData } = await apiClient.get('/social/feed/top/', { params: { days: 30, limit: 50 } })
           const results = Array.isArray(topData) ? topData : topData.results || []
@@ -185,13 +185,13 @@ export const useFeedStore = defineStore('feed', () => {
 
       currentPage.value = nextPage
     } catch (err: unknown) {
-      // silently fail
+      
     } finally {
       loadingMore.value = false
     }
   }
 
-  // Optimistic like
+  
   function optimisticLike(postId: number) {
     const post = posts.value.find(p => p.id === postId)
     if (!post) return

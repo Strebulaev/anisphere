@@ -97,7 +97,7 @@ const activeFilters = computed<FilterTag[]>(() => {
         ongoing: 'Онгоинг',
         finished: 'Завершён',
         announced: 'Анонсирован',
-        released: 'Вышедший'
+        released: 'Завершён'
       }
       tags.push({ key: `status-${status}`, label: labels[status] || status, type: 'status' })
     })

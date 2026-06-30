@@ -289,6 +289,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Set user online
             self.set_user_online()
 
+            # Подписываемся на события онлайн статуса этого пользователя
+            self.user_online_group = f"user_online_{self.user_id}"
+            await self.channel_layer.group_add(self.user_online_group, self.channel_name)
+
+            # ВАЖНО: Подписываемся на личную группу пользователя для получения событий о прочтении
+            self.user_personal_group = f"chat_user_{self.user_id}"
+            await self.channel_layer.group_add(self.user_personal_group, self.channel_name)
+            print(f"DEBUG: User {self.user_id} subscribed to {self.user_personal_group}")
+
         # Determine chat type
         self.chat_type = await self.get_chat_type()
 
@@ -308,6 +317,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Handle WebSocket disconnection"""
         if hasattr(self, "group_name") and self.group_name:
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+        if hasattr(self, "user_online_group") and self.user_online_group:
+            await self.channel_layer.group_discard(self.user_online_group, self.channel_name)
+
+        # Отписываемся от личной группы пользователя
+        if hasattr(self, "user_personal_group") and self.user_personal_group:
+            await self.channel_layer.group_discard(self.user_personal_group, self.channel_name)
 
         if self.user_id:
             # Set user offline
@@ -338,6 +354,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send_initial_data()
             elif action == "ping":
                 await self.send(text_data=json.dumps({"action": "pong"}))
+            elif action == "subscribe_user_online":
+                # Подписка на статус онлайн другого пользователя
+                other_user_id = data.get("user_id")
+                if other_user_id:
+                    self.other_user_online_group = f"user_online_{other_user_id}"
+                    await self.channel_layer.group_add(self.other_user_online_group, self.channel_name)
+                    # Отправим текущий статус
+                    is_online = online_status.is_online(other_user_id)
+                    await self.send(
+                        text_data=json.dumps({
+                            "action": "user_online",
+                            "user_id": other_user_id,
+                            "is_online": is_online,
+                        })
+                    )
         except Exception as e:
             print(f"WebSocket receive error: {e}")
 
@@ -436,7 +467,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Отмечаем сообщения как прочитанные в БД
         await self.mark_messages_read(message_ids)
 
-        # Отправляем событие другим участникам чата
+        # Получаем отправителей этих сообщений чтобы отправить им уведомление
+        senders = await self.get_message_senders(message_ids)
+
+        print(f"DEBUG: messages_read - user {self.user_id} read messages {message_ids}, senders: {senders}")
+
+        # Отправляем событие другим участникам чата (кроме себя)
+        # Но особенно важно отправить отправителям сообщений
         await self.channel_layer.group_send(
             self.group_name,
             {
@@ -444,31 +481,68 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "user_id": self.user_id,
                 "message_ids": message_ids,
                 "read_at": timezone.now().isoformat(),
+                "sender_ids": list(senders),  # Кому конкретно отправить
             },
         )
 
+    @database_sync_to_async
+    def get_message_senders(self, message_ids):
+        """Получить уникальных отправителей сообщений"""
+        from .models import Message
+        senders = Message.objects.filter(
+            id__in=message_ids
+        ).values_list('sender_id', flat=True).distinct()
+        return set(senders)
+
     async def messages_read_event(self, event):
         """Отправка события о прочтении сообщений клиенту"""
-        await self.send(
-            text_data=json.dumps(
-                {
-                    "action": "messages_read",
-                    "user_id": event["user_id"],
-                    "message_ids": event["message_ids"],
-                    "read_at": event["read_at"],
-                }
+        # Отправляем только если мы получатель (отправитель прочитанных сообщений)
+        # или если это не мы прочитали (чтобы знать что прочитал другой)
+        reading_user_id = event.get("user_id")
+        sender_ids = event.get("sender_ids", [])
+        
+        print(f"DEBUG: messages_read_event - user_id={self.user_id}, reading_user_id={reading_user_id}, sender_ids={sender_ids}")
+        print(f"DEBUG: Should send? user_id in sender_ids: {self.user_id in sender_ids}, reading_user_id != user_id: {reading_user_id != self.user_id}")
+        
+        # Отправляем событие если:
+        # 1. Мы отправили эти сообщения (sender_ids включает наш user_id)
+        # 2. Или мы не тот кто читал (чтобы все видели кто что прочитал)
+        if self.user_id in sender_ids or reading_user_id != self.user_id:
+            print(f"DEBUG: Sending messages_read event to user {self.user_id}")
+            
+            # Преобразуем read_at в строку если это datetime
+            read_at = event.get("read_at")
+            if hasattr(read_at, 'isoformat'):
+                read_at = read_at.isoformat()
+            
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "action": "messages_read",
+                        "user_id": reading_user_id,
+                        "message_ids": event["message_ids"],
+                        "read_at": read_at,
+                    }
+                )
             )
-        )
+        else:
+            print(f"DEBUG: NOT sending messages_read event to user {self.user_id}")
 
     @database_sync_to_async
     def mark_messages_read(self, message_ids):
         """Отметить сообщения как прочитанные в БД"""
         from .models import MessageReadStatus
 
+        created_count = 0
         for message_id in message_ids:
-            MessageReadStatus.objects.get_or_create(
+            obj, created = MessageReadStatus.objects.get_or_create(
                 message_id=message_id, user_id=self.user_id
             )
+            if created:
+                created_count += 1
+            print(f"DEBUG mark_messages_read: msg={message_id}, user={self.user_id}, created={created}")
+
+        print(f"DEBUG mark_messages_read: total created={created_count} for user={self.user_id}")
 
     async def chat_message(self, event):
         """Send chat message to WebSocket"""
@@ -502,6 +576,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "action": "user_online",
                     "user_id": event.get("user_id"),
                     "is_online": event.get("is_online", True),
+                    "username": event.get("username"),
                 }
             )
         )
@@ -519,18 +594,58 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def send_initial_data(self):
         """Send initial chat data on connection"""
+        import json
+        from django.utils.functional import Promise
+        from datetime import datetime, date
+        
         messages = await self.get_recent_messages()
         online_users = await self.get_online_users()
 
-        await self.send(
-            text_data=json.dumps(
-                {
-                    "action": "init",
-                    "messages": messages,
-                    "online_users": online_users,
+        # Для личных чатов добавляем информацию о собеседнике
+        other_user_data = None
+        if self.chat_type == "private" and self.user:
+            other_user_data = await self.get_other_user_data()
+
+        # Кастомный JSON encoder для обработки datetime объектов
+        class DateTimeEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, (datetime, date)):
+                    return obj.isoformat()
+                if isinstance(obj, Promise):
+                    return str(obj)
+                return super().default(obj)
+        
+        # Сериализуем через наш encoder
+        data_str = json.dumps({
+            "action": "init",
+            "messages": messages,
+            "online_users": online_users,
+            "other_user": other_user_data,
+        }, cls=DateTimeEncoder)
+        
+        await self.send(text_data=data_str)
+
+    @database_sync_to_async
+    def get_other_user_data(self):
+        """Get data about the other user in private chat"""
+        try:
+            from core.online_status import online_status as online_status_service
+            
+            private_chat = PrivateChat.objects.get(id=self.chat_id)
+            other_user = private_chat.other_user(self.user)
+            
+            if other_user:
+                is_online = online_status_service.is_online(other_user.id)
+                return {
+                    "id": other_user.id,
+                    "username": other_user.username,
+                    "display_name": other_user.display_name,
+                    "avatar": other_user.avatar.url if other_user.avatar else None,
+                    "is_online": is_online,
                 }
-            )
-        )
+        except Exception as e:
+            print(f"Error getting other user data: {e}")
+        return None
 
     @database_sync_to_async
     def get_user_from_token(self, token):
@@ -554,13 +669,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_recent_messages(self):
         """Get recent messages for the chat"""
+        from .serializers import MessageSerializer
+
         messages = []
         msg_qs = None
 
         if self.chat_type == "private":
             msg_qs = (
                 Message.objects.filter(private_chat_id=self.chat_id)
-                .select_related("sender")
+                .select_related("sender", "reply_to__sender")
+                .prefetch_related("read_statuses")
                 .order_by("-created_at")[:50]
             )
         elif self.chat_type == "group":
@@ -572,42 +690,53 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 # Конкретный топик - только этот топик
                 msg_qs = (
                     Message.objects.filter(chat_id=self.chat_id, topic_id=self.topic_id)
-                    .select_related("sender")
+                    .select_related("sender", "reply_to__sender")
+                    .prefetch_related("read_statuses")
                     .order_by("-created_at")[:50]
                 )
             else:
                 # Главный топик (0) или не выбран (None) - все сообщения
                 msg_qs = (
                     Message.objects.filter(chat_id=self.chat_id)
-                    .select_related("sender")
+                    .select_related("sender", "reply_to__sender")
+                    .prefetch_related("read_statuses")
                     .order_by("-created_at")[:50]
                 )
 
         if msg_qs:
-            messages = list(
-                reversed(
-                    [
-                        {
-                            "id": m.id,
-                            "text": m.text,
-                            "sender_id": m.sender_id,
-                            "sender_username": m.sender.username
-                            if m.sender
-                            else "Unknown",
-                            "sender_avatar": m.sender.avatar.url
-                            if m.sender and m.sender.avatar
-                            else None,
-                            "created_at": m.created_at.isoformat(),
-                            "media": m.media.url if m.media else None,
-                            "media_type": m.media_type,
-                            "topic_id": m.topic_id,
-                        }
-                        for m in msg_qs
-                    ]
-                )
-            )
+            # Создаем mock request для serializer
+            class MockRequest:
+                def __init__(self, user):
+                    self.user = user
+                @property
+                def is_authenticated(self):
+                    return True
+                def build_absolute_uri(self, location=None):
+                    if location:
+                        if location.startswith('http://') or location.startswith('https://'):
+                            return location
+                        return f"https://anisphere.org{location}" if not location.startswith('/') else f"https://anisphere.org{location}"
+                    return "https://anisphere.org"
+            
+            mock_request = MockRequest(self.user) if self.user else None
+            
+            # Используем MessageSerializer для корректной сериализации с is_read_by_other
+            for m in msg_qs:
+                try:
+                    serializer = MessageSerializer(m, context={"request": mock_request})
+                    messages.append(serializer.data)
+                except Exception as e:
+                    print(f"Error serializing message {m.id}: {e}")
+                    # Fallback
+                    messages.append({
+                        "id": m.id,
+                        "text": m.text,
+                        "sender_id": m.sender_id,
+                        "sender_username": m.sender.username if m.sender else "Unknown",
+                        "created_at": m.created_at.isoformat(),
+                    })
 
-        return messages
+        return list(reversed(messages))
 
     @database_sync_to_async
     def create_message(self, text, topic_id=None, reply_to_id=None):
@@ -664,18 +793,56 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Serialize message for JSON"""
         from .serializers import MessageSerializer
         from rest_framework.renderers import JSONRenderer
+        from django.contrib.auth import get_user_model
+        from django.contrib.sites.shortcuts import get_current_site
 
         # Загружаем сообщение с связанными объектами для корректной сериализации
         message = Message.objects.select_related("sender", "reply_to__sender").get(
             id=message.id
         )
 
+        # Создаем минимальный mock request для serializer context
+        User = get_user_model()
+        class MockRequest:
+            def __init__(self, user):
+                self.user = user
+            @property
+            def is_authenticated(self):
+                return True
+            def build_absolute_uri(self, location=None):
+                """Build absolute URI for media files"""
+                if location:
+                    # Проверяем если это уже абсолютный URL
+                    if location.startswith('http://') or location.startswith('https://'):
+                        return location
+                    # Иначе строим абсолютный URL
+                    return f"https://anisphere.org{location}" if not location.startswith('/') else f"https://anisphere.org{location}"
+                return "https://anisphere.org"
+
         # Используем полноценный сериализатор для сообщения
         try:
-            serializer = MessageSerializer(message, context={"request": None})
-            return serializer.data
+            # Создаем mock request с текущим пользователем
+            mock_request = MockRequest(self.user) if self.user else None
+            
+            # DEBUG: Логируем если есть private_chat и это мои сообщения
+            if message.private_chat and message.sender_id == (self.user.id if self.user else None):
+                from .models import MessageReadStatus
+                read_count = MessageReadStatus.objects.filter(message=message).count()
+                read_users = list(MessageReadStatus.objects.filter(message=message).values_list('user_id', flat=True))
+                print(f"DEBUG serialize_message: msg {message.id}, sender={message.sender_id}, read_count={read_count}, read_users={read_users}")
+            
+            serializer = MessageSerializer(message, context={"request": mock_request})
+            data = serializer.data
+            
+            # Логируем is_read_by_other из сериализованных данных
+            if message.private_chat and message.sender_id == (self.user.id if self.user else None):
+                print(f"DEBUG serialize_message: msg {message.id}, is_read_by_other={data.get('is_read_by_other')}")
+            
+            return data
         except Exception as e:
             print(f"Error serializing message: {e}")
+            import traceback
+            traceback.print_exc()
             # Fallback к простой сериализации
             reply_to_data = None
             if message.reply_to:

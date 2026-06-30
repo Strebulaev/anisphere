@@ -31,3 +31,10 @@ Thumbs.db
 /do_commit.bat
 /*.bat
 /*.ps1
+
+# Project data
+backend/data/
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+frontend/.vite-temp/

@@ -2,7 +2,7 @@ import apiClient from './client'
 
 export type LibraryStatus = 'started' | 'completed' | 'on_hold' | 'dropped' | 'planned'
 
-// Отдельный тип для вкладок коллекции (включая избранное)
+
 export type CollectionTab = LibraryStatus | 'favorite'
 
 export interface LibraryItem {
@@ -59,7 +59,7 @@ export interface LibraryStats {
 }
 
 export const libraryApi = {
-  // Получить всю коллекцию (с фильтром)
+  
   getLibrary: async (params?: {
     status?: LibraryStatus | ''
     is_favorite?: boolean
@@ -70,7 +70,7 @@ export const libraryApi = {
     return response.data
   },
 
-  // Добавить/обновить аниме в библиотеке
+  
   addToLibrary: async (data: {
     anime: number
     status?: LibraryStatus
@@ -84,7 +84,7 @@ export const libraryApi = {
     return response.data
   },
 
-  // Обновить запись
+  
   updateLibraryItem: async (id: number, data: Partial<{
     status: LibraryStatus
     current_episode: number
@@ -97,24 +97,24 @@ export const libraryApi = {
     return response.data
   },
 
-  // Удалить из коллекции
+  
   deleteLibraryItem: async (id: number): Promise<void> => {
     await apiClient.delete(`/users/library/${id}/`)
   },
 
-  // Получить статистику
+  
   getStatistics: async (): Promise<LibraryStats> => {
     const response = await apiClient.get<LibraryStats>('/users/library/statistics/')
     return response.data
   },
 
-  // Отметить/убрать из избранного
+  
   toggleFavorite: async (id: number): Promise<{ is_favorite: boolean }> => {
     const response = await apiClient.post<{ is_favorite: boolean }>(`/users/library/${id}/mark_favorite/`)
     return response.data
   },
 
-  // Проверить наличие аниме в библиотеке
+  
   checkAnime: async (animeId: number): Promise<{
     in_library: boolean
     status?: LibraryStatus

@@ -1,4 +1,4 @@
-# social/urls.py — объединённый файл маршрутов
+# social/urls.py - объединённый файл маршрутов
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework.decorators import api_view, permission_classes
@@ -6,8 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from social._discussion_views_patch import get_anime_discussion_group
+from social.views_feed import FeedViewSet
 
-from .views_feed import FeedViewSet
 from .views import (
     CommentListCreateView,
     CommentDetailView,
@@ -24,12 +24,13 @@ from .views import (
     get_unread_count,
     get_unread_chats,
     mark_chat_read,
-    mark_private_chat_read,
-    mark_group_chat_read,
     MessageListCreateView,
     MessageDetailView,
 )
+# Импорт новых функций mark_private_chat_read и mark_group_chat_read из views_all_actions
 from .views_all_actions import (
+    mark_private_chat_read,
+    mark_group_chat_read,
     AchievementViewSet,
     AttachmentViewSet,
     PostAttachmentViewSet,
@@ -102,12 +103,22 @@ from .views_all_actions import (
     ReactionViewSet,
 )
 
+# Импорты для модерации (отдельный файл)
+try:
+    from .moderation_views import (
+        get_reports,
+        resolve_report,
+    )
+except ImportError:
+    pass
+
 # Импорты из _discussion_views_patch
 try:
     from ._discussion_views_patch import (
         get_anime_discussion_group,
         create_anime_discussion_group,
         join_anime_discussion_group,
+        leave_anime_discussion_group,
         get_franchise_discussion_group,
         join_franchise_discussion_group,
     )
@@ -468,7 +479,7 @@ urlpatterns = [
         name="archive-private-chat",
     ),
     # ==================== КАСТОМИЗАЦИЯ ЧАТОВ (ОБОИ + ТЕМЫ) ====================
-    # Обои — группа
+    # Обои - группа
     path(
         "chat-settings/group/<int:chat_id>/wallpaper/",
         ChatCustomizationViewSet.as_view({"get": "get_wallpaper"}),
@@ -495,7 +506,7 @@ urlpatterns = [
         {"chat_type": "group"},
         name="group-wallpaper-preset",
     ),
-    # Обои — личный чат
+    # Обои - личный чат
     path(
         "chat-settings/private/<int:chat_id>/wallpaper/",
         ChatCustomizationViewSet.as_view({"get": "get_wallpaper"}),
@@ -522,7 +533,7 @@ urlpatterns = [
         {"chat_type": "private"},
         name="private-wallpaper-preset",
     ),
-    # Тема — группа
+    # Тема - группа
     path(
         "chat-settings/group/<int:chat_id>/theme/",
         ChatCustomizationViewSet.as_view({"get": "get_theme"}),
@@ -547,7 +558,7 @@ urlpatterns = [
         {"chat_type": "group"},
         name="reset-group-theme",
     ),
-    # Тема — личный чат
+    # Тема - личный чат
     path(
         "chat-settings/private/<int:chat_id>/theme/",
         ChatCustomizationViewSet.as_view({"get": "get_theme"}),
@@ -760,27 +771,24 @@ urlpatterns = [
     # ==================== ПОСТЫ ====================
     # Публичный просмотр поста (без аутентификации)
     path(
-        "posts/<int:post_id>/public/",
+        "posts/<int:pk>/public/",
         PostViewSet.as_view({"get": "public_retrieve"}),
         name="post-detail-public",
     ),
+    # Явные URL для retrieve/delete теперь не нужны - они есть в router
+    # Оставляем только дополнительные actions
+    path("posts/<int:pk>/pin/", pin_post, name="pin-post"),
+    path("posts/<int:pk>/unpin/", unpin_post, name="unpin-post"),
+    path("posts/<int:pk>/report/", report_post, name="report-post"),
+    path("posts/<int:pk>/bookmark/", add_bookmark, name="add-bookmark"),
     path(
-        "posts/<int:post_id>/",
-        PostViewSet.as_view({"get": "retrieve", "delete": "destroy"}),
-        name="post-detail",
-    ),
-    path("posts/<int:post_id>/pin/", pin_post, name="pin-post"),
-    path("posts/<int:post_id>/unpin/", unpin_post, name="unpin-post"),
-    path("posts/<int:post_id>/report/", report_post, name="report-post"),
-    path("posts/<int:post_id>/bookmark/", add_bookmark, name="add-bookmark"),
-    path(
-        "posts/<int:post_id>/bookmark/remove/", remove_bookmark, name="remove-bookmark"
+        "posts/<int:pk>/bookmark/remove/", remove_bookmark, name="remove-bookmark"
     ),
     path("bookmarks/toggle/", toggle_bookmark_view, name="toggle-bookmark"),
     path("bookmarks/folders/", get_bookmarks_folders, name="bookmarks-folders"),
-    path("posts/<int:post_id>/hide/", hide_post_from_feed, name="hide-post"),
+    path("posts/<int:pk>/hide/", hide_post_from_feed, name="hide-post"),
     path(
-        "posts/<int:post_id>/not-interested/",
+        "posts/<int:pk>/not-interested/",
         mark_post_not_interested,
         name="not-interested",
     ),
@@ -790,7 +798,7 @@ urlpatterns = [
     path("users/<int:user_id>/hide/", hide_author_from_feed, name="hide-author"),
     path("hidden-posts/", get_hidden_posts, name="hidden-posts"),
     path(
-        "hidden-posts/<int:post_id>/restore/",
+        "hidden-posts/<int:pk>/restore/",
         restore_hidden_post,
         name="restore-hidden-post",
     ),
@@ -825,6 +833,16 @@ urlpatterns = [
         name="transfer-ownership",
     ),
     # ==================== МОДЕРАЦИЯ ====================
+    path(
+        "moderation/reports/",
+        get_reports,
+        name="get-reports",
+    ),
+    path(
+        "moderation/reports/<int:report_id>/resolve/",
+        resolve_report,
+        name="resolve-report",
+    ),
     path(
         "group-chats/<int:chat_id>/banned-users/",
         get_banned_users,
@@ -955,6 +973,12 @@ urlpatterns = [
         "franchise-discussion/list/",
         get_franchise_discussions,
         name="franchise-discussion-list",
+    ),
+    # ==================== LEAVE ANIME DISCUSSION ====================
+    path(
+        "anime/<int:anime_id>/discussion-group/leave/",
+        leave_anime_discussion_group,
+        name="anime-discussion-leave",
     ),
     # ==================== GLOBAL CHAT STYLE ====================
     path("chat-settings/global/", global_chat_style, name="global-chat-style"),

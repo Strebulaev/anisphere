@@ -20,9 +20,7 @@ COPY . .
 RUN echo "=== FILES IN /APP ===" && ls -la && \
     echo "=== CONFIG DIR ===" && ls -la config/ || echo "No config dir"
 
-# Делаем entrypoint исполняемым
-RUN chmod +x entrypoint.sh
-
 EXPOSE 8000
 
-ENTRYPOINT ["./entrypoint.sh"]
+# Используем daphne для ASGI (WebSocket + HTTP)
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]

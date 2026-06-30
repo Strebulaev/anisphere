@@ -17,6 +17,14 @@ export interface ProfileSettingsData {
   timezone?: string
   date_format?: 'DD.MM.YYYY' |    'MM/DD/YYYY' | 'YYYY-MM-DD'
   time_format?: '24h' | '12h'
+  
+  nickname_color?: string
+  nickname_gradient_enabled?: boolean
+  nickname_gradient_start?: string
+  nickname_gradient_end?: string
+  nickname_glow_enabled?: boolean
+  nickname_glow_color?: string
+  nickname_glow_intensity?: number
 }
 
 export interface NotificationSettingsData {
@@ -563,7 +571,7 @@ export default {
 }
 
 
-// ==================== ПОДПИСКА ====================
+
 
 export interface SubscriptionInfo {
   is_active: boolean
@@ -661,7 +669,7 @@ export const getSubscriptionPrice = async (promoCode?: string): Promise<Subscrip
   return response.data
 }
 
-// ==================== ОПЛАТА CRYPTOCLOUD ====================
+
 
 export interface PaymentCreateResponse {
   success: boolean

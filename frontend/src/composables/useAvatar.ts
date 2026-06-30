@@ -1,8 +1,12 @@
-// Composable для работы с аватарками пользователей
 export function useAvatar() {
-  // Получить полный URL аватарки
-  const getAvatarUrl = (avatarPath: string | null | undefined): string => {
-    if (!avatarPath) return ''
+  const getAvatarUrl = (avatarPath: string | null | undefined, userId?: number): string => {
+    if (!avatarPath || avatarPath.trim() === '') {
+      if (userId !== undefined) {
+        return `/media/def_avatars/${userId % 10 + 1}.jpg`
+      }
+      return '/media/def_avatars/1.jpg'
+    }
+    
     if (avatarPath.startsWith('http')) return avatarPath
     if (avatarPath.startsWith('/media/')) {
       return `${import.meta.env.VITE_API_BASE_URL || 'https://anisphere.org'}${avatarPath}`
@@ -10,19 +14,16 @@ export function useAvatar() {
     return `${import.meta.env.VITE_API_BASE_URL || 'https://anisphere.org'}/media/${avatarPath}`
   }
 
-  // Получить инициалы пользователя для placeholder
   const getUserInitials = (user: { display_name?: string; username: string }): string => {
     const name = user.display_name || user.username || ''
     return name.charAt(0).toUpperCase()
   }
 
-  // Получить инициалы по имени
   const getInitialsFromName = (name: string): string => {
     if (!name) return '?'
     return name.charAt(0).toUpperCase()
   }
 
-  // Получить цвет для инициалов (простой хэш имени)
   const getInitialsColor = (name: string): string => {
     if (!name || name.length === 0) return '#667eea'
     const colors = [

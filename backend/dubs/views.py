@@ -330,13 +330,13 @@ def _get_group_by_slug_or_id(slug_or_id):
 
 
 class DubGroupWorksView(generics.ListAPIView):
-    """GET /api/dubs/groups/<slug>/works/ — озвученные аниме группы"""
+    """GET /api/dubs/groups/<slug>/works/ - озвученные аниме группы"""
     serializer_class = DubSerializer
     permission_classes = [AllowAny]
 
     def get_queryset(self):
         group = _get_group_by_slug_or_id(self.kwargs['slug'])
-        qs = group.group_dubs.all().select_related('anime')
+        qs = group.group_dubs.filter(anime__title_ru__regex=r"[а-яёА-ЯЁ]").select_related('anime')
 
         # Фильтрация
         dub_type = self.request.query_params.get('dub_type', '')
@@ -360,7 +360,7 @@ class DubGroupWorksView(generics.ListAPIView):
 
 
 class DubGroupStaffView(generics.ListAPIView):
-    """GET /api/dubs/groups/<slug>/staff/ — команда группы (актёры озвучки)"""
+    """GET /api/dubs/groups/<slug>/staff/ - команда группы (актёры озвучки)"""
     serializer_class = VoiceActorSerializer
     permission_classes = [AllowAny]
 
@@ -370,7 +370,7 @@ class DubGroupStaffView(generics.ListAPIView):
 
 
 class DubGroupNewsView(generics.ListAPIView):
-    """GET /api/dubs/groups/<slug>/news/ — новости группы"""
+    """GET /api/dubs/groups/<slug>/news/ - новости группы"""
     serializer_class = DubGroupNewsSerializer
     permission_classes = [AllowAny]
 
@@ -380,7 +380,7 @@ class DubGroupNewsView(generics.ListAPIView):
 
 
 class DubGroupDiscussionsView(generics.ListAPIView):
-    """GET /api/dubs/groups/<slug>/discussions/ — обсуждения группы"""
+    """GET /api/dubs/groups/<slug>/discussions/ - обсуждения группы"""
     serializer_class = DubGroupDiscussionSerializer
     permission_classes = [AllowAny]
 
@@ -395,7 +395,7 @@ class DubGroupDiscussionsView(generics.ListAPIView):
 
 
 class DubGroupDiscussionCreateView(APIView):
-    """POST /api/dubs/groups/<slug>/discussions/ — создать обсуждение"""
+    """POST /api/dubs/groups/<slug>/discussions/ - создать обсуждение"""
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request, slug):
@@ -414,7 +414,7 @@ class DubGroupDiscussionCreateView(APIView):
 
 
 class DubGroupReviewsView(generics.ListAPIView):
-    """GET /api/dubs/groups/<slug>/reviews/ — отзывы о группе"""
+    """GET /api/dubs/groups/<slug>/reviews/ - отзывы о группе"""
     serializer_class = DubGroupRatingSerializer
     permission_classes = [AllowAny]
 
@@ -429,7 +429,7 @@ class DubGroupReviewsView(generics.ListAPIView):
 
 
 class DubGroupReviewCreateView(APIView):
-    """POST /api/dubs/groups/<slug>/reviews/ — создать/обновить отзыв"""
+    """POST /api/dubs/groups/<slug>/reviews/ - создать/обновить отзыв"""
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request, slug):
@@ -460,7 +460,7 @@ class DubGroupReviewCreateView(APIView):
 
 
 class DubGroupSubscribeView(APIView):
-    """POST/DELETE /api/dubs/groups/<slug>/subscribe/ — подписка"""
+    """POST/DELETE /api/dubs/groups/<slug>/subscribe/ - подписка"""
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request, slug):
@@ -478,7 +478,7 @@ class DubGroupSubscribeView(APIView):
 
 
 class DubGroupSimilarView(generics.ListAPIView):
-    """GET /api/dubs/groups/<slug>/similar/ — похожие группы (по жанрам и типу перевода)"""
+    """GET /api/dubs/groups/<slug>/similar/ - похожие группы (по жанрам и типу перевода)"""
     serializer_class = DubGroupListSerializer
     permission_classes = [AllowAny]
 
@@ -495,7 +495,7 @@ class DubGroupSimilarView(generics.ListAPIView):
         scored = []
         for g in candidates:
             score = 0
-            # Совпадение типа перевода — большой бонус
+            # Совпадение типа перевода - большой бонус
             if g.translation_type == group.translation_type:
                 score += 3
             # Пересечение жанров

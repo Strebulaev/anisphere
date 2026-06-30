@@ -4,7 +4,6 @@
     @click="handleClick"
     :class="{ 'has-live-cover': hasLiveCover }"
   >
-    <!-- Постер аниме -->
     <div class="anime-poster">
       <OptimizedImage
         v-if="getPosterUrl()"
@@ -21,10 +20,8 @@
         </svg>
       </div>
 
-      <!-- Градиентный оверлей снизу -->
       <div class="poster-overlay"></div>
 
-      <!-- Оверлей с кнопкой play при наведении -->
       <div class="hover-overlay" @click.stop="handleClick">
         <button class="play-btn" @click.stop="handleClick">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -33,7 +30,6 @@
         </button>
       </div>
 
-      <!-- Индикатор живой обложки (правый верхний угол) -->
       <div 
         v-if="hasLiveCover" 
         class="live-cover-indicator"
@@ -45,7 +41,6 @@
         </svg>
       </div>
 
-      <!-- Кнопки действий (правый верхний угол, появляются при наведении) -->
       <div v-if="showActions" class="card-actions">
         <button
           :class="['action-btn', 'favorite-btn']"
@@ -92,7 +87,6 @@
         </button>
       </div>
 
-      <!-- Статус в коллекции -->
       <div v-if="watchStatus" class="collection-status">
         <svg :width="16" :height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle v-if="watchStatus === 'watching'" cx="12" cy="12" r="10"/>
@@ -106,12 +100,10 @@
         </svg>
       </div>
 
-      <!-- Прогресс просмотра -->
       <div v-if="showProgress && watchProgress > 0 && watchProgress < totalEpisodes" class="progress-bar">
         <div class="progress-fill" :style="{ width: `${(watchProgress / totalEpisodes) * 100}%` }"></div>
       </div>
 
-      <!-- Рейтинг (левый нижний угол) -->
       <div v-if="anime.score" class="score-badge">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -120,7 +112,6 @@
       </div>
     </div>
 
-    <!-- Информационный слой -->
     <div class="anime-info">
       <h3 class="anime-title">{{ anime.title_ru || anime.title_en }}</h3>
       
@@ -140,24 +131,27 @@
         <span class="meta-item" v-if="anime.episodes">
           {{ anime.episodes }} эп.
         </span>
-        <span class="meta-separator" v-if="anime.episodes && anime.status">·</span>
+      </div>
+
+      <!-- Статус - всегда на своём месте -->
+      <div class="anime-status-row">
         <span class="meta-status" :class="getStatusClass(anime.status)">
           {{ getStatusText(anime.status) }}
         </span>
       </div>
 
-      <!-- Жанры -->
-      <div v-if="showGenres && anime.genres && anime.genres.length > 0" class="anime-genres">
+      <!-- Жанры - исправленная версия с проверкой типа -->
+      <div v-if="showGenres && hasGenres" class="anime-genres">
         <span
           v-for="(genre, index) in displayedGenres"
           :key="index"
           class="genre-tag"
-          :title="anime.genres.map(g => g.name).join(', ')"
+          :title="allGenresNames"
         >
-          {{ genre.name }}
+          {{ getGenreName(genre) }}
         </span>
-        <span v-if="anime.genres.length > maxGenres" class="genre-more">
-          +{{ anime.genres.length - maxGenres }}
+        <span v-if="genresCount > maxGenres" class="genre-more">
+          +{{ genresCount - maxGenres }}
         </span>
       </div>
 
@@ -170,7 +164,6 @@
         <span class="progress-text">{{ watchProgress }}/{{ totalEpisodes }} эп.</span>
       </div>
 
-      <!-- Статусная полоска -->
       <div 
         v-if="watchStatus && !showProgress" 
         class="status-bar"
@@ -178,7 +171,6 @@
       ></div>
     </div>
 
-    <!-- Модальное окно добавления в плейлист (Teleport внутри компонента) -->
     <PlaylistSelectModal
       :show="showPlaylistModal"
       :anime="anime as any"
@@ -189,7 +181,6 @@
       @create-playlist="handleCreatePlaylist"
     />
 
-    <!-- Модалка создания нового плейлиста -->
     <Teleport to="body">
       <Transition name="psm-anim">
         <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:10001;padding:1rem;">
@@ -214,13 +205,11 @@
       </Transition>
     </Teleport>
 
-    <!-- Модальное окно напоминания (Teleport внутри компонента) -->
     <ReminderModal
       :show="showReminderModal"
       :anime="anime as any"
       @close="showReminderModal = false"
-      @save="handleReminderSave"
-    />
+      @save="handleReminderSave"/>
   </div>
 </template>
 
@@ -258,7 +247,7 @@ interface AnimeCardProps {
   poster_file?: string | null
   created_at?: string
   type?: string
-  genres?: Genre[]
+  genres?: Genre[] | string[] | string | null  // Поддержка разных форматов
   poster?: any
 }
 
@@ -303,6 +292,58 @@ const creatingPlaylist = ref(false)
 const playlists = ref<any[]>([])
 const playlistsLoading = ref(false)
 
+// Нормализация жанров - приводим к массиву объектов с полем name
+const normalizedGenres = computed(() => {
+  const genres = props.anime.genres
+  
+  if (!genres) return []
+  if (Array.isArray(genres)) {
+    if (genres.length === 0) return []
+    // Если первый элемент - объект с полем name, возвращаем как есть
+    if (typeof genres[0] === 'object' && genres[0] !== null && 'name' in genres[0]) {
+      return genres as Genre[]
+    }
+    // Если массив строк, преобразуем в объекты
+    if (typeof genres[0] === 'string') {
+      return (genres as string[]).map(name => ({ id: 0, name, slug: '' }))
+    }
+    return []
+  }
+  // Если строка, разбиваем по запятой
+  if (typeof genres === 'string') {
+    return genres.split(',').map(name => ({ 
+      id: 0, 
+      name: name.trim(), 
+      slug: '' 
+    })).filter(g => g.name)
+  }
+  return []
+})
+
+// Проверка наличия жанров
+const hasGenres = computed(() => normalizedGenres.value.length > 0)
+
+// Количество жанров
+const genresCount = computed(() => normalizedGenres.value.length)
+
+// Отображаемые жанры (с учетом maxGenres)
+const displayedGenres = computed(() => {
+  return normalizedGenres.value.slice(0, props.maxGenres)
+})
+
+// Все названия жанров для tooltip
+const allGenresNames = computed(() => {
+  return normalizedGenres.value.map(g => getGenreName(g)).join(', ')
+})
+
+// Получение имени жанра (безопасно)
+const getGenreName = (genre: any): string => {
+  if (!genre) return ''
+  if (typeof genre === 'string') return genre
+  if (typeof genre === 'object' && genre.name) return genre.name
+  return String(genre)
+}
+
 const loadPlaylists = async () => {
   playlistsLoading.value = true
   try {
@@ -316,7 +357,6 @@ const loadPlaylists = async () => {
   }
 }
 
-// Загружаем плейлисты при открытии модального окна
 watch(showPlaylistModal, (newVal) => {
   if (newVal) {
     loadPlaylists()
@@ -328,11 +368,6 @@ const formattedScore = computed(() => {
     return props.anime.score.toFixed(1)
   }
   return ''
-})
-
-const displayedGenres = computed(() => {
-  if (!props.anime.genres) return []
-  return props.anime.genres.slice(0, props.maxGenres)
 })
 
 const totalEpisodes = computed(() => {
@@ -348,7 +383,7 @@ const checkFavorite = async () => {
     const response = await playlistsApi.checkAnimeInFavorites(props.anime.id)
     isFavorite.value = response.data.is_favorite
   } catch (error: any) {
-    // Тихо игнорируем — не авторизован или нет эндпоинта
+    // игнорируем - не авторизован или нет эндпоинта
   }
 }
 
@@ -408,7 +443,6 @@ const saveNewPlaylist = async () => {
     })
     showCreateModal.value = false
     toast.success('Плейлист создан!')
-    // Возвращаемся к модалке выбора с обновлённым списком
     await loadPlaylists()
     showPlaylistModal.value = true
   } catch (error: any) {
@@ -423,7 +457,7 @@ const getStatusText = (status: string) => {
     'ongoing': 'Онгоинг',
     'finished': 'Завершён',
     'announced': 'Анонсирован',
-    'released': 'Вышедший'
+    'released': 'Завершён'
   }
   return map[status] || status
 }
@@ -465,12 +499,10 @@ const handleReminderSave = async (data: any) => {
 
 const handleDiscuss = async () => {
   try {
-    // Сначала пробуем получить существующую группу
     let discussionGroup
     try {
       discussionGroup = await animeDiscussionsApi.getDiscussionGroup(props.anime.id)
     } catch (error: any) {
-      // Группы нет, создаём новую
       if (error.response?.status === 404) {
         discussionGroup = await animeDiscussionsApi.createDiscussionGroup(props.anime.id)
       } else {
@@ -478,12 +510,10 @@ const handleDiscuss = async () => {
       }
     }
 
-    // Если пользователь ещё не вступил, вступаем
     if (!discussionGroup.user_joined) {
       discussionGroup = await animeDiscussionsApi.joinDiscussionGroup(props.anime.id)
     }
 
-    // Перенаправляем в чат
     router.push(`/chats/${discussionGroup.id}`)
   } catch (error: any) {
     console.error('Error handling discuss:', error)
@@ -515,28 +545,23 @@ const formatReleaseDate = (dateStr: string | null) => {
 }
 
 const getPosterUrl = (): string | undefined => {
-  // Пробуем разные поля для постера
   const posterImage = props.anime.poster_image_url
   const posterUrl = props.anime.poster_url
   const posterFile = props.anime.poster_file
   const poster = props.anime.poster
   
-  // poster (локальный файл из БД) - приоритетный
   if (poster) {
     const url = getMediaUrl(poster)
     if (url) return url
   }
-  // poster_file
   if (posterFile) {
     const url = getMediaUrl(posterFile)
     if (url) return url
   }
-  // poster_image_url
   if (posterImage) {
     const url = getMediaUrl(posterImage)
     if (url) return url
   }
-  // poster_url (URL Shikimori)
   if (posterUrl) {
     const url = getMediaUrl(posterUrl)
     if (url) return url
@@ -554,32 +579,28 @@ const handleImageError = (event: Event) => {
 }
 
 const previewLiveCover = () => {
-  // Placeholder для превью живой обложки
+  // превью живой обложки
 }
 
 const stopLiveCoverPreview = () => {
-  // Placeholder для остановки превью
+  // остановка превью
 }
 
 checkFavorite()
 </script>
 
 <style>
-/* ── AnimeCard — глобальные стили (не scoped) ─────────────── */
 .anime-card {
   background-color: var(--surface-3);
   border-radius: var(--radius-card);
   border: 1px solid var(--border-subtle);
-  overflow: hidden;
+  overflow: hidden !important;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  position: relative;
-  width: 100%;
-  transition:
-    transform var(--duration-slow) var(--ease-out),
-    box-shadow var(--duration-slow) var(--ease-out),
-    border-color var(--duration-slow) var(--ease-out);
+  transition: transform var(--duration-slow) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
+  width: auto;
+  max-width: 100%;
 }
 
 .anime-card:hover {
@@ -587,29 +608,30 @@ checkFavorite()
   box-shadow: var(--shadow-lg);
   border-color: var(--border-default);
 }
+</style>
 
-/* ── Постер ──────────────────────────────────────────────── */
+<style scoped>
 .anime-poster {
   position: relative;
   width: 100%;
-  padding-bottom: 140%;
+  aspect-ratio: 2 / 3;
   background-color: var(--surface-4);
   overflow: hidden;
+  border-radius: var(--radius-lg);
 }
 
 .poster-image {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition:
-    transform var(--duration-slow) var(--ease-out),
-    filter var(--duration-slow) var(--ease-out);
+  object-position: center;
 }
 
 .anime-card:hover .poster-image {
-  transform: scale(1.04);
+  transform: scale(1.05);
 }
 
 .poster-placeholder {
@@ -622,23 +644,16 @@ checkFavorite()
   color: var(--text-tertiary);
 }
 
-/* ── Градиент ────────────────────────────────────────────── */
 .poster-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 50%;
-  background: linear-gradient(
-    to top,
-    rgba(8, 8, 9, 0.96) 0%,
-    rgba(8, 8, 9, 0.5) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(to top, rgba(8, 8, 9, 0.96) 0%, rgba(8, 8, 9, 0.5) 50%, transparent 100%);
   pointer-events: none;
 }
 
-/* ── Hover оверлей с кнопкой play ────────────────────────── */
 .hover-overlay {
   position: absolute;
   inset: 0;
@@ -655,7 +670,6 @@ checkFavorite()
   opacity: 1;
 }
 
-/* Квадратная синяя кнопка с анимацией распыления */
 .play-btn {
   width: 64px;
   height: 64px;
@@ -689,7 +703,6 @@ checkFavorite()
   margin-left: 4px;
 }
 
-/* ── Live cover ──────────────────────────────────────────── */
 .live-cover-indicator {
   position: absolute;
   top: var(--space-2);
@@ -705,21 +718,20 @@ checkFavorite()
   z-index: 5;
 }
 
-.anime-card:hover .live-cover-indicator { opacity: 1; }
+.anime-card:hover .live-cover-indicator { 
+  opacity: 1; 
+}
 
-/* ── Кнопки действий ─────────────────────────────────────── */
 .card-actions {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
+  top: 8px;
+  right: 8px;
   display: flex;
   flex-direction: row;
-  gap: var(--space-1);
+  gap: 6px;
   opacity: 0;
   transform: translateY(-6px);
-  transition:
-    opacity var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+  transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
   z-index: 10;
 }
 
@@ -735,439 +747,279 @@ checkFavorite()
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(8, 8, 9, 0.8);
+  background-color: rgba(8, 8, 9, 0.9);
   color: var(--text-primary);
   border-radius: 50%;
   cursor: pointer;
   transition: all var(--duration-base) var(--ease-out);
   border: none;
   backdrop-filter: blur(8px);
+  flex-shrink: 0;
+  padding: 8px;
 }
 
-.action-btn:hover           { background-color: var(--accent); transform: scale(1.1); }
-.favorite-btn               { color: var(--text-secondary); }
-.favorite-btn:hover         { background-color: rgba(239,68,68,0.2); color: var(--danger); }
-.discuss-btn:hover          { background-color: var(--accent); }
-.playlist-btn:hover         { background-color: var(--accent-2); }
-.reminder-btn:hover         { background-color: var(--warning); }
-
-/* ── Статус коллекции ────────────────────────────────────── */
-.collection-status {
-  position: absolute;
-  bottom: var(--space-2);
-  left: var(--space-2);
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(8, 8, 9, 0.85);
-  color: var(--accent-2);
-  border-radius: 50%;
-  backdrop-filter: blur(6px);
-  z-index: 5;
+.action-btn:hover { 
+  background-color: var(--accent); 
+  transform: scale(1.1); 
+}
+.favorite-btn { 
+  color: var(--text-secondary); 
+}
+.favorite-btn:hover { 
+  background-color: rgba(239,68,68,0.2); 
+  color: var(--danger); 
+}
+.discuss-btn:hover { 
+  background-color: var(--accent); 
+}
+.playlist-btn:hover { 
+  background-color: var(--accent-2); 
+}
+.reminder-btn:hover { 
+  background-color: var(--warning); 
 }
 
-/* ── Прогресс-полоска ────────────────────────────────────── */
+@media (max-width: 767px) {
+  .card-actions { 
+    opacity: 1 !important; 
+    transform: translateY(0) !important; 
+    gap: 6px;
+  }
+  .action-btn { 
+    width: 30px; 
+    height: 30px; 
+    min-height: 30px;
+    padding: 7px;
+  }
+  
+  .anime-card {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+  
+  .anime-poster {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
+  
+@media (max-width: 480px) {
+  .card-actions {
+    top: 6px;
+    right: 6px;
+    gap: 6px;
+  }
+  
+  .action-btn {
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 6px;
+  }
+}
+
 .progress-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 3px;
-  background-color: rgba(8, 8, 9, 0.4);
-  z-index: 5;
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .progress-fill {
   height: 100%;
-  background-color: var(--accent);
-  transition: width var(--duration-slow) var(--ease-out);
+  background: var(--accent);
+  transition: width 0.4s ease;
 }
 
-/* ── Рейтинг ─────────────────────────────────────────────── */
-.score-badge {
+.collection-status {
   position: absolute;
-  bottom: var(--space-2);
-  left: var(--space-2);
-  display: inline-flex;
+  top: 8px;
+  left: 8px;
+  width: 26px;
+  height: 26px;
+  display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px var(--space-2);
-  background-color: rgba(8, 8, 9, 0.88);
-  color: var(--warning);
+  justify-content: center;
   border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--accent);
   z-index: 5;
 }
 
-/* ── Информация ──────────────────────────────────────────── */
+.score-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 5;
+}
+
+.score-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
 .anime-info {
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  background-color: var(--surface-3);
-  flex: 1;
+  padding: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
 .anime-title {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
-  line-height: 1.35;
 }
 
 .anime-meta {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 20px;
+}
+
+.anime-status-row {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+  min-height: 22px;
+}
+
+.meta-item {
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  flex-wrap: wrap;
 }
 
-.meta-item      { font-weight: 400; }
-.meta-separator { color: var(--text-tertiary); }
-.meta-status    { font-weight: 500; }
-
-.status-ongoing  { color: var(--accent); }
-.status-finished { color: var(--text-tertiary); }
-.status-announced{ color: var(--accent); }
-.status-released { color: var(--accent-2); }
-
-.meta-release-date {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-/* ── Жанры ───────────────────────────────────────────────── */
-.anime-genres {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.genre-tag {
-  font-size: var(--text-xs);
-  color: var(--accent);
-  background-color: var(--accent-subtle);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-full);
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.genre-more {
+.meta-separator {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
 
-/* ── Прогресс просмотра ──────────────────────────────────── */
+.meta-release-date {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.meta-status {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 4px 10px !important;
+  border-radius: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+  background: var(--surface-4) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+
+.status-ongoing {
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: #60a5fa !important;
+  border-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+.status-finished,
+.status-released {
+  background: rgba(34, 197, 94, 0.08) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+.status-announced {
+  background: rgba(168, 85, 247, 0.08) !important;
+  color: #d8b4fe !important;
+  border-color: rgba(168, 85, 247, 0.2) !important;
+}
+
+.status-canceled {
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.anime-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.genre-tag {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--surface-4);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  cursor: help;
+}
+
+.genre-more {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
 .anime-progress {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 4px;
   font-size: var(--text-xs);
-  color: var(--accent-2);
+  color: var(--text-secondary);
 }
 
-.progress-text { font-weight: 500; }
+.anime-progress svg {
+  width: 12px;
+  height: 12px;
+}
 
-/* ── Статусная полоска ───────────────────────────────────── */
+.progress-text {
+  font-size: 10px;
+}
+
 .status-bar {
   height: 2px;
-  width: 100%;
-  border-radius: var(--radius-full);
-  margin-top: auto;
+  border-radius: 2px;
+  margin-top: 4px;
 }
 
-.status-bar-watching  { background-color: var(--status-watching); }
-.status-bar-completed { background-color: var(--status-completed); }
-.status-bar-planned   { background-color: var(--status-planned); }
-.status-bar-dropped   { background-color: var(--status-dropped); }
-.status-bar-onhold    { background-color: var(--status-onhold); }
-
-/* ── Мобильная адаптация ─────────────────────────────────── */
-@media (max-width: 767px) {
-  .card-actions {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .action-btn {
-    width: 28px;
-    height: 28px;
-    min-height: 28px;
-  }
-
-  .anime-title  { font-size: var(--text-sm); }
-  .anime-meta   { font-size: calc(var(--text-xs) - 1px); }
+.status-bar-watching {
+  background: var(--accent);
 }
 
-/* ═══ АДАПТИВНЫЕ РАЗМЕРЫ КАРТОЧКИ ═══ */
-
-/* xs: 320px */
-@media (max-width: 374px) {
-  .anime-card {
-    width: 130px;
-  }
-  
-  .anime-poster {
-    padding-bottom: 140%;
-  }
-  
-  .play-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 8px;
-  }
-  
-  .play-btn svg {
-    width: 20px;
-    height: 20px;
-  }
-  
-  .action-btn {
-    width: 24px;
-    height: 24px;
-    min-height: 24px;
-  }
-  
-  .action-btn svg {
-    width: 12px;
-    height: 12px;
-  }
-  
-  .score-badge {
-    padding: 2px 4px;
-    font-size: 10px;
-  }
-  
-  .score-badge svg {
-    width: 10px;
-    height: 10px;
-  }
-  
-  .collection-status {
-    width: 22px;
-    height: 22px;
-  }
-  
-  .collection-status svg {
-    width: 12px;
-    height: 12px;
-  }
-  
-  .anime-info {
-    padding: 6px 8px 8px;
-  }
-  
-  .anime-title {
-    font-size: 11px;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-  }
-  
-  .anime-meta {
-    font-size: 9px;
-    gap: 2px;
-  }
-  
-  .anime-genres {
-    gap: 2px;
-  }
-  
-  .genre-tag {
-    font-size: 9px;
-    padding: 1px 4px;
-  }
-  
-  .genre-more {
-    font-size: 9px;
-  }
-  
-  .anime-progress {
-    font-size: 9px;
-  }
-  
-  .progress-bar {
-    height: 2px;
-  }
-  
-  .live-cover-indicator {
-    width: 16px;
-    height: 16px;
-  }
-  
-  .live-cover-indicator svg {
-    width: 12px;
-    height: 12px;
-  }
+.status-bar-completed {
+  background: #22c55e;
 }
 
-/* sm: 375px */
-@media (min-width: 375px) and (max-width: 413px) {
-  .anime-card {
-    width: 140px;
-  }
-  
-  .anime-poster {
-    padding-bottom: 140%;
-  }
-  
-  .play-btn {
-    width: 56px;
-    height: 56px;
-  }
-  
-  .play-btn svg {
-    width: 24px;
-    height: 24px;
-  }
-  
-  .action-btn {
-    width: 26px;
-    height: 26px;
-    min-height: 26px;
-  }
-  
-  .anime-title {
-    font-size: 12px;
-  }
-  
-  .anime-meta {
-    font-size: 10px;
-  }
-  
-  .genre-tag {
-    font-size: 10px;
-  }
+.status-bar-planned {
+  background: var(--text-tertiary);
 }
 
-/* md: 414px - 767px */
-@media (min-width: 414px) and (max-width: 767px) {
-  .anime-card {
-    width: 150px;
-  }
-  
-  .anime-poster {
-    padding-bottom: 145%;
-  }
-  
-  .play-btn {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .play-btn svg {
-    width: 26px;
-    height: 26px;
-  }
-  
-  .action-btn {
-    width: 28px;
-    height: 28px;
-    min-height: 28px;
-  }
-  
-  .anime-title {
-    font-size: 13px;
-  }
-  
-  .anime-meta {
-    font-size: 11px;
-  }
+.status-bar-dropped {
+  background: var(--danger);
 }
 
-/* tablet: 768px+ */
-@media (min-width: 768px) {
-  .anime-card {
-    width: 160px;
-  }
-  
-  .anime-poster {
-    padding-bottom: 145%;
-  }
-  
-  .anime-info {
-    padding: 8px 12px 12px;
-  }
-  
-  .anime-title {
-    font-size: 14px;
-  }
-  
-  .anime-meta {
-    font-size: 12px;
-  }
-  
-  .genre-tag {
-    font-size: 11px;
-  }
-  
-  .action-btn {
-    width: 32px;
-    height: 32px;
-    min-height: 32px;
-  }
-  
-  .play-btn {
-    width: 64px;
-    height: 64px;
-    border-radius: 12px;
-  }
-  
-  .play-btn svg {
-    width: 28px;
-    height: 28px;
-  }
-}
-
-/* laptop: 1280px+ */
-@media (min-width: 1280px) {
-  .anime-card {
-    width: 170px;
-  }
-  
-  .anime-poster {
-    padding-bottom: 150%;
-  }
-  
-  .anime-title {
-    font-size: 15px;
-  }
-  
-  .anime-meta {
-    font-size: 13px;
-  }
-}
-
-/* desktop: 1536px+ */
-@media (min-width: 1536px) {
-  .anime-card {
-    width: 180px;
-  }
-  
-  .anime-poster {
-    padding-bottom: 150%;
-  }
-  
-  .anime-title {
-    font-size: 16px;
-  }
-  
-  .anime-meta {
-    font-size: 14px;
-  }
+.status-bar-onhold {
+  background: var(--warning);
 }
 </style>

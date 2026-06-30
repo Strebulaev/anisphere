@@ -8,6 +8,6 @@ router.register(r'notifications', NotificationViewSet)
 router.register(r'reminders', ReminderViewSet)
 
 urlpatterns = router.urls + [
-    # Настройки — без pk в URL
+    # Настройки - без pk в URL
     path('settings/', NotificationSettingViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'update'})),
 ]

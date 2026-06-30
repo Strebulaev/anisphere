@@ -68,6 +68,7 @@ from .serializers import (
     GroupMembershipSerializer,
     PostSerializer,
     PostCreateSerializer,
+    PostUpdateSerializer,
     ChatSettingsSerializer,
     MessageSerializer,
     ContestSerializer,
@@ -422,7 +423,7 @@ class CombinedChatsView(generics.ListAPIView):
                     except Exception:
                         avatar_url = getattr(chat.anime, "poster_url", None)
                 elif chat.franchise_id and chat.anime is None:
-                    # Франшизный чат без аниме — берём постер первого аниме франшизы
+                    # Франшизный чат без аниме - берём постер первого аниме франшизы
                     try:
                         from anime.models import Anime as AnimeModel
 
@@ -863,7 +864,7 @@ class PostCommentViewSet(ModelViewSet):
                 )
             except Exception as e:
                 print(f"Failed to send comment notification: {e}")
-
+            
         # Если это ответ на комментарий, отправляем уведомление автору родительского комментария
         if comment.parent_id:
             try:
@@ -1073,6 +1074,9 @@ def unpin_post(request, post_id):
 @permission_classes([IsAuthenticated])
 def report_post(request, post_id):
     """Пожаловаться на пост"""
+    import logging
+    logger = logging.getLogger(__name__)
+
     try:
         post = Post.objects.get(id=post_id)
     except Post.DoesNotExist:
@@ -1082,7 +1086,7 @@ def report_post(request, post_id):
     if post.author == request.user:
         return Response({"error": "Нельзя жаловаться на свой пост"}, status=400)
 
-    reason = request.data.get("reason")
+    reason = request.data.get("reason", "other")
     if reason not in ["spam", "copyright", "harassment", "inappropriate", "other"]:
         return Response({"error": "Неверная причина жалобы"}, status=400)
 
@@ -1096,26 +1100,50 @@ def report_post(request, post_id):
     if existing_report:
         return Response({"error": "Вы уже отправили жалобу на этот пост"}, status=400)
 
-    report = Report.objects.create(
-        reporter=request.user,
-        content_type="post",
-        content_id=post_id,
-        reason=reason,
-        comment=comment,
-        status="pending",
-    )
-
-    # Запускаем фоновое задание для уведомления модераторов
     try:
-        from social.tasks import notify_moderators_new_report
+        report = Report.objects.create(
+            reporter=request.user,
+            content_type="post",
+            content_id=post_id,
+            reason=reason,
+            comment=comment,
+            status="pending",
+        )
 
-        notify_moderators_new_report.delay(report.id)
-    except Exception:
-        pass  # Celery может быть недоступен
+        logger.info(f"Report created: {report.id} by {request.user.username} on post {post_id}")
+        
+        # Отправляем уведомление модераторам НАПРЯМУЮ (без Celery)
+        try:
+            from notifications.models import Notification
 
-    return Response(
-        {"success": True, "message": "Жалоба отправлена", "report_id": report.id}
-    )
+            # Ищем модератора - сначала по is_staff/is_superuser
+            moderator = User.objects.filter(
+                models.Q(is_staff=True) | models.Q(is_superuser=True)
+            ).first()
+
+            if moderator:
+                reason_display = dict(Report.REASON_CHOICES).get(reason, reason)
+
+                # Создаём уведомление
+                Notification.objects.create(
+                    user=moderator,
+                    type="system",
+                    title=f"🚨 Новая жалоба: Пост",
+                    content=f"Причина: {reason_display}\nЖалоба от: @{request.user.username}\nID поста: {post_id}",
+                    link=f"/admin/social/report/{report.id}/",
+                )
+                logger.info(f"Moderator notification sent to {moderator.username}")
+            else:
+                logger.warning("No moderator found for report notification")
+        except Exception as e:
+            logger.warning(f"Failed to send moderator notification: {e}")
+        
+        return Response(
+            {"success": True, "message": "Жалоба отправлена", "report_id": report.id}
+        )
+    except Exception as e:
+        logger.error(f"Error creating report: {e}", exc_info=True)
+        return Response({"error": "Ошибка при создании жалобы", "detail": str(e)}, status=500)
 
 
 @api_view(["POST"])
@@ -1676,6 +1704,111 @@ def get_group_posts(request, group_id):
 # ==================== CONTENT MODERATION ====================
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def get_reports(request):
+    """Получить список жалоб (только для модераторов/админов)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Фильтры
+        status_filter = request.query_params.get("status")  # pending, resolved, all
+        content_type_filter = request.query_params.get("content_type")  # post, comment
+        page = int(request.query_params.get("page", 1))
+        per_page = int(request.query_params.get("per_page", 20))
+        
+        # Базовый queryset
+        queryset = Report.objects.select_related(
+            'reporter', 'resolved_by'
+        ).order_by('-created_at')
+        
+        # Фильтр по статусу
+        if status_filter and status_filter != 'all':
+            queryset = queryset.filter(status=status_filter)
+        
+        # Фильтр по типу контента
+        if content_type_filter:
+            queryset = queryset.filter(content_type=content_type_filter)
+        
+        # Пагинация
+        total = queryset.count()
+        reports_page = queryset[(page - 1) * per_page:page * per_page]
+        
+        # Формируем ответ
+        reports = []
+        for report in reports_page:
+            report_data = {
+                'id': report.id,
+                'reporter': {
+                    'id': report.reporter.id,
+                    'username': report.reporter.username,
+                    'display_name': report.reporter.display_name
+                },
+                'content_type': report.content_type,
+                'content_id': report.content_id,
+                'reason': report.reason,
+                'reason_display': dict(Report.REASON_CHOICES).get(report.reason),
+                'comment': report.comment,
+                'status': report.status,
+                'status_display': dict(Report.STATUS_CHOICES).get(report.status),
+                'created_at': report.created_at.isoformat(),
+                'resolved_by': {
+                    'id': report.resolved_by.id,
+                    'username': report.resolved_by.username
+                } if report.resolved_by else None,
+                'resolved_at': report.resolved_at.isoformat() if report.resolved_at else None,
+            }
+            reports.append(report_data)
+        
+        return Response({
+            'count': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': (total + per_page - 1) // per_page,
+            'results': reports,
+        })
+    except Exception as e:
+        logger.error(f"Error in get_reports: {e}", exc_info=True)
+        return Response({"error": "Ошибка при загрузке жалоб", "detail": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def resolve_report(request, report_id):
+    """Решить жалобу (только для модераторов/админов)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        report = Report.objects.get(id=report_id)
+    except Report.DoesNotExist:
+        return Response({"error": "Жалоба не найдена"}, status=404)
+    
+    status = request.data.get("status")
+    if status not in ["resolved", "rejected"]:
+        return Response({"error": "Неверный статус"}, status=400)
+    
+    # Обновляем жалобу
+    report.status = status
+    report.resolved_by = request.user
+    report.resolved_at = timezone.now()
+    report.save()
+    
+    logger.info(f"Report {report_id} resolved by {request.user.username} as {status}")
+    
+    return Response({
+        "success": True,
+        "message": "Жалоба рассмотрена",
+        "report": {
+            "id": report.id,
+            "status": report.status,
+            "resolved_by": request.user.username,
+            "resolved_at": report.resolved_at.isoformat()
+        }
+    })
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def hide_post_from_feed(request, post_id):
@@ -1719,7 +1852,15 @@ def mark_post_not_interested(request, post_id):
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def edit_post(request, post_id):
-    """Редактировать пост"""
+    """Редактировать пост (полное редактирование как при создании)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Импорты моделей
+    from anime.models import Anime
+    from playlists.models import Playlist
+    from reactor.models import ReactorPost
+    
     try:
         post = Post.objects.get(id=post_id)
     except Post.DoesNotExist:
@@ -1738,7 +1879,7 @@ def edit_post(request, post_id):
     if new_type and new_type != post.post_type:
         return Response({"error": "Нельзя менять тип поста"}, status=400)
 
-    # Обновляем данные
+    # ===== ОБНОВЛЕНИЕ ОСНОВНЫХ ПОЛЕЙ =====
     if "title" in request.data:
         post.title = request.data["title"][:200] if request.data["title"] else None
 
@@ -1755,19 +1896,309 @@ def edit_post(request, post_id):
     if "allow_comments" in request.data:
         post.allow_comments = bool(request.data["allow_comments"])
 
+    # ВАЖНО: spoiler_for - это ForeignKey на Anime, а не текст!
+    # Используем spoiler_description для текстового описания
     if "is_spoiler" in request.data:
         post.is_spoiler = bool(request.data["is_spoiler"])
+
+    if "spoiler_description" in request.data:
+        post.spoiler_description = request.data["spoiler_description"][:255]
+
+    # ===== ОБНОВЛЕНИЕ МЕДИАФАЙЛОВ =====
+    # Если переданы новые медиафайлы - удаляем старые и добавляем новые
+    has_new_media = any(key.startswith("media_") for key in request.FILES.keys())
+    if has_new_media:
+        # Удаляем старые медиафайлы
+        post.media_files.all().delete()
+        
+        # Создаём новые медиафайлы
+        VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v", ".ogv", ".flv"}
+        IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".tiff", ".avif"}
+        
+        import os
+        import imghdr
+        from mimetypes import guess_type
+        from io import BytesIO
+
+        try:
+            from PIL import Image
+        except:
+            Image = None
+
+        for key, file in request.FILES.items():
+            if not key.startswith("media_"):
+                continue
+
+            ext = os.path.splitext(file.name)[1].lower()
+            content_type = (file.content_type or "").lower()
+
+            # Определяем тип медиа
+            if content_type.startswith("video") or ext in VIDEO_EXTENSIONS:
+                media_type = "video"
+            elif content_type.startswith("image") or ext in IMAGE_EXTENSIONS:
+                media_type = "image"
+            else:
+                # Пытаемся определить по сигнатуре
+                try:
+                    head = file.read(4096)
+                    file.seek(0)
+                    img_type = imghdr.what(None, h=head)
+                    if img_type:
+                        media_type = "image"
+                    elif len(head) >= 12 and b"ftyp" in head[4:12]:
+                        media_type = "video"
+                    elif head.startswith(b"\x1a\x45\xdf\xa3"):
+                        media_type = "video"
+                    else:
+                        media_type = "image"
+                except:
+                    try:
+                        file.seek(0)
+                    except:
+                        pass
+                    media_type = "image"
+
+            # Размер файла
+            file_size = getattr(file, "size", None) or 0
+            mime_type = content_type or (guess_type(file.name)[0] or "")
+
+            # Размеры для изображений
+            width = height = None
+            if media_type == "image" and Image is not None:
+                try:
+                    data = file.read()
+                    file.seek(0)
+                    img = Image.open(BytesIO(data))
+                    width, height = img.size
+                    try:
+                        img.close()
+                    except:
+                        pass
+                except:
+                    try:
+                        file.seek(0)
+                    except:
+                        pass
+
+            PostMedia.objects.create(
+                post=post,
+                media_type=media_type,
+                file=file,
+                file_size=file_size,
+                mime_type=mime_type,
+                width=width,
+                height=height,
+            )
+
+    # ===== ОБНОВЛЕНИЕ ПРИВЯЗОК (через PostAttachment) =====
+    # Удаляем старые attachments если переданы новые
+    has_new_attachments = (
+        "anime_ids" in request.data or 
+        "anime_ids[]" in request.data or
+        "playlist_ids" in request.data or 
+        "playlist_ids[]" in request.data or
+        "reactor_ids" in request.data or
+        "reactor_ids[]" in request.data
+    )
+    if has_new_attachments:
+        post.attachments.all().delete()
+    
+    # Аниме (множественное) - поддерживаем anime_ids и anime_ids[]
+    # Для multipart/form-data используем request.POST.getlist, для JSON - request.data
+    if hasattr(request, 'POST') and request.POST:
+        anime_raw = request.POST.getlist('anime_ids[]') or request.POST.getlist('anime_ids') or []
+    else:
+        anime_raw = request.data.get("anime_ids[]") or request.data.get("anime_ids") or []
+    
+    if isinstance(anime_raw, str):
+        anime_ids = [anime_raw]
+    elif hasattr(anime_raw, '__iter__') and not isinstance(anime_raw, dict):
+        anime_ids = list(anime_raw)
+    else:
+        anime_ids = []
+    
+    # Фильтруем пустые значения
+    anime_ids = [aid for aid in anime_ids if aid]
+    
+    # Также поддерживаем множественные рейтинги
+    if hasattr(request, 'POST') and request.POST:
+        anime_ratings_raw = request.POST.getlist('anime_ratings[]') or request.POST.getlist('anime_ratings') or []
+    else:
+        anime_ratings_raw = request.data.get("anime_ratings[]") or request.data.get("anime_ratings") or []
+    
+    if isinstance(anime_ratings_raw, str):
+        anime_ratings = [anime_ratings_raw]
+    elif hasattr(anime_ratings_raw, '__iter__') and not isinstance(anime_ratings_raw, dict):
+        anime_ratings = list(anime_ratings_raw)
+    else:
+        anime_ratings = []
+    
+    for idx, anime_id in enumerate(anime_ids):
+        try:
+            anime = Anime.objects.get(id=anime_id)
+            PostAttachment.objects.create(
+                post=post,
+                content_type="anime",
+                object_id=anime.id,
+                metadata={"title": anime.title_ru or anime.title_en}
+            )
+        except Anime.DoesNotExist:
+            pass
+    
+    # Для обратной совместимости устанавливаем первое аниме в старое поле
+    post.anime = None
+    if anime_ids:
+        try:
+            post.anime = Anime.objects.filter(id=anime_ids[0]).first()
+            # Устанавливаем рейтинг для первого аниме
+            if anime_ratings and len(anime_ratings) > 0 and anime_ratings[0]:
+                try:
+                    post.anime_rating = int(anime_ratings[0])
+                except (ValueError, TypeError):
+                    post.anime_rating = None
+        except:
+            pass
+
+    # Плейлисты (множественное) - поддерживаем playlist_ids и playlist_ids[]
+    if hasattr(request, 'POST') and request.POST:
+        playlist_raw = request.POST.getlist('playlist_ids[]') or request.POST.getlist('playlist_ids') or []
+    else:
+        playlist_raw = request.data.get("playlist_ids[]") or request.data.get("playlist_ids") or []
+    
+    if isinstance(playlist_raw, str):
+        playlist_ids = [playlist_raw]
+    elif hasattr(playlist_raw, '__iter__') and not isinstance(playlist_raw, dict):
+        playlist_ids = list(playlist_raw)
+    else:
+        playlist_ids = []
+    
+    # Фильтруем пустые значения
+    playlist_ids = [pid for pid in playlist_ids if pid]
+    
+    for playlist_id in playlist_ids:
+        try:
+            playlist = Playlist.objects.get(id=playlist_id)
+            if playlist.user != request.user and playlist.visibility != "public":
+                return Response({"error": "Нет доступа к плейлисту"}, status=403)
+            PostAttachment.objects.create(
+                post=post,
+                content_type="playlist",
+                object_id=playlist.id,
+                metadata={"title": playlist.title}
+            )
+        except Playlist.DoesNotExist:
+            pass
+    
+    # Для обратной совместимости
+    post.playlist = None
+    if playlist_ids:
+        try:
+            post.playlist = Playlist.objects.filter(id=playlist_ids[0]).first()
+        except:
+            pass
+
+    # Shorts/Reactor (множественное) - поддерживаем reactor_ids и reactor_ids[]
+    if hasattr(request, 'POST') and request.POST:
+        reactor_raw = request.POST.getlist('reactor_ids[]') or request.POST.getlist('reactor_ids') or []
+    else:
+        reactor_raw = request.data.get("reactor_ids[]") or request.data.get("reactor_ids") or []
+    
+    if isinstance(reactor_raw, str):
+        reactor_ids = [reactor_raw]
+    elif hasattr(reactor_raw, '__iter__') and not isinstance(reactor_raw, dict):
+        reactor_ids = list(reactor_raw)
+    else:
+        reactor_ids = []
+    
+    # Фильтруем пустые значения
+    reactor_ids = [rid for rid in reactor_ids if rid]
+    
+    for reactor_id in reactor_ids:
+        try:
+            reactor = ReactorPost.objects.get(id=reactor_id)
+            PostAttachment.objects.create(
+                post=post,
+                content_type="shorts",
+                object_id=reactor.id,
+                metadata={"title": reactor.title}
+            )
+        except ReactorPost.DoesNotExist:
+            pass
+
+    # Для обратной совместимости
+    post.reactor_post = None
+    if reactor_ids:
+        try:
+            post.reactor_post = ReactorPost.objects.filter(id=reactor_ids[0]).first()
+        except:
+            pass
+
+    # Рейтинг аниме (старый формат, для обратной совместимости)
+    if "anime_rating" in request.data and not anime_ratings:
+        rating = request.data.get("anime_rating")
+        if rating is None or rating == "":
+            post.anime_rating = None
+        else:
+            try:
+                rating_val = int(rating)
+                if 1 <= rating_val <= 10:
+                    post.anime_rating = rating_val
+                else:
+                    return Response({"error": "Рейтинг должен быть от 1 до 10"}, status=400)
+            except (ValueError, TypeError):
+                return Response({"error": "Неверный формат рейтинга"}, status=400)
+
+    # Обновляем тип поста на основе медиа и привязок
+    media_qs = post.media_files.all()
+    if post.playlist:
+        post.post_type = "playlist"
+    elif post.anime:
+        post.post_type = "anime"
+    elif post.reactor_post:
+        post.post_type = "repost"
+    elif media_qs.exists():
+        if media_qs.filter(media_type="video").exists():
+            post.post_type = "video"
+        else:
+            post.post_type = "image"
+        
+        # Синхронизируем legacy поля
+        first = media_qs.order_by("order").first()
+        if first:
+            if first.media_type == "video":
+                post.video_file = first.file
+                post.video_url = first.url or ""
+                post.image_file = None
+                post.image_url = ""
+            else:
+                post.image_file = first.file
+                post.image_url = first.url or ""
+                post.video_file = None
+                post.video_url = ""
 
     post.edited_at = timezone.now()
     post.save()
 
-    return Response(
-        {
+    try:
+        from .serializers import PostSerializer
+        serializer_data = PostSerializer(post, context={"request": request}).data
+        return Response({
             "success": True,
             "message": "Пост обновлён",
-            "post": PostSerializer(post, context={"request": request}).data,
-        }
-    )
+            "post": serializer_data,
+        })
+    except Exception as e:
+        logger.error(f"Error serializing post {post.id} after edit: {e}")
+        return Response({
+            "success": True,
+            "message": "Пост обновлён",
+            "post": {
+                "id": post.id,
+                "title": post.title,
+                "text": post.text,
+                "edited_at": post.edited_at.isoformat() if post.edited_at else None,
+            },
+        })
 
 
 @api_view(["PUT"])
@@ -2015,7 +2446,15 @@ class GroupViewSet(ModelViewSet):
         return GroupSerializer
 
     def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
+        group = serializer.save(creator=self.request.user)
+        
+        # Добавляем создателя как администратора
+        GroupMembership.objects.create(user=self.request.user, group=group, role='admin')
+        
+        # Обновляем счётчик участников
+        group.update_members_count()
+        
+        return group
 
     @action(detail=True, methods=["post"])
     def join(self, request, pk=None):
@@ -2081,6 +2520,31 @@ class GroupSearchView(APIView):
 class PostViewSet(ModelViewSet):
     queryset = Post.objects.filter(is_deleted=False)
     permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+    lookup_value_regex = r'\d+'  # Только целые числа для pk
+
+    def retrieve(self, request, *args, **kwargs):
+        """Получение одного поста с подробным логом ошибок"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            instance = self.get_object()
+            logger.info(f"Retrieving post {instance.id} for user {request.user.id}")
+            
+            serializer = self.get_serializer(instance, context={"request": request})
+            return Response(serializer.data)
+        except Post.DoesNotExist:
+            logger.warning(f"Post {kwargs.get('pk')} not found")
+            return Response({"error": "Пост не найден"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            logger.error(f"Error retrieving post {kwargs.get('pk')}: {e}\n{error_traceback}")
+            return Response(
+                {"error": f"Ошибка получения поста: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def destroy(self, request, *args, **kwargs):
         """Мягкое удаление поста (is_deleted=True)"""
@@ -2129,8 +2593,10 @@ class PostViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         # use lightweight serializer for incoming data but return full representation when listing/retrieving
-        if self.action in ["create", "update", "partial_update", "public_retrieve"]:
+        if self.action == "create":
             return PostCreateSerializer
+        elif self.action in ["update", "partial_update"]:
+            return PostUpdateSerializer
         return PostSerializer
 
     @action(detail=True, methods=["get"], permission_classes=[AllowAny])
@@ -2163,8 +2629,14 @@ class PostViewSet(ModelViewSet):
     def get_queryset(self):
         queryset = (
             Post.objects.filter(is_deleted=False, status="published")
-            .select_related("author", "anime", "group", "playlist", "reactor_post")
-            .prefetch_related("media_files", "attachments", "hashtag_links__hashtag")
+            .select_related("author", "anime", "group", "playlist", "reactor_post", "original_post")
+            .prefetch_related(
+                "media_files", 
+                "attachments", 
+                "hashtag_links__hashtag",
+                "likes",
+                "dislikes",
+            )
             .order_by("-created_at")
         )
 
@@ -2193,16 +2665,6 @@ class PostViewSet(ModelViewSet):
             queryset = queryset.exclude(group__isnull=False)
 
         return queryset
-
-    def create(self, request, *args, **kwargs):
-        # override to return full post representation (including anime info) after creation
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        post = serializer.instance
-        output = PostSerializer(post, context={"request": request})
-        headers = self.get_success_headers(output.data)
-        return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def update(self, request, *args, **kwargs):
         # similar override for updates
@@ -2343,67 +2805,46 @@ class PostViewSet(ModelViewSet):
             )
 
     def _update_post_type(self, post):
-        """Guess post_type based on attached data if it was not explicitly set."""
+        """Определяет post_type на основе прикреплённого контента НЕ трогая медиа"""
         new_type = post.post_type
-        # pre-fetch media queryset so we can refer to it regardless of post type
         media_qs = post.media_files.all()
 
-        # priority: playlist > anime > reactor_post > media
-        if post.playlist:
+        # Приоритет: playlist > anime > reactor_post > media
+        if post.playlist_id:
             new_type = "playlist"
-        elif post.anime:
+        elif post.anime_id:
             new_type = "anime"
-        elif post.reactor_post:
+        elif post.reactor_post_id:
             new_type = "repost"
         elif media_qs.exists():
-            # if any video exists, mark video, else image
+            # Если есть видео - video, иначе image
             if media_qs.filter(media_type="video").exists():
                 new_type = "video"
             else:
                 new_type = "image"
 
-            # keep legacy single-file/url fields in sync with the first media item
-            first = media_qs.order_by("order").first()
-            if first:
-                if first.media_type == "video":
-                    post.video_file = first.file
-                    post.video_url = first.url or ""
-                    post.image_file = None
-                    post.image_url = ""
-                else:
-                    post.image_file = first.file
-                    post.image_url = first.url or ""
-                    post.video_file = None
-                    post.video_url = ""
-
-        # if anything changed update post
-        fields_to_update = []
+        # !!! УБРАЛИ синхронизацию legacy полей - это вызывает конфликт
+        # Оставить только обновление post_type
         if new_type != post.post_type:
-            fields_to_update.append("post_type")
-        # we may have assigned legacy media fields above
-        if media_qs.exists():
-            fields_to_update.extend(
-                ["image_file", "image_url", "video_file", "video_url"]
-            )
-        if fields_to_update:
-            post.save(update_fields=list(set(fields_to_update)))
+            post.post_type = new_type
+            post.save(update_fields=["post_type"])
 
     def create(self, request, *args, **kwargs):
         try:
             # strip media_x fields before validation; they are handled separately
-            # NOTE: cannot use request.data.copy() when FILES are present (deepcopy fails on BufferedRandom)
             data = {k: v for k, v in request.data.items() if not k.startswith("media_")}
 
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)
             post = serializer.instance
+            
             self._handle_media_uploads(request, post)
-            # ensure type is correct after attachments/media
             self._update_post_type(post)
 
             headers = self.get_success_headers(serializer.data)
             out_serializer = PostSerializer(post, context={"request": request})
+            
             return Response(
                 out_serializer.data, status=status.HTTP_201_CREATED, headers=headers
             )
@@ -2439,16 +2880,40 @@ class PostViewSet(ModelViewSet):
         try:
             partial = kwargs.pop("partial", False)
             instance = self.get_object()
-            # strip media fields from data before validation
-            data = {k: v for k, v in request.data.items() if not k.startswith("media_")}
-
+            
+            # 1. Сначала проверяем, хочет ли пользователь удалить медиа
+            # Если переданы новые файлы - заменяем старые
+            has_new_media = any(k.startswith('media_') for k in request.FILES.keys())
+            
+            if has_new_media:
+                # Пользователь добавил новые файлы - удаляем старые и добавляем новые
+                instance.media_files.all().delete()
+                self._handle_media_uploads(request, instance, replace=False)
+            # else: ничего не делаем - медиа остаются как были
+            
+            # 2. Обработка остальных полей и attachments (через сериализатор)
+            # Берём данные БЕЗ media_ полей
+            data = {k: v for k, v in request.data.items() if not k.startswith('media_')}
+            
             serializer = self.get_serializer(instance, data=data, partial=partial)
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
-            self._handle_media_uploads(request, instance, replace=not partial)
-            self._update_post_type(instance)
-            out = PostSerializer(instance, context={"request": request})
-            return Response(out.data)
+            
+            # 3. Перезагрузка поста с полным prefetch
+            post = Post.objects.select_related(
+                "author", "anime", "group", "playlist", "reactor_post", "original_post"
+            ).prefetch_related(
+                "media_files", 
+                "attachments",  # ВАЖНО: attachments должны быть загружены!
+                "hashtag_links__hashtag",
+            ).get(id=instance.id)
+            
+            # 4. Обновление типа поста
+            self._update_post_type(post)
+            
+            # 5. Возврат с полным сериализатором
+            out_serializer = PostSerializer(post, context={"request": request})
+            return Response(out_serializer.data)
         except Exception as exc:
             import traceback
 
@@ -2587,6 +3052,116 @@ class MessageListCreateView(generics.ListCreateAPIView):
 
             print("DEBUG: Сообщение успешно сохранено")
 
+            # Обработка множественных вложений (anime_ids[], playlist_ids[], shorts_ids[], post_ids[])
+            from .models import MessageAttachment, Attachment
+            import os
+            from mimetypes import guess_type
+            
+            # Прикреплённые файлы (attachment_ids[])
+            attachment_ids = self.request.data.getlist('attachment_ids[]') or self.request.data.get('attachment_ids', [])
+            if isinstance(attachment_ids, str):
+                attachment_ids = [attachment_ids]
+            
+            # Медиафайлы из FormData (media_0, media_1, etc)
+            media_files_uploaded = []
+            for key in self.request.FILES.keys():
+                if key.startswith('media_'):
+                    media_files_uploaded.append(self.request.FILES[key])
+            
+            # Обрабатываем загруженные медиафайлы
+            for media_file in media_files_uploaded:
+                # Определяем тип файла
+                content_type = media_file.content_type or ''
+                ext = os.path.splitext(media_file.name)[1].lower()
+                
+                if content_type.startswith('image/') or ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                    att_type = 'image'
+                elif content_type.startswith('video/') or ext in ['.mp4', '.webm', '.mov', '.avi']:
+                    att_type = 'video'
+                else:
+                    att_type = 'file'
+                
+                # Создаём вложение
+                attachment = Attachment.objects.create(
+                    message=message,
+                    type=att_type,
+                    file=media_file,
+                    file_name=media_file.name,
+                    file_size=media_file.size,
+                    mime_type=content_type or guess_type(media_file.name)[0] or ''
+                )
+            
+            # Аниме
+            anime_ids = self.request.data.getlist('anime_ids[]') or self.request.data.get('anime_ids', [])
+            if isinstance(anime_ids, str):
+                anime_ids = [anime_ids]
+            for anime_id in anime_ids:
+                if anime_id:
+                    try:
+                        from anime.models import Anime
+                        anime = Anime.objects.get(id=anime_id)
+                        MessageAttachment.objects.create(
+                            message=message,
+                            content_type='anime',
+                            object_id=int(anime_id),
+                            metadata={'title': anime.title_ru or anime.title_en}
+                        )
+                    except Anime.DoesNotExist:
+                        pass
+            
+            # Плейлисты
+            playlist_ids = self.request.data.getlist('playlist_ids[]') or self.request.data.get('playlist_ids', [])
+            if isinstance(playlist_ids, str):
+                playlist_ids = [playlist_ids]
+            for playlist_id in playlist_ids:
+                if playlist_id:
+                    try:
+                        from playlists.models import Playlist
+                        playlist = Playlist.objects.get(id=playlist_id)
+                        MessageAttachment.objects.create(
+                            message=message,
+                            content_type='playlist',
+                            object_id=int(playlist_id),
+                            metadata={'title': playlist.title}
+                        )
+                    except Playlist.DoesNotExist:
+                        pass
+
+            # Shorts
+            shorts_ids = self.request.data.getlist('shorts_ids[]') or self.request.data.get('shorts_ids', [])
+            if isinstance(shorts_ids, str):
+                shorts_ids = [shorts_ids]
+            for shorts_id in shorts_ids:
+                if shorts_id:
+                    try:
+                        from reactor.models import ReactorPost
+                        shorts = ReactorPost.objects.get(id=shorts_id)
+                        MessageAttachment.objects.create(
+                            message=message,
+                            content_type='shorts',
+                            object_id=int(shorts_id),
+                            metadata={'title': shorts.title}
+                        )
+                    except ReactorPost.DoesNotExist:
+                        pass
+
+            # Посты
+            post_ids = self.request.data.getlist('post_ids[]') or self.request.data.get('post_ids', [])
+            if isinstance(post_ids, str):
+                post_ids = [post_ids]
+            for post_id in post_ids:
+                if post_id:
+                    try:
+                        post = Post.objects.get(id=post_id)
+                        MessageAttachment.objects.create(
+                            message=message,
+                            content_type='post',
+                            object_id=int(post_id),
+                            metadata={'text': post.text[:100] if post.text else ''}
+                        )
+                    except Post.DoesNotExist:
+                        pass
+
             # Добавляем сообщение в кэш
             ChatCacheService.add_message_to_cache(chat_id, message)
 
@@ -2601,7 +3176,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                     else private_chat.user2
                 )
                 ChatCacheService.increment_unread(receiver.id, chat_id)
-
+            
             # Публикуем событие отправки сообщения
             publish_message_sent(
                 {
@@ -2655,7 +3230,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                     icon="✉️",
                     content_object=message,
                 )
-
+            
         elif group_chat:
             # Групповой чат - отправляем уведомления участникам
             for member in group_chat.members.exclude(user=message.sender):
@@ -2789,7 +3364,13 @@ class GroupChatViewSet(ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def leave_group_chat(self, request, pk=None):
-        """Выход пользователя из группового чата"""
+        """Выход пользователя из группового чата
+        
+        Логика:
+        - Для обсуждений аниме: просто удаляем участника, чат остаётся
+        - Для обычных групп: просто удаляем участника, чат остаётся
+        - Создатель не может покинуть чат (должен передать права или удалить)
+        """
         try:
             chat = GroupChat.objects.get(pk=pk)
             
@@ -2808,8 +3389,16 @@ class GroupChatViewSet(ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
+            # Для обсуждений аниме - просто удаляем участника, чат остаётся
+            # Для обычных групп - также просто удаляем участника, чат остаётся
+            
             # Удаляем участника из чата
             member.delete()
+            
+            # Если это обсуждение аниме, не удаляем чат полностью
+            if chat.discussion_type == 'anime':
+                # Чат остаётся в системе, просто без этого участника
+                pass
             
             # Обновляем last_message_at чата
             chat.save(update_fields=["last_message_at"])
@@ -2826,6 +3415,7 @@ class GroupChatViewSet(ModelViewSet):
                         "type": "member_left",
                         "user_id": request.user.id,
                         "username": request.user.username,
+                        "chat_id": chat.id,
                     },
                 )
             except Exception as ws_err:
@@ -2833,7 +3423,8 @@ class GroupChatViewSet(ModelViewSet):
             
             return Response({
                 "message": "Вы успешно покинули чат",
-                "chat_id": chat.id
+                "chat_id": chat.id,
+                "action": "left"
             })
         except GroupChat.DoesNotExist:
             return Response(
@@ -2851,13 +3442,18 @@ class GroupChatViewSet(ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def delete_group_chat(self, request, pk=None):
-        """Удаление группового чата создателем"""
+        """Удаление группового чата создателем
+        
+        Логика:
+        - Обычные группы: удаляем полностью (даже если остался 1 участник)
+        - Группы обсуждений аниме (discussion_type='anime'): не удаляем, просто убираем всех участников
+        """
         try:
             chat = GroupChat.objects.get(pk=pk)
             
             # Проверяем, что пользователь является создателем
-            member = ChatMember.objects.filter(chat=chat, user=request.user, is_owner=True).first()
-            if not member:
+            member = ChatMember.objects.filter(chat=chat, user=request.user).first()
+            if not member or not member.is_owner:
                 return Response(
                     {"error": "Только создатель чата может его удалить"},
                     status=status.HTTP_403_FORBIDDEN
@@ -2866,36 +3462,75 @@ class GroupChatViewSet(ModelViewSet):
             # Получаем chat_id для WebSocket события
             chat_id = chat.id
             
-            # Удаляем все связанные данные
-            # 1. Удаляем все сообщения
-            Message.objects.filter(chat=chat).delete()
+            # Проверяем, является ли чат обсуждением аниме
+            is_anime_discussion = chat.discussion_type == 'anime'
             
-            # 2. Удаляем всех участников
-            ChatMember.objects.filter(chat=chat).delete()
-            
-            # 3. Удаляем чат
-            chat.delete()
-            
-            # Отправляем WebSocket событие об удалении чата
-            try:
-                from channels.layers import get_channel_layer
-                from asgiref.sync import async_to_sync
+            if is_anime_discussion:
+                # Для обсуждений аниме: не удаляем чат, просто удаляем всех участников
+                # 1. Удаляем все сообщения
+                Message.objects.filter(chat=chat).delete()
                 
-                channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)(
-                    f"chat_{chat_id}",
-                    {
-                        "type": "chat_deleted",
-                        "chat_id": chat_id,
-                    },
-                )
-            except Exception as ws_err:
-                print(f"WS error: {ws_err}")
-            
-            return Response({
-                "message": "Чат успешно удалён",
-                "chat_id": chat_id
-            })
+                # 2. Удаляем всех участников
+                ChatMember.objects.filter(chat=chat).delete()
+                
+                # 3. Обновляем last_message_at
+                chat.last_message_at = None
+                chat.save(update_fields=['last_message_at'])
+                
+                # Отправляем WebSocket событие об удалении участников
+                try:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{chat_id}",
+                        {
+                            "type": "chat_cleared",
+                            "chat_id": chat_id,
+                            "message": "Все участники покинули чат обсуждения",
+                        },
+                    )
+                except Exception as ws_err:
+                    print(f"WS error: {ws_err}")
+                
+                return Response({
+                    "message": "Чат обсуждения очищен от участников",
+                    "chat_id": chat_id,
+                    "action": "cleared"  # indicating chat was cleared, not deleted
+                })
+            else:
+                # Для обычных групп: удаляем полностью
+                # 1. Удаляем все сообщения
+                Message.objects.filter(chat=chat).delete()
+                
+                # 2. Удаляем всех участников
+                ChatMember.objects.filter(chat=chat).delete()
+                
+                # 3. Удаляем чат
+                chat.delete()
+                
+                # Отправляем WebSocket событие об удалении чата
+                try:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{chat_id}",
+                        {
+                            "type": "chat_deleted",
+                            "chat_id": chat_id,
+                        },
+                    )
+                except Exception as ws_err:
+                    print(f"WS error: {ws_err}")
+                
+                return Response({
+                    "message": "Чат успешно удалён",
+                    "chat_id": chat_id,
+                    "action": "deleted"
+                })
         except GroupChat.DoesNotExist:
             return Response(
                 {"error": "Чат не найден"},

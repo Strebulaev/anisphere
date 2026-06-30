@@ -61,7 +61,7 @@ export function useToast() {
     }
   }
 
-  // show(message, type, ms) или show(message, options)
+  
   const show = (
     message: string, 
     typeOrOptions?: ToastType | ToastOptions | number,

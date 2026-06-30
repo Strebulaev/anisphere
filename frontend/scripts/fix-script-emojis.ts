@@ -6,7 +6,7 @@ import { emojiToIconMap } from '../src/utils/emojiToIcon'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.join(__dirname, '..')
 
-// Создаем обратную маппинг: iconName -> emoji
+
 const iconToEmojiMap: Record<string, string> = {}
 for (const [emoji, iconName] of Object.entries(emojiToIconMap)) {
   iconToEmojiMap[iconName] = emoji
@@ -20,14 +20,14 @@ function processVueFile(filePath: string): { result: string; count: number } {
   let content = fs.readFileSync(filePath, 'utf-8')
   let count = 0
   
-  // Находим все <script> секции
+  
   const scriptMatches = content.matchAll(/<script[\s\S]*?<\/script>/gi)
   
   for (const match of scriptMatches) {
     let scriptContent = match[0]
     const scriptStart = match.index!
     
-    // Заменяем все <SakuraIcon name="..." /> обратно на эмодзи в script контенте
+    
     for (const [iconName, emoji] of Object.entries(iconToEmojiMap)) {
       const pattern = new RegExp(`<SakuraIcon name="${escapeRegExp(iconName)}"\\s*/>`, 'g')
       const matches = scriptContent.match(pattern)
@@ -37,7 +37,7 @@ function processVueFile(filePath: string): { result: string; count: number } {
       }
     }
     
-    // Заменяем в оригинальном контенте
+    
     content = content.slice(0, scriptStart) + scriptContent + content.slice(scriptStart + match[0].length)
   }
   
@@ -65,7 +65,7 @@ function findVueFiles(dir: string): string[] {
   return files
 }
 
-// Главная функция
+
 console.log('🔍 Поиск .vue файлов...')
 const srcDir = path.join(rootDir, 'src')
 const vueFiles = findVueFiles(srcDir)

@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 const isCollapsed = ref(false)
 const isMobileMenuOpen = ref(false)
 
-// Загружаем состояние из localStorage
+
 const loadState = () => {
   const saved = localStorage.getItem('sidebarCollapsed')
   if (saved !== null) {
@@ -11,15 +11,15 @@ const loadState = () => {
   }
 }
 
-// Сохраняем состояние в localStorage
+
 const saveState = () => {
   localStorage.setItem('sidebarCollapsed', String(isCollapsed.value))
 }
 
-// Инициализация
+
 loadState()
 
-// Следим за изменениями и сохраняем
+
 watch(isCollapsed, saveState)
 
 export function useSidebar() {

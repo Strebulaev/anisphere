@@ -455,6 +455,18 @@ onMounted(async () => {
   }
 })
 
+/**
+ * Нормализация поискового запроса
+ * "Ван-пис" → "ван пис", "Ван:пис" → "ван пис" и т.д.
+ */
+function normalizeSearchQuery(query: string): string {
+  return query
+    .toLowerCase()
+    .replace(/[-_:/\\|,.!?@#$%^&*(){}\[\]<>~`'"\\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // ── Debounce поиска ─────────────────────────────────────────
 let searchTimer: ReturnType<typeof setTimeout>
 const onSearch = () => {
@@ -563,7 +575,7 @@ const resetAll = () => {
 // ── Emit ────────────────────────────────────────────────────
 const emitChange = () => {
   const filters: FilterState = {
-    search:        search.value || undefined,
+    search:        search.value ? normalizeSearchQuery(search.value) : undefined,
     genres:        selectedGenres.value.length ? selectedGenres.value : undefined,
     genre_logic:   genreLogic.value,
     status:        selectedStatuses.value.length ? selectedStatuses.value : undefined,

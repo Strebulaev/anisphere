@@ -288,7 +288,9 @@ const onSearch = async () => {
 const search = async () => {
   isLoading.value = true
   try {
-    const data = await animeApi.search(searchQuery.value)
+    // Используем тот же endpoint что и каталог - для консистентности
+    // Загружаем сразу много результатов (500) чтобы найти все аниме по запросу
+    const data = await animeApi.search(searchQuery.value, { limit: 500 })
     items.value = (data.results || []).map((anime): AnimeItem => ({
       id: anime.id,
       title_ru: anime.title_ru,

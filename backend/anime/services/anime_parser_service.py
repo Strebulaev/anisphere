@@ -469,7 +469,9 @@ class AnimeUpdateService:
         """Получение последних обновлений"""
         from ..models import AnimeUpdate
         
-        recent_updates = AnimeUpdate.objects.select_related('anime').order_by('-created_at')[:limit]
+        recent_updates = AnimeUpdate.objects.select_related('anime').filter(
+            anime__title_ru__regex=r"[а-яёА-ЯЁ]"
+        ).order_by('-created_at')[:limit]
         
         return [
             {

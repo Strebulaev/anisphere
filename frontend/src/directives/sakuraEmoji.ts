@@ -2,19 +2,7 @@ import type { Directive, DirectiveBinding, VNode } from 'vue'
 import { getIconName } from '@/utils/emojiToIcon'
 import SakuraIcon from '@/components/icons/SakuraIcon.vue'
 
-/**
- * Директива для автоматической замены эмодзи на SVG иконки
- * 
- * Использование в шаблоне:
- * <span v-sakura-emoji="text"></span>
- * 
- * Или с модификаторами:
- * <span v-sakura-emoji:inline="text"></span> - inline режим (по умолчанию)
- * <span v-sakura-emoji:block="text"></span> - блочный режим
- * 
- * Пример:
- * <template v-sakura-emoji="userMessage"></template>
- */
+
 interface SakuraEmojiBinding {
   value: string
   modifiers: {
@@ -25,7 +13,6 @@ interface SakuraEmojiBinding {
 }
 
 function processEmoji(node: HTMLElement, text: string, size: number = 20) {
-  // Очищаем текущий контент
   node.innerHTML = ''
   
   if (!text) return
@@ -36,7 +23,6 @@ function processEmoji(node: HTMLElement, text: string, size: number = 20) {
   const fragment = document.createDocumentFragment()
 
   while ((match = emojiRegex.exec(text)) !== null) {
-    // Добавляем текст до эмодзи
     if (match.index > lastIndex) {
       const textNode = document.createTextNode(text.slice(lastIndex, match.index))
       fragment.appendChild(textNode)
@@ -46,7 +32,6 @@ function processEmoji(node: HTMLElement, text: string, size: number = 20) {
     const iconName = getIconName(emoji)
 
     if (iconName) {
-      // Создаём компонент иконки виртуально
       const iconSpan = document.createElement('span')
       iconSpan.className = 'sakura-emoji-icon'
       iconSpan.style.display = 'inline-flex'
@@ -54,7 +39,6 @@ function processEmoji(node: HTMLElement, text: string, size: number = 20) {
       iconSpan.style.justifyContent = 'center'
       iconSpan.style.verticalAlign = 'middle'
       
-      // Создаём SVG
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
       svg.setAttribute('width', String(size))
       svg.setAttribute('height', String(size))
@@ -67,12 +51,10 @@ function processEmoji(node: HTMLElement, text: string, size: number = 20) {
       svg.classList.add('sakura-icon')
       svg.style.color = 'var(--accent, #ff7eb3)'
       
-      // Добавляем путь для иконки (упрощённая версия - только базовые иконки)
       const path = createIconPath(iconName)
       if (path) {
         svg.innerHTML = path
       } else {
-        // Если иконка не найдена, показываем эмодзи
         const fallbackText = document.createTextNode(emoji)
         fragment.appendChild(fallbackText)
         lastIndex = match.index + emoji.length
@@ -82,7 +64,6 @@ function processEmoji(node: HTMLElement, text: string, size: number = 20) {
       iconSpan.appendChild(svg)
       fragment.appendChild(iconSpan)
     } else {
-      // Если иконка не найдена, оставляем эмодзи как есть
       const textNode = document.createTextNode(emoji)
       fragment.appendChild(textNode)
     }
@@ -90,7 +71,6 @@ function processEmoji(node: HTMLElement, text: string, size: number = 20) {
     lastIndex = match.index + emoji.length
   }
 
-  // Добавляем оставшийся текст
   if (lastIndex < text.length) {
     const textNode = document.createTextNode(text.slice(lastIndex))
     fragment.appendChild(textNode)
@@ -99,7 +79,6 @@ function processEmoji(node: HTMLElement, text: string, size: number = 20) {
   node.appendChild(fragment)
 }
 
-// Создаём SVG путь для базовых иконок (упрощённая версия)
 function createIconPath(name: string): string | null {
   const icons: Record<string, string> = {
     'heart': '<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" fill="currentColor"/>',

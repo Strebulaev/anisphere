@@ -1,39 +1,52 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 
-// Определяем baseURL для API
 let baseURL = import.meta.env.VITE_API_URL
 
-// Если переменная не задана, используем текущий origin
 if (!baseURL) {
   baseURL = window.location.origin + '/api'
 }
 
-// Убираем возможные дублирования /api
 baseURL = baseURL.replace(/\/api\/api$/, '/api').replace(/\/\/$/, '/')
-
-// console.log('✅ API Base URL:', baseURL)
 
 const apiClient: AxiosInstance = axios.create({
   baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: 300000, 
+  withCredentials: true,
 })
 
-// Получение базового URL для медиа файлов
 export const getMediaBaseUrl = () => {
   return baseURL.replace(/\/api$/, '')
 }
 
-// Функция для получения полного URL медиа файла
 export const getMediaUrl = (path: string | null | undefined): string | undefined => {
   if (!path) return undefined
+  
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path
   }
+  
+  if (import.meta.env.DEV && path.startsWith('/media/')) {
+    return path
+  }
+  
   const baseUrl = getMediaBaseUrl()
   return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
+}
+
+export const getWebpUrl = (url: string | undefined): string | undefined => {
+  if (!url) return undefined
+  
+  if (url.endsWith('.webp')) return url
+  
+  if (url.includes('/media/') && 
+      (url.endsWith('.png') || url.endsWith('.jpg') || url.endsWith('.jpeg'))) {
+    return url.replace(/\.(png|jpg|jpeg)(\?.*)?$/i, '.webp$2')
+  }
+  
+  return url
 }
 
 apiClient.interceptors.request.use((config) => {
@@ -41,7 +54,6 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
-  // Анонимные запросы нормальны — не логируем
   return config
 })
 
@@ -50,7 +62,6 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    // Логируем только неожиданные ошибки (5xx, не 401/403/404)
     const status = error.response?.status
     if (status && status >= 500) {
       console.error(`⚠️ API ${status}:`, originalRequest?.url)
@@ -84,7 +95,6 @@ apiClient.interceptors.response.use(
           }
         }
       } else {
-        // Нет refresh-токена — просто чистим access (не редиректим с публичных страниц)
         localStorage.removeItem('access_token')
         localStorage.removeItem('user_id')
         const protectedPaths = ['/profile', '/library', '/settings', '/chat']
@@ -114,6 +124,5 @@ export const patch = <T>(url: string, data?: unknown, config?: AxiosRequestConfi
 export const remove = (url: string, config?: AxiosRequestConfig) =>
   apiClient.delete(url, config)
 
-// Экспортируем и как default, и как именованный экспорт для удобства
 export { apiClient }
 export default apiClient

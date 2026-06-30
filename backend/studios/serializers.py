@@ -9,7 +9,7 @@ User = get_user_model()
 def _resolve_anime_poster(studio_anime_obj):
     """
     Возвращает постер аниме с приоритетом:
-    1. Локальный файл (anime.poster) — абсолютный URL https://anisphere.org/media/...
+    1. Локальный файл (anime.poster) - абсолютный URL https://anisphere.org/media/...
     2. Внешний URL из нашей БД (anime.poster_url)
     3. Оригинальный URL с Shikimori/Kodik из StudioAnime
     """

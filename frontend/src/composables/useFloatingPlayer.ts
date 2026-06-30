@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 
-// Глобальное состояние плавающего плеера
+
 const showFloatingPlayer = ref(false)
 const floatingAnimeId = ref<number | null>(null)
 const floatingAnimeTitle = ref('')
@@ -28,7 +28,7 @@ export function useFloatingPlayer() {
     floatingTranslationId.value = params.translationId || null
     showFloatingPlayer.value = true
     
-    // Загружаем сохранённую позицию
+    
     const saved = localStorage.getItem('floating_player_state')
     if (saved) {
       try {
@@ -63,7 +63,7 @@ export function useFloatingPlayer() {
   const isOpen = computed(() => showFloatingPlayer.value)
 
   return {
-    // Состояние
+    
     showFloatingPlayer,
     floatingAnimeId,
     floatingAnimeTitle,
@@ -74,7 +74,7 @@ export function useFloatingPlayer() {
     floatingPosition,
     floatingSize,
     
-    // Методы
+    
     openFloatingPlayer,
     closeFloatingPlayer,
     updatePosition,

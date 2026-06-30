@@ -4,9 +4,7 @@
     :class="[variantClass, { 'has-overlay': showOverlay }]"
     @click="handleClick"
   >
-    <!-- Постер -->
     <div class="poster-wrap">
-      <!-- skeleton пока грузится -->
       <div v-if="isLoading" class="poster-skeleton" />
 
       <OptimizedImage
@@ -24,12 +22,9 @@
         </svg>
       </div>
 
-      <!-- Градиент снизу (для текста на постере) -->
       <div v-if="showGradient" class="poster-gradient" />
 
-      <!-- Hover оверлей — pointer-events всегда auto, скрываем только через opacity -->
       <div v-if="showOverlay" class="hover-overlay">
-        <!-- Основная кнопка play -->
         <button
           v-if="overlayConfig.play"
           class="play-btn"
@@ -41,7 +36,6 @@
           </svg>
         </button>
 
-        <!-- Дополнительные кнопки -->
         <div v-if="overlayConfig.more || overlayConfig.favorite" class="overlay-actions">
           <button
             v-if="overlayConfig.more"
@@ -67,7 +61,6 @@
         </div>
       </div>
 
-      <!-- Бейджи -->
       <div v-if="showStatus && status" class="badge badge-status" :class="`status-${status}`">
         {{ statusLabel }}
       </div>
@@ -87,12 +80,10 @@
         </svg>
       </div>
 
-      <!-- Прогресс просмотра -->
       <div v-if="showProgress && progressPercent > 0" class="progress-bar">
         <div class="progress-fill" :style="{ width: progressPercent + '%' }" />
       </div>
 
-      <!-- Избранное -->
       <button
         v-if="showFavoriteBtn"
         class="favorite-toggle"
@@ -106,7 +97,6 @@
       </button>
     </div>
 
-    <!-- Информация -->
     <div class="card-info">
       <h3 class="card-title" :title="title">{{ displayTitle }}</h3>
       <div v-if="showMeta" class="card-meta">
@@ -208,7 +198,6 @@ const emit = defineEmits<{
 const posterFailed = ref(false)
 const isLoading    = ref(true)
 
-// Сбрасываем при смене постера
 watch(() => props.poster, () => {
   posterFailed.value = false
   isLoading.value    = true
@@ -219,7 +208,7 @@ const posterUrl = computed(() => {
   return getMediaUrl(props.poster) || null
 })
 
-const displayTitle   = computed(() => props.title || props.titleEn || '—')
+const displayTitle   = computed(() => props.title || props.titleEn || '-')
 const formattedScore = computed(() => props.score ? props.score.toFixed(1) : '')
 
 const typeLabel = computed(() => {
@@ -244,10 +233,9 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
 </script>
 
 <style scoped>
-/* ═══ Базовые стили ════════════════════════════════════════ */
 .anime-poster-card {
-  flex: 0 0 180px;
-  width: 180px;
+  flex: 0 0 200px;
+  width: 200px;
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
@@ -258,7 +246,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
 
 .anime-poster-card:hover { transform: translateY(-4px); }
 
-/* ═══ Постер ════════════════════════════════════════════════ */
 .poster-wrap {
   position: relative;
   width: 100%;
@@ -268,7 +255,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
   overflow: hidden;
 }
 
-/* Skeleton shimmer */
 .poster-skeleton {
   position: absolute;
   inset: 0;
@@ -326,7 +312,7 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
   opacity: 0;
   transition: opacity 0.18s ease-out;
   z-index: 4;
-  pointer-events: auto; /* ВСЕГДА auto — нет мерцания */
+  pointer-events: auto; /* ВСЕГДА auto - нет мерцания */
 }
 
 .anime-poster-card:hover .hover-overlay { opacity: 1; }
@@ -361,7 +347,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
 
 .play-btn svg { margin-left: 3px; }
 
-/* Дополнительные кнопки оверлея */
 .overlay-actions {
   position: absolute;
   top: 8px;
@@ -401,7 +386,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
 .action-btn-overlay.fav-btn.active { color: var(--danger); background: rgba(239,68,68,.85); }
 .action-btn-overlay.fav-btn.active:hover { background: var(--danger) !important; }
 
-/* ═══ Бейджи ════════════════════════════════════════════════ */
 .badge {
   position: absolute;
   padding: 2px 6px;
@@ -450,7 +434,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
 }
 .badge-rank.rank-top { background: var(--accent); color: white; }
 
-/* ═══ Прогресс ════════════════════════════════════════════════ */
 .progress-bar {
   position: absolute;
   bottom: 0; left: 0; right: 0;
@@ -464,7 +447,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
   transition: width .3s ease;
 }
 
-/* ═══ Избранное ════════════════════════════════════════════════ */
 .favorite-toggle {
   position: absolute;
   top: var(--space-2);
@@ -488,7 +470,6 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
 .favorite-toggle.active { color: #f59e0b; opacity: 1; }
 .favorite-toggle:hover  { background: rgba(0,0,0,.7); }
 
-/* ═══ Информация ════════════════════════════════════════════════ */
 .card-info {
   padding: var(--space-2) var(--space-1) 0;
   display: flex;
@@ -541,13 +522,16 @@ const onPosterError  = () => { posterFailed.value = true; isLoading.value = fals
 
 .genre-more { font-size: 10px; color: var(--text-tertiary); }
 
-/* ═══ Варианты ════════════════════════════════════════════════ */
 .variant-compact .card-info { padding-top: var(--space-1); }
 .variant-detailed .poster-wrap { aspect-ratio: 3/4; }
 
-/* ═══ Mobile ════════════════════════════════════════════════ */
 @media (max-width: 767px) {
-  .anime-poster-card { flex: 0 0 140px; width: 140px; }
+  .anime-poster-card { 
+    flex: 0 0 160px; 
+    width: 160px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
   .favorite-toggle   { opacity: 1; }
 
   .hover-overlay {

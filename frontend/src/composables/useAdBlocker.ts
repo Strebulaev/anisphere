@@ -14,7 +14,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionStore } from '@/stores/subscription'
 
-// Расширяем тип Window для kodikPlayer
+
 declare global {
   interface Window {
     kodikPlayer?: any
@@ -23,9 +23,9 @@ declare global {
   }
 }
 
-// Глобальные паттерны рекламных доменов и URL
+
 const AD_PATTERNS = [
-  // Рекламные сети
+  
   'doubleclick',
   'googlesyndication',
   'googleadservices',
@@ -35,7 +35,7 @@ const AD_PATTERNS = [
   'adsystem',
   'adserver',
   
-  // Специфичные для видео рекламы
+  
   'moatads',
   'adnxs',
   'adform',
@@ -53,7 +53,7 @@ const AD_PATTERNS = [
   'adtilt',
   'adup-tech',
   
-  // Российские рекламные сети
+  
   'adfox',
   'yandex.ru/clck',
   'mc.yandex.ru',
@@ -64,7 +64,7 @@ const AD_PATTERNS = [
   'top.mail.ru',
   'counter.yadro.ru',
   
-  // Общие паттерны
+  
   '/ad/',
   '/ads/',
   '/advert/',
@@ -76,16 +76,16 @@ const AD_PATTERNS = [
   '/tracking/',
   '/analytics/',
   
-  // Kodik специфичные
+  
   'kodik_advert',
   'kodik_ad',
   'kodik_banner',
   'kodik_promo',
 ]
 
-// CSS селекторы рекламных элементов в плеере
+
 const AD_ELEMENT_SELECTORS = [
-  // Общие рекламные классы
+  
   '.advert',
   '.advertisement',
   '.ad-banner',
@@ -102,7 +102,7 @@ const AD_ELEMENT_SELECTORS = [
   '.promo-overlay',
   '.promotional',
   
-  // Kodik специфичные
+  
   '.kodik-ad',
   '.kodik-advert',
   '.kodik-banner',
@@ -115,13 +115,13 @@ const AD_ELEMENT_SELECTORS = [
   '.mid-roll',
   '.post-roll',
   
-  // Оверлеи и попупы
+  
   '.overlay-ad',
   '.popup-ad',
   '.interstitial',
   '.takeover',
   
-  // Кнопки и призывы к действию
+  
   '.ad-close',
   '.ad-skip',
   '[class*="ad-"]',
@@ -130,7 +130,7 @@ const AD_ELEMENT_SELECTORS = [
   '[id*="advert"]',
 ]
 
-// События postMessage связанные с рекламой
+
 const AD_MESSAGE_KEYS = [
   'kodik_player_advert_started',
   'kodik_player_advert_ended',
@@ -154,23 +154,23 @@ const AD_MESSAGE_KEYS = [
   'promo_hide',
 ]
 
-// ============================================================================
-// ==================== КОММЕНТАРИЙ: ПОДПИСКА ОТКЛЮЧЕНА =======================
-// ============================================================================
-// Весь функционал теперь бесплатный. AdBlocker доступен всем пользователям.
-// Код подписки сохранён для возможного использования в будущем.
-// ============================================================================
+
+
+
+
+
+
 
 export function useAdBlocker() {
   const authStore = useAuthStore()
   
-  // Хранилище подписки для проверки премиум статуса
+  
   let subscriptionStore: ReturnType<typeof useSubscriptionStore> | null = null
   
   try {
     subscriptionStore = useSubscriptionStore()
   } catch (e) {
-    // Pinia store может быть не инициализирован
+    
     console.warn('[AdBlock] Subscription store not available')
   }
 
@@ -179,7 +179,7 @@ export function useAdBlocker() {
    * AdBlocker доступен ВСЕМ пользователям
    */
   const isPremium = (): boolean => {
-    // AdBlocker доступен всем, всегда возвращаем true
+    
     return true
   }
 
@@ -222,7 +222,7 @@ export function useAdBlocker() {
       
       if (urlStr && isAdUrl(urlStr)) {
         console.log('[AdBlock] 🚫 Blocked fetch request:', urlStr)
-        // Возвращаем фейковый успешный ответ вместо реального запроса
+        
         return Promise.resolve(new Response('', { 
           status: 200, 
           statusText: 'Blocked by AdBlock' 
@@ -249,12 +249,12 @@ export function useAdBlocker() {
     const originalSend = XMLHttpRequest.prototype.send
     
     XMLHttpRequest.prototype.open = function(method: string, url: string, async?: boolean, user?: string | null, password?: string | null) {
-      // Сохраняем URL для проверки в send
+      
       (this as any)._adBlockUrl = url
       
       if (typeof url === 'string' && isAdUrl(url)) {
         console.log('[AdBlock] 🚫 Blocked XHR open:', url)
-        // Прерываем открытие соединения
+        
         return
       }
       
@@ -278,7 +278,7 @@ export function useAdBlocker() {
    * Создаёт стиль который скрывает все известные рекламные селекторы
    */
   const injectAdBlockCSS = () => {
-    // Проверяем, не был ли уже добавлен стиль
+    
     if (document.getElementById('adblocker-styles')) {
       console.log('[AdBlock] CSS already injected')
       return
@@ -288,14 +288,13 @@ export function useAdBlocker() {
     style.id = 'adblocker-styles'
     style.type = 'text/css'
     
-    // Генерируем CSS для всех рекламных селекторов
+    
     const cssRules = AD_ELEMENT_SELECTORS.map(selector => 
       `${selector} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`
     ).join('\n')
     
-    // Дополнительные правила для iframe и оверлеев
+    
     const extraRules = `
-      /* Блокировка рекламных iframe */
       iframe[src*="ad"],
       iframe[src*="advert"],
       iframe[src*="banner"],
@@ -303,13 +302,11 @@ export function useAdBlocker() {
         display: none !important;
       }
       
-      /* Блокировка оверлеев с рекламой */
       div[style*="position: absolute"][class*="ad"],
       div[style*="position: fixed"][class*="ad"] {
         display: none !important;
       }
       
-      /* Принудительное скрытие элементов с рекламными атрибутами */
       [data-ad],
       [data-advertisement],
       [data-banner],
@@ -340,13 +337,13 @@ export function useAdBlocker() {
           
           const el = node as HTMLElement
           
-          // Рекурсивная проверка элемента и всех его детей
+          
           const checkElement = (element: HTMLElement) => {
             const id = element.id?.toLowerCase() || ''
             const className = element.className?.toLowerCase() || ''
             const tagName = element.tagName?.toLowerCase() || ''
             
-            // Проверка по ID
+            
             if (id && (id.includes('ad') || id.includes('advert') || id.includes('banner') || id.includes('promo'))) {
               element.style.display = 'none'
               element.style.visibility = 'hidden'
@@ -354,7 +351,7 @@ export function useAdBlocker() {
               return
             }
             
-            // Проверка по классам
+            
             if (className && (className.includes('ad-') || className.includes('advert') || className.includes('banner') || className.includes('sponsor'))) {
               element.style.display = 'none'
               element.style.visibility = 'hidden'
@@ -362,7 +359,7 @@ export function useAdBlocker() {
               return
             }
             
-            // Проверка iframe
+            
             if (tagName === 'iframe') {
               const src = (element as HTMLIFrameElement).src?.toLowerCase() || ''
               if (src && isAdUrl(src)) {
@@ -372,7 +369,7 @@ export function useAdBlocker() {
               }
             }
             
-            // Рекурсивная проверка детей
+            
             Array.from(element.children).forEach(child => {
               checkElement(child as HTMLElement)
             })
@@ -387,7 +384,7 @@ export function useAdBlocker() {
       }
     })
 
-    // Начинаем наблюдение после загрузки DOM
+    
     if (document.body) {
       observer.observe(document.body, {
         childList: true,
@@ -395,7 +392,7 @@ export function useAdBlocker() {
       })
       console.log('[AdBlock] ✅ DOM observer started')
     } else {
-      // Ждём загрузки DOM
+      
       document.addEventListener('DOMContentLoaded', () => {
         observer.observe(document.body, {
           childList: true,
@@ -434,18 +431,18 @@ export function useAdBlocker() {
       
       const data = event.data as { key?: string; type?: string; source?: string }
       
-      // Проверяем, что сообщение от Kodik плеера
+      
       const key = data.key || ''
       if (!key.includes('kodik_player')) return
       
       if (isAdMessage(data)) {
         console.log('[AdBlock] 🚫 Blocked incoming ad message:', key)
         
-        // Предотвращаем всплытие события
+        
         event.stopImmediatePropagation()
         event.preventDefault()
       }
-    }, true) // Используем capturing phase для перехвата раньше
+    }, true) 
     
     console.log('[AdBlock] ✅ Message listener enabled')
   }
@@ -456,14 +453,14 @@ export function useAdBlocker() {
    */
   const blockPlayerMethods = () => {
     const checkInterval = setInterval(() => {
-      // Ищем объект плеера в window
+      
       const playerObj = window.kodikPlayer || window.KodikPlayer
       
       if (playerObj) {
         clearInterval(checkInterval)
         console.log('[AdBlock] ✅ Found player object, patching methods')
         
-        // Блокируем методы на уровне prototype если есть
+        
         if (playerObj.prototype) {
           const methodsToBlock = [
             'showAd', 'loadAd', 'playAd', 'displayAd', 
@@ -481,7 +478,7 @@ export function useAdBlocker() {
           })
         }
         
-        // Также блокируем на уровне экземпляра если это объект
+        
         if (typeof playerObj === 'object') {
           const methodsToBlock = [
             'showAd', 'loadAd', 'playAd', 'displayAd', 
@@ -501,7 +498,7 @@ export function useAdBlocker() {
       }
     }, 500)
     
-    // Очищаем интервал через 10 секунд если плеер не найден
+    
     setTimeout(() => clearInterval(checkInterval), 10000)
   }
 
@@ -514,11 +511,11 @@ export function useAdBlocker() {
       const videos = document.querySelectorAll('video')
       
       videos.forEach((video) => {
-        // Помечаем видео чтобы не обрабатывать повторно
+        
         if ((video as any)._adBlockProcessed) return
         ;(video as any)._adBlockProcessed = true
         
-        // Блокируем стандартные рекламные события
+        
         video.addEventListener('adsready', (e) => {
           e.stopImmediatePropagation()
           console.log('[AdBlock] 🚫 Blocked adsready event')
@@ -527,7 +524,7 @@ export function useAdBlocker() {
         video.addEventListener('adstart', (e) => {
           e.stopImmediatePropagation()
           console.log('[AdBlock] 🚫 Blocked adstart event')
-          // Пытаемся пропустить рекламу
+          
           if (video.duration && video.duration < 60) {
             video.currentTime = video.duration
           }
@@ -538,14 +535,14 @@ export function useAdBlocker() {
           console.log('[AdBlock] 🚫 Blocked adloaded event')
         }, true)
         
-        // Автоматическая перемотка если видео похоже на рекламу
+        
         video.addEventListener('timeupdate', function() {
-          // Если видео короткое (<30 сек) и это не основной контент
+          
           if (video.duration && video.duration < 30 && video.currentTime > 2) {
             const parent = video.parentElement
             const parentClass = parent?.className?.toLowerCase() || ''
             
-            // Если родитель не похож на основной плеер
+            
             if (!parentClass.includes('main') && !parentClass.includes('player')) {
               console.log('[AdBlock] 🚫 Skipping short video (possible ad)')
               video.currentTime = video.duration
@@ -555,7 +552,7 @@ export function useAdBlocker() {
       })
     }
     
-    // Проверяем сразу и затем каждые 2 секунды
+    
     checkVideos()
     setInterval(checkVideos, 2000)
     
@@ -568,7 +565,7 @@ export function useAdBlocker() {
    */
   const injectIntoIframe = (iframe: HTMLIFrameElement) => {
     try {
-      // Работает только если iframe на том же домене (CORS ограничение)
+      
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
       
       if (!iframeDoc) {
@@ -586,7 +583,7 @@ export function useAdBlocker() {
       
       console.log('[AdBlock] ✅ Injected styles into iframe')
     } catch (e) {
-      // Ожидаемая ошибка из-за CORS
+      
       console.log('[AdBlock] ⚠️ Cannot inject into iframe (CORS restriction)')
     }
   }
@@ -626,31 +623,31 @@ export function useAdBlocker() {
     console.log('[AdBlock] 🛡️ === ACTIVATING AD BLOCKER (FREE FOR ALL) ===')
     window.KODIK_AD_BLOCKER_ACTIVE = true
     
-    // 1. Инъекция CSS (самый надёжный метод)
+    
     injectAdBlockCSS()
     
-    // 2. Наблюдатель за DOM
+    
     initDOMObserver()
     
-    // 3. Перехват postMessage
+    
     blockPostMessage()
     
-    // 4. Перехват входящих сообщений
+    
     blockMessageListener()
     
-    // 5. Блокировка fetch (с задержкой чтобы не ломать другие запросы)
+    
     setTimeout(blockFetch, 100)
     
-    // 6. Блокировка XHR
+    
     setTimeout(blockXHR, 100)
     
-    // 7. Блокировка методов плеера
+    
     blockPlayerMethods()
     
-    // 8. Пропуск видео рекламы
+    
     skipVideoAds()
     
-    // 9. Наблюдение за iframe
+    
     setTimeout(watchIframes, 500)
     
     console.log('[AdBlock] 🛡️ === AD BLOCKER FULLY ACTIVATED ===')
@@ -664,7 +661,7 @@ export function useAdBlocker() {
     console.log('[AdBlock] ❌ Deactivating ad blocker')
     window.KODIK_AD_BLOCKER_ACTIVE = false
     
-    // Удаляем CSS
+    
     const style = document.getElementById('adblocker-styles')
     if (style) {
       style.remove()

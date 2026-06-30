@@ -102,7 +102,7 @@ const DEFAULT_THEME: ChatTheme = {
   custom_css: '',
 }
 
-// ── Кэш настроек (в памяти) ──
+
 const settingsCache = new Map<string, ChatAllSettings>()
 
 export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
@@ -113,7 +113,7 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
 
   const cacheKey = `${chatType}:${chatId}`
 
-  // ── Computed стили ──
+  
   const bubbleRadiusPx = computed(() => {
     const map: Record<string, number> = { modern: 18, classic: 4, rounded: 24, flat: 8, minimal: 2 }
     return map[theme.value.bubble_style] ?? theme.value.bubble_border_radius
@@ -182,9 +182,9 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
     color: theme.value.input_text_color,
   }))
 
-  // ── Загрузка ──
+  
   async function loadSettings() {
-    // Проверяем кэш
+    
     const cached = settingsCache.get(cacheKey)
     if (cached) {
       applySettings(cached)
@@ -219,7 +219,7 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
   }
 
   function applyToDom() {
-    // Применяем CSS переменные, специфичные для чата
+    
     const root = document.documentElement
     const prefix = `--chat-${chatType}-${chatId}`
     const t = theme.value
@@ -236,7 +236,7 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
     root.style.setProperty(`${prefix}-radius`, bubbleRadiusPx.value + 'px')
     root.style.setProperty(`${prefix}-font-family`, fontFamilyCSS.value)
 
-    // Применяем кастомный CSS
+    
     if (t.custom_css) {
       injectCustomCSS(t.custom_css, chatType, chatId)
     }
@@ -250,11 +250,11 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
       el.id = styleId
       document.head.appendChild(el)
     }
-    // Скопируем CSS внутри scope
+    
     el.textContent = `.chat-window[data-chat="${type}-${id}"] { ${css} }`
   }
 
-  // ── Вычисление wallpaper CSS ──
+  
   function getWallpaperCSS(wp: ChatWallpaper): string {
     if (wp.css) return wp.css
     switch (wp.wallpaper_type) {
@@ -273,11 +273,11 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
     }
   }
 
-  // ── Получить объект стиля для контейнера чата ──
+  
   function getChatContainerStyle(): Record<string, string> {
     const style: Record<string, string> = {}
 
-    // Фон
+    
     if (wallpaper.value) {
       const bgCSS = getWallpaperCSS(wallpaper.value)
       if (wallpaper.value.wallpaper_type === 'image') {
@@ -294,14 +294,14 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
       style['background'] = theme.value.background_color
     }
 
-    // Шрифт
+    
     style['font-family'] = fontFamilyCSS.value
     style['font-size'] = theme.value.font_size_px + 'px'
 
     return style
   }
 
-  // ── Обновление кэша при изменении настроек ──
+  
   function invalidateCache() {
     settingsCache.delete(cacheKey)
   }
@@ -313,20 +313,20 @@ export function useChatSettings(chatType: 'group' | 'private', chatId: number) {
     }
   }
 
-  // ── Применить новую тему без перезагрузки ──
+  
   function applyTheme(newTheme: Partial<ChatTheme>) {
     theme.value = { ...theme.value, ...newTheme }
     updateCache({ theme: theme.value })
     applyToDom()
   }
 
-  // ── Применить новые обои без перезагрузки ──
+  
   function applyWallpaper(newWallpaper: ChatWallpaper | null) {
     wallpaper.value = newWallpaper
     updateCache({ wallpaper: newWallpaper })
   }
 
-  // ── Получить CSS-строку для data-атрибута ──
+  
   function getCSSDataAttr(): string {
     return `${chatType}-${chatId}`
   }

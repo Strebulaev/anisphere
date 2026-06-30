@@ -14,7 +14,7 @@ from .serializers import (
 
 
 class StudioListView(generics.ListAPIView):
-    """GET /api/studios/ — список студий с фильтрацией и поиском"""
+    """GET /api/studios/ - список студий с фильтрацией и поиском"""
     serializer_class = StudioListSerializer
     permission_classes = [AllowAny]
 
@@ -55,7 +55,7 @@ class StudioListView(generics.ListAPIView):
 
 
 class StudioPopularView(generics.ListAPIView):
-    """GET /api/studios/popular/ — топ студий для карусели"""
+    """GET /api/studios/popular/ - топ студий для карусели"""
     serializer_class = StudioListSerializer
     permission_classes = [AllowAny]
 
@@ -64,7 +64,7 @@ class StudioPopularView(generics.ListAPIView):
 
 
 class StudioDetailView(generics.RetrieveAPIView):
-    """GET /api/studios/<slug>/ — детали студии"""
+    """GET /api/studios/<slug>/ - детали студии"""
     serializer_class = StudioDetailSerializer
     permission_classes = [AllowAny]
     lookup_field = 'slug'
@@ -74,7 +74,7 @@ class StudioDetailView(generics.RetrieveAPIView):
 
 
 class StudioDetailByIdView(generics.RetrieveAPIView):
-    """GET /api/studios/id/<id>/ — детали студии по ID"""
+    """GET /api/studios/id/<id>/ - детали студии по ID"""
     serializer_class = StudioDetailSerializer
     permission_classes = [AllowAny]
 
@@ -83,14 +83,14 @@ class StudioDetailByIdView(generics.RetrieveAPIView):
 
 
 class StudioWorksView(generics.ListAPIView):
-    """GET /api/studios/<slug>/works/ — аниме студии"""
+    """GET /api/studios/<slug>/works/ - аниме студии"""
     serializer_class = StudioAnimeSerializer
     permission_classes = [AllowAny]
     pagination_class = None  # Отключаем пагинацию: дедупликация должна работать до срезки, а не после
 
     def get_queryset(self):
         studio = get_object_or_404(Studio, slug=self.kwargs['slug'])
-        qs = studio.studio_anime.all()
+        qs = studio.studio_anime.filter(anime_title__regex=r"[а-яёА-ЯЁ]")
 
         kind = self.request.query_params.get('kind', '')
         if kind:
@@ -167,7 +167,7 @@ class StudioWorksView(generics.ListAPIView):
 
 
 class StudioStaffView(generics.ListAPIView):
-    """GET /api/studios/<slug>/staff/ — команда студии"""
+    """GET /api/studios/<slug>/staff/ - команда студии"""
     serializer_class = StudioStaffSerializer
     permission_classes = [AllowAny]
 
@@ -181,7 +181,7 @@ class StudioStaffView(generics.ListAPIView):
 
 
 class StudioNewsView(generics.ListAPIView):
-    """GET /api/studios/<slug>/news/ — новости студии"""
+    """GET /api/studios/<slug>/news/ - новости студии"""
     serializer_class = StudioNewsSerializer
     permission_classes = [AllowAny]
 
@@ -191,7 +191,7 @@ class StudioNewsView(generics.ListAPIView):
 
 
 class StudioAwardsView(generics.ListAPIView):
-    """GET /api/studios/<slug>/awards/ — награды студии"""
+    """GET /api/studios/<slug>/awards/ - награды студии"""
     serializer_class = StudioAwardSerializer
     permission_classes = [AllowAny]
 
@@ -201,7 +201,7 @@ class StudioAwardsView(generics.ListAPIView):
 
 
 class StudioDiscussionsView(generics.ListAPIView):
-    """GET /api/studios/<slug>/discussions/ — обсуждения студии"""
+    """GET /api/studios/<slug>/discussions/ - обсуждения студии"""
     serializer_class = StudioDiscussionSerializer
     permission_classes = [AllowAny]
 
@@ -216,7 +216,7 @@ class StudioDiscussionsView(generics.ListAPIView):
 
 
 class StudioDiscussionCreateView(APIView):
-    """POST /api/studios/<slug>/discussions/ — создать обсуждение"""
+    """POST /api/studios/<slug>/discussions/ - создать обсуждение"""
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request, slug):
@@ -235,7 +235,7 @@ class StudioDiscussionCreateView(APIView):
 
 
 class StudioReviewsView(generics.ListAPIView):
-    """GET /api/studios/<slug>/reviews/ — отзывы о студии"""
+    """GET /api/studios/<slug>/reviews/ - отзывы о студии"""
     serializer_class = StudioRatingSerializer
     permission_classes = [AllowAny]
 
@@ -250,7 +250,7 @@ class StudioReviewsView(generics.ListAPIView):
 
 
 class StudioReviewCreateView(APIView):
-    """POST /api/studios/<slug>/reviews/ — создать/обновить отзыв"""
+    """POST /api/studios/<slug>/reviews/ - создать/обновить отзыв"""
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request, slug):
@@ -278,7 +278,7 @@ class StudioReviewCreateView(APIView):
             n = 10  # «вес» начального рейтинга
             new_avg = (initial * n + rating.overall_rating) / (n + 1)
         else:
-            # Уже есть отзывы — считаем честное среднее по всем отзывам
+            # Уже есть отзывы - считаем честное среднее по всем отзывам
             avg = studio.ratings.aggregate(avg=Avg('overall_rating'))['avg'] or 0
             new_avg = avg
         Studio.objects.filter(pk=studio.pk).update(average_rating=round(new_avg, 2))
@@ -286,7 +286,7 @@ class StudioReviewCreateView(APIView):
 
 
 class StudioSubscribeView(APIView):
-    """POST/DELETE /api/studios/<slug>/subscribe/ — подписка"""
+    """POST/DELETE /api/studios/<slug>/subscribe/ - подписка"""
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request, slug):
@@ -304,7 +304,7 @@ class StudioSubscribeView(APIView):
 
 
 class StudioSimilarView(generics.ListAPIView):
-    """GET /api/studios/<slug>/similar/ — похожие студии (по жанрам и стране)"""
+    """GET /api/studios/<slug>/similar/ - похожие студии (по жанрам и стране)"""
     serializer_class = StudioListSerializer
     permission_classes = [AllowAny]
 
@@ -322,7 +322,7 @@ class StudioSimilarView(generics.ListAPIView):
         scored = []
         for s in candidates:
             score = 0
-            # Совпадение страны — большой бонус
+            # Совпадение страны - большой бонус
             if s.country == studio.country:
                 score += 3
             # Пересечение жанров
@@ -420,7 +420,7 @@ def Q_safe_increment(val):
 
 
 class StudioSyncFromAnimeView(APIView):
-    """POST /api/studios/sync/ — синхронизировать студии из таблицы аниме"""
+    """POST /api/studios/sync/ - синхронизировать студии из таблицы аниме"""
     permission_classes = [AllowAny]  # В проде поставить IsAdminUser
 
     def post(self, request):
@@ -461,7 +461,7 @@ class StudioSyncFromAnimeView(APIView):
             studio.ova_count = ovas
             studio.average_rating = avg
 
-            # Известные работы — топ-5 по рейтингу
+            # Известные работы - топ-5 по рейтингу
             top = sorted(anime_list, key=lambda a: a.score or 0, reverse=True)[:5]
             studio.notable_works = [a.title_ru for a in top]
             studio.save()

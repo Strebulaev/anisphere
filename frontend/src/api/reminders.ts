@@ -35,27 +35,27 @@ export interface ReminderCreateData {
 }
 
 const remindersApi = {
-  // Получить список напоминаний пользователя
+  
   getReminders: (): Promise<AxiosResponse<Reminder[]>> => {
     return apiClient.get<Reminder[]>('/notifications/reminders/')
   },
 
-  // Получить предстоящие напоминания
+  
   getUpcomingReminders: (): Promise<AxiosResponse<Reminder[]>> => {
     return apiClient.get<Reminder[]>('/notifications/reminders/upcoming/')
   },
 
-  // Создать напоминание
+  
   createReminder: (data: ReminderCreateData): Promise<AxiosResponse<Reminder>> => {
     return apiClient.post<Reminder>('/notifications/reminders/', data)
   },
 
-  // Удалить напоминание
+  
   deleteReminder: (id: number): Promise<AxiosResponse<void>> => {
     return apiClient.delete<void>(`/notifications/reminders/${id}/`)
   },
 
-  // Деактивировать напоминание
+  
   deactivateReminder: (id: number): Promise<AxiosResponse<{ status: string }>> => {
     return apiClient.post(`/notifications/reminders/${id}/deactivate/`)
   }

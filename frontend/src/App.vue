@@ -1,48 +1,50 @@
 <template>
   <div class="app" :class="{ 'sidebar-collapsed': isCollapsed }">
-    <!-- Эффект падающих лепестков сакуры -->
     <SakuraOverlay />
 
-    <!-- Боковая навигация (десктоп) -->
     <SidebarNavigation />
     
-    <!-- Верхняя панель навигации (десктоп) -->
     <NavBar />
     
-    <!-- Основной контент -->
-    <main class="main-content">
+    <main class="main-content" :style="{ paddingLeft: sidebarPadding }">
       <router-view />
     </main>
     
-    <!-- Мобильная навигация (бургер-меню) -->
     <MobileNavigation />
 
-    <!-- Тост-уведомления (глобально) -->
     <ToastContainer />
 
-    <!-- PWA: уведомление о новой версии -->
     <PwaUpdateNotification />
-
-    <!-- Глобальный плавающий плеер -->
-    <FloatingPlayer
-      :visible="floatingPlayerState.show"
-      :anime-id="floatingPlayerState.animeId"
-      :anime-title="floatingPlayerState.animeTitle"
-      :episode="floatingPlayerState.episode"
-      :season="floatingPlayerState.season"
-      :player-link="floatingPlayerState.playerLink"
-      :translation-id="floatingPlayerState.translationId"
-      :start-time="floatingPlayerState.startTime"
-      @close="closeFloatingPlayer"
-    />
-
-    <!-- Мини-чат поддержки -->
-    <MiniSupportChat />
+    
+    <!-- Плавающий плеер -->
+    <Teleport to="body">
+      <FloatingPlayer
+        v-if="floatingPlayerState.show"
+        :visible="floatingPlayerState.show"
+        :anime-id="floatingPlayerState.animeId ?? undefined"
+        :anime-title="floatingPlayerState.animeTitle"
+        :episode="floatingPlayerState.episode ?? undefined"
+        :season="floatingPlayerState.season ? Number(floatingPlayerState.season) : undefined"
+        :player-link="floatingPlayerState.playerLink"
+        :translation-id="floatingPlayerState.translationId ?? undefined"
+        :start-time="floatingPlayerState.startTime"
+        @close="closeFloatingPlayer"
+      />
+    </Teleport>
+    
+    <!-- Чат поддержки -->
+    <!-- <MiniSupportChat /> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, reactive } from 'vue'
+import { ref, computed, watch, provide, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
+import { useFloatingPlayerStore } from '@/stores/floating-player'
+import { useSidebar } from '@/composables/useSidebar'
+import SakuraOverlay from '@/components/effects/SakuraOverlay.vue'
 import NavBar from '@/components/Navigation/NavBar.vue'
 import SidebarNavigation from '@/components/Navigation/SidebarNavigation.vue'
 import MobileNavigation from '@/components/Navigation/MobileNavigation.vue'
@@ -50,149 +52,91 @@ import ToastContainer from '@/components/Notifications/ToastContainer.vue'
 import PwaUpdateNotification from '@/components/Notifications/PwaUpdateNotification.vue'
 import FloatingPlayer from '@/components/Players/FloatingPlayer.vue'
 import MiniSupportChat from '@/components/Chat/MiniSupportChat.vue'
-import SakuraOverlay from '@/components/effects/SakuraOverlay.vue'
-import { useSidebar } from '@/composables/useSidebar'
-import { useAuthStore } from '@/stores/auth'
-import { initGlobalWebSocket } from '@/composables/useGlobalWebSocket'
-import { useNotificationStore } from '@/stores/notifications'
-import { useReminderNotifier } from '@/composables/useReminderNotifier'
-import { usePresence } from '@/composables/usePresence'
 
-const { isCollapsed } = useSidebar()
 const authStore = useAuthStore()
-const notifStore = useNotificationStore()
+const settingsStore = useSettingsStore()
+const floatingPlayerStore = useFloatingPlayerStore()
+const { isCollapsed } = useSidebar()
 
-// Глобальное состояние плавающего плеера
-const floatingPlayerState = reactive({
+const route = useRoute()
+
+const sidebarPadding = computed(() => {
+  if (window.innerWidth <= 767) {
+    return '0px'
+  }
+  const collapsedWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width-collapsed').trim() || '64px'
+  const normalWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() || '248px'
+  return isCollapsed.value ? collapsedWidth : normalWidth
+})
+
+const floatingPlayerState = ref({
   show: false,
-  animeId: 0,
+  animeId: null as number | null,
   animeTitle: '',
-  episode: 1,
-  season: 1,
+  episode: null as number | null,
+  season: null as string | null,
   playerLink: '',
-  translationId: null as number | string | null,
+  translationId: null as number | null,
   startTime: 0
 })
 
-// Слушаем изменения из localStorage (событие синхронизации между вкладками)
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'floating_player_open') {
-      const data = localStorage.getItem('floating_player_data')
-      if (data) {
-        try {
-          const parsed = JSON.parse(data)
-          Object.assign(floatingPlayerState, parsed, { show: true })
-        } catch {}
-      } else {
-        floatingPlayerState.show = false
-      }
+watch(() => floatingPlayerStore.currentAnime, (anime) => {
+  if (anime) {
+    floatingPlayerState.value = {
+      show: true,
+      animeId: anime.anime_id,
+      animeTitle: anime.anime_title,
+      episode: anime.episode,
+      season: anime.season,
+      playerLink: anime.player_link,
+      translationId: anime.translation_id,
+      startTime: anime.start_time || 0
     }
-  })
+  }
+}, { immediate: true })
 
-  // Проверяем при загрузке
-  const savedData = localStorage.getItem('floating_player_data')
-  if (savedData) {
-    try {
-      const parsed = JSON.parse(savedData)
-      Object.assign(floatingPlayerState, parsed, { show: true })
-    } catch {}
+const closeFloatingPlayer = () => {
+  floatingPlayerStore.clearCurrentAnime()
+  floatingPlayerState.value.show = false
+}
+
+provide('auth', authStore)
+provide('settings', settingsStore)
+
+const handleResize = () => {
+  if (window.innerWidth <= 1023) {
+    // сайдбар скрывается через display:none
   }
 }
-
-const closeFloatingPlayer = (returnTime?: number) => {
-  // Если есть время возврата, обновляем startTime для синхронизации
-  if (returnTime !== undefined && returnTime > 0) {
-    floatingPlayerState.startTime = returnTime
-  }
-  
-  floatingPlayerState.show = false
-  localStorage.removeItem('floating_player_data')
-  localStorage.setItem('floating_player_open', '')
-  setTimeout(() => localStorage.removeItem('floating_player_open'), 100)
-}
-
-// Запускаем нотифайер напоминаний (только если авторизован)
-if (authStore.isAuthenticated) {
-  useReminderNotifier()
-}
-
-// Запускаем постоянный heartbeat онлайн-статуса
-// Пингует /api/users/heartbeat/ каждые 2 минуты
-usePresence()
 
 onMounted(() => {
-  if (authStore.isAuthenticated) {
-    initGlobalWebSocket()
-    notifStore.fetchNotifications()
-    notifStore.fetchReminders()
-  }
+  handleResize()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
-<style scoped>
-.app {
+<style>
+#app {
+  width: 100%;
   min-height: 100vh;
-  background: var(--surface-1);
+}
+
+.app {
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
 }
 
-/* Фоновый узор сакуры */
-.app::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: 
-    radial-gradient(circle at 20% 80%, rgba(255,126,179,0.03) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(168,197,226,0.03) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(212,165,201,0.02) 0%, transparent 40%);
-  pointer-events: none;
-  z-index: 0;
-}
-
 .main-content {
   flex: 1;
-  min-height: 100vh;
   width: 100%;
-  box-sizing: border-box;
-  position: relative;
-  z-index: 1;
-}
-
-/* Десктоп: отступ для навбара */
-@media (min-width: 768px) {
-  .main-content {
-    padding-bottom: 0;
-    padding-left: var(--sidebar-width);
-    padding-top: var(--navbar-height);
-    transition: padding-left var(--duration-slow) var(--ease-petal);
-  }
-
-  .app.sidebar-collapsed .main-content {
-    padding-left: var(--sidebar-width-collapsed);
-  }
-}
-
-@media (min-width: 1024px) {
-  .main-content {
-    padding-top: var(--navbar-height);
-  }
-}
-
-/* Мобильные устройства: отступ для мобильного меню */
-@media (max-width: 767px) {
-  .main-content {
-    padding: 54px 0 0 0;
-  }
-  
-  /* Все страницы должны иметь отступ сверху */
-  .main-content > * {
-    margin-top: 0 !important;
-  }
+  padding-top: var(--navbar-height, 64px);
+  transition: padding-left 0.3s ease;
 }
 </style>

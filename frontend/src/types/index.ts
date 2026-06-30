@@ -10,9 +10,9 @@ export interface Anime {
   title_ru: string
   title_en?: string
   title_jp?: string
-  poster?: string | null  // Локальный путь к файлу (приоритетный)
+  poster?: string | null  
   poster_file?: string | null
-  poster_url?: string  // URL Shikimori (НЕ ИСПОЛЬЗОВАТЬ)
+  poster_url?: string  
   poster_image_url?: string
   description?: string
   year?: number | null
@@ -248,7 +248,7 @@ export interface PlaylistItem {
 export type { Chat } from './chat'
 export type { ChatFolder, CreateFolderData, UpdateFolderData } from './chat'
 
-// Типы для домашней страницы
+
 export interface ContinueWatchingItem {
   anime_id: number
   title: string
@@ -258,6 +258,7 @@ export interface ContinueWatchingItem {
   total_episodes: number
   progress_percent: number
   last_watched: string | null
+  status?: string
 }
 
 export interface RewatchItem {
@@ -280,7 +281,7 @@ export interface RecommendationItem {
   year: number | null
   status: string
   weekly_views?: number
-  // Поля для франшизы
+  
   is_franchise?: boolean
   franchise_id?: number | null
   franchise_name?: string

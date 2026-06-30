@@ -1,7 +1,5 @@
 <template>
   <div class="episode-list">
-
-    <!-- Прогресс-бар аниме -->
     <div class="anime-progress-bar" v-if="totalEpisodes > 1">
       <div class="apb-header">
         <span class="apb-label">Прогресс</span>
@@ -17,7 +15,6 @@
         <button class="apb-btn continue-btn" v-if="nextEpisode" @click="$emit('select-episode', nextEpisode)">
           <SakuraIcon name="play" /> Продолжить с {{ nextEpisode }}
         </button>
-        <button class="apb-btn sync-btn" @click="$emit('open-sync')"> <SakuraIcon name="settings" /> </button>
       </div>
       <div class="apb-completed" v-else>
         <span class="completed-badge"><SakuraIcon name="check" /> Просмотрено</span>
@@ -25,7 +22,6 @@
       </div>
     </div>
 
-    <!-- Список серий -->
     <div class="episodes-scroll">
       <div
         v-for="num in episodeNumbers"
@@ -36,7 +32,6 @@
           { 'is-current': num === currentEpisode }
         ]"
       >
-        <!-- Номер + иконка статуса -->
         <div class="ep-left">
           <div class="ep-status-wrap">
             <span v-if="getEp(num).status === 'watched'" class="ep-status-icon watched"> <SakuraIcon name="heavy-check" /> </span>
@@ -46,14 +41,12 @@
           </div>
         </div>
 
-        <!-- Центр: название + прогресс серии -->
         <div class="ep-center" @click="$emit('select-episode', num)" style="cursor:pointer">
           <div class="ep-title-row">
             <span class="ep-num-label" v-if="getEp(num).status !== 'not_started'">{{ num }}</span>
             <span class="ep-title">{{ (episodeTitles && episodeTitles[num]) || `Серия ${num}` }}</span>
           </div>
 
-          <!-- Прогресс-бар серии (in_progress) -->
           <div v-if="getEp(num).status === 'in_progress' && getEp(num).progress_percent > 0" class="ep-bar-wrap">
             <div class="ep-bar-track">
               <div class="ep-bar-fill" :style="{ width: getEp(num).progress_percent + '%' }" />
@@ -61,12 +54,10 @@
             <span class="ep-bar-pct">{{ getEp(num).progress_percent }}%</span>
           </div>
 
-          <!-- Метки -->
           <span v-if="getEp(num).status === 'skipped'" class="ep-tag skipped-tag">Пропущено</span>
           <span v-if="num === currentEpisode" class="ep-tag current-tag">Сейчас</span>
         </div>
 
-        <!-- Кнопки -->
         <div class="ep-actions">
           <button
             v-if="getEp(num).status === 'watched'"
@@ -138,7 +129,6 @@ const getEp = (num: number): EpisodeProgressItem =>
   gap: 1rem;
 }
 
-/* ── Прогресс аниме ─────────────────────────────── */
 .anime-progress-bar {
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.07);
@@ -231,7 +221,6 @@ const getEp = (num: number): EpisodeProgressItem =>
 }
 .sync-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
 
-/* ── Скролл-список ──────────────────────────────── */
 .episodes-scroll {
   display: flex;
   flex-direction: column;
@@ -245,7 +234,6 @@ const getEp = (num: number): EpisodeProgressItem =>
 .episodes-scroll::-webkit-scrollbar-track { background: transparent; }
 .episodes-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
-/* Строка серии */
 .ep-row {
   display: grid;
   grid-template-columns: 36px 1fr auto;
@@ -267,7 +255,6 @@ const getEp = (num: number): EpisodeProgressItem =>
 .ep-row.watched { opacity: 0.6; }
 .ep-row.skipped { opacity: 0.45; }
 
-/* Левая часть — статус */
 .ep-left {
   display: flex;
   align-items: center;
@@ -316,7 +303,6 @@ const getEp = (num: number): EpisodeProgressItem =>
   text-align: center;
 }
 
-/* Центральная часть */
 .ep-center {
   display: flex;
   flex-direction: column;
@@ -348,7 +334,6 @@ const getEp = (num: number): EpisodeProgressItem =>
 
 .ep-row.is-current .ep-title { color: #fff; font-weight: 600; }
 
-/* Прогресс-бар серии */
 .ep-bar-wrap {
   display: flex;
   align-items: center;
@@ -378,7 +363,6 @@ const getEp = (num: number): EpisodeProgressItem =>
   text-align: right;
 }
 
-/* Теги */
 .ep-tag {
   display: inline-block;
   font-size: 0.65rem;
@@ -398,7 +382,6 @@ const getEp = (num: number): EpisodeProgressItem =>
   color: #60a5fa;
 }
 
-/* Кнопки действий */
 .ep-actions {
   display: flex;
   gap: 0.25rem;

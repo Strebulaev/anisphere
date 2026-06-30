@@ -160,7 +160,7 @@ class FeedGenerationService:
         exclude_filter = Q(id__in=hidden_post_ids)
         visibility_filter = Q(visibility='public') | Q(author_id__in=subscriptions) | Q(author_id=user.id)
         
-        # Свои посты — всегда показываем
+        # Свои посты - всегда показываем
         own_posts = Post.objects.filter(
             base_filter &
             Q(author_id=user.id)
@@ -223,14 +223,14 @@ class FeedGenerationService:
         random.shuffle(subscription_posts)
         random.shuffle(group_posts)
         random.shuffle(recommended_posts)
-        # own_posts не перемешиваем — порядок по дате важен
+        # own_posts не перемешиваем - порядок по дате важен
 
         sub_count = int(limit * cls.WEIGHTS['subscriptions'])
         group_count = int(limit * cls.WEIGHTS['groups'])
         rec_count = limit - sub_count - group_count
 
         result = []
-        result.extend(own_posts)              # свои посты — все
+        result.extend(own_posts)              # свои посты - все
         result.extend(subscription_posts[:sub_count])
         result.extend(group_posts[:group_count])
         result.extend(recommended_posts[:rec_count])

@@ -6,11 +6,11 @@ import { ref, watch } from 'vue'
  * @param defaultTab - значение вкладки по умолчанию
  */
 export function useTabState(storageKey: string, defaultTab: string) {
-  // Ключ для localStorage
-  const STORAGE_PREFIX = 'animecore_tab_'
+  
+  const STORAGE_PREFIX = 'anisphere_tab_'
   const key = STORAGE_PREFIX + storageKey
 
-  // Получаем сохранённую вкладку или значение по умолчанию
+  
   const getStoredTab = (): string => {
     try {
       const stored = localStorage.getItem(key)
@@ -20,10 +20,10 @@ export function useTabState(storageKey: string, defaultTab: string) {
     }
   }
 
-  // Активная вкладка
+  
   const activeTab = ref(getStoredTab())
 
-  // Сохраняем вкладку при изменении
+  
   watch(activeTab, (newTab) => {
     try {
       localStorage.setItem(key, newTab)
@@ -32,13 +32,13 @@ export function useTabState(storageKey: string, defaultTab: string) {
     }
   })
 
-  // Функция для сброса на значение по умолчанию
+  
   const resetTab = () => {
     activeTab.value = defaultTab
     try {
       localStorage.removeItem(key)
     } catch {
-      // ignore
+      
     }
   }
 

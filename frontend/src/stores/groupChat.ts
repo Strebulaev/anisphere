@@ -104,27 +104,27 @@ interface ChatAdminLog {
 }
 
 export const useGroupChatStore = defineStore('groupChat', () => {
-  // State
+  
   const currentChat = ref<GroupChat | null>(null)
   const chatMembers = ref<ChatMember[]>([])
   const chatRoles = ref<ChatRole[]>([])
   const adminLogs = ref<ChatAdminLog[]>([])
   const userPermissions = ref<Record<number, Record<string, boolean>>>({})
 
-  // Loading states
+  
   const loadingChat = ref(false)
   const loadingMembers = ref(false)
   const loadingRoles = ref(false)
   const loadingLogs = ref(false)
 
-  // Computed
+  
   const isOwner = computed(() => currentChat.value?.user_role?.is_owner || false)
   const isAdmin = computed(() => currentChat.value?.user_role?.is_admin || false)
   const currentUserPermissions = computed(() =>
     currentChat.value ? userPermissions.value[currentChat.value.id] || {} : {}
   )
 
-  // Actions
+  
   const loadChat = async (chatId: number) => {
     loadingChat.value = true
     try {
@@ -309,8 +309,8 @@ export const useGroupChatStore = defineStore('groupChat', () => {
   }
 
   const toggleMemberMute = async (chatId: number, userId: number, muted: boolean) => {
-    // This would need a specific endpoint for muting/unmuting
-    // For now, we'll update locally
+    
+    
     const member = chatMembers.value.find(m => m.user.id === userId)
     if (member) {
       member.is_muted = muted
@@ -321,8 +321,8 @@ export const useGroupChatStore = defineStore('groupChat', () => {
   }
 
   const leaveChat = async (chatId: number) => {
-    // This would need a leave endpoint
-    // For now, we'll just remove from local state
+    
+    
     if (currentChat.value && currentChat.value.id === chatId) {
       currentChat.value = null
     }
@@ -331,15 +331,15 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     adminLogs.value = []
   }
 
-  // Загрузка списка групповых чатов (для глобальных обновлений)
+  
   const loadGroupChats = async () => {
     loadingChat.value = true
     try {
       const response = await apiClient.get('/social/group-chats/')
       const data = response.data.results || response.data
-      // Сохраняем в localStorage для доступа извне
+      
       localStorage.setItem('groupChats', JSON.stringify(data))
-      // Диспатчим событие
+      
       window.dispatchEvent(new CustomEvent('groupChatsUpdated', { detail: data }))
       return data
     } catch (error) {
@@ -350,7 +350,7 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     }
   }
 
-  // Utility functions
+  
   const hasPermission = (permission: string): boolean => {
     return currentUserPermissions.value[permission] || false
   }
@@ -384,7 +384,7 @@ export const useGroupChatStore = defineStore('groupChat', () => {
   }
 
   return {
-    // State
+    
     currentChat,
     chatMembers,
     chatRoles,
@@ -395,12 +395,12 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     loadingRoles,
     loadingLogs,
 
-    // Computed
+    
     isOwner,
     isAdmin,
     currentUserPermissions,
 
-    // Actions
+    
     loadChat,
     loadChatMembers,
     loadChatRoles,
@@ -419,7 +419,7 @@ export const useGroupChatStore = defineStore('groupChat', () => {
     toggleMemberMute,
     leaveChat,
 
-    // Utilities
+    
     hasPermission,
     canManageChat,
     canBanUsers,

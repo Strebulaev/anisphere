@@ -5,6 +5,8 @@ from django.db.models import Manager
 from django.contrib.postgres.fields import ArrayField
 from django.conf import settings
 from multiprocessing import connection
+import uuid
+from typing import Optional
 
 # Импорт модели OP/ED
 from .models_oped import AnimeOPED
@@ -29,7 +31,7 @@ class AnimeEpisodeNotification(models.Model):
 
 
 class Franchise(models.Model):
-    """Франшиза — группировка аниме (сезоны, фильмы, OVA и т.д.)"""
+    """Франшиза - группировка аниме (сезоны, фильмы, OVA и т.д.)"""
 
     name = models.CharField(max_length=255, verbose_name="Название")
     slug = models.SlugField(max_length=255, blank=True, verbose_name="Слаг")
@@ -47,9 +49,6 @@ class Franchise(models.Model):
     # Агрегированные данные (кэшируются для производительности)
     genres = models.JSONField(
         default=list, blank=True, verbose_name="Жанры всех частей"
-    )
-    parts_count = models.PositiveIntegerField(
-        default=0, verbose_name="Количество частей"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -74,14 +73,21 @@ class Franchise(models.Model):
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
+    @property
+    def parts_count(self):
+        """Количество частей во франшизе (динамически)"""
+        return self.entries.count()
+
+    @parts_count.setter
+    def parts_count(self, value):
+        # Пустой setter для совместимости с Django ORM
+        pass
+
     def update_aggregated_data(self):
         """Обновляет агрегированные данные франшизы (оценка, годы, жанры)"""
         entries = self.entries.all()
         if not entries:
             return
-
-        # Количество частей
-        self.parts_count = entries.count()
 
         # Средняя оценка
         scores = [e.score for e in entries if e.score]
@@ -101,13 +107,8 @@ class Franchise(models.Model):
         self.genres = list(all_genres)
 
         self.save(
-            update_fields=["score", "year_start", "year_end", "genres", "parts_count"]
+            update_fields=["score", "year_start", "year_end", "genres"]
         )
-
-    @property
-    def parts_count(self):
-        """Количество частей во франшизе"""
-        return self.entries.count()
 
     @property
     def all_genres(self):
@@ -140,7 +141,7 @@ class Franchise(models.Model):
             return str(self.year_start)
         elif self.year_end:
             return str(self.year_end)
-        return "—"
+        return "-"
 
 
 class Genre(models.Model):
@@ -207,6 +208,83 @@ class Studio(models.Model):
         return self.name
 
 
+class AnimeAnnouncement(models.Model):
+    """Анонсы аниме - таблица anime_announcements"""
+
+    shikimori_id = models.IntegerField(
+        unique=True, null=True, blank=True, verbose_name="Shikimori ID"
+    )
+    slug = models.SlugField(
+        max_length=255, null=True, blank=True, db_index=True, verbose_name="Slug"
+    )
+    title_ru = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name="Название на русском"
+    )
+    title_en = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name="Название на английском"
+    )
+    release_date = models.CharField(
+        max_length=50, null=True, blank=True, verbose_name="Дата выхода (строка)"
+    )
+    status = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="Статус",
+    )
+    description = models.TextField(null=True, blank=True, verbose_name="Описание")
+    score = models.FloatField(null=True, blank=True, verbose_name="Рейтинг")
+    rating = models.CharField(
+        max_length=20, null=True, blank=True, verbose_name="Возрастной рейтинг"
+    )
+    type = models.CharField(
+        max_length=50, null=True, blank=True, verbose_name="Тип аниме"
+    )
+    episodes = models.IntegerField(
+        null=True, blank=True, verbose_name="Количество эпизодов"
+    )
+    studio = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name="Студия"
+    )
+    genres = models.JSONField(
+        default=list, blank=True, verbose_name="Жанры"
+    )
+    poster_url = models.URLField(
+        max_length=500, null=True, blank=True, verbose_name="URL постера"
+    )
+    next_episode_date = models.CharField(
+        max_length=50, null=True, blank=True, verbose_name="Дата следующей серии"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="Дата создания"
+    )
+
+    class Meta:
+        db_table = "anime_announcements"
+        ordering = ["-created_at"]
+        verbose_name = "Анонс аниме"
+        verbose_name_plural = "Анонсы аниме"
+
+    def __str__(self):
+        return self.title_ru or self.title_en or f"Анонс #{self.id}"
+
+    def save(self, *args, **kwargs):
+        if not self.slug and self.title_ru:
+            self.slug = slugify(self.title_ru)
+        super().save(*args, **kwargs)
+
+    @property
+    def poster_image_url(self):
+        """Возвращает полный URL постера"""
+        if not self.poster_url:
+            return "/placeholder-anime.jpg"
+        # Если это относительный путь, добавляем домен
+        if self.poster_url.startswith("/media"):
+            return f"https://anisphere.org{self.poster_url}"
+        return self.poster_url
+
+
 class Anime(models.Model):
     STATUS_CHOICES = [
         ("ongoing", "Онгоинг"),
@@ -215,7 +293,7 @@ class Anime(models.Model):
         ("released", "Вышел"),
         ("canceled", "Отменен"),
     ]
-
+    
     KIND_CHOICES = [
         ("tv", "ТВ сериал"),
         ("movie", "Фильм"),
@@ -225,18 +303,21 @@ class Anime(models.Model):
         ("music", "Клип"),
         ("franchise", "Франшиза"),
     ]
-
+    
     shikimori_id = models.IntegerField(unique=True, null=True, blank=True)
     mal_id = models.PositiveIntegerField(
         null=True, blank=True, db_index=True, verbose_name="MAL ID"
     )
-
+    slug = models.SlugField(
+        max_length=255, null=True, blank=True, db_index=True, verbose_name="Slug"
+    )
+    
     # Дата выхода (для анонсов)
     release_date = models.DateField(null=True, blank=True, verbose_name="Дата выхода")
     release_date_string = models.CharField(
         max_length=100, blank=True, verbose_name="Дата выхода (строка)"
     )
-
+    
     title_ru = models.CharField(max_length=255, verbose_name="Название на русском")
     title_en = models.CharField(
         max_length=255, null=True, blank=True, verbose_name="Название на английском"
@@ -261,7 +342,7 @@ class Anime(models.Model):
     score = models.FloatField(null=True, blank=True, verbose_name="Рейтинг")
     poster_url = models.URLField(blank=True, verbose_name="URL постера")
     poster = models.ImageField(
-        upload_to="anime_posters/", null=True, blank=True, verbose_name="Постер аниме"
+        upload_to="posters/", null=True, blank=True, verbose_name="Постер аниме"
     )
 
     # JSON поля для жанров и студий
@@ -292,6 +373,9 @@ class Anime(models.Model):
         null=True, blank=True, verbose_name="Последняя серия"
     )
     translations = models.JSONField(default=list, blank=True, verbose_name="Переводы")
+    download_links = models.JSONField(
+        default=dict, blank=True, verbose_name="Ссылки на скачивание (Anilibria)"
+    )
 
     data_source = models.CharField(
         max_length=20, default="unknown", verbose_name="Источник данных"
@@ -338,6 +422,8 @@ class Anime(models.Model):
         return self.title_ru
 
     def save(self, *args, **kwargs):
+        if not self.slug and self.title_ru:
+            self.slug = slugify(self.title_ru)
         self.updated_at = timezone.now()
         super().save(*args, **kwargs)
 
@@ -831,7 +917,7 @@ class AnimeUpdate(models.Model):
 
 
 class UserEpisodeProgress(models.Model):
-    """Прогресс просмотра по каждой серии — основа системы отметок"""
+    """Прогресс просмотра по каждой серии - основа системы отметок"""
 
     STATUS_CHOICES = [
         ("not_started", "Не начато"),
@@ -866,7 +952,7 @@ class UserEpisodeProgress(models.Model):
         verbose_name_plural = "Прогресс серий"
 
     def __str__(self):
-        return f"{self.user.username} | {self.anime.title_ru} ep{self.episode_number} — {self.status}"
+        return f"{self.user.username} | {self.anime.title_ru} ep{self.episode_number} - {self.status}"
 
     @property
     def progress_percent(self):
@@ -878,7 +964,7 @@ class UserEpisodeProgress(models.Model):
 class UserActiveTab(models.Model):
     """
     Отслеживание активных вкладок пользователя на страницах аниме.
-    Используется для раздела "Сейчас смотрят" — показывает аниме,
+    Используется для раздела "Сейчас смотрят" - показывает аниме,
     которые пользователи открыли в данный момент (даже без воспроизведения).
     """
 
@@ -998,3 +1084,169 @@ class CustomDub(models.Model):
     def save(self, *args, **kwargs):
         self.updated_at = timezone.now()
         super().save(*args, **kwargs)
+
+
+def clip_task_upload_path(instance, filename):
+    """Динамический путь для сохранения файлов задач"""
+    from django.utils import timezone
+    now = timezone.now()
+    if instance.task_type == 'screenshot':
+        return f'screenshots/{now.year}/{now.month:02d}/{now.day:02d}/{filename}'
+    return f'clips/{now.year}/{now.month:02d}/{now.day:02d}/{filename}'
+
+
+def clip_task_thumbnail_path(instance, filename):
+    """Динамический путь для сохранения thumbnails"""
+    from django.utils import timezone
+    now = timezone.now()
+    if instance.task_type == 'screenshot':
+        return f'screenshots/thumbnails/{now.year}/{now.month:02d}/{now.day:02d}/{filename}'
+    return f'clips/thumbnails/{now.year}/{now.month:02d}/{now.day:02d}/{filename}'
+
+
+class ClipTask(models.Model):
+    """
+    Задача на вырезку фрагмента видео или создание скриншота
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Ожидает'),
+        ('processing', 'Обработка'),
+        ('ready', 'Готов'),
+        ('failed', 'Ошибка'),
+    ]
+    
+    TYPE_CHOICES = [
+        ('clip', 'Видео фрагмент'),
+        ('screenshot', 'Скриншот'),
+    ]
+    
+    FORMAT_CHOICES = [
+        ('mp4', 'MP4'),
+        ('mp3', 'MP3'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='clip_tasks',
+        null=True,
+        blank=True
+    )
+    anime = models.ForeignKey(
+        'Anime',
+        on_delete=models.CASCADE,
+        related_name='clip_tasks'
+    )
+    
+    # Тип задачи
+    task_type = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default='clip'
+    )
+    
+    # Параметры фрагмента
+    episode = models.PositiveIntegerField(default=1)
+    season = models.PositiveIntegerField(default=1)
+    start_time = models.FloatField(help_text="Время начала в секундах", null=True, blank=True)
+    end_time = models.FloatField(help_text="Время конца в секундах", null=True, blank=True)
+    timestamp = models.FloatField(help_text="Время для скриншота в секундах", null=True, blank=True)
+    label = models.CharField(max_length=255, blank=True, help_text="Название фрагмента")
+    
+    # Источник видео
+    video_url = models.URLField(help_text="Прямая ссылка на видео", blank=True)
+    quality = models.CharField(max_length=10, default='720', help_text="Качество видео")
+    format = models.CharField(max_length=10, choices=FORMAT_CHOICES, default='mp4', help_text="Формат выходного файла")
+    
+    # Статус и результат
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    result_file = models.FileField(
+        upload_to=clip_task_upload_path,
+        blank=True,
+        null=True
+    )
+    thumbnail = models.ImageField(
+        upload_to=clip_task_thumbnail_path,
+        blank=True,
+        null=True
+    )
+    error_message = models.TextField(blank=True)
+    
+    # Метаданные
+    duration = models.FloatField(null=True, blank=True, help_text="Длительность клипа в секундах")
+    file_size = models.BigIntegerField(null=True, blank=True, help_text="Размер файла в байтах")
+    
+    # Временные метки
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['task_type', 'status']),
+        ]
+        verbose_name = 'Задача на обрезку видео'
+        verbose_name_plural = 'Задачи на обрезку видео'
+    
+    def __str__(self):
+        return f"ClipTask {self.id} - {self.anime.title_ru} (ep {self.episode})"
+    
+    @property
+    def is_ready(self) -> bool:
+        return self.status == 'ready'
+    
+    @property
+    def is_failed(self) -> bool:
+        return self.status == 'failed'
+    
+    @property
+    def download_url(self) -> Optional[str]:
+        """Возвращает URL для скачивания если файл готов"""
+        if self.status == 'ready' and self.result_file:
+            return self.result_file.url
+        return None
+
+
+class AnimeSchedule(models.Model):
+    """
+    Расписание анонсов - синхронизируется с Jikan API.
+    Таблица: anime_schedule
+    """
+    id = models.BigIntegerField(primary_key=True)
+    mal_id = models.IntegerField(unique=True, null=True, blank=True)
+    title_ru = models.CharField(max_length=255, verbose_name="Название на русском")
+    title = models.CharField(max_length=255, verbose_name="Оригинальное название")
+    status = models.CharField(max_length=50, verbose_name="Статус (Jikan)")
+    airing = models.BooleanField(default=False, verbose_name="Идёт показ")
+    broadcast_day = models.CharField(
+        max_length=20, blank=True, verbose_name="День недели"
+    )
+    episodes = models.PositiveIntegerField(null=True, blank=True, verbose_name="Серии")
+    score = models.FloatField(null=True, blank=True, verbose_name="Рейтинг")
+    year = models.PositiveIntegerField(null=True, blank=True, verbose_name="Год")
+    poster_url = models.URLField(blank=True, verbose_name="URL постера")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "anime_schedule"
+        managed = False
+        ordering = ["-year", "-score"]
+        verbose_name = "Анонс (Jikan)"
+        verbose_name_plural = "Анонсы (Jikan)"
+
+    def __str__(self):
+        return self.title_ru or self.title
+
+    @property
+    def poster_image_url(self):
+        return self.poster_url or ""
+
+    @property
+    def is_announcement(self):
+        """True если это анонс (ещё не вышло)"""
+        return self.status == "Not yet aired" or not self.airing

@@ -1,7 +1,6 @@
   <template>
   <div class="col-card" :class="statusClass">
 
-    <!-- Постер -->
     <div class="card-poster" @click="goToAnime">
       <OptimizedImage
         v-if="posterUrl"
@@ -17,13 +16,11 @@
         </svg>
       </div>
 
-      <!-- Бейдж статуса -->
       <div class="status-badge" :class="{ completed: item.status === 'completed' }" :style="{ background: statusColor }">
         <SakuraIcon v-if="isIconName(statusIcon)" :name="statusIcon" :size="14" style="color: white;" />
         <span v-else>{{ statusIcon }}</span>
       </div>
 
-      <!-- Кнопки действий (сверху справа) -->
       <div class="card-action-btns">
         <button
           class="card-action-btn fav-btn"
@@ -56,12 +53,10 @@
         </button>
       </div>
 
-      <!-- Прогресс бар -->
       <div v-if="showProgress" class="progress-bar">
         <div class="progress-fill" :style="{ width: item.progress_percentage + '%' }"></div>
       </div>
 
-      <!-- Оверлей при наведении -->
       <div class="poster-overlay">
         <button class="overlay-btn primary" @click.stop="primaryAction" :title="primaryLabel">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -77,11 +72,9 @@
       </div>
     </div>
 
-    <!-- Инфо -->
     <div class="card-info">
       <h3 class="card-title" @click="goToAnime">{{ item.anime_title_ru || item.anime_title_en }}</h3>
 
-      <!-- Прогресс (только для started / on_hold) -->
       <div v-if="showProgress" class="episode-info">
         <span class="ep-text">
           {{ item.current_episode }} / {{ totalEpisodes || '?' }} эп.
@@ -89,7 +82,6 @@
         <span class="ep-pct">{{ item.progress_percentage }}%</span>
       </div>
 
-      <!-- Оценка -->
       <div v-if="item.rating" class="rating-row">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="var(--warning)" stroke="none">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -97,7 +89,6 @@
         <span class="rating-val">{{ item.rating }}/10</span>
       </div>
 
-      <!-- Дата -->
       <div class="date-row">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -106,7 +97,6 @@
         <span class="date-text">{{ dateLabel }}</span>
       </div>
 
-      <!-- Кнопки быстрых действий -->
       <div class="quick-actions">
         <button class="qa-btn primary" @click.stop="primaryAction" :title="primaryLabel">
           {{ primaryLabel }}
@@ -120,7 +110,6 @@
       </div>
     </div>
 
-    <!-- Контекстное меню -->
     <Teleport to="body">
       <div v-if="menuOpen" class="ctx-backdrop" @click="menuOpen = false"></div>
       <div v-if="menuOpen" class="ctx-menu" :style="menuStyle">
@@ -166,7 +155,6 @@
       </div>
     </Teleport>
 
-    <!-- Модалки -->
     <PlaylistSelectModal
       :show="showPlaylistModal"
       :anime="animeForModal"
@@ -177,7 +165,6 @@
       @create-playlist="handleCreatePlaylist"
     />
 
-    <!-- Модалка создания плейлиста -->
     <Teleport to="body">
       <Transition name="psm-anim">
         <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:10001;padding:1rem;">
@@ -245,7 +232,6 @@ const creatingPlaylist = ref(false)
 const playlists = ref<any[]>([])
 const playlistsLoading = ref(false)
 
-// Объект аниме для модалок
 const animeForModal = computed(() => {
   return {
     id: animeId.value,
@@ -256,13 +242,9 @@ const animeForModal = computed(() => {
   } as any
 })
 
-// ID аниме для навигации — приоритет anime_id, затем anime как число или объект
 const animeId = computed(() => {
-  // Сначала проверяем anime_id (всегда число)
   if (props.item.anime_id) return props.item.anime_id
-  // Затем anime как число
   if (typeof props.item.anime === 'number') return props.item.anime
-  // Затем anime как объект с полем id
   if (typeof props.item.anime === 'object' && props.item.anime?.id) return props.item.anime.id
   return null
 })
@@ -337,7 +319,6 @@ const saveNewPlaylist = async () => {
     })
     showCreateModal.value = false
     toast.success('Плейлист создан!')
-    // Обновляем список и возвращаемся к модалке выбора
     const res = await playlistsApi.getMyPlaylists()
     playlists.value = res.data || []
     showPlaylistModal.value = true
@@ -348,14 +329,11 @@ const saveNewPlaylist = async () => {
   }
 }
 
-// ── Постер ────────────────────────────────────────────────────
 const posterUrl = computed(() => {
   if (posterError.value) return null
-  // anime_poster может быть строкой или объектом
   const poster = props.item.anime_poster
   if (!poster) return null
   if (typeof poster === 'string') return getMediaUrl(poster)
-  // Если это объект с полем url
   if (typeof poster === 'object') {
     const posterObj = poster as { url?: string }
     if (posterObj.url) return getMediaUrl(posterObj.url)
@@ -363,7 +341,6 @@ const posterUrl = computed(() => {
   return null
 })
 
-// ── Статусы ───────────────────────────────────────────────────
 const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
   started:   { icon: 'watching', color: 'var(--accent)',  label: 'В процессе'    },
   completed: { icon: 'completed', color: '#22c55e',        label: 'Просмотрено'   },
@@ -373,7 +350,6 @@ const statusConfig: Record<string, { icon: string; color: string; label: string 
   favorite:  { icon: 'favorite', color: '#f59e0b',         label: 'Избранное'     },
 }
 
-// Проверка - является ли icon именем иконки (а не эмодзи)
 const isIconName = (icon: string | undefined): boolean => {
   if (!icon) return false
   return /^[a-zA-Z][a-zA-Z0-9-]*$/.test(icon)
@@ -387,15 +363,12 @@ const showProgress = computed(() =>
   props.item.status === 'started' || props.item.status === 'on_hold'
 )
 
-// Количество эпизодов аниме
 const totalEpisodes = computed(() => {
-  // Может приходить в разных полях
   return props.item.anime_episodes_count || 
          (typeof props.item.anime === 'object' ? props.item.anime?.episodes_count : 0) ||
          0
 })
 
-// ── Первичное действие ────────────────────────────────────────
 const primaryLabel = computed(() => {
   if (props.item.status === 'planned')   return 'Начать'
   if (props.item.status === 'completed') return 'Пересмотреть'
@@ -416,7 +389,6 @@ const watchNow = () => {
   primaryAction()
 }
 
-// ── Дата ──────────────────────────────────────────────────────
 const dateLabel = computed(() => {
   const fmtDate = (d: string | null) => {
     if (!d) return null
@@ -435,10 +407,9 @@ const dateLabel = computed(() => {
   if (props.item.status === 'started' && props.item.updated_at) {
     return 'Смотрел ' + fmtDate(props.item.updated_at)
   }
-  return 'Добавлено ' + (fmtDate(props.item.added_at) ?? '—')
+  return 'Добавлено ' + (fmtDate(props.item.added_at) ?? '-')
 })
 
-// ── Меню ──────────────────────────────────────────────────────
 const statusMenuItems = [
   { key: 'started'  as LibraryStatus, icon: 'watching', label: 'В процессе'    },
   { key: 'completed'as LibraryStatus, icon: 'completed', label: 'Просмотрено'   },
@@ -456,7 +427,6 @@ const openMenu = (e: MouseEvent) => {
   menuOpen.value = true
 }
 
-// ── Действия ─────────────────────────────────────────────────
 const goToAnime = () => {
   if (!animeId.value) {
     console.error('CollectionCard: animeId is null', props.item)
@@ -467,7 +437,6 @@ const goToAnime = () => {
 
 const markCompleted = async () => {
   try {
-    // При отметке "просмотрено" обновляем статус и прогресс
     const episodes = totalEpisodes.value || 1
     await libraryApi.updateLibraryItem(props.item.id, { 
       status: 'completed',
@@ -482,7 +451,6 @@ const changeStatus = async (status: LibraryStatus) => {
   menuOpen.value = false
   try {
     const data: any = { status }
-    // Если отмечаем как просмотрено - ставим все эпизоды
     if (status === 'completed') {
       data.episodes_watched = totalEpisodes.value || 1
       data.current_episode = totalEpisodes.value || 1
@@ -515,7 +483,6 @@ const openEdit = () => {
 </script>
 
 <style scoped>
-/* ═══ Карточка ══════════════════════════════════════════════ */
 .col-card {
   display: flex;
   flex-direction: column;
@@ -525,7 +492,6 @@ const openEdit = () => {
 
 .col-card:hover { transform: translateY(-3px); }
 
-/* ═══ Постер ════════════════════════════════════════════════ */
 .card-poster {
   position: relative;
   width: 100%;
@@ -545,9 +511,6 @@ const openEdit = () => {
 
 .col-card:hover .poster-img { transform: scale(1.05); }
 
-/* ── Постер - обёртка ─────────────────────────────────────── */
-/* Убеждаемся что overflow:hidden и position:relative стоят */
-
 .poster-placeholder {
   width: 100%;
   height: 100%;
@@ -557,7 +520,6 @@ const openEdit = () => {
   color: var(--text-tertiary);
 }
 
-/* ── Статус-бейдж ─────────────────────────────────────────── */
 .status-badge {
   position: absolute;
   top: 8px;
@@ -579,7 +541,6 @@ const openEdit = () => {
   box-shadow: 0 2px 12px rgba(34, 197, 94, 0.5);
 }
 
-/* ── Кнопки действий (сверху справа) ──────────────────────── */
 .card-action-btns {
   position: absolute;
   top: 8px;
@@ -615,21 +576,41 @@ const openEdit = () => {
 }
 
 .card-action-btn:hover { background-color: var(--accent); transform: scale(1.1); }
+
 .card-action-btn.fav-btn { color: var(--text-secondary); }
-.card-action-btn.fav-btn:hover { background-color: rgba(239,68,68,0.2); color: var(--danger); }
+.card-action-btn.fav-btn:hover { background-color: rgba(8, 8, 9, 0.8); transform: scale(1.1); }
 .card-action-btn.fav-btn.active { color: var(--danger); }
-.card-action-btn.fav-btn.active:hover { background-color: rgba(239,68,68,0.3); }
+.card-action-btn.fav-btn.active:hover { background-color: rgba(8, 8, 9, 0.8); transform: scale(1.1);}
+
 .card-action-btn.discuss-btn:hover { background-color: var(--accent); }
+
 .card-action-btn.playlist-btn:hover { background-color: var(--accent-2, var(--accent)); }
+
 .card-action-btn.reminder-btn:hover { background-color: var(--warning); }
 
-/* Мобильные — всегда видимые */
 @media (max-width: 767px) {
   .card-action-btns { opacity: 1; transform: translateY(0); }
   .card-action-btn { width: 24px; height: 24px; }
 }
 
-/* ── Прогресс ────────────────────────────────────────────────  */
+@media (max-width: 480px) {
+  .card-action-btns {
+    top: 4px;
+    right: 4px;
+    gap: 2px;
+  }
+  
+  .card-action-btn {
+    width: 22px;
+    height: 22px;
+  }
+
+  .card-action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
 .progress-bar {
   position: absolute;
   bottom: 0;
@@ -645,7 +626,6 @@ const openEdit = () => {
   transition: width 0.4s ease;
 }
 
-/* ── Оверлей - весь постер ───────────────────────────────────── */
 .poster-overlay {
   position: absolute;
   inset: 0;
@@ -661,7 +641,6 @@ const openEdit = () => {
 
 .col-card:hover .poster-overlay { opacity: 1; }
 
-/* Квадратные синие кнопки с анимацией распыления */
 .overlay-btn {
   width: 48px;
   height: 48px;
@@ -711,7 +690,6 @@ const openEdit = () => {
   height: 24px;
 }
 
-/* ═══ Инфо ══════════════════════════════════════════════════ */
 .card-info {
   padding: 0 2px;
   display: flex;
@@ -768,7 +746,6 @@ const openEdit = () => {
   text-overflow: ellipsis;
 }
 
-/* ── Быстрые действия ────────────────────────────────────────  */
 .quick-actions {
   display: flex;
   gap: 4px;
@@ -803,7 +780,6 @@ const openEdit = () => {
 .qa-btn:hover { background: var(--surface-5); color: var(--text-primary); }
 .qa-btn.primary:hover { background: var(--accent); color: white; }
 
-/* ═══ Контекстное меню ══════════════════════════════════════ */
 .ctx-backdrop {
   position: fixed;
   inset: 0;

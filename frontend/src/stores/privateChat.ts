@@ -28,7 +28,7 @@ interface PrivateChat {
     avatar_url?: string
     is_online?: boolean
   }
-  // Alternative format with other_user
+  
   other_user?: {
     id: number
     username: string
@@ -84,17 +84,17 @@ interface Message {
 }
 
 export const usePrivateChatStore = defineStore('privateChat', () => {
-  // State
+  
   const chats = ref<PrivateChat[]>([])
   const currentChat = ref<PrivateChat | null>(null)
   const messages = ref<Message[]>([])
 
-  // Loading states
+  
   const loadingChats = ref(false)
   const loadingMessages = ref(false)
   const sendingMessage = ref(false)
 
-  // Computed
+  
   const authStore = useAuthStore()
 
   const otherUser = computed(() => {
@@ -117,7 +117,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
     }
   })
 
-  // Actions
+  
   const loadChats = async () => {
     loadingChats.value = true
     try {
@@ -136,7 +136,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
       const response = await apiClient.post('/social/private-chats/', { user_id: userId })
       const chat = response.data
 
-      // Add to chats list if not already there
+      
       const existingIndex = chats.value.findIndex(c => c.id === chat.id)
       if (existingIndex === -1) {
         chats.value.unshift(chat)
@@ -157,7 +157,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
       const response = await apiClient.get(`/social/private-chats/${chatId}/`)
       currentChat.value = response.data
 
-      // Update in chats list
+      
       const existingIndex = chats.value.findIndex(c => c.id === chatId)
       if (existingIndex !== -1) {
         chats.value[existingIndex] = response.data
@@ -191,14 +191,14 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
 
       const response = await apiClient.post('/social/messages/', {
         ...data,
-        chat_id: chatId // This will be handled by the backend to determine chat type
+        chat_id: chatId 
       })
 
       let message = response.data
       message = normalizeMessage(message)
       messages.value.unshift(message)
 
-      // Update last message time
+      
       if (currentChat.value) {
         currentChat.value.last_message_at = message.created_at
       }
@@ -223,7 +223,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
       const response = await apiClient.post(`/social/private-chats/${chatId}/update_settings/`, settings)
       currentChat.value = response.data
 
-      // Update in chats list
+      
       const existingIndex = chats.value.findIndex(c => c.id === chatId)
       if (existingIndex !== -1) {
         chats.value[existingIndex] = response.data
@@ -237,7 +237,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
   const clearHistory = async (chatId: number) => {
     try {
       await apiClient.post(`/social/private-chats/${chatId}/clear_history/`)
-      // Clear messages locally
+      
       messages.value = []
     } catch (error) {
       console.error('Error clearing history:', error)
@@ -248,7 +248,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
   const deleteChat = async (chatId: number) => {
     try {
       await apiClient.delete(`/social/private-chats/${chatId}/`)
-      // Remove from chats list
+      
       chats.value = chats.value.filter(c => c.id !== chatId)
       if (currentChat.value?.id === chatId) {
         currentChat.value = null
@@ -263,7 +263,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
   const markMessageAsRead = async (messageId: number) => {
     try {
       await apiClient.post(`/social/messages/${messageId}/read/`)
-      // Update message locally if needed
+      
     } catch (error) {
       console.error('Error marking message as read:', error)
       throw error
@@ -276,7 +276,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
         text: newText
       })
 
-      // Update message locally
+      
       const index = messages.value.findIndex(m => m.id === messageId)
       if (index !== -1) {
         messages.value[index] = response.data
@@ -293,7 +293,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
     try {
       await apiClient.post(`/social/messages/${messageId}/delete/`)
 
-      // Remove message locally
+      
       messages.value = messages.value.filter(m => m.id !== messageId)
     } catch (error) {
       console.error('Error deleting message:', error)
@@ -305,7 +305,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
     try {
       const response = await apiClient.post(`/social/messages/${messageId}/react/`, { emoji })
 
-      // Update message locally
+      
       const message = messages.value.find(m => m.id === messageId)
       if (message) {
         message.reactions = response.data.reactions
@@ -317,7 +317,7 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
   }
 
   return {
-    // State
+    
     chats,
     currentChat,
     messages,
@@ -325,11 +325,11 @@ export const usePrivateChatStore = defineStore('privateChat', () => {
     loadingMessages,
     sendingMessage,
 
-    // Computed
+    
     otherUser,
     chatSettings,
 
-    // Actions
+    
     loadChats,
     createOrGetChat,
     loadChat,

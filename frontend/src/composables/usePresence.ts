@@ -14,10 +14,10 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import apiClient from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
-// Интервал heartbeat: 2 минуты (TTL в Redis 30 мин, поэтому достаточно)
-const HEARTBEAT_INTERVAL = 2 * 60 * 1000   // 2 мин
 
-// Singleton — один экземпляр на приложение
+const HEARTBEAT_INTERVAL = 2 * 60 * 1000   
+
+
 let _intervalId: ReturnType<typeof setInterval> | null = null
 let _refCount = 0
 
@@ -30,22 +30,22 @@ export function usePresence() {
     try {
       await apiClient.post('/users/heartbeat/')
     } catch {
-      // Молча игнорируем: сеть может быть недоступна
+      
     }
   }
 
   const handleVisibilityChange = () => {
     isTabVisible.value = !document.hidden
-    // При возврате на вкладку сразу отправляем пинг
+    
     if (!document.hidden) {
       sendHeartbeat()
     }
   }
 
   const start = () => {
-    if (_intervalId !== null) return   // уже запущен
+    if (_intervalId !== null) return   
 
-    // Первый пинг сразу
+    
     sendHeartbeat()
 
     _intervalId = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL)

@@ -49,7 +49,7 @@ export interface PrivateChat {
   is_pinned: boolean
   is_archived: boolean
   is_muted: boolean
-  isMuted?: boolean  // alias for compatibility
+  isMuted?: boolean  
 }
 
 export interface GroupChatMember {
@@ -72,7 +72,7 @@ export interface GroupChat {
   description?: string
   avatar?: string
   avatar_url?: string
-  // Поля для группы обсуждения аниме
+  
   anime_id?: number | null
   anime_title?: string | null
   anime_poster?: string | null
@@ -88,7 +88,7 @@ export interface GroupChat {
   is_public: boolean
   invite_token?: string
   user_member_settings?: MemberSettings
-  isMuted?: boolean  // alias for compatibility
+  isMuted?: boolean  
 }
 
 export type Chat = PrivateChat | GroupChat
@@ -216,23 +216,23 @@ export const SYSTEM_FOLDERS: Partial<ChatFolder>[] = [
       include_anime_discussions: true
     }
   },
-  // {
-  //   id: -3,
-  //   name: 'Архив',
-  //   icon: '📦',
-  //   is_system: true,
-  //   position: 999,
-  //   rules: {
-  //     include_private: true,
-  //     include_groups: true,
-  //     include_bots: true,
-  //     exclude_keywords: [],
-  //     include_keywords: [],
-  //     exclude_user_ids: [],
-  //     only_unread: false,
-  //     only_pinned: false
-  //   }
-  // }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 ]
 
 export const FOLDER_ICONS = [
@@ -247,14 +247,14 @@ export const FOLDER_ICONS = [
 ]
 
 export const FOLDER_COLORS = [
-  '#3B82F6', // blue
-  '#10B981', // green
-  '#F59E0B', // amber
-  '#EF4444', // red
-  '#8B5CF6', // violet
-  '#EC4899', // pink
-  '#06B6D4', // cyan
-  '#84CC16', // lime
-  '#6366F1', // indigo
-  '#F97316', // orange
+  '#3B82F6', 
+  '#10B981', 
+  '#F59E0B', 
+  '#EF4444', 
+  '#8B5CF6', 
+  '#EC4899', 
+  '#06B6D4', 
+  '#84CC16', 
+  '#6366F1', 
+  '#F97316', 
 ]

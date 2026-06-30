@@ -19,14 +19,14 @@ export function useEmojiReplacer(text: Ref<string> | string) {
     let currentText = ''
     let keyCounter = 0
 
-    // Регулярное выражение для поиска эмодзи (включая расширенные)
+    
     const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu
 
     let lastIndex = 0
     let match
 
     while ((match = emojiRegex.exec(input)) !== null) {
-      // Добавляем текст до эмодзи
+      
       if (match.index > lastIndex) {
         const textContent = input.slice(lastIndex, match.index)
         if (textContent) {
@@ -54,7 +54,7 @@ export function useEmojiReplacer(text: Ref<string> | string) {
           key: `emoji-${keyCounter++}`
         })
       } else {
-        // Если иконка не найдена, оставляем эмодзи как есть
+        
         result.push({
           type: 'text',
           content: emoji,
@@ -65,7 +65,7 @@ export function useEmojiReplacer(text: Ref<string> | string) {
       lastIndex = match.index + emoji.length
     }
 
-    // Добавляем оставшийся текст
+    
     if (lastIndex < input.length) {
       currentText += input.slice(lastIndex)
     }

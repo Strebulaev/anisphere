@@ -37,8 +37,8 @@ export interface StudioDetail extends Studio {
 export interface StudioAnime {
   id: number
   kodik_id: string
-  anime_db_id: number | null    // ID в нашей БД (если совпал по shikimori_id)
-  anime_url: string | null      // Путь на локальную страницу аниме
+  anime_db_id: number | null    
+  anime_url: string | null      
   anime_title: string
   anime_title_en: string
   anime_kind: string

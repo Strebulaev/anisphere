@@ -30,6 +30,6 @@ class Command(BaseCommand):
             admin.save(update_fields=['is_staff', 'is_superuser', 'nickname', 'display_name'])
             self.stdout.write(self.style.SUCCESS(f'kaiden812 is now staff/superuser. nickname={admin.nickname}'))
         except User.DoesNotExist:
-            self.stdout.write(self.style.WARNING('User kaiden812 not found — will be admin when created.'))
+            self.stdout.write(self.style.WARNING('User kaiden812 not found - will be admin when created.'))
 
         self.stdout.write(self.style.SUCCESS('Done!'))

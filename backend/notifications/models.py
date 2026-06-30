@@ -182,7 +182,7 @@ class NotificationSetting(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notif_settings')
 
-    # Типы — JSON с настройками для каждого типа
+    # Типы - JSON с настройками для каждого типа
     type_settings = models.JSONField(default=dict)
 
     # Каналы

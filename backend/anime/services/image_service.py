@@ -19,7 +19,8 @@ class ImageService:
         self.media_root = settings.MEDIA_ROOT
         self.poster_dir = 'anime_posters'
         self.max_size = (400, 600)  # Максимальный размер постера
-        self.quality = 85  # Качество JPEG
+        self.quality = 85  # Качество JPEG/WebP
+        self.webp_quality = 80  # Качество для WebP
         
     def download_poster(self, image_url: str, anime_id: int, title: str) -> str:
         """Загрузка постера аниме"""
@@ -68,21 +69,23 @@ class ImageService:
             return None
     
     def _process_image(self, image_content: bytes) -> bytes:
-        """Обработка изображения"""
+        """Обработка изображения - конвертируем в WebP"""
         try:
             # Открываем изображение
             image = Image.open(BytesIO(image_content))
             
-            # Конвертируем в RGB если нужно
-            if image.mode != 'RGB':
+            # Конвертируем в RGB если нужно (для WebP поддерживается RGBA)
+            if image.mode not in ('RGB', 'RGBA'):
                 image = image.convert('RGB')
             
             # Изменяем размер с соотношением сторон
             image.thumbnail(self.max_size, Image.Resampling.LANCZOS)
             
-            # Сохраняем как JPEG
+            # Сохраняем как WebP
             output = BytesIO()
-            image.save(output, format='JPEG', quality=self.quality, optimize=True)
+            if image.mode == 'RGBA':
+                image = image.convert('RGB')
+            image.save(output, format='WEBP', quality=self.webp_quality, optimize=True)
             return output.getvalue()
             
         except Exception as e:
@@ -90,20 +93,13 @@ class ImageService:
             return None
     
     def _generate_filename(self, anime_id: int, title: str, content_type: str) -> str:
-        """Генерация имени файла"""
+        """Генерация имени файла - всегда WebP"""
         # Очищаем название от недопустимых символов
         safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_title = safe_title.replace(' ', '_')[:50]  # Ограничиваем длину
         
-        # Определяем расширение
-        if 'png' in content_type.lower():
-            ext = 'png'
-        elif 'webp' in content_type.lower():
-            ext = 'webp'
-        else:
-            ext = 'jpg'
-        
-        return f"anime_{anime_id}_{safe_title}.{ext}"
+        # Всегда сохраняем как WebP
+        return f"anime_{anime_id}_{safe_title}.webp"
     
     def download_poster_safe(self, image_url: str, anime_id: int, title: str) -> str:
         """Безопасная загрузка постера с обработкой ошибок"""

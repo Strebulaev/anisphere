@@ -1,6 +1,6 @@
 import apiClient from './client'
 
-// ==================== TYPES ====================
+
 
 export interface ChatInvite {
   id: number
@@ -115,7 +115,7 @@ export interface SearchResult {
   results: any[]
 }
 
-// ==================== НОВЫЕ ТИПЫ ====================
+
 
 export interface ChatInviteLink {
   id: number
@@ -390,7 +390,7 @@ export interface ScheduledMessageCreate {
   recurring_interval?: number
 }
 
-// ==================== CHAT INVITES ====================
+
 
 export const chatInvitesApi = {
   list: () => apiClient.get<ChatInvite[]>('/social/chat-invites/'),
@@ -404,7 +404,7 @@ export const chatInvitesApi = {
   joinByToken: (token: string) => apiClient.post(`/social/chat-invites/join/${token}/`),
 }
 
-// ==================== REACTIONS ====================
+
 
 export const reactionsApi = {
   list: (messageId?: number) =>
@@ -420,7 +420,7 @@ export const reactionsApi = {
     apiClient.get<GroupedReaction[]>(`/social/message-reactions/for_message/?message_id=${messageId}`),
 }
 
-// ==================== ATTACHMENTS ====================
+
 
 export const attachmentsApi = {
   list: (messageId?: number) =>
@@ -444,7 +444,7 @@ export const attachmentsApi = {
   },
 }
 
-// ==================== MESSAGE ACTIONS ====================
+
 
 export const messageActionsApi = {
   pin: (messageId: number) => apiClient.post(`/social/messages/${messageId}/pin/`),
@@ -458,7 +458,7 @@ export const messageActionsApi = {
   getPinned: (chatId: number) => apiClient.get(`/social/chats/${chatId}/pinned-messages/`),
 }
 
-// ==================== CHATS ====================
+
 
 export const chatsApi = {
   list: (params?: { search?: string; type?: string }) =>
@@ -469,7 +469,7 @@ export const chatsApi = {
   delete: (id: number) => apiClient.delete(`/social/chats/${id}/`),
 }
 
-// ==================== UNREAD MESSAGES ====================
+
 
 export const unreadApi = {
   getCount: (chatId?: number) =>
@@ -479,7 +479,7 @@ export const unreadApi = {
     apiClient.post(`/social/chats/${chatId}/mark-read/`, { message_id: messageId }),
 }
 
-// ==================== EMAIL LOGS ====================
+
 
 export const emailLogsApi = {
   list: () => apiClient.get<EmailLog[]>('/social/email-logs/'),
@@ -488,7 +488,7 @@ export const emailLogsApi = {
   stats: () => apiClient.get('/social/email-logs/stats/'),
 }
 
-// ==================== SEARCH ====================
+
 
 export const searchApi = {
   searchMessages: (params: {
@@ -501,9 +501,9 @@ export const searchApi = {
   reindex: () => apiClient.post('/social/messages/reindex/'),
 }
 
-// ==================== НОВЫЕ API ====================
 
-// Ссылки-приглашения
+
+
 export const inviteLinksApi = {
   list: (chatId?: number) =>
     apiClient.get<ChatInviteLink[]>('/social/chat-invite-links/', {
@@ -519,7 +519,7 @@ export const inviteLinksApi = {
   join: (token: string) => apiClient.post(`/social/invite-links/join/${token}/`),
 }
 
-// Обои чатов
+
 export const wallpapersApi = {
   list: (chatId?: number) =>
     apiClient.get<ChatWallpaper[]>('/social/chat-wallpapers/', {
@@ -538,7 +538,7 @@ export const wallpapersApi = {
     apiClient.put<ChatWallpaper>(`/social/chats/${chatId}/wallpaper/`, { ...data, type }),
 }
 
-// Темы оформления
+
 export const themesApi = {
   list: () => apiClient.get<ChatTheme[]>('/social/chat-themes/'),
   get: (id: number) => apiClient.get<ChatTheme>(`/social/chat-themes/${id}/`),
@@ -548,7 +548,7 @@ export const themesApi = {
   delete: (id: number) => apiClient.delete(`/social/chat-themes/${id}/`),
 }
 
-// Блокировки
+
 export const bansApi = {
   list: (chatId?: number) =>
     apiClient.get<ChatBan[]>('/social/chat-bans/', {
@@ -561,7 +561,7 @@ export const bansApi = {
     apiClient.get<ChatBan[]>(`/social/group-chats/${chatId}/banned-users/`),
 }
 
-// Ограничения
+
 export const restrictionsApi = {
   list: (chatId?: number) =>
     apiClient.get<ChatRestriction[]>('/social/chat-restrictions/', {
@@ -575,7 +575,7 @@ export const restrictionsApi = {
     apiClient.get<ChatRestriction[]>(`/social/group-chats/${chatId}/restricted-users/`),
 }
 
-// Медленный режим
+
 export const slowModeApi = {
   get: (chatId: number) =>
     apiClient.get<ChatSlowMode[]>(`/social/chat-slow-modes/?chat=${chatId}`),
@@ -583,7 +583,7 @@ export const slowModeApi = {
     apiClient.patch<ChatSlowMode>(`/social/chat-slow-modes/${id}/`, data),
 }
 
-// Запросы на вступление
+
 export const joinRequestsApi = {
   list: (chatId?: number) =>
     apiClient.get<ChatJoinRequest[]>('/social/chat-join-requests/', {
@@ -596,7 +596,7 @@ export const joinRequestsApi = {
   reject: (id: number) => apiClient.post(`/social/chat-join-requests/${id}/reject/`),
 }
 
-// Теги чатов
+
 export const tagsApi = {
   list: () => apiClient.get<ChatTag[]>('/social/chat-tags/'),
   get: (id: number) => apiClient.get<ChatTag>(`/social/chat-tags/${id}/`),
@@ -614,7 +614,7 @@ export const tagsApi = {
     apiClient.delete(`/social/chat-tag-assignments/${assignmentId}/`),
 }
 
-// Анти-спам
+
 export const antiSpamApi = {
   list: (chatId?: number) =>
     apiClient.get<AntiSpamRule[]>('/social/anti-spam-rules/', {
@@ -628,7 +628,7 @@ export const antiSpamApi = {
   delete: (id: number) => apiClient.delete(`/social/anti-spam-rules/${id}/`),
 }
 
-// Резервные копии
+
 export const backupsApi = {
   list: (chatId?: number) =>
     apiClient.get<ChatBackup[]>('/social/chat-backups/', {
@@ -642,7 +642,7 @@ export const backupsApi = {
     apiClient.get(`/social/chat-backups/${id}/download/`, { responseType: 'blob' }),
 }
 
-// Запланированные сообщения
+
 export const scheduledMessagesApi = {
   list: (chatId?: number) =>
     apiClient.get<ScheduledMessage[]>('/social/scheduled-messages/', {
@@ -670,7 +670,7 @@ export const scheduledMessagesApi = {
   sendNow: (id: number) => apiClient.post(`/social/scheduled-messages/${id}/send_now/`),
 }
 
-// Роли
+
 export const rolesApi = {
   setMemberRole: (chatId: number, userId: number, roleId: number | null) =>
     apiClient.post(`/social/group-chats/${chatId}/members/${userId}/role/`, { role_id: roleId }),
@@ -678,7 +678,7 @@ export const rolesApi = {
     apiClient.post(`/social/group-chats/${chatId}/transfer-ownership/`, { user_id: userId }),
 }
 
-// ==================== EXPORTS ====================
+
 
 export default {
   chatInvites: chatInvitesApi,
@@ -689,7 +689,7 @@ export default {
   emailLogs: emailLogsApi,
   search: searchApi,
   chats: chatsApi,
-  // Новые API
+  
   inviteLinks: inviteLinksApi,
   wallpapers: wallpapersApi,
   themes: themesApi,

@@ -76,7 +76,6 @@ const discussions = ref<AnimeDiscussionGroup[]>([])
 const loading = ref(false)
 const error = ref('')
 
-// Функция для получения URL постера
 const getPosterUrl = (poster: string | undefined | null): string | undefined => {
   if (!poster) return undefined
   return getMediaUrl(poster)

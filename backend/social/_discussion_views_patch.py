@@ -30,7 +30,7 @@ def _get_poster_url(obj, request=None):
 def get_anime_discussion_group(request, anime_id):
     """Получить или создать групповой чат для обсуждения аниме.
 
-    Если аниме входит во франшизу — возвращаем franchise-группу (с топиками),
+    Если аниме входит во франшизу - возвращаем franchise-группу (с топиками),
     автоматически создавая её при первом обращении.
     Для одиночного аниме создаём обычный discussion-чат.
     """
@@ -45,7 +45,7 @@ def get_anime_discussion_group(request, anime_id):
         if anime.franchise_id:
             franchise = anime.franchise
 
-            # Постер франшизы — берём у первой части (по franchise_order)
+            # Постер франшизы - берём у первой части (по franchise_order)
             first_part = (
                 Anime.objects.filter(franchise=franchise)
                 .order_by('franchise_order', 'year', 'id')
@@ -54,7 +54,7 @@ def get_anime_discussion_group(request, anime_id):
             franchise_poster_url = _get_poster_url(franchise, request) or _get_poster_url(first_part, request)
 
             # Ищем или создаём главную группу франшизы
-            # Название — только имя франшизы, без префиксов
+            # Название - только имя франшизы, без префиксов
             chat, created = GroupChat.objects.get_or_create(
                 franchise_id=franchise.id,
                 defaults={
@@ -67,7 +67,7 @@ def get_anime_discussion_group(request, anime_id):
                 }
             )
 
-            # Если уже существовало — исправляем название если оно содержит лишние префиксы
+            # Если уже существовало - исправляем название если оно содержит лишние префиксы
             if not created:
                 dirty = False
                 clean_name = franchise.name
@@ -175,7 +175,10 @@ def get_anime_discussion_group(request, anime_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_anime_discussion_group(request, anime_id):
-    """Создать групповой чат для обсуждения аниме"""
+    """Создать групповой чат для обсуждения аниме
+    
+    У обсуждений НЕТ владельца - все участники равны.
+    """
     try:
         from anime.models import Anime
         anime = Anime.objects.get(id=anime_id)
@@ -186,7 +189,7 @@ def create_anime_discussion_group(request, anime_id):
         return Response({'error': 'Чат для этого аниме уже существует'}, status=400)
 
     chat = GroupChat.objects.create(
-        name=anime.title_ru or anime.title_en,  # только название
+        name=anime.title_ru or anime.title_en,
         anime_id=anime_id,
         created_by=request.user,
         is_public=True,
@@ -198,7 +201,10 @@ def create_anime_discussion_group(request, anime_id):
     if chat.name.startswith('Обсуждение:') or chat.name.startswith('Обсуждение '):
         chat.name = anime.title_ru or anime.title_en
         chat.save(update_fields=['name'])
-    ChatMember.objects.get_or_create(user=request.user, chat=chat, defaults={'is_admin': True})
+    
+    # У обсуждений НЕТ владельца - просто добавляем как обычного участника
+    ChatMember.objects.create(user=request.user, chat=chat, is_admin=False)
+    
     serializer = GroupChatSerializer(chat, context={'request': request})
     return Response(serializer.data, status=201)
 
@@ -206,7 +212,10 @@ def create_anime_discussion_group(request, anime_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def join_anime_discussion_group(request, anime_id):
-    """Присоединиться к групповому чату аниме"""
+    """Присоединиться к групповому чату аниме
+    
+    У обсуждений нет владельца - все участники равны.
+    """
     try:
         chat = GroupChat.objects.get(anime_id=anime_id)
     except GroupChat.DoesNotExist:
@@ -218,4 +227,34 @@ def join_anime_discussion_group(request, anime_id):
     if chat.members.count() >= chat.max_members:
         return Response({'error': 'Чат переполнен'}, status=400)
 
-    ChatMember.objects.create(user=request.user, chat=chat)
+    # Все участники обсуждения равны - нет админов
+    ChatMember.objects.create(user=request.user, chat=chat, is_admin=False)
+    
+    serializer = GroupChatSerializer(chat, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def leave_anime_discussion_group(request, anime_id):
+    """Выйти из группового чата аниме
+    
+    У обсуждений нет владельца - пользователь просто удаляется из участников.
+    Чат остаётся для остальных участников с сохранением всех сообщений.
+    """
+    try:
+        chat = GroupChat.objects.get(anime_id=anime_id)
+    except GroupChat.DoesNotExist:
+        return Response({'error': 'Чат не найден'}, status=404)
+
+    try:
+        member = ChatMember.objects.get(chat=chat, user=request.user)
+        member.delete()
+        
+        return Response({
+            'message': 'Вы вышли из чата',
+            'action': 'left',
+            'chat_id': chat.id
+        })
+    except ChatMember.DoesNotExist:
+        return Response({'error': 'Вы не являетесь участником этого чата'}, status=400)

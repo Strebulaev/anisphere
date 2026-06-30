@@ -48,7 +48,7 @@ class Playlist(models.Model):
         verbose_name='Видимость'
     )
 
-    # Обратная совместимость — вычисляемое свойство
+    # Обратная совместимость - вычисляемое свойство
     @property
     def is_public(self):
         return self.visibility == VISIBILITY_PUBLIC

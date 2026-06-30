@@ -46,7 +46,7 @@ class UserFavoritesViewSet(viewsets.GenericViewSet,
         results = []
         for item in queryset:
             anime = item.anime
-            # Получаем URL постера — приори тет: локальный файл -> внешний URL
+            # Получаем URL постера - приори тет: локальный файл -> внешний URL
             poster_url = None
             try:
                 if anime.poster and hasattr(anime.poster, 'url'):
@@ -264,7 +264,7 @@ class FavoriteEpisodesViewSet(viewsets.GenericViewSet,
         results = []
         for item in queryset:
             anime = item.anime
-            # Получаем URL постера — приоритет: локальный файл -> внешний URL
+            # Получаем URL постера - приоритет: локальный файл -> внешний URL
             poster_url = None
             try:
                 if anime.poster and hasattr(anime.poster, 'url'):
@@ -434,7 +434,7 @@ class UserLibraryViewSet(viewsets.GenericViewSet,
                 continue
             total_episodes = anime.episodes or 0
             
-            # Получаем URL постера — приоритет: локальный файл -> внешний URL
+            # Получаем URL постера - приоритет: локальный файл -> внешний URL
             poster_url = None
             try:
                 if anime.poster and hasattr(anime.poster, 'url'):
@@ -670,7 +670,7 @@ class UserLibraryViewSet(viewsets.GenericViewSet,
             anime = item.anime
             total_episodes = anime.episodes or 0
             
-            # Получаем URL постера — приоритет: локальный файл -> внешний URL
+            # Получаем URL постера - приоритет: локальный файл -> внешний URL
             poster_url = None
             try:
                 if anime.poster and hasattr(anime.poster, 'url'):

@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models import (
     Group, GroupMembership, Post, Comment, GroupChat, ChatRole, ChatMember,
     PrivateChat, Message, MessageReadStatus, ChatAdminLog, ChatTypingStatus,
-    ChatSettings, PrivateChatUserSettings, Contest, ContestEntry, ContestVote
+    ChatSettings, PrivateChatUserSettings, Contest, ContestEntry, ContestVote,
+    Report
 )
 
 # Импорт новых моделей чатов
@@ -225,3 +226,24 @@ class SupportMessageAdmin(admin.ModelAdmin):
     def text_preview(self, obj):
         return obj.text[:100] if obj.text else ''
     text_preview.short_description = 'Текст'
+
+
+@admin.register(Report)
+class ReportAdmin(admin.ModelAdmin):
+    list_display = ('id', 'reporter', 'content_type', 'content_id', 'reason', 'status', 'created_at')
+    list_filter = ('status', 'reason', 'content_type', 'created_at')
+    search_fields = ('reporter__username', 'comment', 'content_id')
+    readonly_fields = ('reporter', 'content_type', 'content_id', 'reason', 'comment', 'status', 'created_at', 'resolved_by', 'resolved_at')
+    raw_id_fields = ('reporter', 'resolved_by')
+    ordering = ('-created_at',)
+    
+    def get_content_object(self, obj):
+        """Получить объект контента для жалобы"""
+        from django.contrib.contenttypes.models import ContentType
+        try:
+            ct = ContentType.objects.get(model=obj.content_type)
+            return ct.get_object_for_this_type(pk=obj.content_id)
+        except:
+            return None
+    
+    get_content_object.short_description = 'Объект'

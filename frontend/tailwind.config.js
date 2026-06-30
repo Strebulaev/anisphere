@@ -82,11 +82,11 @@ export default {
         
         // Статусы просмотра
         status: {
-          watching: '#e62072',
-          completed: '#21d864',
-          planned: '#ff9d00',
-          dropped: '#f72d2d',
-          onhold: '#8338fc',
+          watching: '#ff7eb3',
+          completed: '#8ed4a8',
+          planned: '#ffd592',
+          dropped: '#ff8a8a',
+          onhold: '#b8aec8',
         },
       },
       fontFamily: {

@@ -396,13 +396,27 @@ const getAnimePoster = (anime: any): string => {
   return ''
 }
 
+/**
+ * Нормализация поискового запроса
+ * "Ван-пис" → "ван пис", "Ван:пис" → "ван пис" и т.д.
+ */
+function normalizeSearchQuery(query: string): string {
+  return query
+    .toLowerCase()
+    .replace(/[-_:/\\|,.!?@#$%^&*(){}\[\]<>~`'"\\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 const searchAnime = () => {
   if (animeTimeout) clearTimeout(animeTimeout)
   animeTimeout = setTimeout(async () => {
     if (!animeSearch.value.trim()) { animeResults.value = []; return }
     animeLoading.value = true
     try {
-      const { data } = await apiClient.get('/anime/', { params: { search: animeSearch.value, page_size: 20 } })
+      // Нормализуем запрос для бэкенда
+      const normalizedQuery = normalizeSearchQuery(animeSearch.value)
+      const { data } = await apiClient.get('/anime/', { params: { search: normalizedQuery, page_size: 20 } })
       animeResults.value = data.results || data || []
     } catch { animeResults.value = [] }
     finally { animeLoading.value = false }

@@ -19,6 +19,7 @@ class NestedPlaylistSerializer(serializers.ModelSerializer):
     """Сериализатор для вложенного плейлиста (краткая информация)"""
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
+    user_is_premium = serializers.BooleanField(source='user.is_premium', read_only=True)
     items_count = serializers.SerializerMethodField()
     cover_urls = serializers.SerializerMethodField()
     cover_image = serializers.ImageField(read_only=True)
@@ -27,7 +28,7 @@ class NestedPlaylistSerializer(serializers.ModelSerializer):
         model = Playlist
         fields = [
             'id', 'title', 'description', 'cover_image', 'cover_urls',
-            'user_id', 'user_username', 'items_count', 'visibility',
+            'user_id', 'user_username', 'user_is_premium', 'items_count', 'visibility',
             'created_at', 'updated_at'
         ]
         read_only_fields = fields
@@ -55,6 +56,7 @@ class PlaylistItemSerializer(serializers.ModelSerializer):
     anime_id = serializers.IntegerField(source='anime.id', read_only=True)
     anime_title = serializers.CharField(source='anime.title_ru', read_only=True)
     anime_title_en = serializers.CharField(source='anime.title_en', read_only=True)
+    anime_slug = serializers.CharField(source='anime.slug', read_only=True)
     anime_poster = serializers.SerializerMethodField()
     anime_poster_url = serializers.CharField(source='anime.poster_url', read_only=True)
     anime_year = serializers.IntegerField(source='anime.year', read_only=True)
@@ -71,7 +73,7 @@ class PlaylistItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'item_type', 'is_nested_playlist',
             # Аниме поля
-            'anime', 'anime_id', 'anime_title', 'anime_title_en',
+            'anime', 'anime_id', 'anime_title', 'anime_title_en', 'anime_slug',
             'anime_poster', 'anime_poster_url', 'anime_year', 'anime_score',
             'anime_status', 'anime_kind', 'anime_genres',
             # Плейлист поля
@@ -101,6 +103,7 @@ class PlaylistSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_avatar = serializers.SerializerMethodField()
+    user_is_premium = serializers.BooleanField(source='user.is_premium', read_only=True)
 
     items = PlaylistItemSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
@@ -125,7 +128,7 @@ class PlaylistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Playlist
         fields = [
-            'id', 'user_id', 'user_username', 'user_avatar',
+            'id', 'user_id', 'user_username', 'user_avatar', 'user_is_premium',
             'title', 'description', 'cover_image', 'cover_urls',
             'visibility', 'is_public', 'is_private', 'is_link_only',
             'is_favorited', 'favorites_count',
@@ -199,7 +202,7 @@ class PlaylistCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         playlist = super().create(validated_data)
-        # Если создаётся link — сразу генерируем share-ссылку
+        # Если создаётся link - сразу генерируем share-ссылку
         if playlist.visibility == 'link':
             playlist.get_or_create_share_link()
         return playlist
@@ -230,10 +233,10 @@ class PlaylistUpdateSerializer(serializers.ModelSerializer):
         old_visibility = instance.visibility
         instance = super().update(instance, validated_data)
         new_visibility = instance.visibility
-        # При переключении на link — создаём ссылку
+        # При переключении на link - создаём ссылку
         if new_visibility == 'link' and old_visibility != 'link':
             instance.get_or_create_share_link()
-        # При уходе с link — деактивируем все ссылки
+        # При уходе с link - деактивируем все ссылки
         elif old_visibility == 'link' and new_visibility != 'link':
             instance.invalidate_share_links()
         return instance

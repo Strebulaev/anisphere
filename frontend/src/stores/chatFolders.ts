@@ -184,7 +184,7 @@ export const useChatFoldersStore = defineStore('chatFolders', () => {
         return false
       }
 
-      // Особая логика для папки "Обсуждения"
+      
       if (folder.id === -4 && rules?.include_anime_discussions) {
         if (chat.type === 'group' && chat.anime_id) {
           return true
@@ -192,7 +192,7 @@ export const useChatFoldersStore = defineStore('chatFolders', () => {
         return false
       }
 
-      // Проверка исключающих ключевых слов
+      
       if (rules?.exclude_keywords && rules.exclude_keywords.length > 0) {
         const chatName = chat.type === 'private' 
           ? chat.other_user?.display_name || chat.other_user?.username || '' 
@@ -207,7 +207,7 @@ export const useChatFoldersStore = defineStore('chatFolders', () => {
         }
       }
 
-      // Проверка включающих ключевых слов
+      
       if (rules?.include_keywords && rules.include_keywords.length > 0) {
         const chatName = chat.type === 'private' 
           ? chat.other_user?.display_name || chat.other_user?.username || '' 
@@ -222,7 +222,7 @@ export const useChatFoldersStore = defineStore('chatFolders', () => {
         }
       }
 
-      // Проверка исключённых пользователей
+      
       if (rules?.exclude_user_ids && rules.exclude_user_ids.length > 0) {
         if (chat.type === 'private' && rules.exclude_user_ids.includes(chat.other_user?.id || 0)) {
           return false

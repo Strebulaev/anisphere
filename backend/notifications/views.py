@@ -90,7 +90,7 @@ class NotificationViewSet(ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='count')
     def count(self, request):
-        """GET /api/notifications/notifications/count/ — количество непрочитанных"""
+        """GET /api/notifications/notifications/count/ - количество непрочитанных"""
         cnt = Notification.objects.filter(
             user=request.user,
             is_read=False,
@@ -113,7 +113,7 @@ class NotificationViewSet(ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='recent')
     def recent(self, request):
-        """GET /api/notifications/notifications/recent/ — последние 8 для дропдауна"""
+        """GET /api/notifications/notifications/recent/ - последние 8 для дропдауна"""
         try:
             qs = Notification.objects.filter(
                 user=request.user,
@@ -187,7 +187,7 @@ class NotificationViewSet(ModelViewSet):
 
     @action(detail=False, methods=['delete'], url_path='clean')
     def clean(self, request):
-        """DELETE /api/notifications/notifications/clean/ — удалить прочитанные"""
+        """DELETE /api/notifications/notifications/clean/ - удалить прочитанные"""
         deleted_count, _ = Notification.objects.filter(
             user=request.user,
             is_read=True,
@@ -197,7 +197,7 @@ class NotificationViewSet(ModelViewSet):
 
     @action(detail=False, methods=['delete'], url_path='delete_all')
     def delete_all(self, request):
-        """DELETE /api/notifications/notifications/delete_all/ — удалить все (кроме важных)"""
+        """DELETE /api/notifications/notifications/delete_all/ - удалить все (кроме важных)"""
         Notification.objects.filter(
             user=request.user,
             is_important=False,
@@ -252,7 +252,7 @@ class ReminderViewSet(ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
-        """GET /api/notifications/reminders/upcoming/ — напоминания в ближайший час"""
+        """GET /api/notifications/reminders/upcoming/ - напоминания в ближайший час"""
         now = timezone.now()
         reminders = self.get_queryset().filter(
             is_active=True,

@@ -185,7 +185,7 @@ const statusClass = computed(() => {
 const statusLabel = computed(() => {
   const map: Record<string, string> = {
     ongoing: 'Онгоинг', finished: 'Завершён',
-    completed: 'Завершён', announced: 'Анонсирован', released: 'Вышедший',
+    completed: 'Завершён', announced: 'Анонсирован', released: 'Завершён',
   }
   return props.anime.status ? (map[props.anime.status.toLowerCase()] ?? props.anime.status) : ''
 })

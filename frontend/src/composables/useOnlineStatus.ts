@@ -40,7 +40,6 @@ export function useOnlineStatus() {
 
     globalWs.onclose = () => {
       globalWs = null
-      // Reconnect after delay
       setTimeout(connectGlobalWebSocket, 5000)
     }
 
@@ -64,12 +63,10 @@ export function useOnlineStatus() {
     return onlineUsers.value.size
   }
 
-// Auto-connect when auth user is available
 if (authStore.isAuthenticated && !globalWs) {
   connectGlobalWebSocket()
 }
 
-// Watch for auth changes
 watch(() => authStore.isAuthenticated, (isAuth) => {
   if (isAuth && !globalWs) {
     connectGlobalWebSocket()

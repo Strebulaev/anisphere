@@ -1,9 +1,9 @@
 /**
- * useAnimeTab — отслеживает, что пользователь смотрит/открыл аниме.
+ * useAnimeTab - отслеживает, что пользователь смотрит/открыл аниме.
  *
  * Правила:
- *  activity_type = 'player'   — видео воспроизводится (вызывай setPlayerActive(true))
- *  activity_type = 'watching' — вкладка открыта, но плеер не идёт (по умолчанию)
+ *  activity_type = 'player'   - видео воспроизводится (вызывай setPlayerActive(true))
+ *  activity_type = 'watching' - вкладка открыта, но плеер не идёт (по умолчанию)
  *
  * Пинг (POST /anime/active-tab/) отправляется:
  *  • Сразу при mount
@@ -22,8 +22,8 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import apiClient from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
-const PLAYER_PING_INTERVAL   = 90  * 1000   // 90 сек  (окно 2 мин, шлём чаще)
-const WATCHING_PING_INTERVAL = 3   * 60 * 1000  // 3 мин  (окно 10 мин)
+const PLAYER_PING_INTERVAL   = 90  * 1000   
+const WATCHING_PING_INTERVAL = 3   * 60 * 1000  
 
 export function useAnimeTab(animeId: number) {
   const authStore = useAuthStore()
@@ -32,7 +32,7 @@ export function useAnimeTab(animeId: number) {
   const currentEpisode = ref<number | null>(null)
   let _interval: ReturnType<typeof setInterval> | null = null
 
-  // ── Отправить пинг ──────────────────────────────────────────
+  
   const sendPing = async () => {
     if (!authStore.isAuthenticated || !animeId) return
     try {
@@ -42,11 +42,11 @@ export function useAnimeTab(animeId: number) {
         current_episode: currentEpisode.value,
       })
     } catch {
-      // Молча игнорируем
+      
     }
   }
 
-  // ── Удалить вкладку (unmount) ────────────────────────────────
+  
   const removeTab = async () => {
     if (!authStore.isAuthenticated || !animeId) return
     try {
@@ -54,7 +54,7 @@ export function useAnimeTab(animeId: number) {
     } catch { /* ignore */ }
   }
 
-  // ── Обновить интервал под текущий activity_type ──────────────
+  
   const resetInterval = () => {
     if (_interval) { clearInterval(_interval); _interval = null }
     const ms = activityType.value === 'player'
@@ -67,9 +67,8 @@ export function useAnimeTab(animeId: number) {
     }, ms)
   }
 
-  // ── Публичные методы ─────────────────────────────────────────
+  
 
-  /** Вызвать когда плеер начинает / останавливает воспроизведение */
   const setPlayerActive = (active: boolean, episode?: number) => {
     if (episode !== undefined) currentEpisode.value = episode
     const newType = active ? 'player' : 'watching'
@@ -80,18 +79,17 @@ export function useAnimeTab(animeId: number) {
     }
   }
 
-  /** Вызвать при смене серии */
   const setEpisode = (episode: number) => {
     currentEpisode.value = episode
     sendPing()
   }
 
-  // ── Visibility change ────────────────────────────────────────
+  
   const onVisibilityChange = () => {
     if (!document.hidden) sendPing()
   }
 
-  // ── Lifecycle ────────────────────────────────────────────────
+  
   onMounted(() => {
     sendPing()
     resetInterval()
