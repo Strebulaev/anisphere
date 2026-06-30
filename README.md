@@ -9,8 +9,6 @@
 - **Node.js** 20.19.0+ или 22.12.0+
 - **Python** 3.10+
 - **Docker** и **Docker Compose**
-- **Git**
-
 ---
 
 ## Быстрый старт
@@ -18,7 +16,7 @@
 ### 1. Клонирование репозитория
 
 ```bash
-git clone <repository-url>
+git clone anisphere
 cd anisphere
 ```
 
@@ -33,7 +31,7 @@ copy .env.example .env
 - `SECRET_KEY`
 - `DEBUG=True`
 - `DATABASE_URL`
-- `KODIK_TOKEN`
+- `KODIK_TOKEN` (почта kodik support@kodikres.com)
 
 ### 3. Запуск Backend
 
@@ -128,35 +126,6 @@ docker exec anisphere_backend python manage.py loaddata backup.json
 | POST | `/api/auth/login/` | Вход |
 | GET | `/api/playlists/` | Плейлисты пользователя |
 | POST | `/api/playlists/` | Создать плейлист |
-
----
-
-## Структура проекта
-
-```
-anisphere/
-├── backend/
-│   ├── anime/           # Приложение аниме
-│   ├── users/           # Приложение пользователей
-│   ├── playlists/       # Приложение плейлистов
-│   ├── social/          # Социальные функции
-│   ├── roulette/        # Колесо фортуны
-│   ├── config/          # Настройки Django
-│   ├── manage.py        # Django management
-│   ├── docker-compose.yml
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── components/  # Vue компоненты
-│   │   ├── composables/ # Vue composables
-│   │   ├── api/         # API клиенты
-│   │   ├── stores/      # Pinia stores
-│   │   ├── router/      # Vue router
-│   │   └── assets/      # Статические файлы
-│   ├── package.json
-│   └── vite.config.ts
-└── README.md
-```
 
 ---
 
