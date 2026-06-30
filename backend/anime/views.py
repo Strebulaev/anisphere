@@ -1423,29 +1423,35 @@ class KodikImportView(APIView):
             )
 
     def _import_all_anime(self, data):
-        from backend.scripts.import_from_kodik import fetch_all_anime, import_anime
+        from backend.kodik_import import fetch_all_results, process_results
 
         try:
             limit = data.get("limit", 0)
-            all_anime = fetch_all_anime()
-            if limit > 0:
-                all_anime = all_anime[:limit]
-            imported = 0
-            errors = []
-            for kodik_anime in all_anime:
-                try:
-                    anime = import_anime(kodik_anime)
-                    imported += 1
-                except Exception as e:
-                    errors.append(
-                        {"title": kodik_anime.get("title", "Unknown"), "error": str(e)}
-                    )
+            debug = data.get("debug", False)
+            replace = data.get("replace", False)
+
+            all_anime = fetch_all_results(limit=limit if limit > 0 else None, debug=debug)
+
+            from anime.models import Anime
+            existing = Anime.objects.all().values_list("shikimori_id", "kodik_id")
+            existing_shikimori = {sid for sid, _ in existing if sid}
+            existing_kodik = {kid for _, kid in existing if kid}
+
+            created, skipped, invalid, error_count = process_results(
+                all_anime,
+                existing_shikimori,
+                existing_kodik,
+                debug=debug,
+                replace=replace,
+            )
             return Response(
                 {
                     "message": "Импорт завершен",
                     "total_processed": len(all_anime),
-                    "imported": imported,
-                    "errors": errors[:10],
+                    "imported": created,
+                    "skipped": skipped,
+                    "invalid": invalid,
+                    "errors": error_count,
                 }
             )
         except Exception as e:

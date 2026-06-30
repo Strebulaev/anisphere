@@ -2,10 +2,12 @@ import os
 import json
 import django
 from django.core.management.base import BaseCommand
-from anime.models import Anime, Franchise
+from django.conf import settings
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
+
+from anime.models import Anime, Franchise
 
 
 class Command(BaseCommand):
@@ -23,8 +25,9 @@ class Command(BaseCommand):
         json_path = options["json_path"]
 
         if not os.path.isabs(json_path):
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-            json_path = os.path.join(base_dir, json_path)
+            json_path = os.path.join(settings.BASE_DIR, "..", json_path)
+
+        json_path = os.path.abspath(json_path)
 
         if not os.path.exists(json_path):
             self.stderr.write(f"Файл не найден: {json_path}")
@@ -44,17 +47,15 @@ class Command(BaseCommand):
             if not name or not titles:
                 continue
 
-            franchise, created = Franchise.objects.get_or_create(
-                name=name,
-                defaults={
-                    "description": f"Франшиза: {name}",
-                },
-            )
-
-            if created:
-                created_count += 1
-            else:
+            franchise = Franchise.objects.filter(name__iexact=name).first()
+            if franchise:
                 skipped_count += 1
+            else:
+                franchise = Franchise.objects.create(
+                    name=name,
+                    description=f"Франшиза: {name}",
+                )
+                created_count += 1
 
             matched_anime = Anime.objects.filter(title_ru__in=titles)
 
